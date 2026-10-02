@@ -11,3 +11,33 @@
 .job-drawings{contain:paint}
 
 .job-drawings .drawing-heading label.button{color:#fff!important;white-space:nowrap}
+
+.drawing-viewer{--drawing-border:#cbdad4;--drawing-bg:#fff;color:#123c32;min-width:0;background:var(--drawing-bg);border-radius:0 0 12px 12px;overflow:hidden}
+.drawing-viewer{color-scheme:light}.job-detail-page .job-drawings .drawing-heading label.button{color:#fff!important}
+.drawing-icon{width:17px;height:17px;flex:0 0 17px;vertical-align:middle;pointer-events:none}
+.drawing-toolbar button,.drawing-viewbar button,.drawing-modes button,.drawing-combine button{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.drawing-modes{display:flex;gap:5px;flex-wrap:wrap;padding:10px;background:#eef4f1;border:1px solid var(--drawing-border);border-top:0}
+.drawing-modes button{font:inherit;font-size:13px;font-weight:650;border:1px solid transparent;background:transparent;color:inherit;border-radius:8px;padding:9px 12px;cursor:pointer}
+.drawing-modes button[aria-pressed=true]{background:#fff;border-color:#b9cec4;box-shadow:0 2px 5px #123c3212;color:#086641}
+.drawing-modes button:nth-child(3) .drawing-icon{color:#b31a1f}.drawing-modes button:nth-child(4) .drawing-icon{color:#216aa7}
+.drawing-modes .drawing-full-button{margin-left:auto;border-color:#b9cec4;background:#fff}
+.drawing-toolbar{gap:4px}.drawing-toolbar button[aria-pressed=true]{box-shadow:0 1px 3px #123c3220}
+.drawing-thumbnails{background:#e7eeeb;box-shadow:inset -2px 0 6px #123c3208}
+.drawing-thumbnails button{padding:8px;background:#f4f7f5;border-color:#cbdad4;box-shadow:0 2px 5px #123c3210;border-radius:8px}
+.drawing-thumbnails button.selected{background:#d7eadf;border-color:#16864f}
+.drawing-thumbnails canvas{box-shadow:0 2px 5px #0002;border:1px solid #d7dfdb}
+.drawing-thumbnails span{font-size:11px;font-weight:650}.drawing-snap-hint{padding:7px 12px;background:#ecf7ef;border-inline:1px solid var(--drawing-border);font-size:12px}
+.drawing-snap-point{fill:#fff;stroke:#078742;stroke-width:2;pointer-events:none}.drawing-overlay.tool-stamp{cursor:copy}
+.drawing-stamp-graphic{display:block}.drawing-stamp text{stroke:none;fill:inherit;paint-order:normal}.drawing-stamp{stroke-width:0;pointer-events:all}
+.drawing-callout text{stroke:none;paint-order:normal}.drawing-callout rect{stroke-width:1}.drawing-stamp-fields>svg{width:100%;height:auto;border-radius:0}
+.drawing-dimension-hit{stroke:transparent;stroke-width:16px;pointer-events:stroke;cursor:move}.drawing-dimension-label,.drawing-dimension-line{cursor:move}.drawing-dimension-label{pointer-events:all}
+.drawing-stamp-fields input[type=range]{padding:0;width:100%}.drawing-stamp-fields legend{color:#a72024;font-weight:700}.drawing-comments fieldset select{width:100%}
+.drawing-organizer{padding:16px;background:#f4f7f5;border-inline:1px solid var(--drawing-border)}.drawing-organizer h3{margin:0 0 5px;font-size:16px}.drawing-organizer p{font-size:12px;margin:0 0 12px}
+.drawing-page-cards{display:flex;gap:12px;overflow:auto;padding:6px 2px 12px}.drawing-page-cards>div{flex:0 0 130px;padding:9px;border:1px solid #cbdad4;background:#fff;border-radius:9px;text-align:center;cursor:grab}.drawing-page-cards>div:active{cursor:grabbing}.drawing-page-cards>div.selected{border-color:#16864f;box-shadow:0 0 0 1px #16864f}
+.drawing-page-cards button{background:#eef4f1;border:1px solid #cbdad4;border-radius:6px;padding:6px;cursor:pointer;color:inherit}.drawing-page-cards>div>button{display:block;width:100%;padding:2px;background:white;border:0}.drawing-page-cards canvas{display:block;max-width:100%;height:auto;background:white;box-shadow:0 2px 4px #0002;margin:auto}.drawing-page-cards span,.drawing-page-cards small{font-size:11px;display:block;margin:5px}.drawing-page-cards>div>div{display:flex;gap:8px;justify-content:center}
+.drawing-combine{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-top:1px solid #cbdad4;padding-top:12px;font-size:12px}.drawing-combine label{display:grid;gap:5px;font-weight:650}.drawing-combine input{max-width:280px}.drawing-combine span{max-width:100%;overflow-wrap:anywhere}.drawing-combine small{flex-basis:100%;line-height:1.5}
+.drawing-viewer.is-fullscreen{position:fixed;inset:0;width:100vw;height:100dvh;z-index:10000;border-radius:0;display:flex;flex-direction:column;overflow:auto;background:#fff;padding:0;box-sizing:border-box}
+.drawing-full-title{padding:9px 15px;display:flex;gap:16px;align-items:center;border-bottom:1px solid #cbdad4;font-size:13px}.drawing-full-title span{font-size:11px;opacity:.7}
+.is-fullscreen .drawing-modes{position:sticky;top:0;z-index:3;flex-shrink:0}.is-fullscreen .drawing-toolbar,.is-fullscreen .drawing-viewbar,.is-fullscreen .drawing-footer{flex-shrink:0}
+.is-fullscreen .drawing-workspace{height:auto;max-height:none;min-height:180px;flex:1}.is-fullscreen .drawing-stage{height:100%;min-height:0}.is-fullscreen .drawing-thumbnails{max-height:none}.is-fullscreen .drawing-organizer{max-height:40vh;overflow:auto;flex-shrink:0}
+@media(max-width:900px){.drawing-modes{gap:3px;padding:7px}.drawing-modes button{padding:8px;font-size:12px}.drawing-modes .drawing-full-button{margin-left:0}.drawing-toolbar button{padding:7px}.is-fullscreen .drawing-workspace.with-comments{grid-template-rows:minmax(200px,1fr) minmax(0,180px)}.is-fullscreen .drawing-comments{max-height:none}.is-fullscreen .drawing-workspace{min-height:350px}.drawing-page-cards>div{flex-basis:110px}}

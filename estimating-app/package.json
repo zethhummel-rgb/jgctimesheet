@@ -12,10 +12,11 @@
     "@tesseract.js-data/eng": "^1.0.0",
     "fflate": "0.7.5",
     "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "^6.2.108",
+    "pdfjs-dist": "6.2.108",
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "tesseract.js": "^7.0.0"
+    "tesseract.js": "^7.0.0",
+    "tus-js-client": "4.3.1"
   },
   "devDependencies": {
     "@types/react": "19.2.14",
