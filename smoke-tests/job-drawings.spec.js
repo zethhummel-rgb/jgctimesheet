@@ -129,7 +129,7 @@ test('full screen has an exit button and Escape restores the Portal viewer',asyn
  await page.getByRole('button',{name:'Exit full screen',exact:true}).click();await expect(page.getByRole('button',{name:'Full screen',exact:true})).toBeVisible();
  await page.evaluate(()=>{Object.defineProperty(HTMLElement.prototype,'requestFullscreen',{configurable:true,value:undefined});});await page.getByRole('button',{name:'Full screen',exact:true}).click();await page.keyboard.press('Escape');await expect(page.getByRole('button',{name:'Full screen',exact:true})).toBeVisible();
 });
-for(const width of [390,1440])test(`edge panel tabs reopen without losing page or markups at ${width}px`,async({page},info)=>{
+for(const width of [1440])test(`edge panel tabs reopen without losing page or markups at ${width}px`,async({page},info)=>{
  await page.setViewportSize({width,height:1000});const s=await store();await setup(page,s);await text(page,'Keep this review note');await expect.poll(()=>s.row.content.marks.length).toBe(1);
  await page.getByRole('button',{name:'Page 2',exact:true}).click();const stage=page.getByLabel('PDF drawing view',{exact:true}),before=await stage.boundingBox(),revision=s.row.revision;
  await page.getByRole('button',{name:'Hide pages',exact:true}).click();await expect(page.getByLabel('Page thumbnails',{exact:true})).toHaveCount(0);
@@ -283,4 +283,27 @@ test('PDF comment icons stay outside boxed text and inside crop edges for every 
   expect(annotation.lookup(PDFName.of('Contents')).decodeText()).toBe('Rotated comment stays readable');
  }
  fs.writeFileSync(info.outputPath('boxed-comments-rotations.pdf'),bytes);
+});
+
+test.describe('phone touch controls',()=>{test.use({hasTouch:true});
+for(const width of [320,390])for(const theme of ['light','dark'])test(`phone drawing workspace ${width} ${theme}`,async({page},info)=>{
+ await page.setViewportSize({width,height:844});await page.addInitScript(t=>localStorage.setItem('jgcPortalTheme',t),theme);const s=await store();await setup(page,s);
+ const stage=page.getByLabel('PDF drawing view',{exact:true});await expect(page.getByLabel('Page thumbnails',{exact:true})).toHaveCount(0);await expect(page.getByLabel('Drawing comments',{exact:true})).toHaveCount(0);
+ await expect.poll(async()=>{const canvas=await page.locator('.drawing-sheet').boundingBox(),view=await stage.boundingBox();return canvas.width<=view.width;}).toBe(true);
+ const before=await stage.boundingBox();expect(before.width).toBeGreaterThan(width-80);
+ for(const bar of ['.drawing-modes','.drawing-toolbar','.drawing-viewbar']){const box=await page.locator(bar).boundingBox();expect(box.height).toBeLessThan(80);expect(box.width).toBeLessThanOrEqual(width);}
+ await page.getByRole('button',{name:'Pages',exact:true}).click();await expect(page.getByLabel('Page thumbnails',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Page 2',exact:true}).click();await expect(page.getByLabel('Page number',{exact:true})).toHaveValue('2');await page.getByRole('button',{name:'Close pages',exact:true}).click();
+ await page.getByRole('button',{name:'Markups',exact:true}).click();await expect(page.getByLabel('Drawing comments',{exact:true})).toBeVisible();expect((await stage.boundingBox()).width).toBe(before.width);await page.getByRole('button',{name:'Pages',exact:true}).click();await expect(page.getByLabel('Drawing comments',{exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Page 1',exact:true}).click();await page.getByRole('button',{name:'Close pages',exact:true}).click();
+ await page.getByRole('button',{name:'Full screen',exact:true}).click();await expect(page.locator('.drawing-viewer')).toHaveClass(/is-fullscreen/);expect((await stage.boundingBox()).height).toBeGreaterThan(400);await page.screenshot({path:info.outputPath(`phone-full-${width}-${theme}.png`)});
+ await page.getByRole('button',{name:'Zoom in',exact:true}).click();await page.getByRole('button',{name:'Fit width',exact:true}).click();await expect.poll(async()=>{const canvas=await page.locator('.drawing-sheet').boundingBox(),view=await stage.boundingBox();return canvas.width<=view.width;}).toBe(true);
+ await page.getByRole('button',{name:'Exit full screen',exact:true}).click();expect(await page.locator('.job-drawings').evaluate(e=>e.scrollWidth)).toBeLessThanOrEqual(width);
+ const original=Buffer.from(s.bytes);await page.getByRole('button',{name:'Edit',exact:true}).click();await page.getByRole('button',{name:'Text',exact:true}).click();await page.getByRole('button',{name:'Close markups',exact:true}).click();await page.locator('.drawing-overlay').evaluate(svg=>scrollTo(0,scrollY+svg.getBoundingClientRect().top-150));const b=await page.locator('.drawing-overlay').boundingBox();await page.touchscreen.tap(b.x+80,b.y+100);await page.getByLabel('Edit drawing comment',{exact:true}).fill('Phone site note');await expect.poll(()=>s.row.content.marks[0]?.text).toBe('Phone site note');expect(original.equals(s.bytes)).toBe(true);
+ const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download this page',exact:true}).click();await(await pending).saveAs(info.outputPath('phone-page.pdf'));expect((await PDFDocument.load(fs.readFileSync(info.outputPath('phone-page.pdf')))).getPageCount()).toBe(1);
+ await page.getByRole('button',{name:'View',exact:true}).click();await page.locator('.drawing-viewer').screenshot({path:info.outputPath(`phone-view-${width}-${theme}.png`)});
+});
+
+test('landscape phone keeps a usable canvas and reachable full-screen exit',async({page},info)=>{
+ await page.setViewportSize({width:844,height:390});const s=await store();await setup(page,s);await page.getByRole('button',{name:'Full screen',exact:true}).click();const stage=page.getByLabel('PDF drawing view',{exact:true});expect((await stage.boundingBox()).height).toBeGreaterThan(140);await expect(page.getByLabel('Page thumbnails',{exact:true})).toHaveCount(0);
+ const exit=page.getByRole('button',{name:'Exit full screen',exact:true});const box=await exit.boundingBox();expect(box.x+box.width).toBeLessThanOrEqual(844);await page.screenshot({path:info.outputPath('phone-landscape.png')});await exit.tap();await expect(page.locator('.drawing-viewer')).not.toHaveClass(/is-fullscreen/);
+});
 });
