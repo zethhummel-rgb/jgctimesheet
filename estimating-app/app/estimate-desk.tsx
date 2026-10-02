@@ -1,3 +1,4 @@
+import { JobDrawings } from "./job-drawings";
 import { JobRfis } from "./job-rfis";
 import { JobSchedule } from "./job-schedule";
 import { ShopDrawingHistory } from "./shop-drawing-history";
@@ -187,7 +188,7 @@ const navItems: { key: ViewKey; label: string }[] = [
 const tabBarItems = navItems.slice(0, 4);
 
 type QuoteTab = "details" | "estimate" | "breakdown" | "review" | "divisions" | "proposal" | "purchase-orders" | "history";
-type JobTab = "summary" | "schedule" | "purchase-orders" | "changes" | "shop-drawings" | "rfis" | "statistics";
+type JobTab = "summary" | "schedule" | "purchase-orders" | "changes" | "shop-drawings" | "rfis" | "statistics" | "drawings";
 const jobTabs: readonly { key: JobTab; label: string }[] = [
   { key: "summary", label: "Summary" },
   { key: "schedule", label: "Schedule" },
@@ -196,6 +197,7 @@ const jobTabs: readonly { key: JobTab; label: string }[] = [
   { key: "shop-drawings", label: "Shop Drawings" },
   { key: "rfis", label: "RFIs" },
   { key: "statistics", label: "Statistics / Other" },
+  { key: "drawings", label: "Drawings" },
 ];
 type SaveStatus = "loading" | "saved" | "saving" | "offline" | "error";
 function initialJobTab(job: Job | undefined): JobTab {
@@ -1132,6 +1134,9 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   const [state, setState] = useState<AppState>(() => createDefaultState());
   const [ready, setReady] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("loading");
+  const [drawingSaveStatus,setDrawingSaveStatus] = useState<SaveStatus>("saved");
+  useEffect(()=>{const listener=(event:Event)=>setDrawingSaveStatus((event as CustomEvent<SaveStatus>).detail);window.addEventListener("jgc-drawing-save-status",listener);return()=>window.removeEventListener("jgc-drawing-save-status",listener);},[]);
+  const displaySaveStatus = saveStatus === "saved" ? drawingSaveStatus : saveStatus;
   const [lastSaved, setLastSaved] = useState("");
   const [saveErrorMessage, setSaveErrorMessage] = useState("");
   const [view, setView] = useState<ViewKey>(() => {
@@ -2110,7 +2115,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
           <div className={`topbar-actions${view === "jobs" && !selectedJob ? " jobs-directory-topbar" : ""}`}>
             {view === "jobs" && !selectedJob && <span className="job-directory-refresh-slot" ref={setJobDirectoryActionTarget} />}
             <div
-              className={`save-indicator ${saveStatus}`}
+              className={`save-indicator ${displaySaveStatus}`}
               title={saveErrorMessage || (lastSaved ? `Last saved ${shortDate(lastSaved)}` : "")}
               role={saveStatus === "error" ? "button" : undefined}
               tabIndex={saveStatus === "error" ? 0 : undefined}
@@ -2119,11 +2124,11 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
               onKeyDown={saveStatus === "error" ? (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); void flushPendingSave(); } } : undefined}
             >
               <span className="save-dot" />
-              {saveStatus === "loading" && "Loading"}
-              {saveStatus === "saving" && "Saving…"}
-              {saveStatus === "saved" && "All changes saved"}
-              {saveStatus === "offline" && "Working offline"}
-              {saveStatus === "error" && "Save needs attention"}
+              {displaySaveStatus === "loading" && "Loading"}
+              {displaySaveStatus === "saving" && "Saving…"}
+              {displaySaveStatus === "saved" && "All changes saved"}
+              {displaySaveStatus === "offline" && "Working offline"}
+              {displaySaveStatus === "error" && "Save needs attention"}
             </div>
             <button className="button primary compact" onClick={createQuote}><span aria-hidden="true">＋</span> New quote</button>
           </div>
@@ -6604,6 +6609,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           </table></div> : <div className="empty-state compact-empty shop-drawing-empty"><span>SD</span><h3>{shopDrawings.length ? `No ${shopDrawingFilter.toLocaleLowerCase()} drawings match` : "No shop drawings entered"}</h3><p>{shopDrawings.length ? "Change the filter or search to see another register item." : "Add the required submissions for this job. OneDrive files stay in their existing folders."}</p>{!shopDrawings.length && <button className="button secondary compact" type="button" onClick={startNewShopDrawing}>＋ Add first drawing</button>}</div>}
           <p className="shop-drawing-footnote">Internal by default. Employee sharing is available only for Approved or Approved as noted current revisions and replaces the existing employee job-list document button.</p>
         </section>}
+        <JobDrawings key={job.id} job={job} actor={currentEstimator.name} active={tab === "drawings"} />
         {tab === "rfis" && <JobRfis key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />}
         <div className="schedule-tab" hidden={tab !== "schedule"}><JobSchedule key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} /></div>
         {tab === "statistics" && <>
