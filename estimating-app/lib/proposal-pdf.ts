@@ -98,16 +98,16 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
     wrapped.forEach((line) => { text(line, x, size, font); y -= size + 3; });
     y -= options.gap ?? 7;
   };
-  const richRunsParagraph = (sourceRuns: ProposalTextRun[], options: { x?: number; width?: number; size?: number; gap?: number; prefix?: string; forceBold?: boolean } = {}) => {
-    const x = options.x ?? PAGE.margin;
+  type RichRow = { runs: ProposalTextRun[]; size: number; height: number; gap: number; last: boolean; bullet?: boolean; placeholder?: boolean };
+  const fontFor = (run: ProposalTextRun) => run.style.bold && run.style.italic ? boldItalic : run.style.bold ? bold : run.style.italic ? italic : regular;
+  const sizeFor = (run: ProposalTextRun, baseSize: number) => baseSize * (run.style.size === "large" ? 1.22 : run.style.size === "small" ? 0.82 : 1);
+  const layoutRichRuns = (sourceRuns: ProposalTextRun[], options: { width?: number; size?: number; gap?: number; prefix?: string; forceBold?: boolean } = {}): RichRow[] => {
     const width = options.width ?? PAGE.width - PAGE.margin * 2;
     const baseSize = options.size ?? 9;
     const runs: ProposalTextRun[] = [
       ...(options.prefix ? [{ text: options.prefix, style: { bold: options.forceBold ?? false, italic: false, underline: false, size: "normal" as const } }] : []),
       ...sourceRuns.map((run) => ({ ...run, text: pdfSafeText(run.text), style: { ...run.style, bold: options.forceBold || run.style.bold } })),
     ];
-    const fontFor = (run: ProposalTextRun) => run.style.bold && run.style.italic ? boldItalic : run.style.bold ? bold : run.style.italic ? italic : regular;
-    const sizeFor = (run: ProposalTextRun) => baseSize * (run.style.size === "large" ? 1.22 : run.style.size === "small" ? 0.82 : 1);
     const rows: ProposalTextRun[][] = [[]];
     let rowWidth = 0;
     const pushRow = () => { if (rows.at(-1)?.length || rows.length === 0) rows.push([]); rowWidth = 0; };
@@ -115,23 +115,33 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
       run.text.split(/(\n|\s+)/).filter((piece) => piece !== "").forEach((piece) => {
         if (piece === "\n") { pushRow(); return; }
         const pieceRun = { ...run, text: piece };
-        const pieceWidth = fontFor(pieceRun).widthOfTextAtSize(piece, sizeFor(pieceRun));
+        const pieceWidth = fontFor(pieceRun).widthOfTextAtSize(piece, sizeFor(pieceRun, baseSize));
         const isOnlySpace = /^\s+$/.test(piece);
         if (!isOnlySpace && rowWidth > 0 && rowWidth + pieceWidth > width) pushRow();
         if (!(isOnlySpace && rowWidth === 0)) {
-          rows.at(-1)?.push(pieceRun);
-          rowWidth += pieceWidth;
+          // Long references/URLs must stay inside the column too.
+          if (!isOnlySpace && pieceWidth > width) {
+            for (const character of piece) {
+              const characterWidth = fontFor(pieceRun).widthOfTextAtSize(character, sizeFor(pieceRun, baseSize));
+              if (rowWidth + characterWidth > width) pushRow();
+              rows.at(-1)?.push({ ...pieceRun, text: character });
+              rowWidth += characterWidth;
+            }
+          } else {
+            rows.at(-1)?.push(pieceRun);
+            rowWidth += pieceWidth;
+          }
         }
       });
     });
     while (rows.length > 1 && rows.at(-1)?.length === 0) rows.pop();
-    const rowHeights = rows.map((row) => Math.max(baseSize + 3, ...row.map((run) => sizeFor(run) + 3)));
-    ensure(rowHeights.reduce((sum, height) => sum + height, 0) + (options.gap ?? 7));
-    rows.forEach((row, rowIndex) => {
+    return rows.map((runs, index) => ({ runs, size: baseSize, height: Math.max(baseSize + 3, ...runs.map((run) => sizeFor(run, baseSize) + 3)), gap: index === rows.length - 1 ? options.gap ?? 7 : 0, last: index === rows.length - 1 }));
+  };
+  const drawRichRow = (row: RichRow, x: number, baseline: number) => {
       let currentX = x;
-      const placedRuns = row.map((run) => {
+      const placedRuns = row.runs.map((run) => {
         const runFont = fontFor(run);
-        const runSize = sizeFor(run);
+        const runSize = sizeFor(run, row.size);
         const runWidth = runFont.widthOfTextAtSize(run.text, runSize);
         const placedRun = { run, runFont, runSize, runWidth, x: currentX };
         currentX += runWidth;
@@ -145,19 +155,21 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
         const verticalPadding = Math.max(1, runSize * 0.18);
         page.drawRectangle({
           x: runX - 1,
-          y: y - descenderHeight - verticalPadding,
+          y: baseline - descenderHeight - verticalPadding,
           width: runWidth + 2,
           height: fullFontHeight + verticalPadding * 2,
           color: run.style.highlight === "green" ? rgb(0.78, 0.94, 0.84) : rgb(1, 0.94, 0.45),
         });
       });
       placedRuns.forEach(({ run, runFont, runSize, runWidth, x: runX }) => {
-        page.drawText(run.text, { x: runX, y, size: runSize, font: runFont, color: dark });
-        if (run.style.underline && run.text.trim()) page.drawLine({ start: { x: runX, y: y - 1.5 }, end: { x: runX + runWidth, y: y - 1.5 }, thickness: 0.65, color: dark });
+        page.drawText(run.text, { x: runX, y: baseline, size: runSize, font: runFont, color: row.placeholder ? grey : dark });
+        if (run.style.underline && run.text.trim()) page.drawLine({ start: { x: runX, y: baseline - 1.5 }, end: { x: runX + runWidth, y: baseline - 1.5 }, thickness: 0.65, color: dark });
       });
-      y -= rowHeights[rowIndex];
-    });
-    y -= options.gap ?? 7;
+  };
+  const richRunsParagraph = (sourceRuns: ProposalTextRun[], options: { x?: number; width?: number; size?: number; gap?: number; prefix?: string; forceBold?: boolean } = {}) => {
+    const rows = layoutRichRuns(sourceRuns, options);
+    ensure(rows.reduce((sum, row) => sum + row.height + row.gap, 0));
+    rows.forEach((row) => { drawRichRow(row, options.x ?? PAGE.margin, y); y -= row.height + row.gap; });
   };
   const richParagraph = (value: string, options: { x?: number; width?: number; size?: number; gap?: number; prefix?: string; forceBold?: boolean } = {}) => {
     richRunsParagraph(proposalTextRuns(value), options);
@@ -294,52 +306,89 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   y -= 8;
 
   const notes = proposalTextLines(quote.proposalNotes ?? "");
-  const notesLineCount = Math.max(1, notes.reduce((sum, item) => sum + Math.max(1, wrap(proposalTextPlain(item), regular, 7.2, metaWidth - 55).length), 0));
   const inclusionLines = proposalTextRunLines(quote.inclusions);
   const exclusionLines = proposalTextRunLines(quote.exclusions);
   const clarificationWidth = (metaWidth - 52) / 2;
-  const clarificationHeight = Math.max(
-    inclusionLines.reduce((sum, lineRuns) => sum + Math.max(1, wrap(lineRuns.map((run) => run.text).join(""), regular, 6.8, clarificationWidth).length) * 9.8 + 1, 0),
-    exclusionLines.reduce((sum, lineRuns) => sum + Math.max(1, wrap(lineRuns.map((run) => run.text).join(""), bold, 6.8, clarificationWidth).length) * 9.8 + 1, 0),
-  );
-  const notesHeight = Math.max(67, 38 + notesLineCount * 10 + (clarificationHeight ? 23 + clarificationHeight : 0));
-  ensure(notesHeight + 12);
-  const notesTop = y;
-  page.drawRectangle({ x: PAGE.margin, y: y - notesHeight, width: metaWidth, height: notesHeight, color: panel, ...panelBorder });
-  page.drawRectangle({ x: PAGE.margin, y: y - notesHeight, width: 3, height: notesHeight, color: green });
-  sectionHeader("02", "ASSUMPTIONS & CLARIFICATIONS", "Notes");
-  if (notes.length) {
-    notes.forEach((item) => {
-      page.drawCircle({ x: PAGE.margin + 18, y: y + 3, size: 2.3, color: green });
-      richParagraph(item, { x: PAGE.margin + 30, width: metaWidth - 44, size: 7.2, gap: 1.5 });
+  const noteRows = notes.length
+    ? notes.flatMap((item) => layoutRichRuns(proposalTextRuns(item), { width: metaWidth - 44, size: 7.2, gap: 1.5 }).map((row, index) => ({ ...row, bullet: index === 0 })))
+    : layoutRichRuns(proposalTextRuns("No additional project notes recorded."), { width: metaWidth - 44, size: 7, gap: 2 }).map((row) => ({ ...row, placeholder: true }));
+  const includedRows = inclusionLines.flatMap((runs) => layoutRichRuns(runs, { width: clarificationWidth, size: 6.8, gap: 1 }));
+  const excludedRows = exclusionLines.flatMap((runs) => layoutRichRuns(runs, { width: clarificationWidth, size: 6.8, forceBold: true, gap: 1 }));
+  // Prefer breaks between entries. An entry taller than the available page
+  // can still continue at a wrapped line, so no text is lost or clipped.
+  const takeRows = (rows: RichRow[], start: number, available: number) => {
+    let end = start;
+    let height = 0;
+    let completeEnd = start;
+    let completeHeight = 0;
+    while (end < rows.length && height + rows[end].height + rows[end].gap <= available) {
+      height += rows[end].height + rows[end].gap;
+      if (rows[end].last) { completeEnd = end + 1; completeHeight = height; }
+      end += 1;
+    }
+    if (end < rows.length && end > start && !rows[end - 1].last && completeEnd > start) {
+      end = completeEnd;
+      height = completeHeight;
+    }
+    return { rows: rows.slice(start, end), end, height };
+  };
+  let noteIndex = 0;
+  let includedIndex = 0;
+  let excludedIndex = 0;
+  let continued = false;
+  while (noteIndex < noteRows.length || includedIndex < includedRows.length || excludedIndex < excludedRows.length) {
+    const headerHeight = continued ? 29 : 34;
+    const bottomPadding = 10;
+    const clarificationHeadingHeight = 24;
+    const firstRowHeight = noteIndex < noteRows.length
+      ? noteRows[noteIndex].height + noteRows[noteIndex].gap
+      : clarificationHeadingHeight + Math.max(includedRows[includedIndex]?.height ?? 0, excludedRows[excludedIndex]?.height ?? 0) + 1;
+    ensure(headerHeight + firstRowHeight + bottomPadding);
+    const panelTop = y;
+    const available = panelTop - PAGE.margin - headerHeight - bottomPadding;
+    const notePart = takeRows(noteRows, noteIndex, available);
+    const columnsAvailable = available - notePart.height - clarificationHeadingHeight;
+    const canDrawColumns = notePart.end === noteRows.length && columnsAvailable >= Math.max(includedRows[includedIndex]?.height ?? 0, excludedRows[excludedIndex]?.height ?? 0) + 1;
+    const includedPart = takeRows(includedRows, includedIndex, canDrawColumns ? columnsAvailable : 0);
+    const excludedPart = takeRows(excludedRows, excludedIndex, canDrawColumns ? columnsAvailable : 0);
+    const hasColumns = includedPart.rows.length > 0 || excludedPart.rows.length > 0;
+    const contentHeight = notePart.height + (hasColumns ? clarificationHeadingHeight + Math.max(includedPart.height, excludedPart.height) : 0);
+    const panelHeight = Math.min(panelTop - PAGE.margin, Math.max(67, headerHeight + contentHeight + bottomPadding));
+    page.drawRectangle({ x: PAGE.margin, y: panelTop - panelHeight, width: metaWidth, height: panelHeight, color: panel, ...panelBorder });
+    page.drawRectangle({ x: PAGE.margin, y: panelTop - panelHeight, width: 3, height: panelHeight, color: green });
+    if (continued) {
+      page.drawText(noteIndex < noteRows.length ? "NOTES & CLARIFICATIONS - CONTINUED" : "INCLUSIONS / EXCLUSIONS - CONTINUED", { x: PAGE.margin + 17, y: panelTop - 16, size: 8, font: bold, color: dark });
+      rightText(`${documentNumber} / Rev ${quote.revision}`, PAGE.width - PAGE.margin - 17, panelTop - 16, 6, regular, grey);
+      y -= headerHeight;
+    } else sectionHeader("02", "ASSUMPTIONS & CLARIFICATIONS", "Notes");
+    notePart.rows.forEach((row) => {
+      if (row.bullet) page.drawCircle({ x: PAGE.margin + 18, y: y + 3, size: 2.3, color: green });
+      drawRichRow(row, PAGE.margin + (row.placeholder ? 17 : 30), y);
+      y -= row.height + row.gap;
     });
-  } else {
-    page.drawText("No additional project notes recorded.", { x: PAGE.margin + 17, y, size: 7, font: regular, color: grey });
-    y -= 12;
-  }
-  if (inclusionLines.length || exclusionLines.length) {
-    y -= 3;
-    page.drawLine({ start: { x: PAGE.margin + 17, y }, end: { x: PAGE.width - PAGE.margin - 17, y }, thickness: 0.55, color: line });
-    y -= 11;
-    const clarificationTop = y;
-    let inclusionEnd = clarificationTop;
-    if (inclusionLines.length) {
-      page.drawText("INCLUDED", { x: PAGE.margin + 17, y: clarificationTop, size: 5.5, font: bold, color: green });
-      y = clarificationTop - 10;
-      inclusionLines.forEach((lineRuns) => richRunsParagraph(lineRuns, { x: PAGE.margin + 17, width: clarificationWidth, size: 6.8, gap: 1 }));
-      inclusionEnd = y;
+    if (hasColumns) {
+      y -= 3;
+      page.drawLine({ start: { x: PAGE.margin + 17, y }, end: { x: PAGE.width - PAGE.margin - 17, y }, thickness: 0.55, color: line });
+      y -= 11;
+      const labelY = y;
+      const drawColumn = (rows: RichRow[], x: number, label: string, color: ReturnType<typeof rgb>) => {
+        if (!rows.length) return;
+        page.drawText(label, { x, y: labelY, size: 5.5, font: bold, color });
+        let baseline = labelY - 10;
+        rows.forEach((row) => { drawRichRow(row, x, baseline); baseline -= row.height + row.gap; });
+      };
+      drawColumn(includedPart.rows, PAGE.margin + 17, "INCLUDED", green);
+      drawColumn(excludedPart.rows, PAGE.margin + 31 + clarificationWidth, "EXCLUDED", dark);
     }
-    let exclusionEnd = clarificationTop;
-    if (exclusionLines.length) {
-      const exclusionX = PAGE.margin + 31 + clarificationWidth;
-      page.drawText("EXCLUDED", { x: exclusionX, y: clarificationTop, size: 5.5, font: bold, color: dark });
-      y = clarificationTop - 10;
-      exclusionLines.forEach((lineRuns) => richRunsParagraph(lineRuns, { x: exclusionX, width: clarificationWidth, size: 6.8, forceBold: true, gap: 1 }));
-      exclusionEnd = y;
+    noteIndex = notePart.end;
+    includedIndex = includedPart.end;
+    excludedIndex = excludedPart.end;
+    y = panelTop - panelHeight - 12;
+    if (noteIndex < noteRows.length || includedIndex < includedRows.length || excludedIndex < excludedRows.length) {
+      newPage();
+      continued = true;
     }
-    y = Math.min(inclusionEnd, exclusionEnd);
   }
-  y = Math.min(y, notesTop - notesHeight - 12);
 
   const totals = quoteTotals(quote);
   const optional = quote.lines.filter((item) => item.classification === "Optional" && !item.included);

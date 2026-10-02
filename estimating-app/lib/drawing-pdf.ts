@@ -15,16 +15,19 @@ async function stampPdf(stamp: ReviewStamp): Promise<Uint8Array> {
   return pdf.save();
 }
 
-export async function markedDrawingPdf(source: Uint8Array, content: DrawingContent): Promise<Uint8Array> {
-  const pdf = await PDFDocument.load(source.slice()), font = await pdf.embedFont(StandardFonts.Helvetica),order=drawingPageOrder(content,pdf.getPageCount());
+export async function markedDrawingPdf(source: Uint8Array, content: DrawingContent, pages?: number[]): Promise<Uint8Array> {
+  const pdf = await PDFDocument.load(source.slice()), font = await pdf.embedFont(StandardFonts.Helvetica),allOrder=drawingPageOrder(content,pdf.getPageCount());
+  if (pages && (!pages.length || new Set(pages).size !== pages.length || pages.some(n => !allOrder.includes(n)))) throw new Error('Choose valid drawing pages to download.');
+  const selected = new Set(pages ?? allOrder), order = allOrder.filter(n => selected.has(n));
   const supported = (text: string) => { try { font.encodeText(text); return text; } catch { throw new Error('PDF export supports Latin text. Please replace unsupported characters in the markup text before exporting.'); } };
   for(const [number,scale] of Object.entries(content.scales)){
-    if(scale.reference?.length!==2||Number(number)<1||Number(number)>pdf.getPageCount())continue;
+    if(scale.reference?.length!==2||!selected.has(Number(number)))continue;
     const page=pdf.getPage(Number(number)-1),[a,b]=scale.reference,color=rgb(33/255,106/255,167/255),rotation=page.getRotation().angle,angle=rotation*Math.PI/180,label=scaleReferenceLabel(scale),width=font.widthOfTextAtSize(label,10),mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
     page.drawLine({start:a,end:b,color,thickness:1.5});for(const p of [a,b])page.drawCircle({...p,size:3,color:rgb(1,1,1),borderColor:color,borderWidth:1});
     page.drawText(label,{x:mid.x-Math.cos(angle)*width/2-Math.sin(angle)*7,y:mid.y-Math.sin(angle)*width/2+Math.cos(angle)*7,size:10,font,color,rotate:degrees(rotation)});
   }
   for (const mark of content.marks) {
+    if (!selected.has(mark.page)) continue;
     const page = pdf.getPage(mark.page - 1), pts = mark.points, color = rgb(parseInt(mark.color.slice(1,3),16)/255,parseInt(mark.color.slice(3,5),16)/255,parseInt(mark.color.slice(5,7),16)/255),rotation=mark.rotation??page.getRotation().angle;
     if(mark.kind==='stamp'&&mark.stamp){
       const [embedded]=await pdf.embedPdf(await stampPdf({...mark.stamp,reviewer:supported(mark.stamp.reviewer)})),width=mark.stamp.width,height=width*222/350,angle=rotation*Math.PI/180;
