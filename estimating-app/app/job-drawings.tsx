@@ -39,6 +39,7 @@ export function JobDrawings({job,actor,active}:{job:Job;actor:string;active:bool
   const [stamp,setStamp]=useState<ReviewStamp>({status:'Reviewed',reviewer:actor,date:new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),width:260});
   const viewer=useRef<HTMLDivElement>(null),commentInput=useRef<HTMLTextAreaElement>(null),scrollEdge=useRef<'top'|'bottom'|null>(null),pageLock=useRef(0),wheelTime=useRef(0),wheelDelta=useRef(0),touchStart=useRef<number|null>(null),dragPage=useRef<number[]|null>(null),[pageDrop,setPageDrop]=useState<{page:number|null;after:boolean}|null>(null),[selectedPages,setSelectedPages]=useState<number[]>([]),[multiSelect,setMultiSelect]=useState(false),organizer=useRef<HTMLDivElement>(null),selectionAnchor=useRef<number|null>(null),organizerMode=useRef('navigate'),organizerOrder=useRef<number[]>([]);
   const order=pdf?drawingPageOrder(content,pdf.numPages):[],sourcePage=order[page-1]??1;
+  const organizerTrigger=useRef<HTMLButtonElement|null>(null);
   const measureStart=useRef<Point|null>(null),dimensionDrag=useRef<Mark|null>(null),dimensionLatest=useRef<{id:string;offset:number}|null>(null),[dimensionPreview,setDimensionPreview]=useState<{id:string;offset:number}|null>(null);
   const pan=useRef<{x:number;y:number;left:number;top:number}|null>(null),uploading=useRef(false);
   const stampDrag=useRef<{kind:'move'|'resize';mark:Mark;start:Point;latest:Mark|null}|null>(null),[markPreview,setMarkPreview]=useState<Mark|null>(null);
@@ -143,7 +144,7 @@ export function JobDrawings({job,actor,active}:{job:Job;actor:string;active:bool
   const closeOrganizer=()=>{setMode(organizerMode.current==='organize'?'navigate':organizerMode.current);setTool('select');setPageDrop(null);dragPage.current=null;};
   useEffect(()=>{
     if(mode!=='organize')return;
-    const previousOverflow=document.body.style.overflow,previousFocus=document.activeElement as HTMLElement|null;
+    const previousOverflow=document.body.style.overflow,previousFocus=organizerTrigger.current??document.activeElement as HTMLElement|null;
     const surface=organizer.current;document.body.style.overflow='hidden';surface?.querySelector<HTMLButtonElement>('button')?.focus();
     const key=(event:KeyboardEvent)=>{
       if(event.key==='Escape'){event.preventDefault();event.stopPropagation();closeOrganizer();return;}
@@ -219,7 +220,7 @@ export function JobDrawings({job,actor,active}:{job:Job;actor:string;active:bool
   const viewerContent=pdf?(      <div ref={viewer} className={`drawing-viewer ${full!=='none'?'is-fullscreen':''}`} aria-label="Drawing viewer">
       {full!=='none'&&<div className="drawing-full-title"><strong>{title}</strong><span>Job {job.jobNumber}</span></div>}
       <div className="drawing-modes" role="toolbar" aria-label="Drawing modes">
-        {([['navigate','View'],['measure','Measure'],['stamps','Stamps'],['comments','Comments'],['edit','Edit'],['organize','Organize pages']] as const).map(([key,label])=><button key={key} aria-pressed={mode===key} onClick={()=>chooseMode(key)}><DrawingIcon name={key}/>{label}</button>)}
+        {([['navigate','View'],['measure','Measure'],['stamps','Stamps'],['comments','Comments'],['edit','Edit'],['organize','Organize pages']] as const).map(([key,label])=><button key={key} aria-pressed={mode===key} onClick={event=>{if(key==='organize')organizerTrigger.current=event.currentTarget;chooseMode(key);}}><DrawingIcon name={key}/>{label}</button>)}
         <button className="drawing-full-button" onClick={()=>void toggleFull()}><DrawingIcon name={full==='none'?'fullscreen':'exit'}/>{full==='none'?'Full screen':'Exit full screen'}</button>
       </div>
       <div className="drawing-toolbar" role="toolbar" aria-label="Drawing tools">
