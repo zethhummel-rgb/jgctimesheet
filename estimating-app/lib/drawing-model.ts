@@ -1,4 +1,6 @@
 export type Point = { x: number; y: number };
+export const DRAWING_MAX_MB = 50;
+export const DRAWING_MAX_BYTES = DRAWING_MAX_MB * 1024 * 1024;
 export const SCALE_UNITS = ['ft', 'in', 'ft-in', 'm', 'cm', 'mm'] as const;
 export const REVIEW_STATUSES = ['Reviewed', 'Reviewed as noted', 'Revise and resubmit', 'For record only'] as const;
 export type ReviewStamp = { status: typeof REVIEW_STATUSES[number]; reviewer: string; date: string; width: number };

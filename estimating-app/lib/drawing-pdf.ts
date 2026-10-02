@@ -1,5 +1,5 @@
 import { PDFDocument, PDFHexString, StandardFonts, degrees, rgb } from 'pdf-lib';
-import { commentLines, dimensionGeometry, drawingPageOrder, isMeasurement, measurement, REVIEW_STATUSES, type DrawingContent, type ReviewStamp } from './drawing-model';
+import { commentLines, dimensionGeometry, drawingPageOrder, DRAWING_MAX_BYTES, DRAWING_MAX_MB, isMeasurement, measurement, REVIEW_STATUSES, type DrawingContent, type ReviewStamp } from './drawing-model';
 
 async function stampPdf(stamp: ReviewStamp): Promise<Uint8Array> {
   const pdf=await PDFDocument.create(),page=pdf.addPage([350,222]),font=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold),red=rgb(.7,.1,.12),white=rgb(1,1,1);
@@ -44,7 +44,8 @@ export async function markedDrawingPdf(source: Uint8Array, content: DrawingConte
     const label = mark.kind === 'text' ? mark.text : isMeasurement(mark.kind) ? measurement(mark,content.scales[String(mark.page)]) : '';
     const comment=mark.kind==='stamp'&&mark.stamp?`Shop drawing review: ${mark.stamp.status}\nReviewed by: ${mark.stamp.reviewer}\nDate: ${mark.stamp.date}${mark.text?'\n'+mark.text:''}`:mark.text;
     if (comment.trim()) {
-      const note=pdf.context.obj({Type:'Annot',Subtype:'Text',Rect:[pts[0].x,pts[0].y,pts[0].x+16,pts[0].y+16],Contents:PDFHexString.fromText(comment),T:PDFHexString.fromText(mark.author),Subj:PDFHexString.fromText('JGC '+mark.layer),NM:PDFHexString.fromText(mark.id),Name:'Comment',F:4,C:[parseInt(mark.color.slice(1,3),16)/255,parseInt(mark.color.slice(3,5),16)/255,parseInt(mark.color.slice(5,7),16)/255]});
+      const angle=rotation*Math.PI/180,anchor=mark.kind==='callout'?pts[1]:pts[0],outside=mark.kind==='stamp'?(mark.stamp?.width??0)+8:mark.kind==='callout'?193:0,position={x:anchor.x+Math.cos(angle)*outside,y:anchor.y+Math.sin(angle)*outside};
+      const note=pdf.context.obj({Type:'Annot',Subtype:'Text',Rect:[position.x,position.y,position.x+16,position.y+16],Contents:PDFHexString.fromText(comment),T:PDFHexString.fromText(mark.author),Subj:PDFHexString.fromText('JGC '+mark.layer),NM:PDFHexString.fromText(mark.id),Name:'Comment',F:4,C:[parseInt(mark.color.slice(1,3),16)/255,parseInt(mark.color.slice(3,5),16)/255,parseInt(mark.color.slice(5,7),16)/255]});
       page.node.addAnnot(pdf.context.register(note));
     }
     if (label && mark.kind!=='distance') page.drawText(supported(label),{ x: pts[0].x, y: pts[0].y, size: 10, lineHeight: 12, font, color, rotate: degrees(rotation) });
@@ -58,7 +59,7 @@ export async function combinedDrawingPdf(source:Uint8Array,content:DrawingConten
   const pdf=await PDFDocument.create(),original=await PDFDocument.load(source.slice()),order=drawingPageOrder(content,original.getPageCount());
   for(const page of await pdf.copyPages(original,order.map(n=>n-1)))pdf.addPage(page);
   for(const bytes of additional){const next=await PDFDocument.load(bytes);for(const page of await pdf.copyPages(next,next.getPageIndices()))pdf.addPage(page);}
-  const bytes=await pdf.save();if(bytes.length>25*1024*1024)throw new Error('The combined PDF exceeds the 25 MB drawing limit. Combine fewer files.');
+  const bytes=await pdf.save();if(bytes.length>DRAWING_MAX_BYTES)throw new Error(`The combined PDF exceeds the ${DRAWING_MAX_MB} MB drawing limit. Combine fewer files.`);
   const remap=(n:number)=>order.indexOf(n)+1,scales:DrawingContent['scales']={};
   for(const [page,scale] of Object.entries(content.scales))scales[String(remap(Number(page)))]=scale;
   return {bytes,content:{version:1,marks:content.marks.map(mark=>({...mark,page:remap(mark.page)})),scales}};

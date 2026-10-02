@@ -71,7 +71,7 @@ test('page organization survives reload, export and combine without detaching ma
  const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download marked PDF'}).click();await(await pending).saveAs(info.outputPath('reordered.pdf'));
  const exported=await PDFDocument.load(fs.readFileSync(info.outputPath('reordered.pdf')));expect(exported.getPage(0).getRotation().angle).toBe(90);expect(exported.getPage(1).node.Annots().size()).toBe(1);
  await page.getByLabel('PDFs to combine',{exact:true}).setInputFiles({name:'More sheets.pdf',mimeType:'application/pdf',buffer:original});await page.getByRole('button',{name:'Create combined PDF',exact:true}).click();
- await expect(page.getByLabel('Drawing title',{exact:true})).toContainValue('Combined');await expect(page.getByLabel('Page number',{exact:true})).toHaveAttribute('max','4');await expect.poll(()=>s.row.content.marks[0]?.page).toBe(2);expect(original.equals(s.bytes)).toBe(true);
+ await expect(page.getByLabel('Drawing title',{exact:true})).toHaveValue(/Combined/);await expect(page.getByLabel('Page number',{exact:true})).toHaveAttribute('max','4');await expect.poll(()=>s.row.content.marks[0]?.page).toBe(2);expect(original.equals(s.bytes)).toBe(true);
  const result=await load('drawing-pdf').combinedDrawingPdf(original,{version:1,marks:[{...s.row.content.marks[0],page:1}],scales:{'1':{unit:'ft',unitsPerPoint:1,knownLength:1,reference:[]}},pageOrder:[2,1]},[original]);
  expect((await PDFDocument.load(result.bytes)).getPageCount()).toBe(4);expect(result.content.marks[0].page).toBe(2);expect(result.content.scales['2'].unit).toBe('ft');
 });
@@ -90,4 +90,24 @@ test('click click distance and draggable offset preserve endpoints and calibrate
  await expect.poll(()=>Math.abs(s.row.content.marks[0]?.dimensionOffset??0)).toBeGreaterThan(20);expect(JSON.stringify(s.row.content.marks[0].points)).toBe(original);expect(load('drawing-model').measurement(s.row.content.marks[0],s.row.content.scales['1'])).toBe(label);
  const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download marked PDF'}).click();await(await pending).saveAs(info.outputPath('offset-dimension.pdf'));await page.locator('.drawing-sheet').screenshot({path:info.outputPath('offset-view.png')});
  await page.getByRole('button',{name:'Refresh drawings',exact:true}).click();await expect(page.locator('.drawing-dimension-label')).toContainText(label);await expect.poll(()=>s.row.content.marks[0].dimensionOffset).not.toBe(0);
+});
+
+test('larger PDFs upload in resumable chunks with retry and progress, never upsert',async({page})=>{
+ test.setTimeout(45000);const s=await store();await setup(page,s);
+ const doc=await PDFDocument.load(s.bytes);doc.context.register(doc.context.stream(new Uint8Array(26*1024*1024)));const bytes=Buffer.from(await doc.save({useObjectStreams:false}));expect(bytes.length).toBeGreaterThan(25*1024*1024);
+ let offset=0,failed=false,heads=0,metadata='',chunks=[];
+ await page.evaluate(()=>{const factory=window.createJgcSupabaseClient;window.createJgcSupabaseClient=()=>{const c=factory();c.auth.getSession=async()=>({data:{session:{access_token:'test-access'}},error:null});return c;};});
+ await page.route('https://drawings.example.test/storage/v1/upload/resumable**',async route=>{
+  const request=route.request(),headers=request.headers(),method=request.method();expect(headers['x-upsert']??'false').toBe('false');
+  const common={'Tus-Resumable':'1.0.0','Upload-Offset':String(offset),'Access-Control-Allow-Origin':'*','Access-Control-Expose-Headers':'Location, Upload-Offset, Upload-Length, Tus-Resumable'};
+  if(method==='POST'){metadata=headers['upload-metadata'];return route.fulfill({status:201,headers:{...common,Location:'https://drawings.example.test/storage/v1/upload/resumable/test-upload'}});}
+  if(method==='HEAD'){heads++;return route.fulfill({status:200,headers:common});}
+  if(method==='PATCH'){if(offset>0&&!failed){failed=true;return route.fulfill({status:503,headers:common});}expect(Number(headers['upload-offset'])).toBe(offset);const chunk=request.postDataBuffer();chunks.push(chunk.length);offset+=chunk.length;await new Promise(resolve=>setTimeout(resolve,100));return route.fulfill({status:204,headers:{...common,'Upload-Offset':String(offset)}});}
+  return route.fulfill({status:204,headers:common});
+ });
+ await page.locator('.drawing-heading input[type=file]').setInputFiles({name:'Large drawing.pdf',mimeType:'application/pdf',buffer:bytes});await expect(page.getByRole('status').filter({hasText:'Uploading drawing'})).toBeVisible();
+ await expect(page.getByLabel('Drawing title',{exact:true})).toHaveValue('Large drawing',{timeout:30000});expect(offset).toBe(bytes.length);expect(heads).toBeGreaterThan(0);expect(failed).toBe(true);expect(Math.max(...chunks)).toBe(6*1024*1024);expect(metadata).toContain('bucketName');expect(s.row.file_name).toBe('Large drawing.pdf');
+});
+test('upload rejects files beyond the current 50 MB cap before contacting storage',async()=>{
+ const api=load('../src/drawings-api');await expect(api.addDrawing('job',{size:51*1024*1024})).rejects.toThrow('50 MB');
 });

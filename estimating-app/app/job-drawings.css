@@ -13,6 +13,7 @@
 .job-drawings .drawing-heading label.button{color:#fff!important;white-space:nowrap}
 
 .drawing-viewer{--drawing-border:#cbdad4;--drawing-bg:#fff;color:#123c32;min-width:0;background:var(--drawing-bg);border-radius:0 0 12px 12px;overflow:hidden}
+.drawing-viewer{color-scheme:light}.job-detail-page .job-drawings .drawing-heading label.button{color:#fff!important}
 .drawing-icon{width:17px;height:17px;flex:0 0 17px;vertical-align:middle;pointer-events:none}
 .drawing-toolbar button,.drawing-viewbar button,.drawing-modes button,.drawing-combine button{display:inline-flex;align-items:center;justify-content:center;gap:6px}
 .drawing-modes{display:flex;gap:5px;flex-wrap:wrap;padding:10px;background:#eef4f1;border:1px solid var(--drawing-border);border-top:0}
