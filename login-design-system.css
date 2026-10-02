@@ -889,7 +889,11 @@ body.login-page.jgc-page {
 /* Decorative, indeterminate activity: follows the existing session busy state. */
 .login-page .login-loader { display: none; width: 96px; margin: 18px auto 10px; color: var(--jgc-color-brand-400); }
 .login-page .login-card[aria-busy="true"] .login-loader { display: block; }
-.login-loader-scene { display: block; width: 96px; height: 72px; overflow: visible; }
+.login-loader-scene { position: relative; display: block; width: 96px; height: 72px; overflow: visible; }
+.login-loader-scene svg { display: block; width: 96px; height: 72px; overflow: visible; }
+.login-loader-scene > span { position: absolute; inset: 0; display: block; backface-visibility: hidden; }
+.login-page .login-card[aria-busy="true"] .login-loader-hammer,
+.login-page .login-card[aria-busy="true"] .login-loader-nail { will-change: transform; }
 .login-loader-board { stroke: var(--jgc-color-text-muted); stroke-width: 4; stroke-linecap: round; opacity: .45; }
 .login-loader-nail { stroke: currentColor; stroke-width: 3; stroke-linecap: round; animation: login-nail .85s ease-in-out infinite; }
 .login-loader-hammer { transform-origin: 33px 49px; animation: login-hammer .85s ease-in-out infinite; }
@@ -900,8 +904,8 @@ body.login-page.jgc-page {
 .login-loader-impact { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; opacity: 0; animation: login-impact .85s infinite; }
 .login-loader-track { height: 3px; margin: 7px 8px 0; overflow: hidden; border-radius: 3px; background: color-mix(in srgb, currentColor 15%, transparent); }
 .login-loader-track span { display: block; height: 100%; width: 35%; background: currentColor; border-radius: inherit; animation: login-sweep 1.5s ease-in-out infinite; }
-@keyframes login-hammer { 0%, 100% { transform: rotate(-35deg); } 48% { transform: rotate(18deg); } }
-@keyframes login-nail { 0%, 100% { transform: translateY(0); } 48% { transform: translateY(4px); } }
+@keyframes login-hammer { 0%, 100% { transform: translateZ(0) rotate(-35deg); } 48% { transform: translateZ(0) rotate(18deg); } }
+@keyframes login-nail { 0%, 100% { transform: translate3d(0, 0, 0); } 48% { transform: translate3d(0, 4px, 0); } }
 @keyframes login-impact { 0%, 40%, 60%, 100% { opacity: 0; } 48% { opacity: .8; } }
 @keyframes login-sweep { 0% { transform: translateX(-110%); } 100% { transform: translateX(390%); } }
 @media (prefers-reduced-motion: reduce) {
