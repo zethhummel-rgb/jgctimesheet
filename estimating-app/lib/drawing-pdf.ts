@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, PDFHexString, StandardFonts, rgb } from 'pdf-lib';
 import { isMeasurement, measurement, type DrawingContent } from './drawing-model';
 export async function markedDrawingPdf(source: Uint8Array, content: DrawingContent): Promise<Uint8Array> {
   const pdf = await PDFDocument.load(source.slice()), font = await pdf.embedFont(StandardFonts.Helvetica);
@@ -12,6 +12,10 @@ export async function markedDrawingPdf(source: Uint8Array, content: DrawingConte
       for(let i=1;i<points.length;i++) page.drawLine({ start: points[i-1], end: points[i], color, thickness: 1.5 });
     }
     const label = mark.kind === 'text' ? mark.text : isMeasurement(mark.kind) ? measurement(mark,content.scales[String(mark.page)]) : '';
+    if (mark.text.trim()) {
+      const note=pdf.context.obj({Type:'Annot',Subtype:'Text',Rect:[pts[0].x,pts[0].y,pts[0].x+16,pts[0].y+16],Contents:PDFHexString.fromText(mark.text),T:PDFHexString.fromText(mark.author),Subj:PDFHexString.fromText('JGC '+mark.layer),NM:PDFHexString.fromText(mark.id),Name:'Comment',F:4,C:[parseInt(mark.color.slice(1,3),16)/255,parseInt(mark.color.slice(3,5),16)/255,parseInt(mark.color.slice(5,7),16)/255]});
+      page.node.addAnnot(pdf.context.register(note));
+    }
     if (label) {
       // Respect the PDF's intrinsic rotation, so labels read in the displayed page orientation.
       const { degrees } = await import('pdf-lib');

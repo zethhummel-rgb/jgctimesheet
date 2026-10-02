@@ -9,3 +9,5 @@
 .job-drawings{overflow-x:clip}.drawing-stage{contain:paint}
 
 .job-drawings{contain:paint}
+
+.job-drawings .drawing-heading label.button{color:#fff!important;white-space:nowrap}
