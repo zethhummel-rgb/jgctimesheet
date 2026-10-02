@@ -96,13 +96,13 @@ test('larger PDFs upload in resumable chunks with retry and progress, never upse
  test.setTimeout(45000);const s=await store();await setup(page,s);
  const doc=await PDFDocument.load(s.bytes);doc.context.register(doc.context.stream(new Uint8Array(26*1024*1024)));const bytes=Buffer.from(await doc.save({useObjectStreams:false}));expect(bytes.length).toBeGreaterThan(25*1024*1024);
  let offset=0,failed=false,heads=0,metadata='',chunks=[];
- await page.evaluate(()=>{const factory=window.createJgcSupabaseClient;window.createJgcSupabaseClient=()=>{const c=factory();c.auth.getSession=async()=>({data:{session:{access_token:'test-access'}},error:null});return c;};});
+ await page.evaluate(()=>{const factory=window.createJgcSupabaseClient;window.createJgcSupabaseClient=()=>{const c=factory();c.auth.getSession=async()=>({data:{session:{access_token:'test-access'}},error:null});return c;};window.__drawingUploadChunks=[];const send=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.send=function(body){if(body instanceof Blob)window.__drawingUploadChunks.push(body.size);return send.call(this,body);};});
  await page.route('https://drawings.example.test/storage/v1/upload/resumable**',async route=>{
   const request=route.request(),headers=request.headers(),method=request.method();expect(headers['x-upsert']??'false').toBe('false');
   const common={'Tus-Resumable':'1.0.0','Upload-Offset':String(offset),'Upload-Length':String(bytes.length),'Access-Control-Allow-Origin':'*','Access-Control-Expose-Headers':'Location, Upload-Offset, Upload-Length, Tus-Resumable'};
   if(method==='POST'){metadata=headers['upload-metadata'];return route.fulfill({status:201,headers:{...common,Location:'https://drawings.example.test/storage/v1/upload/resumable/test-upload'}});}
   if(method==='HEAD'){heads++;return route.fulfill({status:200,headers:common});}
-  if(method==='PATCH'){if(offset>0&&!failed){failed=true;return route.fulfill({status:503,headers:common});}expect(Number(headers['upload-offset'])).toBe(offset);const chunk=request.postDataBuffer();chunks.push(chunk.length);offset+=chunk.length;await new Promise(resolve=>setTimeout(resolve,100));return route.fulfill({status:204,headers:{...common,'Upload-Offset':String(offset)}});}
+  if(method==='PATCH'){if(offset>0&&!failed){failed=true;return route.fulfill({status:503,headers:common});}expect(Number(headers['upload-offset'])).toBe(offset);const chunk=request.postDataBuffer();/* Playwright WebKit omits Blob bodies; observe actual XHR.send Blob size instead. */const size=chunk?.length??await page.evaluate(()=>window.__drawingUploadChunks.at(-1));expect(size).toBeGreaterThan(0);chunks.push(size);offset+=size;await new Promise(resolve=>setTimeout(resolve,100));return route.fulfill({status:204,headers:{...common,'Upload-Offset':String(offset)}});}
   return route.fulfill({status:204,headers:common});
  });
  await page.locator('.drawing-heading input[type=file]').setInputFiles({name:'Large drawing.pdf',mimeType:'application/pdf',buffer:bytes});await expect(page.getByRole('status').filter({hasText:'Uploading drawing'})).toBeVisible();
