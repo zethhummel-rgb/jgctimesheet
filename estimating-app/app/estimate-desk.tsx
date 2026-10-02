@@ -1134,6 +1134,9 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   const [state, setState] = useState<AppState>(() => createDefaultState());
   const [ready, setReady] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("loading");
+  const [drawingSaveStatus,setDrawingSaveStatus] = useState<SaveStatus>("saved");
+  useEffect(()=>{const listener=(event:Event)=>setDrawingSaveStatus((event as CustomEvent<SaveStatus>).detail);window.addEventListener("jgc-drawing-save-status",listener);return()=>window.removeEventListener("jgc-drawing-save-status",listener);},[]);
+  const displaySaveStatus = saveStatus === "saved" ? drawingSaveStatus : saveStatus;
   const [lastSaved, setLastSaved] = useState("");
   const [saveErrorMessage, setSaveErrorMessage] = useState("");
   const [view, setView] = useState<ViewKey>(() => {
@@ -2112,7 +2115,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
           <div className={`topbar-actions${view === "jobs" && !selectedJob ? " jobs-directory-topbar" : ""}`}>
             {view === "jobs" && !selectedJob && <span className="job-directory-refresh-slot" ref={setJobDirectoryActionTarget} />}
             <div
-              className={`save-indicator ${saveStatus}`}
+              className={`save-indicator ${displaySaveStatus}`}
               title={saveErrorMessage || (lastSaved ? `Last saved ${shortDate(lastSaved)}` : "")}
               role={saveStatus === "error" ? "button" : undefined}
               tabIndex={saveStatus === "error" ? 0 : undefined}
@@ -2121,11 +2124,11 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
               onKeyDown={saveStatus === "error" ? (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); void flushPendingSave(); } } : undefined}
             >
               <span className="save-dot" />
-              {saveStatus === "loading" && "Loading"}
-              {saveStatus === "saving" && "Saving…"}
-              {saveStatus === "saved" && "All changes saved"}
-              {saveStatus === "offline" && "Working offline"}
-              {saveStatus === "error" && "Save needs attention"}
+              {displaySaveStatus === "loading" && "Loading"}
+              {displaySaveStatus === "saving" && "Saving…"}
+              {displaySaveStatus === "saved" && "All changes saved"}
+              {displaySaveStatus === "offline" && "Working offline"}
+              {displaySaveStatus === "error" && "Save needs attention"}
             </div>
             <button className="button primary compact" onClick={createQuote}><span aria-hidden="true">＋</span> New quote</button>
           </div>

@@ -8,7 +8,7 @@ create table public.job_drawings (
   file_name text not null check (length(file_name) between 1 and 500),
   object_path text generated always as (id::text || '/original.pdf') stored,
   content jsonb not null default '{"version":1,"marks":[],"scales":{}}'::jsonb
-    check (jsonb_typeof(content)='object' and content->>'version'='1' and jsonb_typeof(content->'marks')='array' and jsonb_typeof(content->'scales')='object' and octet_length(content::text)<=2097152),
+    check (content ?& array['version','marks','scales'] and jsonb_typeof(content)='object' and content->>'version'='1' and jsonb_typeof(content->'marks')='array' and jsonb_typeof(content->'scales')='object' and octet_length(content::text)<=2097152),
   revision integer not null default 1 check (revision>0),
   created_by uuid not null default auth.uid() references auth.users(id),
   created_at timestamptz not null default now(),
