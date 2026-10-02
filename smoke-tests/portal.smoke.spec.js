@@ -5303,12 +5303,17 @@ for (const theme of ['light','dark']) {
     test(`UI readability notification details ${theme} ${width}`,async({page},testInfo)=>{
       await page.setViewportSize({width,height:900});
       await installAuthenticatedPortalState(page);await mockPortalServices(page,fakeProfile,{themePreferenceState:{theme}});
+      await page.route(`${supabaseOrigin}/rest/v1/notifications**`,route=>route.fulfill({json:[{
+        id:'contrast-test',title:'Example notification',message:'The job details are ready to review.',
+        target_profile_id:fakeProfile.id,created_at:new Date().toISOString()
+      }]}));
       await page.goto('/home.html');
       await page.locator('#jgcNotificationButton').click();
-      await page.evaluate(async()=>{await loadJgcNotifications();jgcNotificationRecords=[{id:'contrast-test',title:'Example notification',message:'The job details are ready to review.',created_at:new Date().toISOString()}];renderJgcNotificationPanel();});
-      const content=page.locator('.jgc-notification-item-title,.jgc-notification-item-message,.jgc-notification-time');
+      const notification=page.locator('.jgc-notification-item').filter({has:page.locator('.jgc-notification-item-title',{hasText:'Example notification'})});
+      await expect(notification.locator('.jgc-notification-item-title')).toHaveText('Example notification');
+      const content=notification.locator('.jgc-notification-item-title,.jgc-notification-item-message,.jgc-notification-time');
       await expectReadableText(content,'Notification');
-      await page.locator('.jgc-notification-item').first().hover();await expectReadableText(content,'Hovered notification');
+      await notification.hover();await expectReadableText(content,'Hovered notification');
       await page.screenshot({path:testInfo.outputPath('notification.png')});
     });
     test(`UI readability PO job autocomplete ${theme} ${width}`,async({page},testInfo)=>{

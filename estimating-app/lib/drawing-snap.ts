@@ -8,17 +8,17 @@ const transform = (m: Matrix, x: number, y: number): Point => ({ x:m[0]*x+m[2]*y
 export async function drawingSegments(page: PDFPageProxy, ops: Record<string, number>): Promise<Segment[]> {
   const list = await page.getOperatorList(), segments: Segment[] = [], stack: Matrix[] = [];
   let matrix: Matrix = [1,0,0,1,0,0];
-  for (let i = 0; i < list.fnArray.length && segments.length < 30000; i++) {
+  for (let i = 0; i < list.fnArray.length; i++) {
     const fn = list.fnArray[i], args = list.argsArray[i];
     if (fn === ops.save || fn === ops.paintFormXObjectBegin) { stack.push([...matrix]); if (fn === ops.paintFormXObjectBegin && args[0]) matrix = multiply(matrix,args[0]); }
     else if (fn === ops.restore || fn === ops.paintFormXObjectEnd) matrix = stack.pop() ?? [1,0,0,1,0,0];
     else if (fn === ops.transform) matrix = multiply(matrix,args);
     else if (fn === ops.constructPath) {
-      const path = args[1]?.[0];
+      for (const path of args[1] ?? []) {
       if (!Array.isArray(path) && !ArrayBuffer.isView(path)) continue;
       const data = path as unknown as number[];
       let start: Point | undefined, previous: Point | undefined;
-      for (let k = 0; k < data.length && segments.length < 30000;) {
+      for (let k = 0; k < data.length;) {
         const command = data[k++];
         if (command === 0 || command === 1) {
           const next = transform(matrix,data[k++],data[k++]);
@@ -30,15 +30,46 @@ export async function drawingSegments(page: PDFPageProxy, ops: Record<string, nu
         else if (command === 4) { if(previous&&start) segments.push({a:previous,b:start}); previous=start; }
         else break;
       }
+      }
     }
   }
   return segments;
 }
+// Keep the complete vector drawing, including late, thin extension lines. A cached
+// spatial index limits pointer searches to nearby lines instead of truncating PDFs.
+type SegmentIndex = { cells: Map<string, number[]>; long: number[] };
+const indexes = new WeakMap<Segment[], SegmentIndex>();
+const cellSize = 64;
+function segmentIndex(segments: Segment[]): SegmentIndex {
+  const cached = indexes.get(segments);
+  if (cached) return cached;
+  const index: SegmentIndex = { cells: new Map(), long: [] };
+  segments.forEach(({ a, b }, id) => {
+    if (![a.x, a.y, b.x, b.y].every(Number.isFinite)) return;
+    const left = Math.floor(Math.min(a.x, b.x) / cellSize), right = Math.floor(Math.max(a.x, b.x) / cellSize);
+    const top = Math.floor(Math.min(a.y, b.y) / cellSize), bottom = Math.floor(Math.max(a.y, b.y) / cellSize);
+    if ((right-left+1)*(bottom-top+1) > 256) { index.long.push(id); return; }
+    for (let x = left; x <= right; x++) for (let y = top; y <= bottom; y++) {
+      const key = `${x},${y}`, bucket = index.cells.get(key);
+      if (bucket) bucket.push(id); else index.cells.set(key, [id]);
+    }
+  });
+  indexes.set(segments, index);
+  return index;
+}
 export function snapPoint(point: Point, segments: Segment[], tolerance: number): { point: Point; snapped: boolean } {
+  if (!Number.isFinite(tolerance) || tolerance <= 0 || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return { point, snapped: false };
+  const index = segmentIndex(segments), candidates = new Set(index.long);
+  const left = Math.floor((point.x-tolerance)/cellSize), right = Math.floor((point.x+tolerance)/cellSize);
+  const top = Math.floor((point.y-tolerance)/cellSize), bottom = Math.floor((point.y+tolerance)/cellSize);
+  for (let x = left; x <= right; x++) for (let y = top; y <= bottom; y++) {
+    for (const id of index.cells.get(`${x},${y}`) ?? []) candidates.add(id);
+  }
   let nearest = tolerance, result: Point | undefined;
-  for (const segment of segments) for (const p of [segment.a,segment.b]) { const distance=Math.hypot(p.x-point.x,p.y-point.y);if(distance<=nearest){nearest=distance;result=p;} }
+  for (const id of candidates) for (const p of [segments[id].a,segments[id].b]) { const distance=Math.hypot(p.x-point.x,p.y-point.y);if(distance<=nearest){nearest=distance;result=p;} }
   if (result) return { point: result, snapped: true };
-  for (const {a,b} of segments) {
+  for (const id of candidates) {
+    const {a,b} = segments[id];
     const dx=b.x-a.x,dy=b.y-a.y,span=dx*dx+dy*dy;if(!span)continue;
     const t=Math.max(0,Math.min(1,((point.x-a.x)*dx+(point.y-a.y)*dy)/span)),p={x:a.x+t*dx,y:a.y+t*dy},distance=Math.hypot(p.x-point.x,p.y-point.y);
     if(distance<=nearest){nearest=distance;result=p;}

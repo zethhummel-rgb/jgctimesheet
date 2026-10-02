@@ -1,5 +1,5 @@
 import { PDFDocument, PDFHexString, StandardFonts, degrees, rgb } from 'pdf-lib';
-import { commentLines, dimensionGeometry, drawingPageOrder, DRAWING_MAX_BYTES, DRAWING_MAX_MB, isMeasurement, measurement, REVIEW_STATUSES, type DrawingContent, type ReviewStamp } from './drawing-model';
+import { commentLines, dimensionGeometry, drawingPageOrder, DRAWING_MAX_BYTES, DRAWING_MAX_MB, isMeasurement, measurement, scaleReferenceLabel, REVIEW_STATUSES, type DrawingContent, type ReviewStamp } from './drawing-model';
 
 async function stampPdf(stamp: ReviewStamp): Promise<Uint8Array> {
   const pdf=await PDFDocument.create(),page=pdf.addPage([350,222]),font=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold),red=rgb(.7,.1,.12),white=rgb(1,1,1);
@@ -18,16 +18,21 @@ async function stampPdf(stamp: ReviewStamp): Promise<Uint8Array> {
 export async function markedDrawingPdf(source: Uint8Array, content: DrawingContent): Promise<Uint8Array> {
   const pdf = await PDFDocument.load(source.slice()), font = await pdf.embedFont(StandardFonts.Helvetica),order=drawingPageOrder(content,pdf.getPageCount());
   const supported = (text: string) => { try { font.encodeText(text); return text; } catch { throw new Error('PDF export supports Latin text. Please replace unsupported characters in the markup text before exporting.'); } };
+  for(const [number,scale] of Object.entries(content.scales)){
+    if(scale.reference?.length!==2||Number(number)<1||Number(number)>pdf.getPageCount())continue;
+    const page=pdf.getPage(Number(number)-1),[a,b]=scale.reference,color=rgb(33/255,106/255,167/255),rotation=page.getRotation().angle,angle=rotation*Math.PI/180,label=scaleReferenceLabel(scale),width=font.widthOfTextAtSize(label,10),mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+    page.drawLine({start:a,end:b,color,thickness:1.5});for(const p of [a,b])page.drawCircle({...p,size:3,color:rgb(1,1,1),borderColor:color,borderWidth:1});
+    page.drawText(label,{x:mid.x-Math.cos(angle)*width/2-Math.sin(angle)*7,y:mid.y-Math.sin(angle)*width/2+Math.cos(angle)*7,size:10,font,color,rotate:degrees(rotation)});
+  }
   for (const mark of content.marks) {
     const page = pdf.getPage(mark.page - 1), pts = mark.points, color = rgb(parseInt(mark.color.slice(1,3),16)/255,parseInt(mark.color.slice(3,5),16)/255,parseInt(mark.color.slice(5,7),16)/255),rotation=mark.rotation??page.getRotation().angle;
     if(mark.kind==='stamp'&&mark.stamp){
       const [embedded]=await pdf.embedPdf(await stampPdf({...mark.stamp,reviewer:supported(mark.stamp.reviewer)})),width=mark.stamp.width,height=width*222/350,angle=rotation*Math.PI/180;
       page.drawPage(embedded,{x:pts[0].x+Math.sin(angle)*height,y:pts[0].y-Math.cos(angle)*height,width,height,rotate:degrees(rotation)});
-    } else if(mark.kind==='callout') {
-      const [tip,anchor]=pts,angle=Math.atan2(anchor.y-tip.y,anchor.x-tip.x);
-      page.drawLine({start:tip,end:anchor,color,thickness:1.5});
-      for(const offset of [-.45,.45])page.drawLine({start:tip,end:{x:tip.x+9*Math.cos(angle+offset),y:tip.y+9*Math.sin(angle+offset)},color,thickness:1.5});
-      const lines=commentLines(supported(mark.text)),height=lines.length*12+14,width=185,r=rotation*Math.PI/180;
+    } else if(mark.kind==='callout'||mark.kind==='text') {
+      const tip=pts[0],anchor=mark.kind==='callout'?pts[1]:pts[0];
+      if(mark.kind==='callout'){const angle=Math.atan2(anchor.y-tip.y,anchor.x-tip.x);page.drawLine({start:tip,end:anchor,color,thickness:1.5});for(const offset of [-.45,.45])page.drawLine({start:tip,end:{x:tip.x+9*Math.cos(angle+offset),y:tip.y+9*Math.sin(angle+offset)},color,thickness:1.5});}
+      const lines=commentLines(supported(mark.text)),height=Math.max(38,lines.length*12+14),width=185,r=rotation*Math.PI/180;
       const local=(x:number,y:number)=>({x:anchor.x+Math.cos(r)*x-Math.sin(r)*y,y:anchor.y+Math.sin(r)*x+Math.cos(r)*y});
       page.drawRectangle({...local(0,-height),width,height,color:rgb(1,1,1),borderColor:color,borderWidth:1,rotate:degrees(rotation)});
       lines.forEach((line,i)=>page.drawText(line,{...local(7,-16-i*12),size:10,font,color,rotate:degrees(rotation)}));
@@ -37,18 +42,24 @@ export async function markedDrawingPdf(source: Uint8Array, content: DrawingConte
       const text=supported(measurement(mark,content.scales[String(mark.page)]));let angle=Math.atan2(d.b.y-d.a.y,d.b.x-d.a.x),relative=((angle*180/Math.PI-rotation+540)%360)-180;if(Math.abs(relative)>90)angle+=Math.PI;
       const width=font.widthOfTextAtSize(text,10);page.drawText(text,{x:d.middle.x-Math.cos(angle)*width/2-Math.sin(angle)*4,y:d.middle.y-Math.sin(angle)*width/2+Math.cos(angle)*4,size:10,font,color,rotate:degrees(angle*180/Math.PI)});
     } else if (['rectangle','highlight'].includes(mark.kind) && pts.length > 1) page.drawRectangle({ x: Math.min(pts[0].x,pts[1].x), y: Math.min(pts[0].y,pts[1].y), width: Math.abs(pts[1].x-pts[0].x), height: Math.abs(pts[1].y-pts[0].y), borderColor: mark.kind==='highlight'?undefined:color, borderWidth: mark.kind==='highlight'?0:1.5, color: mark.kind==='highlight'?color:undefined, opacity: mark.kind==='highlight'?.25:1 });
-    else if (mark.kind !== 'text') {
+    else {
       const points = ['area','perimeter'].includes(mark.kind) ? [...pts,pts[0]] : pts;
       for(let i=1;i<points.length;i++) page.drawLine({ start: points[i-1], end: points[i], color, thickness: 1.5 });
     }
     const label = mark.kind === 'text' ? mark.text : isMeasurement(mark.kind) ? measurement(mark,content.scales[String(mark.page)]) : '';
     const comment=mark.kind==='stamp'&&mark.stamp?`Shop drawing review: ${mark.stamp.status}\nReviewed by: ${mark.stamp.reviewer}\nDate: ${mark.stamp.date}${mark.text?'\n'+mark.text:''}`:mark.text;
     if (comment.trim()) {
-      const angle=rotation*Math.PI/180,anchor=mark.kind==='callout'?pts[1]:pts[0],outside=mark.kind==='stamp'?(mark.stamp?.width??0)+8:mark.kind==='callout'?193:0,position={x:anchor.x+Math.cos(angle)*outside,y:anchor.y+Math.sin(angle)*outside};
-      const note=pdf.context.obj({Type:'Annot',Subtype:'Text',Rect:[position.x,position.y,position.x+16,position.y+16],Contents:PDFHexString.fromText(comment),T:PDFHexString.fromText(mark.author),Subj:PDFHexString.fromText('JGC '+mark.layer),NM:PDFHexString.fromText(mark.id),Name:'Comment',F:4,C:[parseInt(mark.color.slice(1,3),16)/255,parseInt(mark.color.slice(3,5),16)/255,parseInt(mark.color.slice(5,7),16)/255]});
+      const angle=rotation*Math.PI/180,anchor=mark.kind==='callout'?pts[1]:pts[0],boxed=['text','callout','stamp'].includes(mark.kind),width=mark.kind==='stamp'?(mark.stamp?.width??0):185,height=mark.kind==='stamp'?width*222/350:Math.max(38,commentLines(mark.text).length*12+14);
+      const corner=(x:number,y:number)=>({x:anchor.x+Math.cos(angle)*x-Math.sin(angle)*y,y:anchor.y+Math.sin(angle)*x+Math.cos(angle)*y});
+      const offsets=boxed?[[width+8,0],[0,24],[-40,0],[0,-height-40]]:[[0,0]];
+      const rectangles=offsets.map(([x,y])=>{const corners=[corner(x,y),corner(x+16,y),corner(x,y+16),corner(x+16,y+16)];return [Math.min(...corners.map(p=>p.x)),Math.min(...corners.map(p=>p.y)),Math.max(...corners.map(p=>p.x)),Math.max(...corners.map(p=>p.y))];});
+      // PDF readers can display a larger fixed-size icon than its annotation rectangle.
+      // Prefer beside the box, with room at crop edges; fall back above, left or below.
+      const crop=page.getCropBox(),margin=Math.min(24,crop.width/10,crop.height/10),rect=rectangles.find(r=>r[0]>=crop.x+margin&&r[1]>=crop.y+margin&&r[2]<=crop.x+crop.width-margin&&r[3]<=crop.y+crop.height-margin)??rectangles[0];
+      const note=pdf.context.obj({Type:'Annot',Subtype:'Text',Rect:rect,Contents:PDFHexString.fromText(comment),T:PDFHexString.fromText(mark.author),Subj:PDFHexString.fromText('JGC '+mark.layer),NM:PDFHexString.fromText(mark.id),Name:'Comment',F:4,C:[parseInt(mark.color.slice(1,3),16)/255,parseInt(mark.color.slice(3,5),16)/255,parseInt(mark.color.slice(5,7),16)/255]});
       page.node.addAnnot(pdf.context.register(note));
     }
-    if (label && mark.kind!=='distance') page.drawText(supported(label),{ x: pts[0].x, y: pts[0].y, size: 10, lineHeight: 12, font, color, rotate: degrees(rotation) });
+    if (label && mark.kind!=='distance'&&mark.kind!=='text') page.drawText(supported(label),{ x: pts[0].x, y: pts[0].y, size: 10, lineHeight: 12, font, color, rotate: degrees(rotation) });
   }
   const output=await PDFDocument.create();for(const p of await output.copyPages(pdf,order.map(n=>n-1)))output.addPage(p);
   output.setTitle(pdf.getTitle()??'JGC Drawing');output.setSubject('JGC drawing markups / as-built record');
