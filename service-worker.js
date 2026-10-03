@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "972";
+const JGC_RELEASE_ID = "973";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -771,8 +771,14 @@ function storeJgcResponse(request, response) {
     .catch(() => {});
 }
 
-function cacheJgcAppShellAsset(cache, url) {
+async function cacheJgcAppShellAsset(cache, url) {
   const request = new Request(url, { cache: "reload" });
+  // Content-hashed build files are immutable. Copy them across release caches
+  // instead of downloading the same large historical bundles on every update.
+  if (/\/estimating\/assets\/[^/]+-[A-Za-z0-9_-]{8}\.(?:js|css)$/.test(new URL(url, self.location.href).pathname)) {
+    const existing = await caches.match(request);
+    if (existing && existing.ok) return cache.put(url, existing);
+  }
 
   return fetch(request).then((response) => {
     if (!response || !response.ok) {
@@ -812,6 +818,33 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+const JGC_NAVIGATION_WAIT_MS = 3000;
+
+function getJgcNavigationResponse(event) {
+  const request = event.request;
+  const network = fetch(request).then(async (response) => {
+    if (!response.ok) throw new Error("Page request failed");
+    const pageUrl = new URL(request.url); pageUrl.search = ""; pageUrl.hash = "";
+    await storeJgcResponse(pageUrl.href, response);
+    return response;
+  });
+  // Keep the refresh alive after returning a saved screen; no API responses are cached.
+  event.waitUntil(network.then(() => {}, () => {}));
+  return caches.open(JGC_CACHE_NAME).then(async (cache) => {
+    const cached = await cache.match(request, { ignoreSearch: true });
+    if (!cached) {
+      return network.catch(async () => (await cache.match("./index.html")) || Response.error());
+    }
+    let timer;
+    try {
+      return await Promise.race([
+        network.catch(() => cached),
+        new Promise((resolve) => { timer = setTimeout(() => resolve(cached), JGC_NAVIGATION_WAIT_MS); })
+      ]);
+    } finally { clearTimeout(timer); }
+  });
+}
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
 
@@ -825,15 +858,8 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          storeJgcResponse(request, response);
-          return response;
-        })
-        .catch(() => caches.match(request, { ignoreSearch: true }).then((cached) => cached || caches.match("./index.html")))
-    );
+  if (request.mode === "navigate" && url.origin === self.location.origin) {
+    event.respondWith(getJgcNavigationResponse(event));
     return;
   }
 

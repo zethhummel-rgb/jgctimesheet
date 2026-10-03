@@ -1,0 +1,22 @@
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');const{test,expect}=require('@playwright/test');
+const source=fs.readFileSync(path.join(__dirname,'../service-worker.js'),'utf8');
+
+test('worker copies immutable cached bundles but refreshes mutable screens',async()=>{
+ let fetched=0;const puts=[];const scope={self:{location:{origin:'https://portal.test',href:'https://portal.test/service-worker.js'},addEventListener(){}},Request:class{constructor(url){this.url=url;}},URL,caches:{match:async()=>({ok:true})},fetch:async()=>{fetched++;return{ok:true};}};vm.createContext(scope);vm.runInContext(source,scope);const cache={put:async(url)=>puts.push(url)};await scope.cacheJgcAppShellAsset(cache,'./estimating/assets/index-ABCDEFGH.js');expect(fetched).toBe(0);await scope.cacheJgcAppShellAsset(cache,'./home.html');expect(fetched).toBe(1);expect(puts).toHaveLength(2);
+});
+
+test('worker navigation bypasses private API requests and writes',()=>{
+ const listeners={};const scope={self:{location:{origin:'https://portal.test',href:'https://portal.test/service-worker.js'},addEventListener:(type,handler)=>listeners[type]=handler},URL};vm.createContext(scope);vm.runInContext(source,scope);for(const request of [{method:'POST',url:'https://portal.test/home.html'},{method:'GET',url:'https://example.supabase.co/rest/v1/profiles'},{method:'GET',url:'https://script.google.com/macros/s/test'}]){let intercepted=false;listeners.fetch({request,respondWith:()=>intercepted=true});expect(intercepted).toBe(false);}
+});
+
+test.describe('real service-worker navigation',()=>{test.use({serviceWorkers:'allow'});
+ test('warm saved page opens on deadline, refreshes later, and fast/offline/cold navigation remains correct',async({page,context})=>{
+  test.setTimeout(90000);await page.goto('/smoke-tests/fixtures/startup-navigation.html');await page.evaluate(async()=>{await navigator.serviceWorker.register('/service-worker.js');await navigator.serviceWorker.ready;});await expect.poll(()=>page.evaluate(()=>Boolean(navigator.serviceWorker.controller)),{timeout:60000}).toBe(true);
+  const cached='<!doctype html><p id="marker">CACHED</p>';await page.evaluate(async html=>{const keys=await caches.keys(),name=keys.find(k=>k.startsWith('jgc-portal-v'));const cache=await caches.open(name);await cache.put('/smoke-tests/fixtures/startup-navigation.html',new Response(html,{headers:{'Content-Type':'text/html'}}));},cached);
+  let release;const slow=new Promise(resolve=>release=resolve);let started=false;await context.route('**/smoke-tests/fixtures/startup-navigation.html**',async route=>{started=true;await slow;await route.fulfill({status:200,contentType:'text/html',body:'<!doctype html><p id="marker">FRESH</p>'});});
+  try{const began=Date.now();await page.goto('/smoke-tests/fixtures/startup-navigation.html?weak=1',{waitUntil:'domcontentloaded'});await expect(page.locator('#marker')).toHaveText('CACHED');expect(Date.now()-began).toBeLessThan(6000);expect(started).toBe(true);release();await expect.poll(()=>page.evaluate(async()=>{const keys=await caches.keys(),cache=await caches.open(keys.find(k=>k.startsWith('jgc-portal-v')));return(await cache.match('/smoke-tests/fixtures/startup-navigation.html?weak=1',{ignoreSearch:true})).text();})).toContain('FRESH');}finally{release();}
+  await context.unroute('**/smoke-tests/fixtures/startup-navigation.html**');await page.goto('/smoke-tests/fixtures/startup-navigation.html?fast=1');await expect(page.locator('#marker')).toHaveText('NETWORK');await context.setOffline(true);const began=Date.now();await page.goto('/smoke-tests/fixtures/startup-navigation.html?offline=1');await expect(page.locator('#marker')).toHaveText('NETWORK');expect(Date.now()-began).toBeLessThan(2000);await context.setOffline(false);
+  await page.evaluate(async()=>{const keys=await caches.keys();for(const name of keys){const cache=await caches.open(name);for(const key of await cache.keys())if(new URL(key.url).pathname.endsWith('startup-navigation.html'))await cache.delete(key);}});
+  await context.route('**/smoke-tests/fixtures/startup-navigation.html**',async route=>{await new Promise(resolve=>setTimeout(resolve,3600));await route.fulfill({status:200,contentType:'text/html',body:'<!doctype html><p id="marker">FIRST VISIT</p>'});});await page.goto('/smoke-tests/fixtures/startup-navigation.html?cold=1');await expect(page.locator('#marker')).toHaveText('FIRST VISIT');
+ });
+});
