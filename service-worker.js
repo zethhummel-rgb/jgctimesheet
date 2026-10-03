@@ -1,7 +1,21 @@
-const JGC_RELEASE_ID = "971";
+const JGC_RELEASE_ID = "972";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
+  "./estimating/assets/browser-BC_1XtLF.js",
+  "./estimating/assets/drawing-pdf-CJP6DGhE.js",
+  "./estimating/assets/es-CLXe1qLs.js",
+  "./estimating/assets/index-DiY8QEYr.js",
+  "./estimating/assets/index-DrtKZo1x.css",
+  "./estimating/assets/job-schedule-pdf-BRJOy_zj.js",
+  "./estimating/assets/job-warranty-pdf-DtP5FNPd.js",
+  "./estimating/assets/pdf-B45_HK_S.js",
+  "./estimating/assets/proposal-pdf-2Mh0Ey2v.js",
+  "./estimating/assets/purchase-order-pdf-BHPMZPoB.js",
+  "./estimating/assets/quote-backup-pdf-D3MmL9RE.js",
+  "./estimating/assets/rfi-pdf-Dnbo-WNZ.js",
+  "./estimating/assets/src-DnyWaVO1.js",
+
   "./estimating/assets/browser-BeC7Ocr3.js",
   "./estimating/assets/pdf-DdBefQfi.js",
   "./estimating/assets/src-FzKl7waM.js",

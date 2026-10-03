@@ -98,3 +98,13 @@ html[data-jgc-theme=dark] .drawing-organizer-full{background:#10271f;color:#e8f0
  .is-fullscreen .drawing-full-title{flex-shrink:0;min-height:44px;box-sizing:border-box}.drawing-full-title .drawing-mobile-exit{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;margin-left:auto;padding:6px;border:1px solid var(--drawing-border);border-radius:7px;background:#eef4f1;color:inherit;cursor:pointer;font:inherit}.is-fullscreen .drawing-modes .drawing-full-button{display:none}
  .is-fullscreen .drawing-mobile-panels{border-top:1px solid var(--drawing-border)}.is-fullscreen .drawing-mobile-panels [role=status]{font-size:10px}
 }
+
+.drawing-organizer-scroll{overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch}
+.drawing-organizer-full .drawing-page-cards>div{touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.drawing-organizer-move-hint{padding:10px 22px;background:#dcefe4;color:#16382e;font-size:12px;flex-shrink:0}
+.drawing-organizer-full .drawing-page-destination button{min-height:44px;flex:1;cursor:pointer}
+html[data-jgc-theme=dark] .drawing-organizer-move-hint{background:#22513b;color:#e8f0eb}
+
+.drawing-organizer-full.is-dragging,.drawing-organizer-full.is-dragging *{cursor:grabbing!important}
+.drawing-organizer-full.is-dragging .drawing-page-cards>div.selected{opacity:.65}
+.drawing-organizer-full .drawing-page-cards canvas{-webkit-user-drag:none}
