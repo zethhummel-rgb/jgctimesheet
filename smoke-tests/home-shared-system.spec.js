@@ -327,3 +327,22 @@ test("Employee Home keeps profile, schedule, sidebar and shared navigation contr
   expect(errors).toEqual([]);
   await context.close();
 });
+
+test('slow profile, inspection and vacation requests do not hold navigation, other counters or calendar events',async({page})=>{
+ await installState(page);let release;const gate=new Promise(resolve=>release=resolve);let profileRequests=0;
+ const date=new Date().toISOString().slice(0,10);const week=new Date();week.setDate(week.getDate()-week.getDay());const weekStart=[week.getFullYear(),String(week.getMonth()+1).padStart(2,'0'),String(week.getDate()).padStart(2,'0')].join('-');
+ await page.route(`${supabaseOrigin}/rest/v1/**`,async route=>{const u=new URL(route.request().url()),table=u.pathname.split('/rest/v1/')[1],select=u.searchParams.get('select')||'';
+  if(table==='profiles'&&select.includes('phone')){profileRequests++;await gate;return route.fallback();}
+  if(table==='inspection_records'||table==='vacation_requests'){await gate;return route.fulfill({status:200,contentType:'application/json',body:'[]'});}
+  if(table==='certificates')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{expiry_date:date,worker_name:'home style test'}])});
+  if(table==='timesheet_entries')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{hours:8,worker_name:'home style test',week_start:weekStart,day_of_week:'saturday',entry_type:'regular'}])});
+  if(table==='schedule_events')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{id:'speed-event',event_date:date,title:'Crew meeting',event_type:'general'}])});
+  return route.fallback();
+ });
+ try{await page.goto('/home.html',{waitUntil:'domcontentloaded'});await expect(page.locator('.feature-card')).toHaveCount(16);await expect(page.locator('#expiringCertificates')).toHaveText('1');await expect(page.locator('#todayHours')).toHaveText('…');await expect(page.locator('#todayInspections')).toHaveText('…');await expect(page.locator('#homeScheduleAgenda')).toContainText('Crew meeting');await expect(page.locator('#homeScheduleCount')).toContainText('Updating');expect(profileRequests).toBe(1);
+ release();await expect(page.locator('#todayHours')).toHaveText('8.00');await expect(page.locator('#todayInspections')).toHaveText('0');await expect(page.locator('#homeScheduleCount')).not.toContainText('Updating');}finally{release();}
+});
+
+test('a failed dashboard query shows unavailable without clearing successful sections',async({page})=>{
+ await installState(page);await page.route(`${supabaseOrigin}/rest/v1/inspection_records**`,r=>r.fulfill({status:403,contentType:'application/json',body:'{"message":"Network unavailable"}'}));await page.goto('/home.html',{waitUntil:'domcontentloaded'});await expect(page.locator('#todayInspections')).toHaveText('Unavailable');await expect(page.locator('#expiringCertificates')).toHaveText('0');await expect(page.locator('.feature-card')).toHaveCount(16);
+});

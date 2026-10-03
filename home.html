@@ -52,15 +52,15 @@
       <span class="info-icon" data-jgc-page-tile="timesheet.html"><i data-lucide="clock-3"></i></span>
       <div>
         <div class="muted">Hours This Week</div>
-        <div id="weekHoursSide" class="info-value">0.00</div>
-        <div id="weekHoursDetail" class="muted">Regular: 0.00</div>
+        <div id="weekHoursSide" class="info-value">…</div>
+        <div id="weekHoursDetail" class="muted">…</div>
       </div>
     </div>
     <div class="info-item">
       <span class="info-icon" data-jgc-page-tile="inspections.html"><i data-lucide="shield-check"></i></span>
       <div>
         <div class="muted">Inspections Today</div>
-        <div id="inspectionsSide" class="info-value">0</div>
+        <div id="inspectionsSide" class="info-value">…</div>
         <div class="muted">Last 24 hours</div>
       </div>
     </div>
@@ -68,7 +68,7 @@
       <span class="info-icon" data-jgc-page-tile="certificates.html"><i data-lucide="badge-alert"></i></span>
       <div>
         <div class="muted">Certificates Expiring</div>
-        <div id="certificatesSide" class="info-value">0</div>
+        <div id="certificatesSide" class="info-value">…</div>
         <div class="muted">Within 30 days</div>
       </div>
     </div>
@@ -76,7 +76,7 @@
       <span class="info-icon" data-jgc-page-tile="vacation-request.html"><i data-lucide="users-round"></i></span>
       <div>
         <div class="muted">Vacation Requests</div>
-        <div id="vacationSide" class="info-value">0</div>
+        <div id="vacationSide" class="info-value">…</div>
         <div class="muted">Pending approval</div>
       </div>
     </div>
@@ -138,22 +138,22 @@
         <div class="overview-grid">
           <div class="stat jgc-card">
             <span class="stat-icon" data-jgc-page-tile="timesheet.html"><i data-lucide="clock-3"></i></span>
-            <div id="todayHours" class="stat-value">0.00</div>
+            <div id="todayHours" class="stat-value">…</div>
             <div class="stat-label">Hours This Week</div>
           </div>
           <div class="stat jgc-card">
             <span class="stat-icon" data-jgc-page-tile="inspections.html"><i data-lucide="shield-check"></i></span>
-            <div id="todayInspections" class="stat-value">0</div>
+            <div id="todayInspections" class="stat-value">…</div>
             <div class="stat-label">Inspections Today</div>
           </div>
           <div class="stat jgc-card">
             <span class="stat-icon" data-jgc-page-tile="certificates.html"><i data-lucide="badge-alert"></i></span>
-            <div id="expiringCertificates" class="stat-value">0</div>
+            <div id="expiringCertificates" class="stat-value">…</div>
             <div class="stat-label">Certificates Expiring</div>
           </div>
           <div class="stat jgc-card">
             <span class="stat-icon" data-jgc-page-tile="vacation-request.html"><i data-lucide="calendar-days"></i></span>
-            <div id="pendingVacations" class="stat-value">0</div>
+            <div id="pendingVacations" class="stat-value">…</div>
             <div class="stat-label">Vacation Request Pending</div>
           </div>
         </div>
@@ -416,10 +416,12 @@ let accidentAcknowledgements = [];
 let employeeInjuryAcknowledgements = [];
 let currentUserId = "";
 let currentProfile = null;
+let homeProfileLoad = null;
 let homeScheduleAccounts = [];
 let homeScheduleJobs = [];
 let homeScheduleEquipment = [];
 let homeScheduleRows = [];
+let homeScheduleLoad = 0;
 const PROFILE_SELECT_FIELDS = "id,email,display_name,worker_key,phone,emergency_contact,address,avatar_path";
 
 if (window.matchMedia("(max-width: 980px)").matches) {
@@ -435,12 +437,14 @@ document.getElementById("dashboardGreetingText").innerText = greeting;
 document.getElementById("dashboardUserName").innerText = currentWorkerDisplay;
 
 setCurrentDate();
-loadMyProfile();
-loadDashboardStats();
-loadUpcomingVacationBanner();
-loadHomeScheduleAgenda();
-loadAnnouncements();
 renderIcons();
+// Paint the usable shell first; each section settles independently.
+requestAnimationFrame(() => setTimeout(() => {
+  Promise.allSettled([
+    loadMyProfile(), loadDashboardStats(), loadUpcomingVacationBanner(),
+    loadHomeScheduleAgenda(), loadAnnouncements(), loadMyWriteUpsSummary()
+  ]).then(() => {});
+}, 0));
 
 function renderIcons() {
   if (window.lucide) {
@@ -742,7 +746,14 @@ function buildEmergencyContact(name, phone) {
   return cleanName || (cleanPhone ? "Phone: " + cleanPhone : "");
 }
 
-async function loadMyProfile() {
+function loadMyProfile() {
+  if (!homeProfileLoad) {
+    homeProfileLoad = loadMyProfileDetails().finally(() => { homeProfileLoad = null; });
+  }
+  return homeProfileLoad;
+}
+
+async function loadMyProfileDetails() {
   const userId = await getCurrentUserId();
 
   if (!userId || !supabaseClient) {
@@ -1046,68 +1057,43 @@ function isTimesheetEntryInCurrentWeek(entry, weekStartValue) {
 }
 
 async function loadDashboardStats() {
-  if (!supabaseClient) {
-    return;
-  }
-
-  if (!currentProfile) {
-    await loadMyProfile();
-  }
-
-  const today = getTodayBounds();
-  const weekStart = getWeekStartValue();
-  const nextThirty = new Date();
-  nextThirty.setDate(nextThirty.getDate() + 30);
-  const todayValue = today.start.toISOString().slice(0, 10);
-  const nextThirtyValue = nextThirty.toISOString().slice(0, 10);
-
-  try {
-    const [timesheetResult, inspectionResult, certificateResult, vacationResult] = await Promise.all([
-      supabaseClient
-        .from("timesheet_entries")
-        .select("hours,day_of_week,week_start,worker_name,created_at,entry_type,leave_type")
-        .order("created_at", { ascending: false }),
-      buildInspectionQuery(today.start.toISOString()),
-      supabaseClient
-        .from("certificates")
-        .select("expiry_date,worker_name")
-        .eq("worker_name", currentWorker)
-        .gte("expiry_date", todayValue)
-        .lte("expiry_date", nextThirtyValue),
-      buildVacationQuery()
-    ]);
-
-    const entries = (timesheetResult.data || [])
-      .filter(timesheetEntryMatchesCurrentWorker)
-      .filter((entry) => isTimesheetEntryInCurrentWeek(entry, weekStart));
-    const getDashboardHours = (entry) => {
-      const entryType = String(entry.entry_type || "").toLowerCase();
-      const leaveType = String(entry.leave_type || "").toLowerCase();
-
-      if (entryType === "sick" || entryType === "civic_holiday" || (entryType === "vacation" && leaveType !== "half_day")) {
-        return 0;
-      }
-
-      return Number(entry.hours || 0);
-    };
-    const weekHours = entries.reduce((total, entry) => total + getDashboardHours(entry), 0);
-    const inspectionCount = (inspectionResult.data || []).length;
-    const certificateCount = (certificateResult.data || []).length;
-    const vacationCount = (vacationResult.data || []).length;
-
-    setStat("weekHoursSide", weekHours.toFixed(2));
-    setStat("weekHoursDetail", "Regular: " + weekHours.toFixed(2));
-    setStat("todayHours", weekHours.toFixed(2));
-    setStat("todayInspections", inspectionCount);
-    setStat("inspectionsSide", inspectionCount);
-    setStat("expiringCertificates", certificateCount);
-    setStat("certificatesSide", certificateCount);
-    setStat("pendingVacations", vacationCount);
-    setStat("vacationSide", vacationCount);
-  } catch (error) {
-    console.warn("Dashboard stats could not be loaded.", error);
-  }
-  loadMyWriteUpsSummary();
+  if (!supabaseClient) return;
+  const groups = {
+    hours: ["weekHoursSide", "weekHoursDetail", "todayHours"],
+    inspections: ["todayInspections", "inspectionsSide"],
+    certificates: ["expiringCertificates", "certificatesSide"],
+    vacations: ["pendingVacations", "vacationSide"]
+  };
+  Object.values(groups).flat().forEach((id) => setStat(id, "…"));
+  const today = getTodayBounds(), weekStart = getWeekStartValue();
+  const nextThirty = new Date(); nextThirty.setDate(nextThirty.getDate() + 30);
+  const show = async (ids, request, render) => {
+    try {
+      const result = await request;
+      if (result.error) throw result.error;
+      render(result.data || []);
+    } catch (error) {
+      ids.forEach((id) => setStat(id, "Unavailable"));
+      console.warn("A dashboard section could not be loaded.", error);
+    }
+  };
+  const profile = loadMyProfile().catch(() => {});
+  await Promise.allSettled([
+    show(groups.hours, Promise.all([
+      supabaseClient.from("timesheet_entries").select("hours,day_of_week,week_start,worker_name,created_at,entry_type,leave_type").order("created_at", { ascending: false }),
+      profile
+    ]).then(([result]) => result), (rows) => {
+      const entries = rows.filter(timesheetEntryMatchesCurrentWorker).filter((entry) => isTimesheetEntryInCurrentWeek(entry, weekStart));
+      const hours = entries.reduce((total, entry) => {
+        const type = String(entry.entry_type || "").toLowerCase(), leave = String(entry.leave_type || "").toLowerCase();
+        return total + (type === "sick" || type === "civic_holiday" || (type === "vacation" && leave !== "half_day") ? 0 : Number(entry.hours || 0));
+      }, 0).toFixed(2);
+      setStat("weekHoursSide", hours);setStat("weekHoursDetail", "Regular: " + hours);setStat("todayHours", hours);
+    }),
+    show(groups.inspections, buildInspectionQuery(today.start.toISOString()), (rows) => groups.inspections.forEach((id) => setStat(id, rows.length))),
+    show(groups.certificates, supabaseClient.from("certificates").select("expiry_date,worker_name").eq("worker_name", currentWorker).gte("expiry_date", today.start.toISOString().slice(0, 10)).lte("expiry_date", nextThirty.toISOString().slice(0, 10)), (rows) => groups.certificates.forEach((id) => setStat(id, rows.length))),
+    show(groups.vacations, buildVacationQuery(), (rows) => groups.vacations.forEach((id) => setStat(id, rows.length)))
+  ]);
 }
 
 // Reminds employees about write-ups awaiting acknowledgment. Worded discreetly, like the push notification,
@@ -2042,56 +2028,39 @@ async function saveHomeScheduleEvent() {
 }
 
 async function loadHomeScheduleAgenda() {
-  const count = document.getElementById("homeScheduleCount");
-  const list = document.getElementById("homeScheduleAgenda");
-
-  if (!count || !list || !supabaseClient) {
-    return;
-  }
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayValue = formatLocalDateValue(today);
-
-  try {
-    const [scheduleResult, vacationResult] = await Promise.all([
-      supabaseClient
-        .from("schedule_events")
-        .select("*")
-        .gte("event_date", todayValue)
-        .order("event_date", { ascending: true })
-        .order("start_time", { ascending: true })
-        .limit(100),
-      supabaseClient
-        .from("vacation_requests")
-        .select("id,worker_name,worker_display_name,start_date,end_date,total_days,request_type,form_data,status")
-        .eq("status", "approved")
-        .gte("end_date", todayValue)
-        .order("start_date", { ascending: true })
-        .limit(100)
-    ]);
-
-    const scheduleRows = scheduleResult.error ? [] : (scheduleResult.data || []);
-    homeScheduleRows = scheduleRows;
-    const vacationRows = vacationResult.error ? [] : (vacationResult.data || []);
-    const items = buildHomeAgendaItems(scheduleRows, vacationRows);
-
-    if (scheduleResult.error && vacationResult.error) {
+  const count = document.getElementById("homeScheduleCount"), list = document.getElementById("homeScheduleAgenda");
+  if (!count || !list || !supabaseClient) return;
+  const generation = ++homeScheduleLoad;
+  const today = new Date();today.setHours(0, 0, 0, 0);
+  const todayValue = formatLocalDateValue(today), results = { schedule: null, vacations: null };
+  const render = () => {
+    if (generation !== homeScheduleLoad) return;
+    const schedule = results.schedule, vacations = results.vacations;
+    const scheduleRows = schedule && !schedule.error ? schedule.data || [] : [];
+    const vacationRows = vacations && !vacations.error ? vacations.data || [] : [];
+    if (schedule) homeScheduleRows = scheduleRows;
+    const items = buildHomeAgendaItems(scheduleRows, vacationRows), complete = schedule && vacations;
+    if (!complete && !items.length) return;
+    if (complete && schedule.error && vacations.error) {
       count.textContent = "Schedule unavailable";
-      list.innerHTML = '<div class="small">Schedule could not load from Supabase: ' + escapeHtml(scheduleResult.error.message || "Unknown schedule error") + '</div>';
+      list.innerHTML = '<div class="small">Schedule could not load: ' + escapeHtml(schedule.error.message || "Connection unavailable") + '</div>';
       return;
     }
-
     renderHomeScheduleAgenda(items);
-
-    if (scheduleResult.error && !items.length) {
+    if (!complete) count.textContent += " · Updating…";
+    if (complete && schedule.error && !items.length) {
       count.textContent = "Schedule setup needed";
-      list.innerHTML = '<div class="small">Schedule events are blocked by Supabase: ' + escapeHtml(scheduleResult.error.message || "Run the updated schedule setup SQL.") + '</div>';
+      list.innerHTML = '<div class="small">Schedule events could not load: ' + escapeHtml(schedule.error.message || "Connection unavailable") + '</div>';
     }
-  } catch (error) {
-    count.textContent = "Schedule unavailable";
-    list.innerHTML = '<div class="small">Schedule could not be loaded right now: ' + escapeHtml(error.message || error) + '</div>';
-  }
+  };
+  const load = async (name, query) => {
+    try { results[name] = await query; } catch (error) { results[name] = { error }; }
+    render();
+  };
+  await Promise.allSettled([
+    load("schedule", supabaseClient.from("schedule_events").select("*").gte("event_date", todayValue).order("event_date", { ascending: true }).order("start_time", { ascending: true }).limit(100)),
+    load("vacations", supabaseClient.from("vacation_requests").select("id,worker_name,worker_display_name,start_date,end_date,total_days,request_type,form_data,status").eq("status", "approved").gte("end_date", todayValue).order("start_date", { ascending: true }).limit(100))
+  ]);
 }
 
 async function loadAnnouncements() {
