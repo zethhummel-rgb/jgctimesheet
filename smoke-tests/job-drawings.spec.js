@@ -307,3 +307,39 @@ test('landscape phone keeps a usable canvas and reachable full-screen exit',asyn
  const exit=page.getByRole('button',{name:'Exit full screen',exact:true});const box=await exit.boundingBox();expect(box.x+box.width).toBeLessThanOrEqual(844);await page.screenshot({path:info.outputPath('phone-landscape.png')});await exit.tap();await expect(page.locator('.drawing-viewer')).not.toHaveClass(/is-fullscreen/);
 });
 });
+
+async function drawingTouch(page,browserName,type,points){
+ if(browserName==='chromium'){
+  page.__gestureCdp??=await page.context().newCDPSession(page);
+  await page.__gestureCdp.send('Input.dispatchTouchEvent',{type,touchPoints:points.map((p,i)=>({x:p.x,y:p.y,id:i+1,radiusX:4,radiusY:4}))});
+ }else await page.locator('.drawing-stage').evaluate((stage,{type,points})=>{
+  const target=stage.querySelector('.drawing-overlay'),touches=points.map((p,i)=>({identifier:i+1,target,clientX:p.x,clientY:p.y,pageX:p.x+scrollX,pageY:p.y+scrollY}));
+  if(touches.length)stage.__lastTouches=touches;
+  const event=new Event(type.toLowerCase(),{bubbles:true,cancelable:true});Object.assign(event,{touches,targetTouches:touches,changedTouches:touches.length?touches:stage.__lastTouches||[]});target.dispatchEvent(event);
+ },{type,points});
+}
+async function swipeDrawing(page,browserName,dx,dy=0){const stage=page.getByLabel('PDF drawing view',{exact:true});await stage.scrollIntoViewIfNeeded();const b=await stage.boundingBox(),first={x:b.x+b.width/2,y:b.y+Math.min(130,b.height/2)};await drawingTouch(page,browserName,'touchStart',[first]);for(let i=1;i<=5;i++)await drawingTouch(page,browserName,'touchMove',[{x:first.x+dx*i/5,y:first.y+dy*i/5}]);await drawingTouch(page,browserName,'touchEnd',[]);}
+test.describe('drawing gestures',()=>{test.use({hasTouch:true,viewport:{width:390,height:844}});
+ test('left/right swipes advance one page and respect first/last boundaries',async({page,browserName})=>{
+  const s=await store();await setup(page,s);await swipeDrawing(page,browserName,-110);await expect(page.getByLabel('Page number',{exact:true})).toHaveValue('2');await page.waitForTimeout(900);await page.getByRole('button',{name:'Fit width',exact:true}).click();await swipeDrawing(page,browserName,-110);await expect(page.getByLabel('Page number',{exact:true})).toHaveValue('2');await swipeDrawing(page,browserName,110);await expect(page.getByLabel('Page number',{exact:true})).toHaveValue('1');await page.waitForTimeout(900);await swipeDrawing(page,browserName,110);await expect(page.getByLabel('Page number',{exact:true})).toHaveValue('1');expect(s.saves).toBe(0);
+ });
+ test('pinch zoom anchors fingers, preserves browser scale and pans before page changes',async({page,browserName},info)=>{
+  const s=await store();await setup(page,s);const stage=page.getByLabel('PDF drawing view',{exact:true});await stage.scrollIntoViewIfNeeded();const b=await stage.boundingBox(),middle={x:b.x+b.width/2,y:b.y+130};
+  const zoom=()=>page.locator('.drawing-viewbar').evaluate(el=>parseInt([...el.querySelectorAll('span')].find(x=>x.textContent.endsWith('%')).textContent));const start=await zoom(),browserScale=await page.evaluate(()=>visualViewport.scale);
+  const at=()=>page.locator('.drawing-sheet').evaluate((el,p)=>{const b=el.getBoundingClientRect();return{x:(p.x-b.x)/b.width,y:(p.y-b.y)/b.height};},middle);const anchor=await at();
+  await drawingTouch(page,browserName,'touchStart',[{x:middle.x-25,y:middle.y},{x:middle.x+25,y:middle.y}]);for(let n=1;n<=5;n++){await drawingTouch(page,browserName,'touchMove',[{x:middle.x-25-5*n,y:middle.y},{x:middle.x+25+5*n,y:middle.y}]);await page.waitForTimeout(35);}await expect.poll(zoom).toBeGreaterThan(start*1.8);await expect.poll(async()=>Math.abs((await at()).x-anchor.x)).toBeLessThan(.025);await expect.poll(async()=>Math.abs((await at()).y-anchor.y)).toBeLessThan(.025);
+  await drawingTouch(page,browserName,'touchEnd',[]);expect(await page.evaluate(()=>visualViewport.scale)).toBe(browserScale);await expect(page.getByLabel('Page number',{exact:true})).toHaveValue('1');
+  await stage.evaluate(el=>el.scrollLeft=(el.scrollWidth-el.clientWidth)/2);const left=await stage.evaluate(el=>el.scrollLeft);await swipeDrawing(page,browserName,-65);expect(await stage.evaluate(el=>el.scrollLeft)).toBeGreaterThan(left);await expect(page.getByLabel('Page number',{exact:true})).toHaveValue('1');await stage.evaluate(el=>el.scrollLeft=el.scrollWidth);await swipeDrawing(page,browserName,-100);await expect(page.getByLabel('Page number',{exact:true})).toHaveValue('2');expect(s.saves).toBe(0);await page.locator('.drawing-viewer').screenshot({path:info.outputPath('gesture-view.png')});
+ });
+ test('pinch inward and cancellation do not switch pages or change saved markups',async({page,browserName})=>{
+  const s=await store();await setup(page,s);await page.getByRole('button',{name:'Zoom in',exact:true}).click();await page.getByRole('button',{name:'Zoom in',exact:true}).click();const stage=page.getByLabel('PDF drawing view',{exact:true});await stage.scrollIntoViewIfNeeded();const b=await stage.boundingBox(),x=b.x+b.width/2,y=b.y+100,zoom=()=>page.locator('.drawing-viewbar').evaluate(el=>parseInt([...el.querySelectorAll('span')].find(x=>x.textContent.endsWith('%')).textContent));const initial=await zoom();
+  await drawingTouch(page,browserName,'touchStart',[{x:x-60,y},{x:x+60,y}]);await drawingTouch(page,browserName,'touchMove',[{x:x-35,y},{x:x+35,y}]);await expect.poll(zoom).toBeLessThan(initial);await drawingTouch(page,browserName,'touchCancel',[]);await expect(page.getByLabel('Page number',{exact:true})).toHaveValue('1');expect(s.saves).toBe(0);expect(s.row.content.marks).toEqual([]);
+ });
+ test('markup tools do not treat drawing gestures as page swipes',async({page,browserName})=>{
+  const s=await store();await setup(page,s);await page.getByRole('button',{name:'Edit',exact:true}).click();await page.getByRole('button',{name:'Pen',exact:true}).click();await page.getByRole('button',{name:'Close markups',exact:true}).click();await swipeDrawing(page,browserName,-100);await expect(page.getByLabel('Page number',{exact:true})).toHaveValue('1');if(browserName==='chromium')await expect.poll(()=>s.row.content.marks[0]?.kind).toBe('pen');
+ });
+});
+
+for(const size of [{width:390,height:844},{width:844,height:390}])test(`compact phone full screen ${size.width}`,async({page},info)=>{
+ await page.setViewportSize(size);const s=await store();await setup(page,s);await page.getByRole('button',{name:'Full screen',exact:true}).click();const stage=page.getByLabel('PDF drawing view',{exact:true});await expect.poll(async()=>(await stage.boundingBox()).height).toBeGreaterThan(size.height-180);await expect(page.getByRole('toolbar',{name:'Drawing modes'})).toBeHidden();await expect(page.getByRole('toolbar',{name:'Drawing tools'})).toBeHidden();await expect(page.getByRole('button',{name:'Next page',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Zoom in',exact:true})).toBeVisible();await page.screenshot({path:info.outputPath('compact-full-screen.png')});await page.getByRole('button',{name:'Tools',exact:true}).click();await expect(page.getByRole('button',{name:'Measure',exact:true})).toBeVisible();await page.getByRole('button',{name:'Tools',exact:true}).click();await expect(page.getByRole('toolbar',{name:'Drawing tools'})).toBeHidden();await page.getByRole('button',{name:'Exit full screen',exact:true}).click();await expect(page.locator('.drawing-viewer')).not.toHaveClass(/is-fullscreen/);await expect(page.getByRole('toolbar',{name:'Drawing modes'})).toBeVisible();
+});

@@ -89,3 +89,12 @@ html[data-jgc-theme=dark] .drawing-organizer-full{background:#10271f;color:#e8f0
 }
 
 @media(max-width:600px),(max-width:1000px) and (max-height:500px){.drawing-modes .drawing-full-button{position:sticky;right:0;z-index:1;box-shadow:-5px 0 8px #eef4f1;flex-shrink:0}.drawing-modes{scroll-padding-right:125px}.drawing-toolbar{scroll-padding-inline:8px}}
+
+.drawing-stage.touch-navigation,.drawing-stage.touch-navigation .drawing-overlay{touch-action:none}
+
+.drawing-mobile-exit{display:none}
+@media(max-width:600px),(max-width:1000px) and (max-height:500px){
+ .is-fullscreen:not(.mobile-tools-open) .drawing-modes,.is-fullscreen:not(.mobile-tools-open) .drawing-toolbar{display:none}
+ .is-fullscreen .drawing-full-title{flex-shrink:0;min-height:44px;box-sizing:border-box}.drawing-full-title .drawing-mobile-exit{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;margin-left:auto;padding:6px;border:1px solid var(--drawing-border);border-radius:7px;background:#eef4f1;color:inherit;cursor:pointer;font:inherit}.is-fullscreen .drawing-modes .drawing-full-button{display:none}
+ .is-fullscreen .drawing-mobile-panels{border-top:1px solid var(--drawing-border)}.is-fullscreen .drawing-mobile-panels [role=status]{font-size:10px}
+}
