@@ -1,5 +1,5 @@
 import { JobDrawings } from "./job-drawings";
-import { JobBoard } from "./job-board";
+import { JobSafety } from "./job-safety";
 import { JobWarrantyPage } from "./job-warranty";
 import { JobRfis } from "./job-rfis";
 import { JobSchedule } from "./job-schedule";
@@ -200,7 +200,7 @@ const jobTabs: readonly { key: JobTab; label: string }[] = [
   { key: "rfis", label: "RFIs" },
   { key: "statistics", label: "Statistics / Other" },
   { key: "drawings", label: "Drawings" },
-  { key: "job-board", label: "Job Board" },
+  { key: "job-board", label: "Safety" },
   { key: "warranty", label: "Warranty" },
 ];
 type SaveStatus = "loading" | "saved" | "saving" | "offline" | "error";
@@ -6614,7 +6614,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           <p className="shop-drawing-footnote">Internal by default. Employee sharing is available only for Approved or Approved as noted current revisions and replaces the existing employee job-list document button.</p>
         </section>}
         <JobDrawings key={job.id} job={job} actor={currentEstimator.name} active={tab === "drawings"} />
-        <JobBoard key={`board-${job.id}`} job={job} active={tab === "job-board"} />
+        <JobSafety key={`safety-${job.id}`} job={job} active={tab === "job-board"} />
         {tab === "warranty" && <JobWarrantyPage key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />}
         {tab === "rfis" && <JobRfis key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />}
         <div className="schedule-tab" hidden={tab !== "schedule"}><JobSchedule key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} /></div>
