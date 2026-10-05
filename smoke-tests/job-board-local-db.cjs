@@ -575,6 +575,55 @@ async function createDatabase() {
       await as('anon');await rejects('select public.record_job_board_site_signin($1,$2,$3,$4,$5)',[rotated.token,'Name','Company','',submission]);
       await db.exec('reset role');await rejects('delete from public.job_board_activity where board_id=$1',[attendanceBoard.id],/append.only/i);
     });
+    await db.exec('reset role');
+    await db.exec(`create table public.contacts(id uuid primary key default gen_random_uuid(),name text,role text,phone text,email text,notes text,sort_order integer,is_active boolean);
+      alter table public.contacts enable row level security; revoke all on public.contacts from public,anon,authenticated;
+      insert into public.contacts(name,role,phone,email,notes,sort_order,is_active) values ('Site office','Coordinator','613-555-0100','office@example.invalid','PRIVATE NOTE',1,true),('Inactive contact','Old','','','PRIVATE NOTE',0,false);`);
+    await db.exec(fs.readFileSync(path.join(__dirname,'../supabase/migrations/20261005153612_jgc_job_board_staff_forms_contacts_977.sql'),'utf8'));
+    await db.exec("update public.job_board_visitor_sessions set created_at=now()-interval '1 hour'");
+    await as('authenticated','admin'); const oldAutoBoard=await rpc('select public.get_or_create_job_board($1) result',[ids.job]); const autoBoard=await rpc('select public.configure_job_board($1,true,false) result',[oldAutoBoard.id]); Object.assign(otherBoard,await rpc('select public.configure_job_board($1,true,false) result',[otherBoard.id]));
+    await check('contacts require an active board login and expose only active directory contact fields',async()=>{
+      await as('anon'); await rejects('select public.get_job_board_contacts($1,null)',[autoBoard.token]); await rejects('select * from public.contacts');
+      const v=await register(autoBoard,'contacts-977@example.invalid'); const contacts=await rpc('select public.get_job_board_contacts($1,$2) result',[autoBoard.token,v]);
+      assert.equal(contacts.length,1); assert.deepEqual(Object.keys(contacts[0]).sort(),['email','name','phone','role']); assert(!JSON.stringify(contacts).includes('PRIVATE'));
+      await rejects('select public.get_job_board_contacts($1,$2)',[otherBoard.token,v]);
+      await db.exec('reset role');await db.query("update public.job_board_visitor_sessions set expires_at=now()-interval '1 minute' where token_hash=private.jgc_job_board_token_hash($1)",[v]);
+      await as('anon');await rejects('select public.get_job_board_contacts($1,$2)',[autoBoard.token,v]);
+      await as('authenticated','staff');const staffVisit=await register(autoBoard,'staff-contacts-977@example.invalid');assert.equal((await rpc('select public.get_job_board_contacts($1,$2) result',[autoBoard.token,staffVisit])).length,1);
+      await as('authenticated','disabled');await rejects('select public.get_job_board_contacts($1,$2)',[autoBoard.token,staffVisit]);
+    });
+    await check('equipment QR inspections and every supported staff form auto-publish only to the exact selected job',async()=>{
+      await as('authenticated','staff');
+      // Fixture grants represent existing production insert policies, restricted to the submitting worker.
+      await db.exec('reset role');await db.exec(`alter table public.inspection_records enable row level security;grant insert on public.inspection_records to authenticated;
+        create policy synthetic_insert on public.inspection_records for insert to authenticated with check(worker_name=(select worker_key from public.profiles where id=auth.uid()));`);
+      await as('authenticated','staff');
+      const equipmentId='97700000-0000-4000-8000-000000000001';
+      await db.query("insert into public.inspection_records(id,worker_name,inspection_type,inspection_date,title,form_data) values($1,'staff','Aerial Lift','2026-10-05','Equipment QR lift check',$2)",[equipmentId,{job_context:{jobNumber:'26999'},fields:[{label:'Equipment',value:'LIFT-1'}]}]);
+      const formVisit=await register(autoBoard,'equipment-977@example.invalid');const m=await getBoard(autoBoard,formVisit);const d=m.documents.find(d=>d.source_id===equipmentId);assert(d);assert.equal(d.status,'published');assert.equal(d.visibility,'public');assert.equal(d.category,'inspection');
+      assert.equal((await getBoard(otherBoard)).documents.filter(d=>d.source_id===equipmentId).length,0);
+      const retry=await rpc('select public.attach_job_board_report_by_id($1,$2,$3) result',[autoBoard.id,'inspection_records',equipmentId]);assert.equal(retry.id,d.id);assert(retry.already_attached);
+      await db.exec('reset role');
+      for(const [i,table,owner,date,extra] of [[2,'toolbox_talk_reports','submitted_by_worker','report_date',",talk_title"],[3,'daily_site_reports','worker_name','report_date',''],[4,'incident_reports','reported_by_worker','report_date',",incident_type"],[5,'accident_reports','created_by_worker','accident_date',''],[6,'employee_injury_reports','created_by_worker','accident_date','']]) {
+        const id=`97700000-0000-4000-8000-${String(i).padStart(12,'0')}`;
+        const project=table==='employee_injury_reports'?'accident_location':table==='accident_reports'?'site_location':'project';
+        await db.query(`insert into public.${table}(id,${owner},${date},${project}${extra}) values($1,'staff','2026-10-05','26999 - Exact selected job'${extra?",'Synthetic report'":''})`,[id]);
+        const row=(await db.query('select status,visibility from public.job_board_documents where source_id=$1',[id])).rows[0]; assert(row,table);assert.equal(row.status,'published');assert.equal(row.visibility,i>=4?'restricted':'public');
+      }
+      await as('anon'); const visit=await register(autoBoard,'equipment-visitor-977@example.invalid');const publicModel=await getBoard(autoBoard,visit);assert(publicModel.documents.some(d=>d.source_id===equipmentId));assert(!publicModel.documents.some(d=>d.source_type==='employee_injury_reports'&&d.source_id.startsWith('977')));
+    });
+    await check('automatic routing does not publish for unapproved identities, unknown jobs or prefix collisions and preserves archives',async()=>{
+      for(const [i,actor,number] of [[10,'disabled','26999'],[11,'limited','26999'],[12,'staff','269990'],[13,'staff','UNKNOWN']]) {
+        await as('authenticated',actor);await db.exec('reset role');
+        const id=`97700000-0000-4000-8000-${String(i).padStart(12,'0')}`;
+        await db.query("insert into public.inspection_records(id,worker_name,inspection_type,inspection_date,title,form_data) values($1,$2,'Forklift','2026-10-05','Not eligible',$3)",[id,actor,{job_context:{jobNumber:number}}]);
+        assert.equal((await db.query('select count(*)::integer n from public.job_board_documents where source_id=$1',[id])).rows[0].n,0);
+      }
+      await as('authenticated','admin');const equipment=(await getBoard(autoBoard)).documents.find(d=>d.source_id==='97700000-0000-4000-8000-000000000001');
+      await rpc('select public.review_job_board_document($1,$2,$3) result',[equipment.id,'archived','public']);
+      await as('authenticated','staff');assert.equal((await rpc('select public.attach_job_board_report_by_id($1,$2,$3) result',[autoBoard.id,'inspection_records',equipment.source_id])).status,'archived');
+      await rejects('select private.jgc_job_board_auto_attach_staff_form()');
+    });
     console.log(`${passed}/${passed+failures.length} local Job Board security groups passed. No production connections or writes.`);
     if(failures.length) process.exitCode=1;
   } finally { await db.close(); }

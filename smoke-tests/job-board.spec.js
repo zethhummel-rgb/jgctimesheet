@@ -67,12 +67,13 @@ async function install(page, store, options = {}) {
     if (name === 'get_job_board' || name === 'get_or_create_job_board') return store.failBoard ? route.fulfill({ status: 403, json: { message: 'Board unavailable for this test' } }) : route.fulfill({ json: board() });
     if (name === 'register_job_board_visit') { if (!canUpload && (!args.p_name || !args.p_company || !args.p_email)) return route.fulfill({ status: 403, json: { message: 'Visitor name, company and email are required' } }); store.visit = VISIT; store.events.push({ id: 'visit-event', actor_name: canUpload ? 'Synthetic Site Staff' : args.p_name, actor_company: args.p_company, actor_email: canUpload ? store.auth.user.email : args.p_email, identity_type: canUpload ? 'staff' : 'visitor', action: 'visit', created_at: new Date().toISOString() }); return route.fulfill({ json: { visit_token: VISIT } }); }
     if (name === 'record_job_board_site_signin') { store.events.push({id:'site',action:'site-signin',actor_name:args.p_name,actor_company:args.p_company,reason:args.p_reason,created_at:new Date().toISOString()}); return route.fulfill({json:{ok:true,recorded_at:new Date().toISOString()}}); }
+    if (name === 'get_job_board_contacts') return store.failContacts ? route.fulfill({status:403,json:{message:'Contacts unavailable'}}) : route.fulfill({json:[{name:'Synthetic Office',role:'Project coordinator',phone:'613-555-0100',email:'office@example.test'},{name:'Synthetic Site Lead',role:'Supervisor',phone:null,email:null}]});
     if (name === 'get_job_board_activity') { const events = store.activityPages || store.events; const start = args.p_before ? events.findIndex((event) => event.created_at === args.p_before) + 1 : 0; const batch = events.slice(start, start + args.p_limit); return route.fulfill({ json: { events: batch, next_before: start + batch.length < events.length ? batch.at(-1).created_at : null } }); }
     if (name === 'log_job_board_activity') { store.events.push({ id: 'document-event', actor_name: 'Synthetic user', identity_type: role === 'guest' ? 'visitor' : 'staff', action: args.p_action, document_title: store.documentRows.find((d) => d.id === args.p_document_id)?.title, created_at: new Date().toISOString() }); return route.fulfill({ json: {} }); }
     if (name === 'begin_job_board_upload') return route.fulfill({ json: { id: '00000000-0000-4000-8000-000000000007', object_path: BOARD_ID + '/paper-upload.pdf' } });
     if (name === 'finalize_job_board_upload') return store.storageReady ? route.fulfill({ json: {} }) : route.fulfill({ status: 403, json: { message: 'The original object has not finished uploading' } });
     if (name === 'list_job_board_sources') return route.fulfill({ json: store.sources });
-    if (name === 'attach_job_board_report') { const source = store.sources.find((s) => s.source_id === args.p_source_id); store.documentRows.push({ id: 'imported-document', ...source, file_name: 'Source-report.pdf', status: 'pending', visibility: 'restricted', mime_type: 'application/pdf' }); store.sources = store.sources.filter((s) => s !== source); return route.fulfill({ json: {} }); }
+    if (name === 'attach_job_board_report') { const source = store.sources.find((s) => s.source_id === args.p_source_id); store.documentRows.push({ id: 'imported-document', ...source, file_name: 'Source-report.pdf', status: source.source_type === 'policies' ? 'pending' : 'published', visibility: source.category === 'accident-incident' || source.source_type === 'policies' ? 'restricted' : 'public', mime_type: 'application/pdf' }); store.sources = store.sources.filter((s) => s !== source); return route.fulfill({ json: {} }); }
     if (name === 'review_job_board_document') { const doc = store.documentRows.find((d) => d.id === args.p_document_id); if (doc) { doc.status = args.p_status; doc.visibility = args.p_visibility; } return route.fulfill({ json: {} }); }
     if (name === 'update_job_board_document') { const doc = store.documentRows.find((d) => d.id === args.p_document_id); if (doc) Object.assign(doc, { title: args.p_title, category: args.p_category, report_date: args.p_report_date, notes: args.p_notes }); return route.fulfill({ json: {} }); }
     return route.fulfill({ json: {} });
@@ -139,12 +140,12 @@ test('staff direct sign-in verifies profile, preserves job context, and retries 
   expect(store.calls.find((c) => c.name === 'begin_job_board_upload').args).toMatchObject({ p_board_id: BOARD_ID, p_category: 'jsa', p_title: 'Paper JSA for review', p_file_name: 'paper-jsa.pdf', p_mime_type: 'application/pdf' });
 });
 
-test('accident publication locks restricted access and existing source imports require review', async ({ page }) => {
+test('accident publication locks restricted access and saved staff source imports publish automatically', async ({ page }) => {
   const store = await open(page, 'admin'); await page.getByRole('tab', { name: 'Review uploads (1)', exact: true }).click();
   const card = page.locator('#reviewList article').first(); const visibility = card.getByLabel('Published access', { exact: true }); await expect(visibility).toHaveValue('restricted'); await expect(visibility).toBeDisabled();
   await card.getByRole('button', { name: 'Publish document', exact: true }).click(); await expect(page.locator('#reviewList')).toContainText('No uploads are waiting'); expect(store.calls.find((c) => c.name === 'review_job_board_document').args).toMatchObject({ p_status: 'published', p_visibility: 'restricted' });
   await page.locator('#boardImport summary').click(); await expect(page.locator('#importList')).toContainText('Existing job-number-matched JSA'); await expect(page.locator('#importList')).toContainText('Company safety policy');
-  await page.locator('#importList .board-viewer').first().getByRole('button', { name: 'Attach for review' }).click(); await expect(page.locator('#reviewList')).toContainText('Existing job-number-matched JSA'); expect(store.calls.find((c) => c.name === 'attach_job_board_report').args).toMatchObject({ p_token: TOKEN, p_visit_token: VISIT, p_source_type: 'inspection_records', p_source_id: 'existing-jsa' });
+  await page.locator('#importList .board-viewer').first().getByRole('button', { name: 'Attach report' }).click(); await page.getByRole('tab',{name:'Documents',exact:true}).click(); await expect(page.locator('#dailyReportsList')).toContainText('Existing job-number-matched JSA'); expect(store.calls.find((c) => c.name === 'attach_job_board_report').args).toMatchObject({ p_token: TOKEN, p_visit_token: VISIT, p_source_type: 'inspection_records', p_source_id: 'existing-jsa' });
 });
 
 test('source JSA downloads as a real PDF containing the saved tasks and controls', async ({ page }, testInfo) => {
@@ -211,6 +212,7 @@ for (const installed of [false, true]) test(`embedded board wheel scrolls its na
   await openDirectoryJob(page, '26901'); await page.getByRole('tab', { name: 'Job Board', exact: true }).click();
   const iframe = page.getByTitle('Job 26901 Board', { exact: true }), board = page.frameLocator('iframe[title="Job 26901 Board"]');
   await expect(board.locator('#boardContent')).toBeVisible(); await board.locator('.board-category').evaluateAll(nodes=>nodes.forEach(n=>n.open=true));
+  await expect.poll(async()=>Math.abs(await iframe.evaluate(e=>e.getBoundingClientRect().height)-await board.locator('#jobBoardPage').evaluate(e=>Math.ceil(e.getBoundingClientRect().height)))).toBeLessThan(2);
   const samples = [], scrolls = [];
   for (let n = 0; n < 5; n++) { samples.push(await iframe.evaluate((element) => element.getBoundingClientRect().height)); await page.waitForTimeout(100); }
   for (const [tab, target, delta] of [['Documents', '#dailyReportsList', 420], ['Upload', '#uploadTitle', 420], ['Review uploads (1)', '#reviewList .board-document-title', 420], ['Documents', '#boardManager', 420], ['Documents', '#boardActivity summary', -420]]) {
@@ -355,4 +357,33 @@ test('phone Email PDF passes a real PDF File to native sharing and permits cance
   await page.setViewportSize({width:390,height:844});await page.addInitScript(()=>{Object.defineProperty(navigator,'canShare',{value:()=>true});Object.defineProperty(navigator,'share',{value:async data=>{window.sharedPdf={name:data.files[0].name,type:data.files[0].type,header:await data.files[0].slice(0,5).text()};throw new DOMException('Cancelled','AbortError');}});});
   await open(page,'staff');await page.locator('#dailyReportsList article').filter({hasText:'Morning JSA'}).getByRole('button',{name:'Email PDF',exact:true}).click();await expect(page.locator('#emailPdfReady')).toBeVisible();await page.locator('#emailPdfShare').click();
   await expect.poll(()=>page.evaluate(()=>window.sharedPdf)).toMatchObject({type:'application/pdf',header:'%PDF-'});await expect(page.locator('#emailPdfStatus')).not.toContainText('failed');await expect(page.locator('#emailPdfShare')).toBeEnabled();
+});
+
+for (const identity of ['guest','staff']) test(`signed-in ${identity} can open Portal contacts without exposing directory data before login`,async({page})=>{
+  const store=await open(page,identity);
+  if(identity==='guest') {await expect(page.locator('#boardContacts')).toBeHidden();expect(store.calls.some(c=>c.name==='get_job_board_contacts')).toBe(false);await visitorSignIn(page);}
+  await page.getByRole('button',{name:'JGC Contacts',exact:true}).click();await expect(page.locator('#contactsDialog')).toBeVisible();await expect(page.locator('#contactsList')).toContainText('Synthetic Office');
+  await expect(page.locator('#contactsList a').first()).toHaveAttribute('href','tel:6135550100');await expect(page.locator('#contactsList a').last()).toHaveAttribute('href','mailto:office%40example.test');
+  expect(store.calls.filter(c=>c.name==='get_job_board_contacts').at(-1).args).toEqual({p_token:TOKEN,p_visit_token:VISIT});
+  await page.locator('#contactsClose').click();store.failContacts=true;await page.locator('#boardContacts').click();await expect(page.locator('#contactsRetry')).toBeVisible();await expect(page.locator('#contactsList article')).toHaveCount(0);
+  store.failContacts=false;await page.locator('#contactsRetry').click();await expect(page.locator('#contactsList article')).toHaveCount(2);
+});
+function contrast(a,b){const luminance=c=>{const x=c.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return .2126*x[0]+.7152*x[1]+.0722*x[2]};const x=luminance(a),y=luminance(b);return(Math.max(x,y)+.05)/(Math.min(x,y)+.05);}
+for(const theme of ['light','dark']) for(const width of [390,1440]) test(`section descriptions and count contrast in scanned and admin board ${theme} ${width}`,async({page,context})=>{
+  await page.setViewportSize({width,height:1000});await open(page,'staff',{theme});
+  await page.locator('.board-category').evaluateAll(nodes=>nodes.forEach(n=>n.open=false));
+  await expect(page.locator('.board-category-description')).toHaveCount(5);
+  for(const badge of await page.locator('.board-section-count').all()){const colors=await badge.evaluate(e=>({text:getComputedStyle(e).color,bg:getComputedStyle(e).backgroundColor}));expect(contrast(colors.text,colors.bg)).toBeGreaterThanOrEqual(4.5);}
+  await expect(page.locator('.board-category-description').nth(2)).toBeVisible();await expect(page.locator('.board-category-description').nth(2)).toContainText('equipment QR');
+  const adminPage=await context.newPage();await adminPage.setViewportSize({width,height:1000});const {board}=await openNativeBoard(adminPage,theme);
+  for(const badge of await board.locator('.board-section-count').all()){const colors=await badge.evaluate(e=>({text:getComputedStyle(e).color,bg:getComputedStyle(e).backgroundColor}));expect(contrast(colors.text,colors.bg)).toBeGreaterThanOrEqual(4.5);}
+});
+for(const theme of ['light','dark']) for(const width of [390,1440]) test(`Creator Sign Off signature dialog text is readable ${theme} ${width}`,async({page,context})=>{
+  await page.setViewportSize({width,height:1000});await open(page,'staff',{theme});
+  await page.addStyleTag({url:'/safety-signature-pad.css?v=2'});await page.addScriptTag({url:'/safety-signature-pad.js?v=1'});
+  await page.evaluate(()=>{window.signatureResult=JGCSafetySignature.open({printedName:'Synthetic Creator',recordLabel:'JSA acknowledgement'});});
+  await expect(page.locator('.safety-signature-dialog')).toBeVisible();
+  const bg=await page.locator('.safety-signature-dialog').evaluate(e=>getComputedStyle(e).backgroundColor);
+  for(const selector of ['.safety-signature-head h2','.safety-signature-body label','.safety-signature-help','.safety-signature-head .small']) for(const label of await page.locator(selector).all()){const color=await label.evaluate(e=>getComputedStyle(e).color);expect(contrast(color,bg)).toBeGreaterThanOrEqual(4.5);}
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.locator('.safety-signature-cancel').click();await expect(page.locator('.safety-signature-dialog')).toHaveCount(0);
 });

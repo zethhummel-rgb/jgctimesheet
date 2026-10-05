@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#0b5e3b">
   <title>Job Board · JGC Portal</title>
   <link rel="stylesheet" href="jgc-design-system.css?v=13" data-jgc-design-system="13">
-  <link rel="stylesheet" href="job-board.css?v=3">
+  <link rel="stylesheet" href="job-board.css?v=4">
 </head>
 <body class="job-board-page jgc-page jgc-system-page">
   <main class="jgc-page-shell" id="jobBoardPage">
@@ -29,6 +29,7 @@
         <button class="jgc-button jgc-button--secondary" id="boardRefresh" type="button" data-testid="board-refresh">Refresh</button>
         <button class="jgc-button jgc-button--secondary" id="boardTheme" type="button" aria-label="Switch colour theme">Light theme</button>
         <button class="jgc-button jgc-button--secondary" id="boardSiteSignIn" type="button" hidden>Site Sign in</button>
+        <button class="jgc-button jgc-button--secondary" id="boardContacts" type="button" hidden>JGC Contacts</button>
         <button class="jgc-button jgc-button--secondary" id="boardSignIn" type="button">Staff Login</button>
       </div>
       <p id="boardIdentity" class="jgc-page-user" hidden></p>
@@ -118,7 +119,7 @@
       <section class="jgc-panel" id="uploadPanel" role="tabpanel" aria-labelledby="uploadTab" hidden>
         <div class="board-section-heading"><div><h2 class="jgc-section-title">Upload a site document</h2><p>Send a scanned paper form, PDF or photo to this job’s review queue.</p></div><span class="jgc-badge jgc-badge--warning">Office review</span></div>
         <div id="uploadSignIn" class="jgc-notice" hidden><p>Uploads are available to signed-in JGC staff.</p><button class="jgc-button" id="uploadSignInButton" type="button">Staff sign-in</button></div>
-        <section id="createForms" class="board-create-forms" hidden aria-labelledby="createFormsTitle"><h3 id="createFormsTitle" class="jgc-section-title">Create a form for this job</h3><p class="board-help">Open a Portal form with this job selected. Submitted forms are attached to the job’s review queue.</p><div id="createFormLinks" class="board-actions"></div></section>
+        <section id="createForms" class="board-create-forms" hidden aria-labelledby="createFormsTitle"><h3 id="createFormsTitle" class="jgc-section-title">Create a form for this job</h3><p class="board-help">Open a Portal form with this job selected. Saved staff forms appear on this Job Board automatically. Accident and injury reports remain restricted.</p><div id="createFormLinks" class="board-actions"></div></section>
         <form id="uploadForm" class="board-form" hidden>
           <div class="jgc-form-grid">
             <div class="jgc-field"><label class="jgc-label" for="uploadCategory">Document type</label><select class="jgc-select" id="uploadCategory" required></select></div>
@@ -137,7 +138,7 @@
       <section class="jgc-panel" id="reviewPanel" role="tabpanel" aria-labelledby="reviewTab" hidden>
         <div class="board-section-heading"><div><h2 class="jgc-section-title">Review uploads</h2><p>Check the document, type and date before publishing. Pending files are private.</p></div></div>
         <div id="reviewList" class="jgc-record-list" data-testid="review-list"></div>
-        <details id="boardImport" class="board-settings"><summary>Attach an existing Portal report or policy</summary><div class="board-details-content"><p class="board-help">These reports match this job number, or are company policies. Check the title and date before attaching; each item then needs publication review.</p><button class="jgc-button jgc-button--secondary" id="importRefresh" type="button">Refresh available reports</button><p id="importStatus" class="board-form-status" role="status" aria-live="polite"></p><div id="importList" class="jgc-record-list"></div></div></details>
+        <details id="boardImport" class="board-settings"><summary>Attach an existing Portal report or policy</summary><div class="board-details-content"><p class="board-help">These reports match this job number, or are company policies. Saved staff reports publish automatically. Company policy imports and uploaded paper files still require office review.</p><button class="jgc-button jgc-button--secondary" id="importRefresh" type="button">Refresh available reports</button><p id="importStatus" class="board-form-status" role="status" aria-live="polite"></p><div id="importList" class="jgc-record-list"></div></div></details>
       </section>
 
       <section class="jgc-panel board-admin-panel" id="boardViewersPanel" hidden>
@@ -150,6 +151,12 @@
       <footer class="board-footer">John Gordon Construction · Job Board</footer>
     </div>
   </main>
+  <dialog id="contactsDialog" class="board-preview" aria-labelledby="contactsTitle">
+    <div class="board-section-heading"><h2 class="jgc-section-title" id="contactsTitle">JGC Contacts</h2><button class="jgc-button jgc-button--secondary" id="contactsClose" type="button">Close</button></div>
+    <p class="board-help">Contact John Gordon Construction. Tap a phone number to call or an email address to write a message.</p>
+    <p id="contactsStatus" class="board-form-status" role="status" aria-live="polite"></p><div id="contactsList" class="jgc-record-list"></div>
+    <button class="jgc-button jgc-button--secondary" id="contactsRetry" type="button" hidden>Try again</button>
+  </dialog>
   <dialog id="documentPreview" class="board-preview"><div class="board-section-heading"><h2 class="jgc-section-title" id="previewTitle">Document preview</h2><button class="jgc-button jgc-button--secondary" id="previewClose" type="button">Close</button></div><p id="previewStatus" class="board-form-status" role="status"></p><div id="previewBody"></div></dialog>
   <dialog id="emailPdfDialog" class="board-preview board-email-dialog">
     <div class="board-section-heading"><h2 class="jgc-section-title">Email PDF</h2><button class="jgc-button jgc-button--secondary" id="emailPdfClose" type="button">Close</button></div>
@@ -165,10 +172,10 @@
   <script src="vendor/supabase-js.min.js?v=1"></script>
   <script src="vendor/lucide.min.js"></script>
   <script src="common.js?v=73"></script>
-  <script src="job-board-context.js?v=1"></script>
+  <script src="job-board-context.js?v=2"></script>
   <script src="vendor/qrcode.min.js?v=1"></script>
   <script src="job-board-report-pdf.js?v=1"></script>
   <script src="job-board-email.js?v=1"></script>
-  <script src="job-board.js?v=3"></script>
+  <script src="job-board.js?v=4"></script>
 </body>
 </html>
