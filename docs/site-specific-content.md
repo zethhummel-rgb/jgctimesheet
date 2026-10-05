@@ -46,3 +46,14 @@ An optional additional hazard assessment remains available. New task/risk pages 
 Section images use the existing approved-admin private attachment service. The original is stored separately and referenced in the plan; image data is not embedded in workspace JSON. Images are never automatically published by uploading. Missing/unreadable selected images stop export. Images print once inside their section, without a duplicate appendix, and are omitted when the image or section is excluded. Reusable page text and structured rows are deep-copied; images from a different job stay with that original job so a reused page cannot silently carry the wrong site's map.
 
 PDF output has numbered sections, a wrapping contents list with actual page numbers, repeating table headings and wrapped/split long table rows and checklist details. Maps retain their aspect ratio and are never cropped. Existing legacy text-only plans still export; complete policy/certificate/JSA attachments keep their content, orientation and PDF page geometry.
+
+
+## Document page editor (release 988)
+
+The editor opens on the plan cover. Previous and Next move through every safety section, including excluded sections, and end at supporting documents. Each safety section has an Include this page checkbox above the document. Excluding a section changes only its inclusion flag; text, rows and images remain available when revisiting it.
+
+The form is an editable JGC document with the PDF's letterhead, green table headings, section headings and white paper. Text expands as it is entered. Table cells, questions, PPE, procedure steps and field headings are editable in place. Phones use labelled table rows to keep input readable. Long sections reflow across printed pages when exported; Preview PDF shows the final pagination.
+
+Text fields and tables can be added to the current page. Existing blocks, rows, questions and fields can be removed, with an immediate Undo removal action. Further edits clear that undo snapshot so restoring an old snapshot cannot overwrite newer input. More plan options contains new pages, optional procedure templates, page ordering, saved page copies and explicit upgrades for older plans. PDF preview, download, visibility and publication are together in PDF & publish.
+
+This changes the editor only. Workspace data shapes, original attachments, access rules, publication methods and the PDF renderer are retained. Opening a saved plan does not migrate or write it.
