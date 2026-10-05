@@ -3433,7 +3433,13 @@ function getJgcNotificationPages() {
   return blockedPages.has(page) ? [] : [page];
 }
 
+// A Job Board inside a job uses the parent Portal's navigation and settings.
+function isJgcJobBoardTab() {
+  return window.parent !== window && document.documentElement.dataset.jobBoardHost === "job";
+}
+
 function shouldActivateJgcNotificationBell() {
+  if (isJgcJobBoardTab()) return false;
   const page = getCurrentJgcPageName();
   const worker = getCurrentWorkerRecord();
   return getJgcNotificationPages().includes(page) && worker && worker.key && !isJgcSubcontractorSession(worker);
@@ -5943,7 +5949,7 @@ function isInstalledJgcPwa() {
 }
 
 function activateJgcPwaRefresh() {
-  if (!isInstalledJgcPwa() || document.getElementById("jgcPwaPullIndicator")) {
+  if (isJgcJobBoardTab() || !isInstalledJgcPwa() || document.getElementById("jgcPwaPullIndicator")) {
     return;
   }
 
@@ -6224,7 +6230,7 @@ function isJgcIosHomeScreenApp() {
 }
 
 function activateJgcSafeArea() {
-  if (document.getElementById("jgcSafeAreaStyles")) {
+  if (isJgcJobBoardTab() || document.getElementById("jgcSafeAreaStyles")) {
     return;
   }
 

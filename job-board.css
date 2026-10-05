@@ -86,3 +86,28 @@
   .board-poster h3 { font-size: 22px; margin: 18px 0 4px; }
   #posterQr { width: 320px; height: 320px; margin-top: 20px; }
 }
+
+/* The job tab supplies the page header, branding, theme and scrolling surface. */
+html[data-job-board-host="job"],
+html[data-job-board-host="job"] body.job-board-page {
+  min-height: 0; height: auto; margin: 0; padding: 0;
+  background: transparent !important; overscroll-behavior: auto;
+}
+html[data-job-board-host="job"] body.job-board-page { font-size: 14px; }
+html[data-job-board-host="job"] :is(.jgc-button, .jgc-input, .jgc-select, .jgc-textarea, .jgc-tab) {
+  font-size: 14px; border-radius: 6px;
+}
+html[data-job-board-host="job"] .jgc-page-shell {
+  display: flow-root; width: 100%; max-width: none; margin: 0; padding: 0;
+}
+html[data-job-board-host="job"] :is(.board-header, .board-footer) { display: none; }
+.board-toolbar { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+html[data-job-board-host="job"] .jgc-panel {
+  border-top-width: 1px; border-radius: 10px; padding: 20px 22px;
+}
+html[data-job-board-host="job"] #jobBoardPage .jgc-section-title { color: var(--jgc-job-heading, var(--jgc-color-text)) !important; font-size: 19px; text-align: left; }
+html[data-job-board-host="job"] .jgc-tab { border-radius: 6px; background: var(--jgc-color-surface); color: var(--jgc-color-text-muted); }
+html[data-job-board-host="job"] .jgc-tab[aria-selected="true"] { background: var(--jgc-job-heading, var(--jgc-color-brand-700)); color: var(--jgc-color-on-brand); }
+@media (max-width: 700px) {
+  html[data-job-board-host="job"] .jgc-panel { padding: 16px; }
+}
