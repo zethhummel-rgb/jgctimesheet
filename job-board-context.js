@@ -77,7 +77,7 @@
     // It grants no server access; all eventual inserts/attachments remain authorized by RLS.
     try { sessionStorage.setItem('jgcJobBoardForm:' + token, JSON.stringify({ actor_id: actorId, worker: canonicalWorker, board: { id: board.id, job_number: board.job_number, job_name: board.job_name, address: board.address } })); } catch { /* Offline preparation is optional. */ }
     prefill(); propagateLinks();
-    notice('Job ' + board.job_number + ' · ' + board.job_name + '. This saved form will attach to this job for office review.');
+    notice('Job ' + board.job_number + ' · ' + board.job_name + '. This saved form will attach to this job automatically.');
     return board;
   }
   async function prepare() {
@@ -102,7 +102,7 @@
       const result = await createJgcSupabaseClient().rpc('attach_job_board_report_by_id', { p_board_id: id, p_source_type: sourceType, p_source_id: sourceId });
       if (result.error) throw new Error('The report is saved, but its Job Board attachment needs a retry. Do not submit the report again.');
       saveQueue(readQueue().filter(q => !(q.board_id === id && q.source_type === sourceType && q.source_id === sourceId)));
-      if (active && board?.id === id) notice('Report saved and attached to Job ' + board.job_number + ' for office review.');
+      if (active && board?.id === id) notice('Report saved and attached to Job ' + board.job_number + ' automatically.');
       prefill(); return true;
     } catch (error) { notice(error.message || 'Report saved; Job Board attachment needs a retry.', () => { void attach(sourceType, sourceId, id); }); return false; }
   }
@@ -143,7 +143,7 @@
         if (finalized.error) throw new Error('The photo uploaded, but its Job Board listing needs a retry.');
         attempt.finished = true;
       }
-      notice('Daily report and photos attached to Job ' + board.job_number + ' for office review.'); return true;
+      notice('Daily report and photos attached to Job ' + board.job_number + ' automatically.'); return true;
     } catch (error) { notice(error.message, retry); return false; }
   }
   async function retryQueue() {

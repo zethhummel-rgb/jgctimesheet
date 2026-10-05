@@ -126,3 +126,16 @@ test('failed JSA crew lookup shows unavailable and retry rather than no approved
   const store=fixture();store.failCrew=true;await openJsa(page,store,{sessionOnly:true});await expect(page.locator('#approvedCrewStatus')).toContainText('could not be loaded');await expect(page.locator('#approvedCrewSelect')).toContainText('Employee list unavailable');await expect(page.locator('#approvedCrewRetry')).toBeVisible();
   store.failCrew=false;await page.locator('#approvedCrewRetry').click();await expect(page.locator('#approvedCrewStatus')).toContainText('2 approved employees loaded');await expect(page.locator('#approvedCrewRetry')).toBeHidden();
 });
+
+for(const theme of ['light','dark'])for(const width of [390,1440])test(`actual JSA Creator Sign Off popup remains readable ${theme} ${width}`,async({page},testInfo)=>{
+  await page.setViewportSize({width,height:1000});const store=fixture();await install(page,store,{sessionOnly:true});
+  await page.goto('/jsa.html?jobBoard=1#'+new URLSearchParams({board:TOKEN,visit:VISIT}));await expect(page.locator('#jobBoardFormStatus')).toContainText('26132');
+  await page.evaluate(theme=>{applyJgcTheme(theme);window.signature=JGCSafetySignature.open({attendeeName:'Synthetic Alpha',recordLabel:'JSA acknowledgement'});},theme);
+  await expect(page.locator('.safety-signature-dialog')).toBeVisible();
+  const ratios=await page.evaluate(()=>{
+    const luminance=color=>{const n=color.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return .2126*n[0]+.7152*n[1]+.0722*n[2];};
+    const bg=luminance(getComputedStyle(document.querySelector('.safety-signature-dialog')).backgroundColor);
+    return Array.from(document.querySelectorAll('.safety-signature-head h2,.safety-signature-body label,.safety-signature-help,.safety-signature-head .small')).map(e=>{const fg=luminance(getComputedStyle(e).color);return (Math.max(bg,fg)+.05)/(Math.min(bg,fg)+.05)});
+  });ratios.forEach(r=>expect(r).toBeGreaterThanOrEqual(4.5));
+  await page.screenshot({path:testInfo.outputPath(`creator-signoff-${theme}-${width}.png`)});await page.locator('.safety-signature-cancel').click();
+});

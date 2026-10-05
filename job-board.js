@@ -83,7 +83,7 @@
   function dateLabel(value) { if (!value) return 'No report date'; const date = new Date(String(value).slice(0, 10) + 'T12:00:00Z'); return Number.isNaN(date.getTime()) ? String(value).slice(0, 10) : date.toLocaleDateString('en-CA', { timeZone: 'America/Toronto', month: 'short', day: 'numeric', year: 'numeric' }); }
   function timeLabel(value) { const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : d.toLocaleString('en-CA', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' }); }
   function bytes(value) { const n = Number(value || 0); return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n ? Math.ceil(n / 1024) + ' KB' : ''; }
-  async function rpc(name, args) { if (!state.client) throw new Error('The Portal connection is unavailable. Refresh and try again.'); const result = await state.client.rpc(name, args); if (result.error) throw result.error; const data = result.data; return Array.isArray(data) && data.length === 1 && name !== 'get_job_board_activity' && name !== 'list_job_board_sources' ? data[0] : data; }
+  async function rpc(name, args) { if (!state.client) throw new Error('The Portal connection is unavailable. Refresh and try again.'); const result = await state.client.rpc(name, args); if (result.error) throw result.error; const data = result.data; return Array.isArray(data) && data.length === 1 && name !== 'get_job_board_activity' && name !== 'list_job_board_sources' && name !== 'get_job_board_contacts' ? data[0] : data; }
   function storageKey() { return 'jgcJobBoardVisit:' + state.token; }
   function loadVisit() { try { const saved = JSON.parse(sessionStorage.getItem(storageKey()) || 'null'); return saved && saved.token && saved.userId === (state.user && state.user.id || '') ? saved : null; } catch (_) { return null; } }
   function saveVisit(data, label) { state.visit = { token: data.visit_token, userId: state.user && state.user.id || '', label: label || state.user && state.user.email || 'Visitor' }; try { sessionStorage.setItem(storageKey(), JSON.stringify(state.visit)); } catch (_) {} }
@@ -136,6 +136,8 @@
     $('boardSignIn').hidden = !!state.user || !!board.requires_visitor_signin;
     const gated = !state.manage && !!board.requires_visitor_signin;
     $('boardSiteSignIn').hidden = state.manage || gated;
+    $('boardContacts').hidden = gated;
+    if (gated && $('contactsDialog').open) $('contactsDialog').close();
     $('loginOptions').hidden = !gated; $('visitorGate').hidden = true; $('boardContent').hidden = gated;
     if (gated) { clearVisit(); return; }
     const manager = state.manage && board.can_manage;
@@ -156,22 +158,22 @@
     if (state.highlighted) highlightDocument();
   }
   const SECTIONS = [
-    ['siteSpecificList', 'Site Specific', ['site-specific','hs-documents']],
-    ['dailyReportsList', 'Daily Reports', ['daily-report','jsa','toolbox-talk','accident-incident','other']],
-    ['inspectionList', 'Daily Inspections', ['inspection']],
-    ['permitList', 'Daily Permits', ['permit']],
-    ['policyList', 'JGC Policy', ['jgc-policy']]
+    ['siteSpecificList', 'Site Specific', ['site-specific','hs-documents'], 'Safety plans, site hazards, emergency procedures and requirements for this job.'],
+    ['dailyReportsList', 'Daily Reports', ['daily-report','jsa','toolbox-talk','accident-incident','other'], 'Daily site updates, job safety analyses (JSAs), toolbox talks and report photos. Restricted reports require authorized staff or client access.'],
+    ['inspectionList', 'Daily Inspections', ['inspection'], 'Equipment and safety inspections completed for this job, including inspections submitted through equipment QR codes.'],
+    ['permitList', 'Daily Permits', ['permit'], 'Work permits for this job, such as hot work, excavation and confined-space entry.'],
+    ['policyList', 'JGC Policy', ['jgc-policy'], 'John Gordon Construction’s current company health and safety policy.']
   ];
   function renderLibrary() {
     const all = (state.board?.documents || []).filter(d => d.status === 'published');
     all.sort((a,b) => String(b.created_at || b.report_date || '').localeCompare(String(a.created_at || a.report_date || '')) || String(b.id).localeCompare(String(a.id)));
-    SECTIONS.forEach(([id,label,categories]) => {
+    SECTIONS.forEach(([id,label,categories,description]) => {
       let list = $(id);
       if (!list) {
         const section = text('details','', 'jgc-panel board-category');
         const summary = text('summary', label); summary.append(text('span','', 'jgc-badge board-section-count'));
         list = text('div','', 'board-category-list'); list.id = id;
-        section.append(summary,list); $('documentSections').append(section);
+        summary.append(text('span',description,'board-help board-category-description')); section.append(summary,list); $('documentSections').append(section);
       }
       const docs = all.filter(d => categories.includes(d.category));
       list.parentElement.querySelector('.board-section-count').textContent = docs.length;
@@ -357,7 +359,7 @@
       row.append(text('time',timeLabel(event.created_at),'board-help'),detail); list.append(row);
     });
   }
-  async function loadSources() { if (!state.board || !state.board.can_manage) return; busy($('importRefresh'), true); status('importStatus', 'Loading available reports…'); try { const data = await rpc('list_job_board_sources', { p_board_id: state.board.id }); const sources = (Array.isArray(data) ? data : data && data.sources || []).filter((source) => !(source.source_type === 'policies' && (state.board.documents || []).some((doc) => doc.automatic && doc.source_type === 'policies' && String(doc.source_id) === String(source.source_id)))); state.sourcesLoaded = true; $('importList').replaceChildren(); if (!sources.length) empty($('importList'), 'No unattached matching reports or company policies are available.'); sources.forEach((source) => { const row = text('div', '', 'jgc-record-row board-viewer'); const desc = document.createElement('div'); desc.append(text('strong', source.title || categoryName(source.category)), text('p', [categoryName(source.category), dateLabel(source.report_date), source.match === 'company-policy' ? 'Company policy' : 'Job number match'].join(' · '), 'board-help')); row.append(desc, button('Attach for review', async (e) => { const b = e.currentTarget; busy(b, true); try { await rpc('attach_job_board_report', { p_token: state.token, p_visit_token: state.visit && state.visit.token || null, p_source_type: source.source_type, p_source_id: source.source_id }); notice('Report attached for publication review.'); state.activityLoaded = false; await loadBoard(); await loadSources(); } catch (error) { notice(errorMessage(error), 'error'); } finally { busy(b, false); } }, true)); $('importList').append(row); }); status('importStatus', sources.length + ' available items.'); } catch (e) { status('importStatus', errorMessage(e), 'error'); } finally { busy($('importRefresh'), false); } }
+  async function loadSources() { if (!state.board || !state.board.can_manage) return; busy($('importRefresh'), true); status('importStatus', 'Loading available reports…'); try { const data = await rpc('list_job_board_sources', { p_board_id: state.board.id }); const sources = (Array.isArray(data) ? data : data && data.sources || []).filter((source) => !(source.source_type === 'policies' && (state.board.documents || []).some((doc) => doc.automatic && doc.source_type === 'policies' && String(doc.source_id) === String(source.source_id)))); state.sourcesLoaded = true; $('importList').replaceChildren(); if (!sources.length) empty($('importList'), 'No unattached matching reports or company policies are available.'); sources.forEach((source) => { const row = text('div', '', 'jgc-record-row board-viewer'); const desc = document.createElement('div'); desc.append(text('strong', source.title || categoryName(source.category)), text('p', [categoryName(source.category), dateLabel(source.report_date), source.match === 'company-policy' ? 'Company policy' : 'Job number match'].join(' · '), 'board-help')); row.append(desc, button(source.source_type === 'policies' ? 'Attach for review' : 'Attach report', async (e) => { const b = e.currentTarget; busy(b, true); try { await rpc('attach_job_board_report', { p_token: state.token, p_visit_token: state.visit && state.visit.token || null, p_source_type: source.source_type, p_source_id: source.source_id }); notice(source.source_type === 'policies' ? 'Company policy attached for office review.' : 'Report attached and published on this Job Board.'); state.activityLoaded = false; await loadBoard(); await loadSources(); } catch (error) { notice(errorMessage(error), 'error'); } finally { busy(b, false); } }, true)); $('importList').append(row); }); status('importStatus', sources.length + ' available items.'); } catch (e) { status('importStatus', errorMessage(e), 'error'); } finally { busy($('importRefresh'), false); } }
   function selectTab(id) { document.querySelectorAll('.board-tabs [role="tab"]').forEach((tab) => { const chosen = tab.dataset.panel === id; tab.classList.toggle('active', chosen); tab.setAttribute('aria-selected', String(chosen)); tab.tabIndex = chosen ? 0 : -1; $(tab.dataset.panel).hidden = !chosen; }); }
   function chooseLogin(id) { ['loginOptions','visitorGate','staffGate','siteGate'].forEach(key => $(key).hidden = key !== id); }
   function openStaff() { chooseLogin('staffGate'); $('staffEmail').focus(); $('staffGate').scrollIntoView({ block: 'center' }); }
@@ -382,6 +384,29 @@
     finally { busy($('staffSubmit'), false); }
   }
   categories($('uploadCategory'), 'jsa'); $('uploadDate').value = dateToday();
+  let contactsGeneration = 0;
+  async function showContacts() {
+    const generation = ++contactsGeneration;
+    if (!$('contactsDialog').open) $('contactsDialog').showModal();
+    $('contactsList').replaceChildren(); $('contactsRetry').hidden = true; status('contactsStatus','Loading contacts…');
+    try {
+      const contacts = await rpc('get_job_board_contacts',{p_token:state.token,p_visit_token:state.visit?.token || null});
+      if (generation !== contactsGeneration || !$('contactsDialog').open) return;
+      status('contactsStatus','');
+      if (!Array.isArray(contacts) || !contacts.length) return empty($('contactsList'),'No contacts are currently listed. Please contact the site supervisor.');
+      contacts.forEach(contact => {
+        const card = text('article','','jgc-panel board-contact'); card.append(text('h3',contact.name,'jgc-section-title'));
+        if (contact.role) card.append(text('p',contact.role,'board-help'));
+        const links = text('div','','board-actions');
+        if (contact.phone) { const phone = text('a',contact.phone,'jgc-button jgc-button--secondary'); phone.href = 'tel:'+String(contact.phone).replace(/[^+0-9*,;#]/g,''); links.append(phone); }
+        if (contact.email) { const email = text('a',contact.email,'jgc-button jgc-button--secondary'); email.href = 'mailto:'+encodeURIComponent(contact.email); links.append(email); }
+        card.append(links); $('contactsList').append(card);
+      });
+    } catch(error) { if (generation === contactsGeneration) { status('contactsStatus',errorMessage(error),'error'); $('contactsRetry').hidden = false; } }
+  }
+  $('boardContacts').addEventListener('click',showContacts); $('contactsRetry').addEventListener('click',showContacts);
+  $('contactsClose').addEventListener('click',()=>$('contactsDialog').close());
+  $('contactsDialog').addEventListener('close',()=>{contactsGeneration++; $('contactsList').replaceChildren();});
   $('boardRefresh').addEventListener('click', loadBoard); $('boardRetry').addEventListener('click', loadBoard);
   $('boardSignIn').addEventListener('click', openStaff); $('uploadSignInButton').addEventListener('click', openStaff); $('staffCancel').addEventListener('click', () => chooseLogin(state.board?.requires_visitor_signin ? 'loginOptions' : ''));
   $('visitorLogin').addEventListener('click',()=>chooseLogin('visitorGate')); $('staffLogin').addEventListener('click',openStaff); $('siteLogin').addEventListener('click',()=>chooseLogin('siteGate')); $('boardSiteSignIn').addEventListener('click',()=>{chooseLogin('siteGate'); $('siteName').focus(); $('siteGate').scrollIntoView({block:'center'});});

@@ -16,8 +16,8 @@
     border: 1px solid #2d7044;
     border-top: 4px solid #32d45c;
     border-radius: 8px;
-    background: #0c2118;
-    color: #fff;
+    background: var(--jgc-color-surface-raised, #142a20);
+    color: var(--jgc-color-text, #f4f8f4);
     box-shadow: 0 20px 70px rgba(0, 0, 0, 0.55);
 }
 
@@ -85,7 +85,7 @@
 }
 
 .safety-signature-help {
-    color: #bdc9c1;
+    color: var(--jgc-color-text-muted, #b9c9bd);
 }
 
 .safety-signature-error {
@@ -126,7 +126,7 @@
     border: 1px solid #316344;
     border-left: 4px solid #d5a72d;
     border-radius: 5px;
-    background: #10291d;
+    background: var(--jgc-color-surface-soft, #1b3127);
 }
 
 .safety-shared-person.is-signed {
@@ -140,7 +140,7 @@
 }
 
 .safety-shared-person-copy span {
-    color: #bdc9c1;
+    color: var(--jgc-color-text-muted, #b9c9bd);
     font-size: 0.85rem;
 }
 
@@ -153,8 +153,9 @@
     padding: 5px 9px;
     border: 1px solid #32d45c;
     border-radius: 999px;
-    color: #fff;
+    color: var(--jgc-color-text, #f4f8f4);
     background: #147a39;
+    color: #fff;
     font-size: 0.82rem;
     font-weight: 700;
 }
@@ -196,3 +197,12 @@
         display: none;
     }
 }
+
+.safety-signature-dialog .safety-signature-head h2,
+.safety-signature-dialog .safety-signature-body label {
+    color: var(--jgc-color-text, #f4f8f4) !important;
+}
+.safety-signature-dialog .small { color: var(--jgc-color-text-muted, #b9c9bd) !important; }
+.safety-signature-dialog .safety-signature-help { color: var(--jgc-color-text-muted, #b9c9bd) !important; }
+.safety-signature-dialog .safety-signature-error { color: var(--jgc-color-danger, #ffb0b0); }
+.safety-shared-person { color: var(--jgc-color-text, #f4f8f4); }
