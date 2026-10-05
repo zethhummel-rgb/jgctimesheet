@@ -55,6 +55,7 @@
         const canvas = backdrop.querySelector(".safety-signature-pad");
         const context = canvas.getContext("2d");
         const printedName = backdrop.querySelector("#safetySignaturePrintedName");
+        if (settings.readOnlyName) printedName.readOnly = true;
         const errorBox = backdrop.querySelector(".safety-signature-error");
         const submitButton = backdrop.querySelector(".safety-signature-submit");
 

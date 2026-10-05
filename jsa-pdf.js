@@ -51,7 +51,7 @@
     function drawSignature(doc, acknowledgement, x, y, width, height) {
         const strokes = typeof window.safetyAckSignatureStrokes === "function"
             ? window.safetyAckSignatureStrokes(acknowledgement)
-            : [];
+            : (Array.isArray(acknowledgement.signature_strokes) ? acknowledgement.signature_strokes : []).filter(stroke=>Array.isArray(stroke)&&stroke.length>=2&&stroke.every(point=>Array.isArray(point)&&point.length===2&&point.every(v=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=1)));
         if (!strokes.length) return;
         doc.setDrawColor(20, 20, 20);
         doc.setLineWidth(0.35);

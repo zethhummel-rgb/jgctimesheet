@@ -14,8 +14,8 @@
     if (!record || typeof record !== 'object') throw new Error('The saved report is unavailable.');
     await loadJgcScriptOnce('vendor/jspdf.umd.min.js', 'jspdf');
     if (type === 'inspection_records' && /^JSA$/i.test(record.inspection_type)) {
-      await loadJgcScriptOnce('jsa-pdf.js?v=2', 'JgcJsaPdf');
-      return (await JgcJsaPdf.create(record)).output('blob');
+      await loadJgcScriptOnce('jsa-pdf.js?v=3', 'JgcJsaPdf');
+      return (await JgcJsaPdf.create(record,{acknowledgements:payload.acknowledgements || []})).output('blob');
     }
     if (type === 'accident_reports' || type === 'employee_injury_reports') {
       await loadJgcScriptOnce('safety-report-tools.js?v=1', 'JGCSafetyReport');

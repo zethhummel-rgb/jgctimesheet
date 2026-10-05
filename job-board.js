@@ -22,7 +22,7 @@
     client: null, board: null, user: null, token: hash.get('board') || '',
     job: params.get('job') || '', manage: params.get('manage') === '1',
     visit: null, generation: 0, uploads: new Map(), uploadBusy: false,
-    activity: [], activityBusy: false, activityLoaded: false, activityBefore: null, sourcesLoaded: false,
+    activityKind: 'portal', activity: [], activityBusy: false, activityLoaded: false, activityBefore: null, sourcesLoaded: false,
     previewUrl: null, previewGeneration: 0, highlighted: hash.get('document') || '', loggedBoardVisit: ''
   };
   const $ = (id) => document.getElementById(id);
@@ -91,6 +91,7 @@
   async function registerVisit(details) { const data = await rpc('register_job_board_visit', Object.assign({ p_token: state.token, p_name: '', p_company: '', p_email: '' }, details)); if (!data || !data.visit_token) throw new Error('Your site sign-in could not be saved. Please try again.'); saveVisit(data, details && details.p_name); }
   function boardLink(documentId) { const u = new URL('job-board.html', location.href); u.search = '?embedded=1'; u.hash = new URLSearchParams(Object.assign({ board: state.token }, documentId ? { document: documentId } : {})).toString(); return u.href; }
   async function loadBoard() {
+    jsaReviewGeneration++;jsaReview=null;$('jsaSignOnPanel').hidden=true;
     const generation = ++state.generation;
     ['loginOptions','siteGate','visitorGate','staffGate'].forEach(id => $(id).hidden = true); $('boardLoading').hidden = false; $('boardError').hidden = true; $('visitorGate').hidden = true; $('boardContent').hidden = true;
     try {
@@ -177,9 +178,57 @@
       }
       const docs = all.filter(d => categories.includes(d.category));
       list.parentElement.querySelector('.board-section-count').textContent = docs.length;
-      renderDocuments(list,docs,id === 'policyList' ? 'The company safety policy is unavailable. Please contact the office.' : 'No published documents yet.');
+      if (['dailyReportsList','inspectionList','permitList'].includes(id)) {
+        const headings = id === 'dailyReportsList' ? ['Todays Reports','Previous Reports'] : id === 'inspectionList' ? ['Todays Inspections','Previous Inspections'] : ['Todays Permits','Previous Permits'];
+        const today=dateToday(), periods=[docs.filter(d=>String(d.report_date||'').slice(0,10)===today),docs.filter(d=>String(d.report_date||'').slice(0,10)<today)], future=docs.filter(d=>String(d.report_date||'').slice(0,10)>today);
+        const expanded=new Map(Array.from(list.querySelectorAll('.board-report-period')).map(section=>[section.querySelector('[data-period]')?.dataset.period,section.open]));
+        list.replaceChildren(); periods.forEach((items,index)=>{
+          const section=text('details','','board-report-period');section.open=expanded.has(index===0?'today':'previous')?expanded.get(index===0?'today':'previous'):index===0;
+          const summary=text('summary',headings[index]);summary.append(text('span',items.length,'jgc-badge board-section-count'));
+          const records=text('div','','board-category-list');records.dataset.period=index===0?'today':'previous';renderDocuments(records,items,index===0?'No reports for today.':'No previous reports.');section.append(summary,records);list.append(section);
+        });
+        if(future.length){const section=text('details','','board-report-period'),summary=text('summary','Upcoming');summary.append(text('span',future.length,'jgc-badge board-section-count'));const records=text('div','','board-category-list');renderDocuments(records,future,'');section.append(summary,records);list.append(section);}
+      } else renderDocuments(list,docs,id === 'policyList' ? 'The company safety policy is unavailable. Please contact the office.' : 'No published documents yet.');
     });
   }
+  let jsaReview = null, jsaReviewGeneration = 0;
+  async function openJsaSignOn(doc) {
+    const generation=++jsaReviewGeneration; jsaReview=null; $('boardContent').hidden=true; $('jsaSignOnPanel').hidden=false;
+    $('jsaSignOnTitle').textContent=doc.title || 'Sign on to JSA';$('jsaSignOnReport').replaceChildren();$('jsaSignOnRoster').replaceChildren();$('jsaSignOnRead').checked=false;$('jsaSignOnSign').disabled=true;$('jsaSignOnPdf').disabled=true;status('jsaSignOnStatus','Loading JSA…');
+    $('jsaSignOnPanel').scrollIntoView({block:'start'});
+    try {
+      const model=await rpc('get_job_board_jsa',{p_token:state.token,p_visit_token:state.visit?.token||null,p_document_id:doc.id});
+      if(generation!==jsaReviewGeneration)return;jsaReview={doc,model};$('jsaSignOnPdf').disabled=false;$('jsaSignOnPdf').textContent=String(doc.mime_type||'').startsWith('image/')?'Open JSA image':'Open JSA PDF';status('jsaSignOnStatus',model.signed?'You signed this JSA on '+timeLabel(model.signed_at):'Read the JSA below before signing.');
+      $('jsaSignOnIdentity').textContent='Signing as '+model.identity.name+' · '+model.identity.company;
+      const report=$('jsaSignOnReport'),record=model.record;
+      if(record){
+        report.append(text('p','Report date: '+dateLabel(doc.report_date),'board-help'));
+        (record.form_data?.fields||[]).forEach(field=>{const row=text('div','','board-jsa-field');row.append(text('strong',field.label || 'Form detail'),text('p',String(field.value ?? 'Not entered')));report.append(row);});
+        (record.form_data?.rows||[]).filter(row=>(Array.isArray(row)?row:row.cells||[]).some(cell=>String(cell??'').trim())).forEach((row,index)=>{const section=text('section','','board-jsa-step');section.append(text('h3','Work step '+(index+1),'jgc-section-title'));const cells=Array.isArray(row)?row:row.cells||[];cells.forEach((cell,cellIndex)=>{const detail=text('div','','board-jsa-field');detail.append(text('strong',['Work activity','Potential hazards','Control measures'][cellIndex]||'Detail'),text('p',typeof cell==='object'?String(cell.text ?? cell.value ?? ''):String(cell)));section.append(detail);});report.append(section);});
+      }else report.append(text('p','Open the JSA document below and read the full report before confirming.'));
+      const signed=(model.acknowledgements||[]).filter(a=>a.signature_signed_at);
+      if(!signed.length)empty($('jsaSignOnRoster'),'No signatures recorded yet.');
+      signed.forEach(ack=>{const row=text('div','','jgc-record-row');row.append(text('strong',ack.attendee_name),text('span',ack.attendee_company || ''),text('time',timeLabel(ack.signature_signed_at),'board-help'));$('jsaSignOnRoster').append(row);});
+      $('jsaSignOnSign').disabled=!!model.signed;$('jsaSignOnRead').disabled=!!model.signed;$('jsaSignOnSign').textContent=model.signed?'Already signed':'Sign onto JSA';
+    }catch(error){if(generation===jsaReviewGeneration)status('jsaSignOnStatus',errorMessage(error),'error');}
+  }
+  $('jsaSignOnBack').addEventListener('click',()=>{jsaReviewGeneration++;jsaReview=null;$('jsaSignOnPanel').hidden=true;$('boardContent').hidden=false;});
+  $('jsaSignOnRead').addEventListener('change',()=>{$('jsaReadContinue').disabled=!jsaReview||jsaReview.model.signed||!$('jsaSignOnRead').checked;});
+  $('jsaSignOnPdf').addEventListener('click',e=>{if(jsaReview)void viewDocument(jsaReview.doc,e.currentTarget);});
+  $('jsaSignOnSign').addEventListener('click',()=>{if(!jsaReview||jsaReview.model.signed)return;$('jsaSignOnRead').checked=false;$('jsaReadContinue').disabled=true;$('jsaReadDialog').showModal();});
+  $('jsaReadCancel').addEventListener('click',()=>$('jsaReadDialog').close());
+  $('jsaReadContinue').addEventListener('click',()=>{
+    if(!jsaReview||!$('jsaSignOnRead').checked||jsaReview.model.signed)return;
+    $('jsaReadDialog').close();
+    const review=jsaReview,generation=jsaReviewGeneration;
+    JGCSafetySignature.open({attendeeName:review.model.identity.name,readOnlyName:true,recordLabel:review.doc.title+' · '+review.model.identity.company,onSubmit:async signature=>{
+      if(generation!==jsaReviewGeneration)throw new Error('Open the JSA again before signing.');
+      const result=await rpc('sign_job_board_jsa',{p_token:state.token,p_visit_token:state.visit?.token||null,p_document_id:review.doc.id,p_confirm_read:$('jsaSignOnRead').checked,p_reviewed_version:review.model.version,p_signature_strokes:signature.strokes,p_signature_width:signature.width,p_signature_height:signature.height});
+      if(!result?.ok)throw new Error('Your signature could not be saved.');
+      status('jsaSignOnStatus','Signature saved. Your name and company have been added to this JSA.','success');$('jsaSignOnSign').disabled=true;review.model.signed=true;
+      void openJsaSignOn(review.doc);return {ok:true};
+    }});
+  });
   function button(label, action, secondary) { const b = text('button', label, 'jgc-button' + (secondary ? ' jgc-button--secondary' : '')); b.type = 'button'; b.addEventListener('click', action); return b; }
   function renderDocuments(parent, docs, message, review) { parent.replaceChildren(); if (!docs.length) return empty(parent, message); docs.forEach((doc) => parent.append(documentCard(doc, review))); if (window.lucide) window.lucide.createIcons(); }
   function documentCard(doc, review) {
@@ -193,6 +242,7 @@
     detail.append(meta); if (doc.notes) detail.append(text('p', doc.notes, 'board-document-notes'));
     const actions = text('div', '', 'board-document-actions');
     actions.append(button('View', (event) => viewDocument(doc, event.currentTarget), true), button('Download', (event) => downloadDocument(doc, event.currentTarget), true));
+    if (!review && doc.category === 'jsa') actions.append(button('Sign on to JSA',()=>openJsaSignOn(doc),true));
     if (!review) actions.append(button('Email PDF', (event) => emailDocument(doc, event.currentTarget), true));
     card.append(icon, detail, actions);
     if (state.manage && state.board.can_manage && !doc.automatic) card.append(reviewEditor(doc, review));
@@ -237,7 +287,7 @@
       const response = await fetch(base.replace(/\/$/, '') + '/functions/v1/jgc-job-board-document', { method: 'POST', headers, body: JSON.stringify({ boardToken: state.token, visitToken: state.visit && state.visit.token || null, documentId: doc.id }), signal: controller.signal, referrerPolicy: 'no-referrer', cache: 'no-store' });
       const data = await response.json(); if (!response.ok || data.error) throw new Error(data.error || 'The document could not be opened. Sign in if it requires restricted access.');
       let blob;
-      if (data.sourcePayload) { if (!window.JGCJobBoardPdf || !window.JGCJobBoardPdf.create) throw new Error('The report exporter is unavailable. Refresh and try again.'); blob = await window.JGCJobBoardPdf.create(data.sourcePayload); }
+      if (data.sourcePayload) { if (!window.JGCJobBoardPdf || !window.JGCJobBoardPdf.create) throw new Error('The report exporter is unavailable. Refresh and try again.'); if(doc.category==='jsa'){const model=await rpc('get_job_board_jsa',{p_token:state.token,p_visit_token:state.visit?.token||null,p_document_id:doc.id});data.sourcePayload.acknowledgements=model.acknowledgements;} blob = await window.JGCJobBoardPdf.create(data.sourcePayload); }
       else if (data.pdfBase64) { const raw = atob(data.pdfBase64); const bytes = Uint8Array.from(raw, (char) => char.charCodeAt(0)); blob = new Blob([bytes], { type: data.mimeType || 'application/pdf' }); }
       else {
         if (!data.url) throw new Error('The document service did not return a file.');
@@ -342,12 +392,12 @@
   async function loadActivity(append) {
     if (state.activityBusy || !state.board || !state.board.can_manage) return;
     state.activityBusy = true; busy($('activityRefresh'), true); busy($('activityMore'), true); status('activityStatus', 'Loading activity…');
-    try { const before = append ? state.activityBefore : null; const result = await rpc('get_job_board_activity', { p_board_id: state.board.id, p_before: before, p_limit: 50 }); const events = Array.isArray(result) ? result : result && result.events || []; state.activity = append ? state.activity.concat(events) : events; state.activityBefore = result && Object.prototype.hasOwnProperty.call(result, 'next_before') ? result.next_before : (events.length === 50 ? events[events.length - 1].created_at : null); state.activityLoaded = true; $('activityMore').hidden = !state.activityBefore; renderActivity(); status('activityStatus', state.activity.length + ' events shown. Times are in Toronto.'); }
+    try { const before = append ? state.activityBefore : null; const result = await rpc('get_job_board_signins', { p_board_id: state.board.id, p_kind:state.activityKind, p_before: before, p_limit: 50 }); const events = Array.isArray(result) ? result : result && result.events || []; state.activity = append ? state.activity.concat(events) : events; state.activityBefore = result && Object.prototype.hasOwnProperty.call(result, 'next_before') ? result.next_before : (events.length === 50 ? events[events.length - 1].created_at : null); state.activityLoaded = true; $('activityMore').hidden = !state.activityBefore; renderActivity(); status('activityStatus', state.activity.length + ' events shown. Times are in Toronto.'); }
     catch (e) { status('activityStatus', errorMessage(e), 'error'); } finally { state.activityBusy = false; busy($('activityRefresh'), false); busy($('activityMore'), false); }
   }
   function renderActivity() {
     const list = $('activityList'); list.replaceChildren();
-    const events = state.activity.filter(e => ['visit','site-signin'].includes(e.action));
+    const events = state.activity.filter(e => e.action === (state.activityKind==='site'?'site-signin':'visit'));
     if (!events.length) return empty(list,'No sign-ins have been recorded yet.');
     events.forEach(event => {
       const row = text('div','', 'jgc-record-row board-activity-row');
@@ -405,6 +455,7 @@
     } catch(error) { if (generation === contactsGeneration) { status('contactsStatus',errorMessage(error),'error'); $('contactsRetry').hidden = false; } }
   }
   $('boardContacts').addEventListener('click',showContacts); $('contactsRetry').addEventListener('click',showContacts);
+  document.querySelectorAll('[data-signin-kind]').forEach(tab=>tab.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const tabs=Array.from(document.querySelectorAll('[data-signin-kind]'));const next=event.key==='Home'?tabs[0]:event.key==='End'?tabs[tabs.length-1]:tabs[(tabs.indexOf(tab)+1)%tabs.length];next.click();next.focus();}));
   $('contactsClose').addEventListener('click',()=>$('contactsDialog').close());
   $('contactsDialog').addEventListener('close',()=>{contactsGeneration++; $('contactsList').replaceChildren();});
   $('boardRefresh').addEventListener('click', loadBoard); $('boardRetry').addEventListener('click', loadBoard);
@@ -430,7 +481,8 @@
   $('boardCopyLink').addEventListener('click', async () => { try { await navigator.clipboard.writeText(boardLink()); notice('Job Board link copied.'); } catch (_) { notice('Copy is unavailable in this browser. Open board, then copy its address.', 'warning'); } });
   $('boardSaveEnabled').addEventListener('click', () => configureBoard(false)); $('boardRotate').addEventListener('click', () => $('boardRotateConfirm').hidden = false); $('boardRotateNo').addEventListener('click', () => $('boardRotateConfirm').hidden = true); $('boardRotateYes').addEventListener('click', () => configureBoard(true));
   $('viewerForm').addEventListener('submit', async (e) => { e.preventDefault(); busy($('viewerSubmit'), true); try { await rpc('grant_job_board_viewer', { p_board_id: state.board.id, p_email: $('viewerEmail').value.trim() }); $('viewerForm').reset(); notice('Restricted report access granted.'); await loadBoard(); } catch (error) { notice(errorMessage(error), 'error'); } finally { busy($('viewerSubmit'), false); } });
-  $('boardActivity').addEventListener('toggle', () => { if ($('boardActivity').open && !state.activityLoaded) loadActivity(false); }); $('activityRefresh').addEventListener('click', () => loadActivity(false)); $('activityMore').addEventListener('click', () => loadActivity(true));
+  $('boardActivity').addEventListener('toggle', () => { if ($('boardActivity').open && !state.activityLoaded) loadActivity(false); }); $('activityRefresh').addEventListener('click', () => loadActivity(false));
+  document.querySelectorAll('[data-signin-kind]').forEach(tab=>tab.addEventListener('click',()=>{if(state.activityBusy)return;state.activityKind=tab.dataset.signinKind;$('activityList').setAttribute('aria-labelledby',tab.id);state.activityLoaded=false;state.activityBefore=null;document.querySelectorAll('[data-signin-kind]').forEach(t=>t.setAttribute('aria-selected',String(t===tab)));void loadActivity(false);})); $('activityMore').addEventListener('click', () => loadActivity(true));
   $('boardImport').addEventListener('toggle', () => { if ($('boardImport').open && !state.sourcesLoaded) loadSources(); }); $('importRefresh').addEventListener('click', loadSources);
   $('emailPdfClose').addEventListener('click',()=>$('emailPdfDialog').close());
   $('emailPdfDialog').addEventListener('close',()=>{ emailVersion++; emailFile = null; });

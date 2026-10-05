@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "977";
+const JGC_RELEASE_ID = "978";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -16,10 +16,10 @@ const JGC_APP_SHELL = [
   "./estimating/assets/rfi-pdf-CcuvmGUQ.js",
   "./estimating/assets/src-Csk4h7RB.js",
   "./job-board-context.js?v=2",
-  "./job-board-report-pdf.js?v=1",
-  "./job-board.css?v=4",
+  "./job-board-report-pdf.js?v=2",
+  "./job-board.css?v=5",
   "./job-board.html",
-  "./job-board.js?v=4",
+  "./job-board.js?v=5",
   "./job-board-email.js?v=1",
   "./vendor/qrcode.min.js?v=1",
 
@@ -629,9 +629,9 @@ const JGC_APP_SHELL = [
   "./purchase-orders-admin.js?v=14",
   "./work-order-digital-pos.js?v=3",
   "./safety-signature-pad.css?v=2",
-  "./safety-signature-pad.js?v=1",
+  "./safety-signature-pad.js?v=2",
   "./safety-acknowledgements.js?v=7",
-  "./jsa-pdf.js?v=2",
+  "./jsa-pdf.js?v=3",
   "./field-calculator.css?v=18",
   "./calculator-engine.js?v=25",
   "./calculator-functions.js?v=28",
