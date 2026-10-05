@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "979";
+const JGC_RELEASE_ID = "980";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -19,7 +19,7 @@ const JGC_APP_SHELL = [
   "./job-board-report-pdf.js?v=2",
   "./job-board.css?v=6",
   "./job-board.html",
-  "./job-board.js?v=6",
+  "./job-board.js?v=7",
   "./job-board-email.js?v=1",
   "./vendor/qrcode.min.js?v=1",
 

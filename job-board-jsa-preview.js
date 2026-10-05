@@ -40,7 +40,7 @@
         const content = await page.getTextContent();
         const transcript = document.createElement('div'); transcript.className = 'board-jsa-accessible-text'; transcript.textContent = content.items.map(item => item.str).join(' ');
         const caption = document.createElement('figcaption'); caption.textContent = 'Page ' + i + ' of ' + pdf.numPages;
-        sheet.append(canvas, transcript, caption); if (isCurrent()) pages.append(sheet); page.cleanup();
+        sheet.append(canvas, transcript, caption); if (isCurrent()) pages.append(sheet);
       }
     } finally { await task.destroy(); }
   }};

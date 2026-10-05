@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <script>
+    document.documentElement.dataset.jgcTheme = 'light';
     try {
       if (parent !== window && parent.location.origin === location.origin && new URLSearchParams(location.search).get('manage') === '1') {
         document.documentElement.dataset.jobBoardHost = 'job';
@@ -28,9 +29,9 @@
       <p id="boardAddress" class="jgc-muted"></p>
       <div class="board-header-actions">
         <button class="jgc-button jgc-button--secondary" id="boardRefresh" type="button" data-testid="board-refresh">Refresh</button>
-        <button class="jgc-button jgc-button--secondary" id="boardTheme" type="button" aria-label="Switch colour theme">Light theme</button>
         <button class="jgc-button jgc-button--secondary" id="boardSiteSignIn" type="button" hidden>Site Sign in</button>
         <button class="jgc-button jgc-button--secondary" id="boardContacts" type="button" hidden>JGC Contacts</button>
+        <button class="jgc-button jgc-button--secondary" id="boardLogout" type="button" hidden>Log out</button>
         <button class="jgc-button jgc-button--secondary" id="boardSignIn" type="button">Staff Login</button>
       </div>
       <p id="boardIdentity" class="jgc-page-user" hidden></p>
@@ -147,7 +148,10 @@
       </section>
 
       <section class="jgc-panel board-admin-panel" id="boardActivityPanel" hidden>
-        <details id="boardActivity" data-testid="board-activity"><summary>Sign-in log</summary><div class="board-details-content"><p class="board-help">Visitor, staff and site sign-ins, with date and time. Visitor and site details are entered by the person signing in.</p><nav class="board-signin-tabs board-actions" role="tablist" aria-label="Sign-in type"><button class="jgc-tab" type="button" role="tab" aria-selected="true" id="portalSigninTab" data-signin-kind="portal" aria-controls="activityList">Portal Sign-ins</button><button class="jgc-tab" type="button" role="tab" aria-selected="false" id="siteSigninTab" data-signin-kind="site" aria-controls="activityList">Site Sign-ins</button></nav><div class="board-actions"><button class="jgc-button jgc-button--secondary" id="activityRefresh" type="button">Refresh sign-ins</button></div><p id="activityStatus" class="board-form-status" role="status" aria-live="polite"></p><div id="activityList" class="jgc-record-list" role="tabpanel" aria-labelledby="portalSigninTab"></div><button class="jgc-button jgc-button--secondary" id="activityMore" type="button" hidden>Load more</button></div></details>
+        <details id="boardActivity" data-testid="board-activity"><summary>Portal Sign-ins</summary><div class="board-details-content"><p class="board-help">Visitor and staff logins to this Job Board, with date and time.</p><div class="board-actions"><button class="jgc-button jgc-button--secondary" id="activityRefresh" type="button">Refresh sign-ins</button></div><p id="activityStatus" class="board-form-status" role="status" aria-live="polite"></p><div id="activityList" class="jgc-record-list"></div><button class="jgc-button jgc-button--secondary" id="activityMore" type="button" hidden>Load more</button></div></details>
+      </section>
+      <section class="jgc-panel board-admin-panel" id="boardSiteActivityPanel" hidden>
+        <details id="boardSiteActivity"><summary>Site Sign-ins</summary><div class="board-details-content"><p class="board-help">Site attendance: name, company, date, time and optional reason, entered by the person signing in.</p><div class="board-actions"><button class="jgc-button jgc-button--secondary" id="siteActivityRefresh" type="button">Refresh sign-ins</button><button class="jgc-button" id="siteActivityPdf" type="button">Download Site Sign-ins PDF</button></div><p id="siteActivityStatus" class="board-form-status" role="status" aria-live="polite"></p><div id="siteActivityList" class="jgc-record-list"></div><button class="jgc-button jgc-button--secondary" id="siteActivityMore" type="button" hidden>Load more</button></div></details>
       </section>
       <footer class="board-footer">John Gordon Construction · Job Board</footer>
     </div>
@@ -192,6 +196,6 @@
   <script src="job-board-report-pdf.js?v=2"></script>
   <script src="job-board-email.js?v=1"></script>
   <script src="safety-signature-pad.js?v=2"></script>
-  <script src="job-board.js?v=6"></script>
+  <script src="job-board.js?v=7"></script>
 </body>
 </html>
