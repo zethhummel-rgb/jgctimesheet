@@ -2,19 +2,20 @@ const JGC_RELEASE_ID = "983";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
-  "./estimating/assets/browser-CLH5OyQ1.js",
-  "./estimating/assets/drawing-pdf-B5DgosSU.js",
-  "./estimating/assets/es-CLO5hPVu.js",
-  "./estimating/assets/index-Ckf9eD8M.js",
-  "./estimating/assets/job-schedule-pdf-DrDlrVKe.js",
-  "./estimating/assets/job-warranty-pdf-DZDXMNkg.js",
-  "./estimating/assets/pdf-BE4xqORJ.js",
-  "./estimating/assets/proposal-pdf-DIjlilsI.js",
-  "./estimating/assets/purchase-order-pdf-CcErn-i2.js",
-  "./estimating/assets/quote-backup-pdf-DRpxMeiT.js",
-  "./estimating/assets/rfi-pdf-ByeBDFb7.js",
-  "./estimating/assets/site-specific-pdf-Df5XqLGt.js",
-  "./estimating/assets/src-CxGObEVg.js",
+  "./estimating/assets/browser-CNT2ZpE-.js",
+  "./estimating/assets/drawing-pdf-BzRA70rV.js",
+  "./estimating/assets/es-CzdUut7b.js",
+  "./estimating/assets/index-B_kXSi3w.js",
+  "./estimating/assets/job-schedule-pdf-CMuDvpLM.js",
+  "./estimating/assets/job-warranty-pdf-DrwOJSn7.js",
+  "./estimating/assets/pdf-CmfyUeSv.js",
+  "./estimating/assets/proposal-pdf-B5pSiJcV.js",
+  "./estimating/assets/purchase-order-pdf-D5nTX5Yv.js",
+  "./estimating/assets/quote-backup-pdf-dM2hxDHu.js",
+  "./estimating/assets/rfi-pdf-C6raQ4Ov.js",
+  "./estimating/assets/site-specific-pdf-DwznDMg2.js",
+  "./estimating/assets/src-DztyyrnD.js",
+
 
   "./estimating/assets/index-hn0icavN.css",
 

@@ -24,9 +24,10 @@ export async function buildSiteSpecificPdf(options:{plan:SiteSpecificPlan;logoBy
  function start(continued=false){if(continued){p=doc.addPage([612,792]);header(p);y=664;}for(const row of wrap(section.title+(continued?' - continued':''),bold,15,516)){text(p,row,48,y,15,bold,green);y-=20;}rule(p,y-3,gold,.7);y-=27;}
  start();for(const field of section.fields){const labelRows=wrap(field.label,bold,10.5,500);if(y-labelRows.length*15<105)start(true);for(const row of labelRows){text(p,row,48,y,10.5,bold,green);y-=15;}y-=2;const value=field.value.trim()||'Not entered';for(const row of wrap(value,regular,10,500)){if(y<76){start(true);text(p,`${field.label} - continued`,48,y,9,bold,muted);y-=18;}text(p,row,56,y,10);y-=14;}y-=18;}}
  for(const source of sources){entries.push({title:source.item.title,page:doc.getPageCount()+1});if(source.pdf){
-  for(const original of source.pdf.getPages()){
-   const box=original.getCropBox(),rotation=((original.getRotation().angle%360)+360)%360;
-   const page=await doc.embedPage(original,{left:box.x,bottom:box.y,right:box.x+box.width,top:box.y+box.height});
+  const originals=source.pdf.getPages(),boxes=originals.map(original=>{const b=original.getCropBox();return {left:b.x,bottom:b.y,right:b.x+b.width,top:b.y+b.height};});
+  const embedded=await doc.embedPages(originals,boxes);
+  for(const [index,original] of originals.entries()){
+   const rotation=((original.getRotation().angle%360)+360)%360,page=embedded[index];
    const sideways=rotation===90||rotation===270,out=doc.addPage([sideways?page.height:page.width,(sideways?page.width:page.height)+28]);
    const position=rotation===90?{x:0,y:28+page.width}:rotation===180?{x:page.width,y:28+page.height}:rotation===270?{x:page.height,y:28}:{x:0,y:28};
    out.drawPage(page,{...position,width:page.width,height:page.height,rotate:degrees(-rotation)});
