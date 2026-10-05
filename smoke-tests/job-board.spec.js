@@ -461,3 +461,7 @@ expect(store.calls.filter(c=>c.name==='get_job_board_signins').map(c=>[c.args.p_
 for(const identity of ['guest','staff'])test(`Job Board logout clears ${identity} access and returns to light login choices`,async({page})=>{
  await open(page,identity,{theme:'dark'});if(identity==='guest')await visitorSignIn(page);await expect(page.getByRole('button',{name:'Log out',exact:true})).toBeVisible();await page.getByRole('button',{name:'Log out',exact:true}).click();await expect(page.locator('#loginOptions')).toBeVisible();await expect(page.locator('#boardContent')).toBeHidden();await expect(page.locator('html')).toHaveAttribute('data-jgc-theme','light');await expect(page.locator('#documentSections article')).toHaveCount(0);await expect(page.locator('#boardLogout')).toBeHidden();
 });
+
+for(const theme of ['light','dark'])test(`hosted desktop PDF close stays reachable in the parent viewport ${theme}`,async({page})=>{
+ await page.setViewportSize({width:1440,height:1000});const {board}=await openNativeBoard(page,theme);await board.locator('.board-category').evaluateAll(nodes=>nodes.forEach(n=>{n.open=true;n.querySelectorAll('.board-report-period').forEach(p=>p.open=true);}));await board.locator('#dailyReportsList article').filter({hasText:'Morning JSA'}).getByRole('button',{name:'View',exact:true}).click();await expect(board.locator('#previewBody canvas').first()).toBeVisible({timeout:15000});await board.locator('#previewClose').click();await expect(board.locator('#documentPreview')).not.toBeVisible();
+});

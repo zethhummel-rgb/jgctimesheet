@@ -306,6 +306,15 @@
   async function logActivity(action, documentId) { return rpc('log_job_board_activity', { p_token: state.token, p_visit_token: state.visit && state.visit.token || null, p_action: action, p_document_id: documentId }); }
   function saveBlob(blob, name) { const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; a.rel = 'noopener'; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000); }
   async function downloadDocument(doc, control) { busy(control, true); try { const file = await documentFile(doc); saveBlob(file.blob, file.fileName); notice('Download started: ' + file.fileName); } catch (e) { notice(errorMessage(e), 'error'); } finally { busy(control, false); } }
+  function fitDesktopPreview(){
+    if(!hosted||!window.frameElement)return;
+    const bounds=window.frameElement.getBoundingClientRect();let safeTop=12;
+    window.parent.document.querySelectorAll('.topbar,.job-tabs').forEach(element=>{const rect=element.getBoundingClientRect(),style=window.parent.getComputedStyle(element);if(['sticky','fixed'].includes(style.position)&&rect.bottom>0&&rect.top<=parseFloat(style.top||'0')+2)safeTop=Math.max(safeTop,rect.bottom+12);});
+    const height=Math.max(180,Math.min(window.parent.innerHeight-safeTop-12,bounds.bottom-Math.max(safeTop,bounds.top)-12)),dialog=$('documentPreview');
+    Object.assign(dialog.style,{position:'fixed',top:Math.max(12,safeTop-bounds.top)+'px',bottom:'auto',left:'0',right:'0',margin:'0 auto',maxHeight:height+'px'});$('previewBody').style.maxHeight=Math.max(90,height-100)+'px';
+
+  }
+  if(hosted){const update=()=>{if($('documentPreview').open)fitDesktopPreview();};window.parent.addEventListener('scroll',update,{passive:true});window.parent.addEventListener('resize',update);window.addEventListener('pagehide',()=>{window.parent.removeEventListener('scroll',update);window.parent.removeEventListener('resize',update);});}
   async function viewDocument(doc, control) {
     if (window.matchMedia('(max-width: 780px), (pointer: coarse)').matches) {
       // Reserve the tab during the click so mobile browsers allow the full PDF viewer.
@@ -330,8 +339,8 @@
       } finally { busy(control, false); }
       return;
     }
-    busy(control, true); const version = ++state.previewGeneration; $('previewTitle').textContent = doc.title || 'Document'; $('previewBody').replaceChildren(); status('previewStatus', 'Opening document…'); if (!$('documentPreview').open) $('documentPreview').showModal();
-    try { const file=await documentFile(doc);if(version!==state.previewGeneration)return;if(!window.JGCJsaPreview)await loadJgcScriptOnce('job-board-jsa-preview.js?v=2');await JGCJsaPreview.render($('previewBody'),file,()=>version===state.previewGeneration&&$('documentPreview').open);if(version===state.previewGeneration)status('previewStatus',''); }
+    busy(control, true); const version = ++state.previewGeneration; $('previewTitle').textContent = doc.title || 'Document'; $('previewBody').replaceChildren(); status('previewStatus', 'Opening document…'); fitDesktopPreview(); if (!$('documentPreview').open) $('documentPreview').showModal();
+    try { const file=await documentFile(doc);if(version!==state.previewGeneration)return;if(!window.JGCJsaPreview)await loadJgcScriptOnce('job-board-jsa-preview.js?v=2');await JGCJsaPreview.render($('previewBody'),file,()=>version===state.previewGeneration&&$('documentPreview').open);if(version===state.previewGeneration){fitDesktopPreview();status('previewStatus','');} }
     catch (e) { if (version === state.previewGeneration) status('previewStatus', errorMessage(e), 'error'); } finally { busy(control, false); }
   }
   let emailFile = null, emailSubject = '', emailVersion = 0;
