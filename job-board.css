@@ -129,3 +129,12 @@ html[data-job-board-host="job"] .jgc-tab[aria-selected="true"] { background: var
 .board-jsa-step { padding:1rem; border:1px solid var(--jgc-color-border); border-radius:8px; margin:1rem 0; }
 .board-signin-tabs { margin-bottom:1rem; }
 .board-signin-tabs [aria-selected="true"] { background:var(--jgc-color-surface-soft);color:var(--jgc-color-text);font-weight:700; }
+
+/* The review is the actual white PDF page in both Portal themes. */
+#jsaSignOnReport{min-width:0}
+.board-jsa-preview-tools{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem;margin:.75rem 0}
+.board-jsa-preview-tools>span{margin-right:auto}.board-jsa-preview-tools output{min-width:3.5rem;text-align:center;font-weight:700}
+.board-jsa-preview-scroll{overflow-x:auto;width:100%;background:var(--jgc-surface-muted,#e5eae7);border:1px solid var(--jgc-border,#c6d3cb);border-radius:.5rem;padding:.6rem;box-sizing:border-box;overscroll-behavior-x:contain}
+.board-jsa-pdf-pages{max-width:none;min-width:100%}.board-jsa-pdf-sheet{margin:0 0 1rem;padding:0;min-width:0}.board-jsa-pdf-sheet canvas{display:block;width:100%;height:auto;background:white;box-shadow:0 2px 6px #0002}.board-jsa-pdf-sheet figcaption{text-align:center;padding:.4rem;font-size:.85rem;color:var(--jgc-text,#172920)}
+.board-jsa-accessible-text{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.board-jsa-original{display:block;max-width:100%;height:auto;background:white}

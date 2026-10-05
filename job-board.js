@@ -200,17 +200,19 @@
       const model=await rpc('get_job_board_jsa',{p_token:state.token,p_visit_token:state.visit?.token||null,p_document_id:doc.id});
       if(generation!==jsaReviewGeneration)return;jsaReview={doc,model};$('jsaSignOnPdf').disabled=false;$('jsaSignOnPdf').textContent=String(doc.mime_type||'').startsWith('image/')?'Open JSA image':'Open JSA PDF';status('jsaSignOnStatus',model.signed?'You signed this JSA on '+timeLabel(model.signed_at):'Read the JSA below before signing.');
       $('jsaSignOnIdentity').textContent='Signing as '+model.identity.name+' · '+model.identity.company;
-      const report=$('jsaSignOnReport'),record=model.record;
-      if(record){
-        report.append(text('p','Report date: '+dateLabel(doc.report_date),'board-help'));
-        (record.form_data?.fields||[]).forEach(field=>{const row=text('div','','board-jsa-field');row.append(text('strong',field.label || 'Form detail'),text('p',String(field.value ?? 'Not entered')));report.append(row);});
-        (record.form_data?.rows||[]).filter(row=>(Array.isArray(row)?row:row.cells||[]).some(cell=>String(cell??'').trim())).forEach((row,index)=>{const section=text('section','','board-jsa-step');section.append(text('h3','Work step '+(index+1),'jgc-section-title'));const cells=Array.isArray(row)?row:row.cells||[];cells.forEach((cell,cellIndex)=>{const detail=text('div','','board-jsa-field');detail.append(text('strong',['Work activity','Potential hazards','Control measures'][cellIndex]||'Detail'),text('p',typeof cell==='object'?String(cell.text ?? cell.value ?? ''):String(cell)));section.append(detail);});report.append(section);});
-      }else report.append(text('p','Open the JSA document below and read the full report before confirming.'));
+      const report=$('jsaSignOnReport');
+      status('jsaSignOnStatus','Preparing JSA PDF…');
+      const file = model.record ? {blob:await window.JGCJobBoardPdf.create({source_type:'inspection_records',record:model.record,acknowledgements:model.acknowledgements}),mimeType:'application/pdf'} : await documentFile(doc);
+      if(generation!==jsaReviewGeneration)return;
+      if(!window.JGCJsaPreview)await loadJgcScriptOnce('job-board-jsa-preview.js?v=1');
+      await window.JGCJsaPreview.render(report,file,()=>generation===jsaReviewGeneration);
+      if(generation!==jsaReviewGeneration)return;
+      status('jsaSignOnStatus',model.signed?'You signed this JSA on '+timeLabel(model.signed_at):'Read the JSA below before signing.');
       const signed=(model.acknowledgements||[]).filter(a=>a.signature_signed_at);
       if(!signed.length)empty($('jsaSignOnRoster'),'No signatures recorded yet.');
       signed.forEach(ack=>{const row=text('div','','jgc-record-row');row.append(text('strong',ack.attendee_name),text('span',ack.attendee_company || ''),text('time',timeLabel(ack.signature_signed_at),'board-help'));$('jsaSignOnRoster').append(row);});
       $('jsaSignOnSign').disabled=!!model.signed;$('jsaSignOnRead').disabled=!!model.signed;$('jsaSignOnSign').textContent=model.signed?'Already signed':'Sign onto JSA';
-    }catch(error){if(generation===jsaReviewGeneration)status('jsaSignOnStatus',errorMessage(error),'error');}
+    }catch(error){if(generation===jsaReviewGeneration){status('jsaSignOnStatus',errorMessage(error)+' Reopen this JSA to try again.','error');$('jsaSignOnReport').replaceChildren();}}
   }
   $('jsaSignOnBack').addEventListener('click',()=>{jsaReviewGeneration++;jsaReview=null;$('jsaSignOnPanel').hidden=true;$('boardContent').hidden=false;});
   $('jsaSignOnRead').addEventListener('change',()=>{$('jsaReadContinue').disabled=!jsaReview||jsaReview.model.signed||!$('jsaSignOnRead').checked;});
