@@ -260,7 +260,7 @@ for (const theme of ['light', 'dark']) for (const width of [390, 1440]) test(`na
   await expect(board.locator('#jgcAppearanceSettings,#jgcAdminGlobalSearch,#jgcNotificationBell,#jgcGlobalTopNav,#jgcMobileBottomNav,#jgcPageBar,#jgcPwaPullIndicator')).toHaveCount(0);
   await expect(board.locator('#boardToolbar')).toBeVisible(); await expect(board.getByRole('button', { name: 'Refresh', exact: true })).toHaveCount(1);
   const layout = await board.locator('body').evaluate(() => { const shell = document.getElementById('jobBoardPage').getBoundingClientRect(); return { minHeight: getComputedStyle(document.body).minHeight, background: getComputedStyle(document.body).backgroundColor, shellLeft: shell.left, shellWidth: shell.width, width: innerWidth, scrollWidth: document.documentElement.scrollWidth, text: document.body.innerText }; });
-  expect(layout.minHeight).toBe('0px'); expect(layout.background).toBe('rgba(0, 0, 0, 0)'); expect(layout.shellLeft).toBe(0); expect(layout.shellWidth).toBeCloseTo(layout.width, 0); expect(layout.scrollWidth).toBeLessThanOrEqual(layout.width + 1); expect(layout.text).not.toMatch(/â€™|â€¦|Â·|\uFFFD/);
+  expect(layout.minHeight).toBe('0px'); expect(layout.background).toBe('rgba(0, 0, 0, 0)'); expect(layout.shellLeft).toBe(0); expect(layout.shellWidth).toBeCloseTo(layout.width, 0); expect(layout.scrollWidth).toBeLessThanOrEqual(layout.width + 1); expect(layout.text).not.toMatch(/â€™|…|·|\uFFFD/);
   // Compare resolved colours on real controls/cards to the native Desk tokens.
   const desk = await page.evaluate(() => {
     const native = getComputedStyle(document.documentElement), probe = document.createElement('div');
@@ -423,6 +423,22 @@ test('Portal and Site admin sign-in tabs page independently and poster carries b
 });
 
 for(const theme of ['light','dark'])for(const width of [390,1440])test(`JSA sign-on review and confirmation fit ${theme} ${width}`,async({page},testInfo)=>{
-  await page.setViewportSize({width,height:1000});await open(page,'guest',{theme});await visitorSignIn(page);await page.locator('#dailyReportsList article').filter({hasText:'Morning JSA'}).getByRole('button',{name:'Sign on to JSA',exact:true}).click();await expect(page.locator('#jsaSignOnSign')).toBeEnabled();await expect(page.locator('#jsaSignOnReport')).toContainText('Potential hazards');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  await page.setViewportSize({width,height:1000});await open(page,'guest',{theme});await visitorSignIn(page);await page.locator('#dailyReportsList article').filter({hasText:'Morning JSA'}).getByRole('button',{name:'Sign on to JSA',exact:true}).click();await expect(page.locator('#jsaSignOnSign')).toBeEnabled({timeout:15000});await expect(page.locator('#jsaSignOnReport')).toContainText('Hazards');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   await page.screenshot({path:receipt(testInfo,`jsa-review-${theme}-${width}.png`),fullPage:true});await page.locator('#jsaSignOnSign').click();await expect(page.locator('#jsaReadDialog')).toBeVisible();await page.screenshot({path:receipt(testInfo,`jsa-read-confirmation-${theme}-${width}.png`)});await page.locator('#jsaReadCancel').click();await page.locator('#jsaSignOnBack').click();await expect(page.locator('#boardContent')).toBeVisible();
+});
+
+test('JSA review shows actual PDF pages, zooms, and blocks signing until the PDF is ready',async({page})=>{
+ const store=await open(page,'guest');await visitorSignIn(page);let release;const gate=new Promise(resolve=>release=resolve);
+ await page.route('**/vendor/pdfjs/pdf.min.mjs*',async route=>{await gate;await route.continue();});
+ await page.locator('#dailyReportsList article').filter({hasText:'Morning JSA'}).getByRole('button',{name:'Sign on to JSA',exact:true}).click();
+ await expect(page.locator('#jsaSignOnSign')).toBeDisabled();release();await expect(page.locator('#jsaSignOnSign')).toBeEnabled({timeout:15000});
+ const canvas=page.locator('.board-jsa-pdf-sheet canvas').first();await expect(canvas).toBeVisible();expect(await canvas.evaluate(c=>c.width)).toBeGreaterThan(1000);
+ expect(await canvas.evaluate(c=>{const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let ink=0;for(let i=0;i<d.length;i+=40)if(d[i]<230||d[i+1]<230||d[i+2]<230)ink++;return ink;})).toBeGreaterThan(1000);
+ await expect(page.locator('#jsaSignOnReport')).not.toContainText('Form detail');await page.getByRole('button',{name:'Zoom in JSA'}).click();await expect(page.locator('.board-jsa-preview-tools output')).toHaveText('125%');await page.getByRole('button',{name:'Fit width',exact:true}).click();await expect(page.locator('.board-jsa-preview-tools output')).toHaveText('100%');
+});
+
+test('JSA preview failure blocks signing and reopening retries the real PDF',async({page})=>{
+ await open(page,'guest');await visitorSignIn(page);await page.route('**/vendor/pdfjs/pdf.min.mjs*',route=>route.abort());
+ const action=()=>page.locator('#dailyReportsList article').filter({hasText:'Morning JSA'}).getByRole('button',{name:'Sign on to JSA',exact:true}).click();await action();await expect(page.locator('#jsaSignOnStatus')).toContainText('Reopen this JSA');await expect(page.locator('#jsaSignOnSign')).toBeDisabled();await expect(page.locator('.board-jsa-pdf-sheet')).toHaveCount(0);
+ await page.unroute('**/vendor/pdfjs/pdf.min.mjs*');await page.locator('#jsaSignOnBack').click();await action();await expect(page.locator('#jsaSignOnSign')).toBeEnabled({timeout:15000});await expect(page.locator('.board-jsa-pdf-sheet canvas').first()).toBeVisible();
 });
