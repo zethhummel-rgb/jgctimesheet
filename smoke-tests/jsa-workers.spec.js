@@ -12,7 +12,7 @@ async function fixture(page){
  page.on('dialog',d=>d.accept());
  await page.route('**/*',async route=>{
   const req=route.request(),url=new URL(req.url()),single=String(req.headers().accept || '').includes('object');
-  if(url.hostname==='127.0.0.1' || url.hostname==='localhost')return route.fallback();
+  if(url.hostname==='127.0.0.1' || url.hostname==='localhost' || url.hostname===process.env.JGC_SMOKE_LIVE_HOST)return route.fallback();
   if(url.origin!==ORIGIN)return route.abort();
   if(url.pathname.includes('/auth/v1/'))return route.fulfill({json:url.pathname.endsWith('/user')?creator:session});
   if(url.pathname.includes('/rpc/')){
@@ -76,4 +76,37 @@ test('future JSA saves and exports for the client without sign-off or notificati
 });
 test('manual workers require separate name and company',async({page})=>{
  await fixture(page);await page.goto('jsa.html');await page.locator('#manualCrewInput').fill('Manual Worker');await page.getByRole('button',{name:'Add Worker',exact:true}).click();await expect(page.locator('#manualWorkerStatus')).toHaveText('Enter both Name and Company.');await expect(page.locator('#manualCrewList')).toContainText('No manual entries');
+});
+
+for(const theme of ['light','dark'])test(`saved JSA review uses actual PDF pages with a contained phone roster in ${theme}`,async({page},info)=>{
+ await page.setViewportSize({width:390,height:900});const store=await fixture(page);await fill(page);await page.locator('#jsaCompleteWorkers').click();
+ const model=store.model;await page.goto('/todays-inspections.html?recordType=reports');await page.evaluate(theme=>applyJgcTheme(theme),theme);
+ await page.evaluate(async id=>{await JGCJsaWorkers.openReview(inspectionSupabaseClient,id,document.getElementById('editPanel'));},model.record.id);
+ await expect(page.locator('.board-jsa-pdf-sheet canvas').first()).toBeVisible();await expect(page.locator('#editPanel [data-jsa-worker-sign]')).toHaveCount(2);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(await page.locator('.board-jsa-accessible-text').first().evaluate(e=>getComputedStyle(e).clipPath)).toBe('inset(50%)');
+ await page.getByRole('button',{name:'Zoom in JSA'}).click();await expect(page.locator('.board-jsa-preview-tools output')).toHaveText('125%');
+ expect(await page.locator('.board-jsa-preview-scroll').evaluate(e=>e.scrollWidth>e.clientWidth)).toBe(true);
+ await page.getByRole('button',{name:'Fit width',exact:true}).click();await page.locator('#editPanel').screenshot({path:info.outputPath('saved-jsa-review.png')});
+ store.model.can_collect=false;await page.locator('#editPanel [data-jsa-refresh]').click();await expect(page.locator('#editPanel [data-jsa-worker-sign]')).toHaveCount(0);await expect(page.locator('#editPanel [data-jsa-request]')).toHaveCount(0);
+});
+
+test('creator-phone worker roster does not generate account reminders, including a future JSA',async({page})=>{
+ await fixture(page);await page.goto('/jsa.html');
+ const notifications=await page.evaluate(async()=>{
+  const row={id:'synthetic-new-ack',record_type:'jsa',record_id:'synthetic-future-jsa',attendee_key:'jsa-worker:00000000-0000-4000-8000-000000000001',attendee_name:'Synthetic Creator',matched_employee_email:'creator@example.com',acknowledgement_status:'pending',record_date:'2099-01-01'};
+  const rows=[row,{...row,id:'synthetic-legacy-ack',record_id:'historical-jsa',attendee_key:'synthetic creator',record_date:'2026-09-01'}];
+  const q={select:()=>q,in:()=>q,is:()=>q,eq:()=>q,order:()=>q,maybeSingle:async()=>({data:{admin_enabled:true},error:null}),limit:async()=>({data:rows,error:null})};
+  return await loadJgcSafetyAcknowledgementNotifications({from:()=>q,auth:inspectionSupabaseClient.auth});
+ });expect(notifications).toHaveLength(1);expect(notifications[0].id).toBe('safety-ack:synthetic-legacy-ack');
+});
+
+test('a staff phone can collect a JSA prepared ahead of time without editing its saved report',async({page})=>{
+ const store=await fixture(page);await fill(page,future());await page.locator('#jsaSaveWorkerDraft').click();
+ Object.assign(store.model.workflow,{active:true,today:date(),valid_date:date(),status:'Draft — Awaiting Worker Sign-Offs',prepared_in_advance:true,signing_mode:'shared_phone'});
+ store.model.record.inspection_date=date();store.model.record.form_data.fields.find(f=>f.label==='Date').value=date();store.model.can_edit=false;
+ await page.goto('/jsa.html?record='+store.model.record.id);await expect(page.locator('#jsaWorkDateHelp')).toContainText('Staff with this JSA');await expect(page.locator('#jsaField3')).toBeDisabled();
+ await page.locator('#jsaCompleteWorkers').click();await expect(page.locator('[data-jsa-worker-sign]')).toHaveCount(2);
+ await sign(page,'Synthetic Worker');await sign(page,'Manual Worker');await expect(page.locator('#jsaPostSaveQrPanel h3')).toHaveText('Completed');
+ expect(store.calls.filter(c=>c.name==='save_worker_jsa')).toHaveLength(1);
 });

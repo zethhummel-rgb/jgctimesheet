@@ -125,14 +125,14 @@
       const result = await inspectionSupabaseClient.rpc("activate_prepared_jsa", { p_id: draft.id, p_revision: draft.revision, p_mode: "workers", p_attendees: attendees });
       if (result.error) throw result.error;
       draft = result.data.draft;
-      result.data.record.jsa_workflow=result.data.workflow; result.data.record.jsa_can_collect=result.data.can_collect;
+      result.data.record.jsa_workflow=result.data.workflow; result.data.record.jsa_can_collect=result.data.can_collect;result.data.record.jsa_can_edit=result.data.can_edit;
       showActive(result.data.record, result.data.acknowledgements, true);
       status("All workers need to sign off report before JSA is completed.");
     });
   }
   function showActive(record, acknowledgements, openMode) {
     $("jsaPreparationTitle").textContent = record.jsa_workflow?.status || "JSA record";
-    $("jsaPreparationHelp").textContent = "Collect each worker acknowledgement and signature on the creator phone.";
+    $("jsaPreparationHelp").textContent = "Collect each worker acknowledgement and signature on one phone. A JSA prepared in advance can be signed on the staff phone handling today’s sign-offs.";
     document.querySelectorAll(".grid input, .grid select, .checklist input, #jsaTable textarea, #jsaTable button, .signoff input, .signoff select, .signoff button, .jsa-row-actions button").forEach(f => f.disabled = true);
     $("jsaLibrary").hidden = true;
     $("jsaSignoffChoiceSection").hidden = false;

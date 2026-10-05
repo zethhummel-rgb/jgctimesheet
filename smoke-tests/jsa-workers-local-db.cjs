@@ -46,7 +46,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
  const id='00000000-0000-4000-8000-000000000010',todayId='00000000-0000-4000-8000-000000000011';
  await as(creator);
  let model=await call('select public.save_worker_jsa($1,0,$2,$3) result',[id,source(dates.future),workers]);
- assert.equal(model.workflow.status,'Prepared');assert.equal(model.workflow.active,false);assert.equal(model.acknowledgements.length,2);assert.equal(model.acknowledgements[0].attendee_name,'Synthetic Worker');assert.equal(model.can_collect,true);
+ assert.equal(model.workflow.status,'Prepared');assert.equal(model.workflow.active,false);assert.equal(model.acknowledgements.length,2);assert.equal(model.acknowledgements.find(a=>a.matched_employee_id).attendee_name,'Synthetic Worker');assert.equal(model.can_collect,true);
  assert.equal((await call('select public.save_worker_jsa($1,0,$2,$3) result',[id,source(dates.future),workers])).workflow.revision,1,'idempotent retry');
  await rejects('select public.request_jsa_worker_signoff($1)',[id],/only on the JSA work date/);
  const sig=[[[.1,.2],[.3,.4]]];
@@ -81,6 +81,15 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
  await call('select public.save_worker_jsa($1,1,$2,$3) result',[id,newFuture,workers]);
  await rejects('select public.save_worker_jsa($1,1,$2,$3)',[id,source(dates.today),workers],/changed/);
  model=await call('select public.save_worker_jsa($1,2,$2,$3) result',[id,source(dates.today),workers]);assert.equal(model.workflow.status,'Draft — Awaiting Worker Sign-Offs','work date activates state automatically');
+ assert.equal(model.workflow.prepared_in_advance,true,'prepared permission survives changing the work date');
+ await as(worker);
+ model=await call('select public.get_jsa_worker_workflow($1) result',[id]);assert(model.can_collect,'another staff phone can collect a prepared JSA');assert.equal(model.can_edit,false);
+ model=await call('select public.request_jsa_worker_signoff($1) result',[id]);
+ for(const ack of model.acknowledgements)model=await call('select public.sign_jsa_worker($1,3,true,$2,300,150,$3) result',[id,sig,ack.id]);
+ assert.equal(model.workflow.status,'Completed');assert(model.acknowledgements.every(a=>a.acknowledged_by_user_id===worker));assert(model.acknowledgements.some(a=>a.signature_signed_name==='Manual Worker'));
+ await as(creator);
+ const manualOnly='00000000-0000-4000-8000-000000000041';
+ model=await call('select public.save_worker_jsa($1,0,$2,$3) result',[manualOnly,source(dates.today),[{name:'Manual JGC Worker',company:'JGC'}]]);assert.equal(model.acknowledgements[0].attendee_name,'Manual JGC Worker');assert.equal(model.acknowledgements[0].matched_employee_id,null,'manual workers need no portal account');
  const prep='00000000-0000-4000-8000-000000000030',payload={record:source(dates.future),crew:[],manual:[{name:'Manual Worker',company:'Trade Co'}]};
  await call('select public.save_prepared_jsa($1,0,$2) result',[prep,payload]);
  const attendees=workers.map(w=>({attendee_name:w.name,attendee_company:w.company,matched_employee_id:w.employee_id || null}));
@@ -94,5 +103,5 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
  assert.equal((await db.query('select count(*)::integer count from notifications')).rows[0].count,0,'creator-phone flow never sends worker-account notifications');
  assert.equal(JSON.stringify((await db.query('select * from safety_acknowledgements where record_id=$1',[legacy])).rows),old,'historical signatures unchanged');
  assert.equal((await db.query('select count(*)::integer count from jsa_worker_workflows where record_id=$1',[legacy])).rows[0].count,0,'historical records not backfilled/reopened');
- await db.close();console.log('PASS: future preparation, work-date activation, creator-only collection, required manual signatures, completion, validation, atomic rollback, stale revision, idempotent signatures, RLS bypass denial, no notifications, historical preservation.');
+ await db.close();console.log('PASS: future preparation, work-date activation, creator collection and prepared-JSA staff exception, required manual signatures, completion, validation, atomic rollback, stale revision, idempotent signatures, RLS bypass denial, no notifications, historical preservation.');
 })().catch(error=>{console.error(error.stack);process.exitCode=1;});

@@ -32,6 +32,15 @@ function formatJsaReportAcknowledgementDate(value) {
 
 function renderJsaReportAcknowledgements(inspection) {
     const acknowledgements = getJsaReportAcknowledgements(inspection);
+    const workflow = window.JGCJsaWorkers?.state(inspection, acknowledgements);
+    if (workflow) {
+        const future = workflow.status === "Prepared";
+        const detail = acknowledgements.map(ack => escapeHtml(
+            (ack.attendee_name || "Worker") + (ack.attendee_company ? " / " + ack.attendee_company : "") + ": " +
+            (ack.signature_signed_at ? "Signed - " + formatJsaReportAcknowledgementDate(ack.signature_signed_at) : future ? "Planned - sign on work date" : "Outstanding")
+        )).join("<br>");
+        return `<strong>${escapeHtml(workflow.status)}</strong><br>${escapeHtml(String(workflow.signed))}/${escapeHtml(String(workflow.required))} signed${workflow.outstanding && !future ? " - " + escapeHtml(String(workflow.outstanding)) + " outstanding" : ""}${detail ? "<br>" + detail : ""}`;
+    }
 
     if (!acknowledgements.length) {
         return "-";

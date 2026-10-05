@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="jgc-design-system.css?v=13" data-jgc-design-system="13">
 <link rel="stylesheet" href="report-design-system.css?v=2">
 <link rel="stylesheet" href="jsa-report.css?v=4">
+<link rel="stylesheet" href="jsa-workers.css?v=1">
 </head>
 
 <body class="report-family-page report-readability-page report-form-page jgc-page jgc-system-page">
@@ -159,7 +160,7 @@
 </main>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-<script src="common.js?v=73"></script>
+<script src="common.js?v=74"></script>
 <script src="job-board-context.js?v=2"></script>
 <script src="employee-feature-access.js?v=3"></script>
 <script src="safety-signature-pad.js?v=3"></script>
@@ -430,7 +431,7 @@ function getJsaWorkerEntries() {
 }
 function getJsaAfterSaveStatus() {return jsaWorkerModel?.workflow?.status || 'JSA saved.';}
 function showJsaSafetyQrAfterSave(record,rows) {
-  jsaPostSaveRecord=record;jsaPostSaveRows=rows || [];jsaWorkerModel={record,acknowledgements:jsaPostSaveRows,workflow:record.jsa_workflow,can_collect:record.jsa_can_collect};
+  jsaPostSaveRecord=record;jsaPostSaveRows=rows || [];jsaWorkerModel={record,acknowledgements:jsaPostSaveRows,workflow:record.jsa_workflow,can_collect:record.jsa_can_collect,can_edit:record.jsa_can_edit};
   renderWorkerCompletion();return true;
 }
 function renderWorkerCompletion() {
@@ -442,15 +443,15 @@ function renderWorkerCompletion() {
   panel.innerHTML='<h3>'+escapeJsaHtml(state?.status || 'Historical JSA')+'</h3><p>'+(state?state.signed+' / '+state.required+' workers signed · '+state.outstanding+' outstanding.':'Existing signatures are preserved.')+'</p>'+JGCJsaWorkers.roster(model.acknowledgements,state?.status==='Prepared',!!model.can_collect && state?.active && !!state.requested_at)+'<div class="jgc-actions"><button type="button" class="jgc-button jgc-button--secondary" id="jsaRefreshWorkers">Refresh sign-offs</button>'+'</div><div id="jsaOwnReview" hidden></div>';
   document.getElementById('jsaRefreshWorkers').onclick=()=>void runJsaWorkerAction(async()=>{jsaWorkerModel=await JGCJsaWorkers.load(inspectionSupabaseClient,model.record.id);jsaPostSaveRecord=jsaWorkerModel.record;renderWorkerCompletion();});
   panel.querySelectorAll('[data-jsa-worker-sign]').forEach(button=>button.onclick=()=>void runJsaWorkerAction(async()=>{const next=await JGCJsaWorkers.sign(inspectionSupabaseClient,model,button.dataset.jsaWorkerSign);if(next){jsaWorkerModel=next;jsaPostSaveRecord=next.record;renderWorkerCompletion();setInspectionSaveStatus(next.workflow.status);}}));
-  if(state?.requested_at || state?.signed || state?.status==='Completed') document.querySelectorAll('.grid input,.grid select,.checklist input,#jsaTable textarea,#jsaTable button,.signoff input,.signoff select,.signoff button,.jsa-row-actions button').forEach(e=>e.disabled=true);
+  if(model.can_edit===false || state?.requested_at || state?.signed || state?.status==='Completed') document.querySelectorAll('.grid input,.grid select,.checklist input,#jsaTable textarea,#jsaTable button,.signoff input,.signoff select,.signoff button,.jsa-row-actions button').forEach(e=>e.disabled=true);
   updateJsaWorkDate();
 }
 function updateJsaWorkDate() {
   const date=document.getElementById('jsaField3').value;
   const control=document.getElementById('jsaCompleteWorkers');
-  if(control)control.disabled=jsaWorkerBusy || date!==JGCJsaWorkers.today();
+  if(control)control.disabled=jsaWorkerBusy || date!==JGCJsaWorkers.today() || jsaWorkerModel?.can_collect===false;
   const help=document.getElementById('jsaWorkDateHelp');
-  if(help)help.textContent=date>JGCJsaWorkers.today()?'Prepared for '+date+'. Save and export for the client now. Worker signatures and requests become available on the work date.':date===JGCJsaWorkers.today()?'Each worker, including manual entries, must acknowledge and sign on the creator phone.':'Worker sign-off is available only on the JSA work date.';
+  if(help)help.textContent=date>JGCJsaWorkers.today()?'Prepared for '+date+'. Save and export for the client now. Worker signatures and requests become available on the work date.':date===JGCJsaWorkers.today()?(jsaWorkerModel?.workflow?.prepared_in_advance?'Prepared ahead of time. Staff with this JSA can collect all workers’ signatures on their phone.':'Each worker, including manual entries, must acknowledge and sign on the creator phone.'):'Worker sign-off is available only on the JSA work date.';
   const activate=document.getElementById('jsaActivate');if(activate)activate.disabled=jsaWorkerBusy || date!==JGCJsaWorkers.today() || !!window.JgcPreparedJsa?.isActive?.();
 }
 async function runJsaWorkerAction(action) {
@@ -460,7 +461,7 @@ async function runJsaWorkerAction(action) {
   finally{jsaWorkerBusy=false;document.querySelectorAll('[data-jsa-worker-action]').forEach(b=>b.disabled=false);updateJsaWorkDate();}
 }
 async function saveJsaWorkerDraft() {
-  if(jsaWorkerModel?.workflow?.requested_at){jsaWorkerModel=await JGCJsaWorkers.load(inspectionSupabaseClient,jsaWorkerModel.record.id);jsaPostSaveRecord=jsaWorkerModel.record;renderWorkerCompletion();return jsaWorkerModel.record;}
+  if(jsaWorkerModel && (jsaWorkerModel.workflow?.requested_at || jsaWorkerModel.can_edit===false)){jsaWorkerModel=await JGCJsaWorkers.load(inspectionSupabaseClient,jsaWorkerModel.record.id);jsaPostSaveRecord=jsaWorkerModel.record;renderWorkerCompletion();return jsaWorkerModel.record;}
   if(!window.JgcPreparedJsa.validate())throw new Error('Enter project, date, task, hazards and controls before saving.');
   syncCrewSignOffField();const built=await buildInspectionRecord('JSA',getCurrentWorker());
   built.record.id=jsaWorkerRecordId;built.record.jsa_workflow=jsaWorkerModel?.workflow;
@@ -474,7 +475,7 @@ async function completeJsaWorkers() {
   document.getElementById('jsaAcknowledgementChoiceStatus').textContent='All workers need to sign off report before JSA is completed.';
   if(window.JgcPreparedJsa?.isPrepared && !jsaPostSaveRecord){await window.JgcPreparedJsa.activate('workers');return;}
   await runJsaWorkerAction(async()=>{
-    if(!jsaWorkerModel || !jsaWorkerModel.workflow?.requested_at)await saveJsaWorkerDraft();
+    if(!jsaWorkerModel || (!jsaWorkerModel.workflow?.requested_at && jsaWorkerModel.can_edit!==false))await saveJsaWorkerDraft();
     jsaWorkerModel=await JGCJsaWorkers.request(inspectionSupabaseClient,jsaWorkerModel.record.id);
     jsaPostSaveRecord=jsaWorkerModel.record;renderWorkerCompletion();
     setInspectionSaveStatus(jsaWorkerModel.workflow.status);

@@ -211,16 +211,17 @@
       if(generation!==jsaReviewGeneration)return;
       status('jsaSignOnStatus',model.signed?'You signed this JSA on '+timeLabel(model.signed_at):'Read the JSA below before signing.');
       const signed=(model.acknowledgements||[]).filter(a=>model.workflow?.version===2 || a.signature_signed_at);
-      if(model.workflow?.version===2)status('jsaSignOnStatus',model.workflow.status+' · '+model.workflow.signed+'/'+model.workflow.required+' workers signed. All worker signatures are collected on the JSA creator phone.');
+      if(model.workflow?.version===2)status('jsaSignOnStatus',model.workflow.status+' · '+model.workflow.signed+'/'+model.workflow.required+' workers signed. '+(model.workflow.prepared_in_advance?'Staff with this prepared JSA can collect the signatures on their phone.':'All worker signatures are collected on the JSA creator phone.'));
       if(!signed.length)empty($('jsaSignOnRoster'),'No signatures recorded yet.');
       signed.forEach(ack=>{const row=text('div','','jgc-record-row');row.append(text('strong',ack.attendee_name),text('span',ack.attendee_company || ''),text('time',ack.signature_signed_at?'Signed · '+timeLabel(ack.signature_signed_at):model.workflow?.status==='Prepared'?'Planned — sign on work date':'Outstanding','board-help'));$('jsaSignOnRoster').append(row);});
-      $('jsaSignOnSign').disabled=!!model.signed || model.workflow?.version===2;$('jsaSignOnRead').disabled=!!model.signed;$('jsaSignOnSign').textContent=model.workflow?.version===2?'Sign on creator phone':model.signed?'Already signed':'Sign onto JSA';
+      $('jsaSignOnSign').disabled=model.workflow?.version===2?!model.can_collect || !model.workflow.active:!!model.signed;$('jsaSignOnRead').disabled=!!model.signed;
+      $('jsaSignOnSign').textContent=model.workflow?.version===2?(model.can_collect?'Collect worker signatures':model.workflow.prepared_in_advance?'Sign on staff phone':'Sign on creator phone'):model.signed?'Already signed':'Sign onto JSA';
     }catch(error){if(generation===jsaReviewGeneration){status('jsaSignOnStatus',errorMessage(error)+' Reopen this JSA to try again.','error');$('jsaSignOnReport').replaceChildren();}}
   }
   $('jsaSignOnBack').addEventListener('click',()=>{jsaReviewGeneration++;jsaReview=null;$('jsaSignOnPanel').hidden=true;$('boardContent').hidden=false;});
   $('jsaSignOnRead').addEventListener('change',()=>{$('jsaReadContinue').disabled=!jsaReview||jsaReview.model.signed||!$('jsaSignOnRead').checked;});
   $('jsaSignOnPdf').addEventListener('click',e=>{if(jsaReview)void viewDocument(jsaReview.doc,e.currentTarget);});
-  $('jsaSignOnSign').addEventListener('click',()=>{if(!jsaReview||jsaReview.model.signed)return;$('jsaSignOnRead').checked=false;$('jsaReadContinue').disabled=true;$('jsaReadDialog').showModal();});
+  $('jsaSignOnSign').addEventListener('click',()=>{if(!jsaReview)return;if(jsaReview.model.workflow?.version===2){if(jsaReview.model.can_collect && jsaReview.model.workflow.active)window.location.href='jsa.html?record='+encodeURIComponent(jsaReview.model.record.id);return;}if(jsaReview.model.signed)return;$('jsaSignOnRead').checked=false;$('jsaReadContinue').disabled=true;$('jsaReadDialog').showModal();});
   $('jsaReadCancel').addEventListener('click',()=>$('jsaReadDialog').close());
   $('jsaReadContinue').addEventListener('click',()=>{
     if(!jsaReview||!$('jsaSignOnRead').checked||jsaReview.model.signed)return;

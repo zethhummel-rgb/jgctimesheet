@@ -283,6 +283,7 @@ async function safetyAckNotifyPendingRows(client, rows) {
         row &&
         String(row.acknowledgement_status || "pending").toLowerCase() === "pending" &&
         !row.acknowledged_at &&
+        !(row.record_type === "jsa" && /^jsa-(?:worker|external):/.test(row.attendee_key || "")) &&
         (row.matched_employee_id || row.matched_employee_email)
     );
 

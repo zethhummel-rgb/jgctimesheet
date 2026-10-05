@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="jgc-design-system.css?v=13" data-jgc-design-system="13">
 <link rel="stylesheet" href="inspection-history-today.css?v=2">
 <link rel="stylesheet" href="safety-signature-pad.css?v=3">
+<link rel="stylesheet" href="jsa-workers.css?v=1">
 </head>
 
 <body class="inspection-history-page jgc-page jgc-system-page">
@@ -38,7 +39,7 @@
 </main>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-<script src="common.js?v=73"></script>
+<script src="common.js?v=74"></script>
 <script src="job-board-context.js?v=2"></script>
 <script src="safety-signature-pad.js?v=3"></script>
 <script src="safety-acknowledgements.js?v=8"></script>
@@ -1344,7 +1345,8 @@ function renderVehicleInspectionPrintDocument(record) {
                 th { background: #e9f4eb; font-weight: bold; }
                 .inspection-result-pill { display: inline; font-weight: bold; }
             </style>
-        </head>
+        <link rel="stylesheet" href="jsa-workers.css?v=1">
+</head>
         <body>
             ${renderVehicleInspectionSheet(record)}
         </body>

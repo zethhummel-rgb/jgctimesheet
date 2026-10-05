@@ -3,6 +3,7 @@ const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
   "./jsa-workers.js?v=1",
+  "./jsa-workers.css?v=1",
   "./jsa-worker-editor.js?v=1",
   "./estimating/assets/browser-CNT2ZpE-.js",
   "./estimating/assets/drawing-pdf-BzRA70rV.js",
@@ -629,7 +630,7 @@ const JGC_APP_SHELL = [
   "./notification-settings-design-system.css?v=4",
   "./acknowledgement-design-system.css?v=3",
   "./login-design-system.css?v=11",
-  "./common.js?v=73",
+  "./common.js?v=74",
   "./admin-global-search.js?v=10",
   "./accounting-workbook.js?v=9",
   "./accounting-admin.js?v=14",

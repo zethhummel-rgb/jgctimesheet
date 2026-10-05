@@ -3,6 +3,7 @@ create table public.jsa_worker_workflows (
   record_id uuid primary key references public.inspection_records(id) on delete cascade,
   created_by uuid not null references auth.users(id),
   valid_date date not null,
+  prepared_in_advance boolean not null default false,
   revision integer not null default 1 check (revision > 0),
   requested_at timestamptz,
   completed_at timestamptz,
@@ -12,13 +13,13 @@ create table public.jsa_worker_workflows (
 alter table public.jsa_worker_workflows enable row level security;
 revoke all on public.jsa_worker_workflows from public,anon,authenticated;
 grant select on public.jsa_worker_workflows to authenticated;
-create policy "Approved staff read JSA worker workflows" on public.jsa_worker_workflows for select to authenticated using (private.jgc_has_full_portal_access());
+create policy "Approved staff read JSA worker workflows" on public.jsa_worker_workflows for select to authenticated using ((select private.jgc_has_full_portal_access()));
 create index jsa_worker_workflows_created_by_idx on public.jsa_worker_workflows(created_by);
 create index jsa_worker_workflows_valid_date_idx on public.jsa_worker_workflows(valid_date) where completed_at is null;
 
 create function private.jgc_jsa_worker_state(p_id uuid) returns jsonb language sql stable security definer set search_path='' as $$
   select jsonb_build_object('version',2,'revision',w.revision,'valid_date',w.valid_date,'requested_at',w.requested_at,'completed_at',w.completed_at,
-    'today',(now() at time zone 'America/Toronto')::date,'active',w.valid_date=(now() at time zone 'America/Toronto')::date,'signing_mode','creator_phone',
+    'today',(now() at time zone 'America/Toronto')::date,'active',w.valid_date=(now() at time zone 'America/Toronto')::date,'signing_mode',case when w.prepared_in_advance then 'shared_phone' else 'creator_phone' end,'prepared_in_advance',w.prepared_in_advance,
     'required',a.total,'signed',a.signed,'outstanding',a.total-a.signed,
     'status',case when w.completed_at is not null then 'Completed'
       when w.valid_date>(now() at time zone 'America/Toronto')::date then 'Prepared'
@@ -30,7 +31,8 @@ create function private.jgc_jsa_worker_state(p_id uuid) returns jsonb language s
 $$;
 create function private.jgc_jsa_worker_model(p_id uuid) returns jsonb language sql stable security definer set search_path='' as $$
   select jsonb_build_object('record',to_jsonb(r)||jsonb_build_object('jsa_workflow',private.jgc_jsa_worker_state(p_id)),
-    'can_collect',exists(select 1 from public.jsa_worker_workflows where record_id=p_id and created_by=auth.uid()),'workflow',private.jgc_jsa_worker_state(p_id),'acknowledgements',coalesce((select jsonb_agg(to_jsonb(a) order by a.created_at,a.id)
+    'can_collect',exists(select 1 from public.jsa_worker_workflows where record_id=p_id and (created_by=auth.uid() or prepared_in_advance)),
+    'can_edit',exists(select 1 from public.jsa_worker_workflows where record_id=p_id and (created_by=auth.uid() or public.is_admin()) and requested_at is null),'workflow',private.jgc_jsa_worker_state(p_id),'acknowledgements',coalesce((select jsonb_agg(to_jsonb(a) order by a.created_at,a.id)
       from public.safety_acknowledgements a where a.record_type='jsa' and a.record_id=p_id and a.removed_at is null),'[]'::jsonb))
   from public.inspection_records r where r.id=p_id and lower(r.inspection_type)='jsa';
 $$;
@@ -71,7 +73,7 @@ begin
   insert into public.inspection_records(id,worker_name,worker_display_name,inspection_type,inspection_date,title,summary,form_data,email_body)
     values(p_id,person.worker_key,person.display_name,'JSA',date_value,'JSA - '||date_value::text,coalesce(p_payload->'summary','{}'::jsonb),data_value,p_payload->>'email_body')
     on conflict(id) do update set inspection_date=excluded.inspection_date,title=excluded.title,summary=excluded.summary,form_data=excluded.form_data,email_body=excluded.email_body returning * into r;
-  insert into public.jsa_worker_workflows(record_id,created_by,valid_date,source_payload) values(p_id,auth.uid(),date_value,source_value)
+  insert into public.jsa_worker_workflows(record_id,created_by,valid_date,source_payload,prepared_in_advance) values(p_id,auth.uid(),date_value,source_value,date_value>(now() at time zone 'America/Toronto')::date)
     on conflict(record_id) do update set valid_date=excluded.valid_date,source_payload=excluded.source_payload,revision=jsa_worker_workflows.revision+1;
   for item in select value from jsonb_array_elements(p_workers) loop
     employee_id:=nullif(item->>'employee_id','')::uuid;
@@ -82,8 +84,9 @@ begin
       name_value:=worker.display_name; company_value:='John Gordon Construction';
     elsif lower(company_value) in ('john gordon construction','john gordon construction inc','jgc') then
       select * into worker from public.profiles where account_status='approved' and lower(trim(display_name))=lower(name_value);
-      if not found then raise exception 'Select JGC workers from Approved Employee so they sign with their own account'; end if;
-      employee_id:=worker.id; name_value:=worker.display_name; company_value:='John Gordon Construction';
+      if found then
+        employee_id:=worker.id; name_value:=worker.display_name; company_value:='John Gordon Construction';
+      end if;
     end if;
     if name_value='' or company_value='' or length(name_value)>200 or length(company_value)>200 then raise exception 'Each worker needs Name and Company'; end if;
     key_value:=case when employee_id is not null then 'jsa-worker:'||employee_id::text else 'jsa-external:'||md5(lower(name_value)||'|'||lower(company_value)) end;
@@ -100,7 +103,7 @@ begin
   perform pg_advisory_xact_lock(hashtextextended('jsa-workers:'||p_id::text,0));
   select * into w from public.jsa_worker_workflows where record_id=p_id for update;
   if not found then raise exception 'Use the original workflow for this historical JSA'; end if;
-  if w.created_by<>auth.uid() then raise exception 'Only the JSA creator can collect worker sign-offs' using errcode='42501'; end if;
+  if w.created_by<>auth.uid() and not w.prepared_in_advance then raise exception 'Only the JSA creator can collect worker sign-offs' using errcode='42501'; end if;
   if w.valid_date<>(now() at time zone 'America/Toronto')::date then raise exception 'Worker sign-off is available only on the JSA work date'; end if;
   if not exists(select 1 from public.safety_acknowledgements where record_type='jsa' and record_id=p_id and removed_at is null) then raise exception 'Add Workers Onsite before requesting sign-off'; end if;
   update public.jsa_worker_workflows set requested_at=coalesce(requested_at,now()) where record_id=p_id;
@@ -111,7 +114,7 @@ end $$;
 create function private.jgc_sign_jsa_worker(p_id uuid,p_revision integer,p_confirm_read boolean,p_strokes jsonb,p_width integer,p_height integer,p_acknowledgement_id uuid) returns jsonb language plpgsql security definer set search_path='' as $$
 declare w public.jsa_worker_workflows; a public.safety_acknowledgements; stroke jsonb; point jsonb; total integer:=0;
 begin
-  if auth.uid() is null or not private.jgc_has_full_portal_access() then raise exception 'Sign in on the JSA creator phone' using errcode='42501'; end if;
+  if auth.uid() is null or not private.jgc_has_full_portal_access() then raise exception 'Sign in on the phone collecting worker signatures' using errcode='42501'; end if;
   if p_confirm_read is distinct from true then raise exception 'Each worker must confirm they have read the JSA'; end if;
   if p_strokes is null or jsonb_typeof(p_strokes)<>'array' or jsonb_array_length(p_strokes) not between 1 and 200 or octet_length(p_strokes::text)>51200 or p_width is null or p_height is null or p_width not between 200 and 2000 or p_height not between 80 and 1000 then raise exception 'Add a valid signature'; end if;
   for stroke in select value from jsonb_array_elements(p_strokes) loop
@@ -124,7 +127,7 @@ begin
   perform pg_advisory_xact_lock(hashtextextended('jsa-workers:'||p_id::text,0));
   select * into w from public.jsa_worker_workflows where record_id=p_id for update;
   if not found then raise exception 'Use the original workflow for this historical JSA'; end if;
-  if w.created_by<>auth.uid() then raise exception 'Only the JSA creator can collect worker signatures on their phone' using errcode='42501'; end if;
+  if w.created_by<>auth.uid() and not w.prepared_in_advance then raise exception 'Only the JSA creator can collect worker signatures on their phone' using errcode='42501'; end if;
   if w.revision is distinct from p_revision then raise exception 'The JSA changed. Reopen it and review the current report' using errcode='40001'; end if;
   if w.valid_date<>(now() at time zone 'America/Toronto')::date then raise exception 'Worker sign-off is available only on the JSA work date'; end if;
   if w.requested_at is null then raise exception 'Press Complete and Worker Sign Off before collecting signatures'; end if;
@@ -832,7 +835,7 @@ begin
     key_value:=case when actor->>'identity_type'='staff' then 'jsa-worker:'||(actor->>'profile_id') else 'jsa-external:'||md5(lower(trim(actor->>'name'))||'|'||lower(trim(actor->>'company'))) end;
     select * into ack from public.safety_acknowledgements where record_type='jsa' and record_id=record_id_value and attendee_key=key_value and removed_at is null;
     return jsonb_build_object('document_id',d.id,'title',d.title,'report_date',d.report_date,'version',d.updated_at,'identity',jsonb_build_object('name',actor->>'name','company',actor->>'company'),
-      'signed',ack.signature_signed_at is not null,'signed_at',ack.signature_signed_at,'record',worker_model->'record','workflow',worker_model->'workflow','acknowledgements',roster);
+      'signed',ack.signature_signed_at is not null,'signed_at',ack.signature_signed_at,'record',worker_model->'record','workflow',worker_model->'workflow','can_collect',actor->>'identity_type'='staff' and (worker_model->>'can_collect')::boolean,'acknowledgements',roster);
   end if;
   return jsonb_build_object('document_id',d.id,'title',d.title,'report_date',d.report_date,'version',d.updated_at,'identity',jsonb_build_object('name',actor->>'name','company',actor->>'company'),'signed',ack.signature_signed_at is not null,'signed_at',ack.signature_signed_at,'record',case when d.source_type='inspection_records' then d.source_payload else null end,'acknowledgements',roster);
 end $function$
@@ -903,6 +906,7 @@ begin
     if p_attendees is null or jsonb_typeof(p_attendees)<>'array' or jsonb_array_length(p_attendees) not between 1 and 500 then raise exception 'Workers Onsite are required'; end if;
     select jsonb_agg(jsonb_build_object('employee_id',value->>'matched_employee_id','name',value->>'attendee_name','company',value->>'attendee_company')) into workers from jsonb_array_elements(p_attendees);
     model:=private.jgc_save_worker_jsa(p_id,0,item.payload->'record',workers);
+    update public.jsa_worker_workflows set prepared_in_advance=((item.created_at at time zone 'America/Toronto')::date<valid_date) where record_id=p_id;
     model:=private.jgc_request_jsa_worker_signoff(p_id);
     update public.jsa_preparations set activated_at=now(),activated_by=auth.uid(),record_id=p_id,acknowledgement_mode='workers',updated_at=now() where id=p_id returning * into item;
   else
