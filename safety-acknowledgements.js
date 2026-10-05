@@ -499,6 +499,7 @@ function safetyAckOpenSignature(client, config) {
         let submitted = false;
         window.JGCSafetySignature.open({
             attendeeName: settings.attendeeName || "",
+            readOnlyName:settings.readOnlyName === true,
             recordLabel: settings.recordLabel || "Safety acknowledgement",
             onSubmit: async (signature) => {
                 const result = typeof settings.submitHandler === "function"

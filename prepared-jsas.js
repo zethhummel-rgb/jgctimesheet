@@ -10,8 +10,8 @@
     $("preparedList").innerHTML = filtered.map(row => {
       const record = row.payload.record || {}, fields = record.form_data?.fields || [];
       const project = fields.find(f => f.label === "Project / Job")?.value || "Project not entered";
-      const crew = fields.find(f => /Crew Sign Off/i.test(f.label))?.value || "Crew not selected";
-      return `<article class="prepared-jsa-card"><div class="jsa-section-heading"><h2>${escape(project)}</h2><span class="prepared-jsa-state">${row.activated_at ? "Active / Assigned" : "Prepared / Draft"}</span></div><p>Work date: ${escape(record.inspection_date || "Not entered")}</p><p>${escape(crew)}</p><a class="jgc-button jgc-button--secondary" href="jsa.html?prepared=${encodeURIComponent(row.id)}">${row.activated_at ? "Open active JSA" : "Edit / PDF / activate"}</a></article>`;
+      const crew = fields.find(f => /Workers Onsite|Crew Sign Off/i.test(f.label))?.value || "Workers Onsite not selected";
+      return `<article class="prepared-jsa-card"><div class="jsa-section-heading"><h2>${escape(project)}</h2><span class="prepared-jsa-state">${row.activated_at ? "Worker sign-off" : "Prepared"}</span></div><p>Work date: ${escape(record.inspection_date || "Not entered")}</p><p>${escape(crew)}</p><a class="jgc-button jgc-button--secondary" href="jsa.html?prepared=${encodeURIComponent(row.id)}">${row.activated_at ? "Open active JSA" : "Edit / PDF / activate"}</a></article>`;
     }).join("");
     $("preparedStatus").textContent = filtered.length ? `${filtered.length} JSA${filtered.length === 1 ? "" : "s"}` : "No JSAs match this view.";
   }

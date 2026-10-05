@@ -40,9 +40,10 @@
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=73"></script>
 <script src="job-board-context.js?v=2"></script>
-<script src="safety-acknowledgements.js?v=7"></script>
+<script src="safety-acknowledgements.js?v=8"></script>
+<script src="jsa-workers.js?v=1"></script>
 <script src="toolbox-report-actions.js?v=1"></script>
-<script src="inspection-records.js?v=14"></script>
+<script src="inspection-records.js?v=15"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script>
 const worker = getCurrentWorker();
@@ -1149,7 +1150,7 @@ function downloadJsaPdf(record) {
     const reviewedBy = findFieldValue(record, /Reviewed By/i);
     const page = findFieldValue(record, /^Page$/i);
     const of = findFieldValue(record, /^Of$/i);
-    const crew = findFieldValue(record, /Crew Sign Off/i);
+    const crew = findFieldValue(record, /Workers Onsite|Crew Sign Off/i);
     const checklist = findCheckedLabels(record, [
         "Lockout / Tag Out",
         "Hot Work",

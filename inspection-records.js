@@ -335,6 +335,8 @@ function buildInspectionEmail(type, fields, rows, worker = getCurrentWorker()) {
 }
 
 async function createJsaSafetyAcknowledgements(savedRecord, fields, options) {
+    if(Number(savedRecord?.form_data?.jsa_worker_workflow_version)===2)return savedRecord.safety_acknowledgements || [];
+
     if (
         !savedRecord ||
         getInspectionRecordTypeKey(savedRecord.inspection_type) !== "jsa" ||
@@ -347,7 +349,7 @@ async function createJsaSafetyAcknowledgements(savedRecord, fields, options) {
         return [];
     }
 
-    const manualAttendees = safetyAckParseManualAttendees(getInspectionFieldValue(fields, /Crew Sign Off/i), "");
+    const manualAttendees = safetyAckParseManualAttendees(getInspectionFieldValue(fields, /Workers Onsite|Crew Sign Off/i), "");
     const creator = getCurrentWorker();
     const creatorName = creator && (creator.display || creator.name || creator.key || creator.email);
 
@@ -712,6 +714,15 @@ async function persistInspectionRecord(record) {
         throw new Error("Supabase is not available.");
     }
 
+    if (String(record.inspection_type || '').toLowerCase()==='jsa' && Number(record.form_data?.jsa_worker_workflow_version)===2) {
+        record.id=record.id || makeInspectionRecordId();
+        const result=await inspectionSupabaseClient.rpc('save_worker_jsa',{p_id:record.id,p_revision:record.jsa_workflow?.revision || 0,p_payload:record,p_workers:record.form_data.workers_on_site || []});
+        if(result.error)throw result.error;
+        if(!result.data?.record)throw new Error('The saved JSA workflow could not be verified.');
+        const saved={...result.data.record,safety_acknowledgements:result.data.acknowledgements || [],jsa_workflow:result.data.workflow};saved.jsa_can_collect=result.data.can_collect;
+        if(window.attachJgcJobBoardReport)await window.attachJgcJobBoardReport('inspection_records',saved.id,saved.form_data?.job_context?.job_board_id);
+        return saved;
+    }
     const submissionId = record && record.form_data ? record.form_data.offline_submission_id : "";
     const isPublicCreator = typeof isJgcSubcontractorSession === "function" && isJgcSubcontractorSession();
 
@@ -1025,3 +1036,13 @@ function installInspectionUnitSelect(input, settings) {
     render([]);
     return { render };
 }
+
+const buildInspectionRecordBeforeWorkerWorkflow=buildInspectionRecord;
+buildInspectionRecord=async function(type,worker){
+    const built=await buildInspectionRecordBeforeWorkerWorkflow(type,worker);
+    if(String(type).toLowerCase()==='jsa' && typeof getJsaWorkerEntries==='function') {
+        built.record.form_data.jsa_worker_workflow_version=2;
+        built.record.form_data.workers_on_site=getJsaWorkerEntries();
+    }
+    return built;
+};

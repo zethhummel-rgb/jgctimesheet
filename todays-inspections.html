@@ -8,7 +8,7 @@
 <title>Today's Inspections</title>
 <link rel="stylesheet" href="jgc-design-system.css?v=13" data-jgc-design-system="13">
 <link rel="stylesheet" href="inspection-history-today.css?v=2">
-<link rel="stylesheet" href="safety-signature-pad.css?v=2">
+<link rel="stylesheet" href="safety-signature-pad.css?v=3">
 </head>
 
 <body class="inspection-history-page jgc-page jgc-system-page">
@@ -40,12 +40,13 @@
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=73"></script>
 <script src="job-board-context.js?v=2"></script>
-<script src="safety-signature-pad.js?v=2"></script>
-<script src="safety-acknowledgements.js?v=7"></script>
+<script src="safety-signature-pad.js?v=3"></script>
+<script src="safety-acknowledgements.js?v=8"></script>
+<script src="jsa-workers.js?v=1"></script>
 <script src="toolbox-report-actions.js?v=1"></script>
-<script src="inspection-records.js?v=14"></script>
+<script src="inspection-records.js?v=15"></script>
 <script src="vendor/jspdf.umd.min.js?v=1"></script>
-<script src="jsa-pdf.js?v=4"></script>
+<script src="jsa-pdf.js?v=5"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>
 const worker = getCurrentWorker();
@@ -331,6 +332,9 @@ function currentWorkerCanManageInspection(record) {
 }
 
 function renderJsaAcknowledgementSummary(record) {
+    const state=JGCJsaWorkers.state(record,getJsaAcknowledgements(record));
+    if(state)return '<strong>'+escapeHtml(state.status)+'</strong> · '+state.signed+'/'+state.required+' signed · '+state.outstanding+' outstanding';
+
     if (!isSafetyAckRecord(record)) {
         return "";
     }
@@ -451,6 +455,8 @@ async function emailToolboxReportFromList(id) {
 }
 
 function renderInspectionEditCell(record) {
+    if(JGCJsaWorkers.isNew(record))return currentWorkerCanManageInspection(record)?'<a class="jgc-button" href="jsa.html?record='+encodeURIComponent(record.id)+'">Open JSA</a>':'-';
+
     if (!currentWorkerCanManageInspection(record)) return "-";
     if (isToolboxTalkReportRecord(record)) {
         return `<button class="edit-button jgc-button" onclick="openToolboxReport('${escapeHtml(record.id)}', 'edit')">Edit</button>`;
@@ -1421,7 +1427,7 @@ function renderSafetyRecordReadOnlyDetails(record) {
     const date = record.report_date || findFieldValue(record, /^Date$/i) || record.inspection_date || "";
     const supervisor = findFieldValue(record, /Contractor Supervisor/i);
     const reviewedBy = findFieldValue(record, /Reviewed By/i);
-    const crew = findFieldValue(record, /Crew Sign Off/i);
+    const crew = findFieldValue(record, /Workers Onsite|Crew Sign Off/i);
     const workTypes = findCheckedLabels(record, [
         "Lockout / Tag Out",
         "Hot Work",
@@ -1489,8 +1495,8 @@ function renderSafetyRecordReadOnlyDetails(record) {
                 </div>
             </div>
             <div class="jsa-report-section">
-                <h4>Crew Sign Off (Print Names)</h4>
-                <p class="jsa-crew-names">${escapeHtml(crew || "No crew names were saved.")}</p>
+                <h4>Workers Onsite (Print Names)</h4>
+                <p class="jsa-crew-names">${escapeHtml(crew || "No worker names were saved.")}</p>
             </div>
             <div class="jsa-report-section">
                 <h4>Job Steps, Hazards and Required Actions</h4>
@@ -1501,6 +1507,9 @@ function renderSafetyRecordReadOnlyDetails(record) {
 }
 
 function openJsaSignOn(id) {
+    const workerRecord=inspectionRecords.find(r=>r.id===id);
+    if(JGCJsaWorkers.isNew(workerRecord)){void JGCJsaWorkers.openReview(inspectionSupabaseClient,id,document.getElementById('editPanel'),{onSaved:()=>loadInspections()});return;}
+
     const record = inspectionRecords.find((item) => item.id === id);
     const panel = document.getElementById("editPanel");
 
@@ -1545,9 +1554,9 @@ function openJsaSignOn(id) {
         <h3>Current Acknowledgements</h3>
         ${renderSafetyAcknowledgementManager(record)}
         ${alreadySigned ? '<div class="ack-status">You are already signed onto this safety record.</div>' : shouldOfferSelfSignOn ? `
-            <div class="ack-status">${currentAck ? "After reviewing this record, choose how you want to acknowledge it." : "You were not on the original crew list. After reviewing this record, add yourself using your account or your signature."}</div>
-        ` : '<div class="ack-status">Creator/admin view. Crew can sign on this device below or scan the QR code.</div>'}
-        ${qrUrl ? `
+            <div class="ack-status">${currentAck ? "After reviewing this record, choose how you want to acknowledge it." : "You were not on the original Workers Onsite list. After reviewing this record, add yourself using your account or your signature."}</div>
+        ` : '<div class="ack-status">Creator/admin view. Existing worker signatures are preserved.</div>'}
+        ${qrUrl && recordType!=="jsa" ? `
             <details class="jsa-qr-details">
                 <summary>Show QR Sign-On</summary>
                 <div id="safetyAckQrWrap" class="small"></div>
@@ -1572,7 +1581,7 @@ function openJsaSignOn(id) {
 
 function renderSafetyAcknowledgementManager(record) {
     const rows = getJsaAcknowledgements(record);
-    const canManage = currentWorkerCanManageSafetyAcknowledgements(record);
+    const canManage = !isJsaRecord(record) && currentWorkerCanManageSafetyAcknowledgements(record);
 
     if (!rows.length) {
         return '<div class="small">No attendees were entered for this record yet. Late acknowledgements can still be added.</div>';

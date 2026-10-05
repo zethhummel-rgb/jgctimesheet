@@ -6,11 +6,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>JGC Job Safety Analysis</title>
-<link rel="stylesheet" href="safety-signature-pad.css?v=2">
+<link rel="stylesheet" href="safety-signature-pad.css?v=3">
 
 <link rel="stylesheet" href="jgc-design-system.css?v=13" data-jgc-design-system="13">
 <link rel="stylesheet" href="report-design-system.css?v=2">
-<link rel="stylesheet" href="jsa-report.css?v=3">
+<link rel="stylesheet" href="jsa-report.css?v=4">
 </head>
 
 <body class="report-family-page report-readability-page report-form-page jgc-page jgc-system-page">
@@ -29,8 +29,8 @@
 
 <section id="jsaPreparation" class="jsa-preparation" hidden>
   <div class="jsa-section-heading"><h2 id="jsaPreparationTitle">Prepared / Draft</h2><a href="prepared-jsas.html">Prepared JSAs</a></div>
-  <p id="jsaPreparationHelp">Prepare ahead for client submission. Intended crew are not assigned or notified until activation.</p>
-  <div class="actions jgc-actions"><button id="jsaSaveDraft" type="button">Save draft</button><button id="jsaDraftPdf" type="button" class="secondary">Download PDF</button><button id="jsaDraftPrint" type="button" class="secondary">Print</button><button id="jsaActivate" type="button">Activate &amp; Assign</button></div>
+  <p id="jsaPreparationHelp">Prepare ahead for client submission. Workers Onsite can be preselected. No signatures are required until the work date.</p>
+  <div class="actions jgc-actions"><button id="jsaSaveDraft" type="button">Save draft</button><button id="jsaDraftPdf" type="button" class="secondary">Download PDF</button><button id="jsaDraftPrint" type="button" class="secondary">Print</button><button id="jsaActivate" type="button">Complete and Worker Sign Off</button></div>
   <p id="jsaDraftStatus" role="status"></p>
 </section>
 <div id="jsaAdminEntry" hidden><a href="jsa.html?prepared=new">Prepare a JSA for later</a> · <a href="prepared-jsas.html">Open prepared JSAs</a></div>
@@ -117,7 +117,7 @@
 </div>
 
 <div class="signoff jgc-section">
-    <h2 class="jsa-section-title" id="jsaCrewTitle">3. Crew</h2>
+    <h2 class="jsa-section-title" id="jsaCrewTitle">3. Workers Onsite</h2>
     <div id="approvedCrewPicker" class="crew-picker-grid approved-crew-grid">
         <div>
             <label for="approvedCrewSelect">Approved Employee</label>
@@ -128,42 +128,28 @@
         </div>
     </div>
     <div id="selectedCrewList" class="crew-selected-list"></div>
-    <label for="manualCrewInput">Manual Entry</label>
-    <div class="crew-help">Use one person per line. For subcontractors or visitors, use Name - Company.</div>
+    <div class="crew-help">Add each subcontractor or other worker by Name and Company. Everyone listed must sign on the creator phone on the work date.</div>
     <div class="crew-picker-grid manual-crew-grid">
-        <input id="manualCrewInput" type="text" data-inspection-skip="true" placeholder="Example: Stanley Square - ABC Concrete" onkeydown="handleManualCrewKey(event)">
-        <button type="button" onclick="addManualCrewMember()">Add Employee</button>
+      <div><label for="manualCrewInput">Name</label><input id="manualCrewInput" type="text" data-inspection-skip="true" autocomplete="name" onkeydown="handleManualCrewKey(event)"></div>
+      <div><label for="manualCrewCompany">Company</label><input id="manualCrewCompany" type="text" data-inspection-skip="true" autocomplete="organization" onkeydown="handleManualCrewKey(event)"></div>
+      <button type="button" onclick="addManualCrewMember()">Add Worker</button>
     </div>
+    <p id="manualWorkerStatus" role="status"></p>
     <div id="manualCrewList" class="crew-selected-list"></div>
-    <label for="crewSignOffCombined">Crew Sign Off (Print Names)</label>
+    <label for="crewSignOffCombined">Workers Onsite (Print Names)</label>
     <textarea id="crewSignOffCombined" readonly placeholder="Approved employees and manual entries will appear here."></textarea>
 </div>
 
 <section id="jsaSignoffChoiceSection" class="jsa-signoff-choice-section jgc-section" aria-labelledby="jsaSignoffChoiceTitle">
-    <h2 id="jsaSignoffChoiceTitle">4. JSA sign off</h2>
-    <p>After discussing the JSA, choose how acknowledgements will be collected. The selected sign-off panel will open, and Submit will appear after sign-off is complete.</p>
-    <div class="jsa-ack-choice-grid" role="group" aria-label="JSA acknowledgement method">
-        <button id="jsaChoiceQr" type="button" class="jsa-ack-choice jsa-pre-submit-choice" aria-pressed="false" onclick="beginJsaAcknowledgementMode('qr')">
-            <strong>QR Code</strong>
-            <span>Show a QR code and notify matched employees in their accounts.</span>
-        </button>
-        <button id="jsaChoiceEmployees" type="button" class="jsa-ack-choice jsa-pre-submit-choice" aria-pressed="false" onclick="beginJsaAcknowledgementMode('employees')">
-            <strong>Employee Signature</strong>
-            <span>Pass this device to employees. No account prompts are sent.</span>
-        </button>
-        <button id="jsaChoiceCreator" type="button" class="jsa-ack-choice jsa-pre-submit-choice" aria-pressed="false" onclick="beginJsaAcknowledgementMode('creator')">
-            <strong>Creator Sign Off</strong>
-            <span>The JSA creator signs on this device. No account prompts are sent.</span>
-        </button>
-    </div>
-    <div id="jsaAcknowledgementChoiceStatus" class="jsa-choice-status" aria-live="polite">Choose one sign-off method to continue.</div>
+ <h2 id="jsaSignoffChoiceTitle">4. Worker sign-off</h2>
+ <p id="jsaWorkDateHelp">Prepare ahead, then collect each worker's acknowledgement and signature on the creator phone on the work date.</p>
+ <div class="jgc-actions"><button id="jsaSaveWorkerDraft" type="button" data-jsa-worker-action>Save JSA</button><button id="jsaWorkerPdf" type="button" class="secondary" data-jsa-worker-action>Download PDF</button><button id="jsaCompleteWorkers" type="button" data-jsa-worker-action>Complete and Worker Sign Off</button></div>
+ <p id="jsaAcknowledgementChoiceStatus" class="jsa-choice-status" role="status"></p>
 </section>
-
 <div id="inspectionSaveStatus" class="subtitle jgc-notice" aria-live="polite"></div>
 <div id="jsaPostSaveQrPanel" class="post-save-qr jgc-notice" hidden></div>
 
 <div class="actions jgc-actions jsa-submit-actions">
-    <button id="jsaSubmitButton" class="jgc-button" onclick="finalizeJsaSubmission()" hidden>Submit</button>
     <button class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='reports.html'">Reports</button>
     <button class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='home.html'">Home</button>
     <button class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Sign Out</button>
@@ -176,11 +162,12 @@
 <script src="common.js?v=73"></script>
 <script src="job-board-context.js?v=2"></script>
 <script src="employee-feature-access.js?v=3"></script>
-<script src="safety-signature-pad.js?v=2"></script>
-<script src="safety-acknowledgements.js?v=7"></script>
-<script src="inspection-records.js?v=14"></script>
+<script src="safety-signature-pad.js?v=3"></script>
+<script src="safety-acknowledgements.js?v=8"></script>
+<script src="jsa-workers.js?v=1"></script>
+<script src="inspection-records.js?v=15"></script>
 <script src="vendor/jspdf.umd.min.js?v=1"></script>
-<script src="jsa-pdf.js?v=4"></script>
+<script src="jsa-pdf.js?v=5"></script>
 <script src="jsa-presets.js?v=2"></script>
 <script>
 const currentWorker = localStorage.getItem("currentWorker");
@@ -276,14 +263,20 @@ function renderSelectedCrewMembers() {
     }).join("");
 }
 
+function manualWorker(value) {
+    if (value && typeof value==='object') return {name:value.name || '',company:value.company || ''};
+    const parts=String(value || '').split(/\s+-\s+/);return {name:parts.shift() || '',company:parts.join(' - ')};
+}
+function manualWorkerLabel(value) {const w=manualWorker(value);return w.name+(w.company?' - '+w.company:'');}
 function getManualCrewKey(name) {
+    name=manualWorkerLabel(name);
     return typeof normalizeWorkerName === "function"
         ? normalizeWorkerName(name)
         : String(name || "").trim().toLowerCase();
 }
 
 function getManualCrewLines() {
-    return Array.from(manualCrewMembers.values());
+    return Array.from(manualCrewMembers.values()).map(manualWorkerLabel);
 }
 
 function renderManualCrewMembers() {
@@ -298,12 +291,12 @@ function renderManualCrewMembers() {
         return;
     }
 
-    list.innerHTML = Array.from(manualCrewMembers.entries()).map(([key, name]) => `
+    list.innerHTML = Array.from(manualCrewMembers.entries()).map(([key, worker]) => { const name=manualWorkerLabel(worker);return `
         <span class="crew-pill">
             ${escapeJsaHtml(name)}
             <button type="button" onclick="removeManualCrewMember('${escapeJsaHtml(encodeURIComponent(key))}')" aria-label="Remove ${escapeJsaHtml(name)}">X</button>
         </span>
-    `).join("");
+    `; }).join("");
 }
 
 function syncCrewSignOffField() {
@@ -359,23 +352,13 @@ function removeApprovedCrewMember(key) {
 }
 
 function addManualCrewMember() {
-    const input = document.getElementById("manualCrewInput");
-    const name = String(input && input.value || "").trim().replace(/\s+/g, " ");
-    const key = getManualCrewKey(name);
-
-    if (!key) {
-        return;
-    }
-
-    manualCrewMembers.set(key, name);
-
-    if (input) {
-        input.value = "";
-        input.focus();
-    }
-
-    renderManualCrewMembers();
-    syncCrewSignOffField();
+    const input=document.getElementById('manualCrewInput'), companyInput=document.getElementById('manualCrewCompany');
+    const worker={name:input.value.trim().replace(/\s+/g,' '),company:companyInput.value.trim().replace(/\s+/g,' ')};
+    const message=document.getElementById('manualWorkerStatus');
+    if(!worker.name || !worker.company){message.textContent='Enter both Name and Company.';(!worker.name?input:companyInput).focus();return;}
+    const key=getManualCrewKey(worker);if(manualCrewMembers.has(key)){message.textContent='This worker is already listed.';return;}
+    manualCrewMembers.set(key,worker);input.value='';companyInput.value='';message.textContent='';input.focus();
+    renderManualCrewMembers();syncCrewSignOffField();
 }
 
 function removeManualCrewMember(encodedKey) {
@@ -440,386 +423,63 @@ function removeRow(button) {
     button.closest("tr").remove();
 }
 
-function selectJsaAcknowledgementMode(mode) {
-    const allowedModes = ["qr", "employees", "creator"];
-    const status = document.getElementById("jsaAcknowledgementChoiceStatus");
-    const labels = {
-        qr: "QR Code",
-        employees: "Employee Signature",
-        creator: "Creator Sign Off"
-    };
-
-    if (!allowedModes.includes(mode)) {
-        return;
-    }
-
-    jsaRequestedAcknowledgementMode = mode;
-    document.querySelectorAll(".jsa-pre-submit-choice").forEach((button) => {
-        const isSelected = button.id === "jsaChoice" + (mode === "qr" ? "Qr" : mode === "employees" ? "Employees" : "Creator");
-        button.setAttribute("aria-pressed", isSelected ? "true" : "false");
-    });
-
-    if (status) {
-        status.classList.remove("is-error");
-        status.textContent = labels[mode] + " selected. Preparing the sign-off panel...";
-    }
+let jsaWorkerBusy=false, jsaWorkerModel=null;
+const jsaWorkerRecordId=new URLSearchParams(location.search).get('record') || crypto.randomUUID();
+function getJsaWorkerEntries() {
+  return [...selectedCrewMembers.values()].map(w=>({employee_id:w.profile_id,name:w.display_name,company:'John Gordon Construction'})).concat([...manualCrewMembers.values()].map(w=>typeof w==='string'?manualWorker(w):w));
 }
-
-function setJsaChoiceButtonsDisabled(disabled) {
-    document.querySelectorAll(".jsa-pre-submit-choice").forEach((button) => {
-        button.disabled = Boolean(disabled);
-    });
+function getJsaAfterSaveStatus() {return jsaWorkerModel?.workflow?.status || 'JSA saved.';}
+function showJsaSafetyQrAfterSave(record,rows) {
+  jsaPostSaveRecord=record;jsaPostSaveRows=rows || [];jsaWorkerModel={record,acknowledgements:jsaPostSaveRows,workflow:record.jsa_workflow,can_collect:record.jsa_can_collect};
+  renderWorkerCompletion();return true;
 }
-
-function hideJsaFinalSubmit() {
-    const submitButton = document.getElementById("jsaSubmitButton");
-    jsaAcknowledgementComplete = false;
-
-    if (submitButton) {
-        submitButton.hidden = true;
-        submitButton.disabled = true;
-    }
+function renderWorkerCompletion() {
+  const panel=document.getElementById('jsaPostSaveQrPanel'), model=jsaWorkerModel;
+  if(!model)return;
+  const state=JGCJsaWorkers.state(model.record,model.acknowledgements);
+  if(model.can_collect===undefined && model.record.jsa_can_collect!==undefined) model.can_collect=model.record.jsa_can_collect;
+  panel.hidden=false;
+  panel.innerHTML='<h3>'+escapeJsaHtml(state?.status || 'Historical JSA')+'</h3><p>'+(state?state.signed+' / '+state.required+' workers signed · '+state.outstanding+' outstanding.':'Existing signatures are preserved.')+'</p>'+JGCJsaWorkers.roster(model.acknowledgements,state?.status==='Prepared',!!model.can_collect && state?.active && !!state.requested_at)+'<div class="jgc-actions"><button type="button" class="jgc-button jgc-button--secondary" id="jsaRefreshWorkers">Refresh sign-offs</button>'+'</div><div id="jsaOwnReview" hidden></div>';
+  document.getElementById('jsaRefreshWorkers').onclick=()=>void runJsaWorkerAction(async()=>{jsaWorkerModel=await JGCJsaWorkers.load(inspectionSupabaseClient,model.record.id);jsaPostSaveRecord=jsaWorkerModel.record;renderWorkerCompletion();});
+  panel.querySelectorAll('[data-jsa-worker-sign]').forEach(button=>button.onclick=()=>void runJsaWorkerAction(async()=>{const next=await JGCJsaWorkers.sign(inspectionSupabaseClient,model,button.dataset.jsaWorkerSign);if(next){jsaWorkerModel=next;jsaPostSaveRecord=next.record;renderWorkerCompletion();setInspectionSaveStatus(next.workflow.status);}}));
+  if(state?.requested_at || state?.signed || state?.status==='Completed') document.querySelectorAll('.grid input,.grid select,.checklist input,#jsaTable textarea,#jsaTable button,.signoff input,.signoff select,.signoff button,.jsa-row-actions button').forEach(e=>e.disabled=true);
+  updateJsaWorkDate();
 }
-
-function unlockJsaFinalSubmit(message) {
-    const submitButton = document.getElementById("jsaSubmitButton");
-    const status = document.getElementById("jsaAcknowledgementChoiceStatus");
-    jsaAcknowledgementComplete = true;
-
-    if (submitButton) {
-        submitButton.hidden = false;
-        submitButton.disabled = false;
-    }
-
-    if (status) {
-        status.classList.remove("is-error");
-        status.textContent = message || "Sign-off complete. You can now submit the JSA.";
-    }
+function updateJsaWorkDate() {
+  const date=document.getElementById('jsaField3').value;
+  const control=document.getElementById('jsaCompleteWorkers');
+  if(control)control.disabled=jsaWorkerBusy || date!==JGCJsaWorkers.today();
+  const help=document.getElementById('jsaWorkDateHelp');
+  if(help)help.textContent=date>JGCJsaWorkers.today()?'Prepared for '+date+'. Save and export for the client now. Worker signatures and requests become available on the work date.':date===JGCJsaWorkers.today()?'Each worker, including manual entries, must acknowledge and sign on the creator phone.':'Worker sign-off is available only on the JSA work date.';
+  const activate=document.getElementById('jsaActivate');if(activate)activate.disabled=jsaWorkerBusy || date!==JGCJsaWorkers.today() || !!window.JgcPreparedJsa?.isActive?.();
 }
-
-function stopJsaQrRefresh() {
-    if (jsaQrRefreshTimer) {
-        window.clearInterval(jsaQrRefreshTimer);
-        jsaQrRefreshTimer = null;
-    }
+async function runJsaWorkerAction(action) {
+  if(jsaWorkerBusy)return;jsaWorkerBusy=true;updateJsaWorkDate();
+  document.querySelectorAll('[data-jsa-worker-action]').forEach(b=>b.disabled=true);
+  try{await action();}catch(error){setInspectionSaveStatus(error.message || 'JSA could not be saved. Your entries are still here.');}
+  finally{jsaWorkerBusy=false;document.querySelectorAll('[data-jsa-worker-action]').forEach(b=>b.disabled=false);updateJsaWorkDate();}
 }
-
-async function beginJsaAcknowledgementMode(mode) {
-    if (window.JgcPreparedJsa && window.JgcPreparedJsa.isPrepared && !jsaPostSaveRecord) {
-        await window.JgcPreparedJsa.activate(mode);
-        return;
-    }
-    const status = document.getElementById("jsaAcknowledgementChoiceStatus");
-
-    selectJsaAcknowledgementMode(mode);
-    hideJsaFinalSubmit();
-    stopJsaQrRefresh();
-
-    if (jsaPostSaveRecord) {
-        openRequestedJsaAcknowledgementMode();
-        return;
-    }
-
-    if (!inspectionSupabaseClient || navigator.onLine === false) {
-        if (status) {
-            status.textContent = "Connect to the internet before starting JSA sign-off.";
-            status.classList.add("is-error");
-        }
-        return;
-    }
-
-    setJsaChoiceButtonsDisabled(true);
-    syncCrewSignOffField();
-    await saveInspection("JSA");
-
-    if (!jsaPostSaveRecord) {
-        setJsaChoiceButtonsDisabled(false);
-    }
+async function saveJsaWorkerDraft() {
+  if(jsaWorkerModel?.workflow?.requested_at){jsaWorkerModel=await JGCJsaWorkers.load(inspectionSupabaseClient,jsaWorkerModel.record.id);jsaPostSaveRecord=jsaWorkerModel.record;renderWorkerCompletion();return jsaWorkerModel.record;}
+  if(!window.JgcPreparedJsa.validate())throw new Error('Enter project, date, task, hazards and controls before saving.');
+  syncCrewSignOffField();const built=await buildInspectionRecord('JSA',getCurrentWorker());
+  built.record.id=jsaWorkerRecordId;built.record.jsa_workflow=jsaWorkerModel?.workflow;
+  if(navigator.onLine===false){queueInspectionRecord(built.record,getCurrentWorker());throw new Error('JSA saved on this device. It will sync when the connection returns. Signatures require a connection.');}
+  const record=await persistInspectionRecord(built.record);
+  showJsaSafetyQrAfterSave(record,record.safety_acknowledgements);
+  history.replaceState(null,'','jsa.html?record='+encodeURIComponent(record.id));
+  setInspectionSaveStatus(JGCJsaWorkers.state(record).status+'. JSA saved.');return record;
 }
-
-function openRequestedJsaAcknowledgementMode() {
-    if (jsaRequestedAcknowledgementMode === "qr") {
-        void openJsaQrAcknowledgement();
-    } else if (jsaRequestedAcknowledgementMode === "employees") {
-        openJsaEmployeeSignatures();
-    } else if (jsaRequestedAcknowledgementMode === "creator") {
-        void openJsaCreatorSignOff();
-    } else {
-        renderJsaAcknowledgementChoices();
-    }
+async function completeJsaWorkers() {
+  document.getElementById('jsaAcknowledgementChoiceStatus').textContent='All workers need to sign off report before JSA is completed.';
+  if(window.JgcPreparedJsa?.isPrepared && !jsaPostSaveRecord){await window.JgcPreparedJsa.activate('workers');return;}
+  await runJsaWorkerAction(async()=>{
+    if(!jsaWorkerModel || !jsaWorkerModel.workflow?.requested_at)await saveJsaWorkerDraft();
+    jsaWorkerModel=await JGCJsaWorkers.request(inspectionSupabaseClient,jsaWorkerModel.record.id);
+    jsaPostSaveRecord=jsaWorkerModel.record;renderWorkerCompletion();
+    setInspectionSaveStatus(jsaWorkerModel.workflow.status);
+  });
 }
-
-function getJsaAfterSaveStatus() {
-    return "JSA saved. Complete the selected acknowledgement step below before finishing.";
-}
-
-function showJsaSafetyQrAfterSave(savedRecord, safetyRows) {
-    const rows = Array.isArray(safetyRows) ? safetyRows : [];
-    const token = typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(rows) : "";
-    const panel = document.getElementById("jsaPostSaveQrPanel");
-
-    if (!savedRecord || !savedRecord.id || !rows.length || !token || !panel || typeof safetyAckQrUrl !== "function") {
-        return false;
-    }
-
-    jsaPostSaveRecord = savedRecord;
-    jsaPostSaveRows = rows;
-    jsaPostSaveMode = "choices";
-    panel.hidden = false;
-    setJsaChoiceButtonsDisabled(false);
-    openRequestedJsaAcknowledgementMode();
-
-    panel.scrollIntoView({ behavior: "smooth", block: "start" });
-    return true;
-}
-
-function getJsaPendingCount() {
-    return jsaPostSaveRows.filter((row) => typeof safetyAckIsAcknowledged === "function"
-        ? !safetyAckIsAcknowledged(row)
-        : !row.acknowledged_at).length;
-}
-
-function isJsaRequestedSignoffComplete() {
-    if (!jsaPostSaveRows.length) {
-        return false;
-    }
-
-    if (jsaRequestedAcknowledgementMode === "creator") {
-        const worker = typeof safetyAckGetCurrentWorker === "function" ? safetyAckGetCurrentWorker() : {};
-        const creatorRow = jsaPostSaveRows.find((item) => typeof safetyAckRowMatchesWorker === "function" && safetyAckRowMatchesWorker(item, worker));
-        return Boolean(creatorRow && (typeof safetyAckIsAcknowledged === "function"
-            ? safetyAckIsAcknowledged(creatorRow)
-            : creatorRow.acknowledged_at));
-    }
-
-    return getJsaPendingCount() === 0;
-}
-
-function updateJsaFinalSubmitState() {
-    if (isJsaRequestedSignoffComplete()) {
-        stopJsaQrRefresh();
-        unlockJsaFinalSubmit("Sign-off complete. Review the JSA, then press Submit.");
-        return true;
-    }
-
-    hideJsaFinalSubmit();
-    return false;
-}
-
-async function refreshJsaAcknowledgementsForSubmission() {
-    if (!jsaPostSaveRecord || typeof safetyAckLoadForRecords !== "function") {
-        return false;
-    }
-
-    try {
-        jsaPostSaveRows = await safetyAckLoadForRecords(inspectionSupabaseClient, "jsa", jsaPostSaveRecord.id);
-        const complete = updateJsaFinalSubmitState();
-
-        if (!complete && jsaPostSaveMode === "qr") {
-            const remaining = document.getElementById("jsaQrRemaining");
-            if (remaining) {
-                remaining.textContent = String(getJsaPendingCount());
-            }
-        }
-
-        return complete;
-    } catch (error) {
-        console.warn("JSA acknowledgements could not be refreshed.", error);
-        return false;
-    }
-}
-
-function renderJsaAcknowledgementChoices() {
-    const panel = document.getElementById("jsaPostSaveQrPanel");
-
-    if (!panel || !jsaPostSaveRecord) {
-        return;
-    }
-
-    jsaPostSaveMode = "choices";
-    stopJsaQrRefresh();
-    hideJsaFinalSubmit();
-    panel.hidden = false;
-    panel.innerHTML = `
-        <h2>Collect JSA Acknowledgements</h2>
-        <p>The JSA is saved. Choose how the crew will acknowledge it.</p>
-        <p><strong>${escapeJsaHtml(String(getJsaPendingCount()))}</strong> acknowledgement${getJsaPendingCount() === 1 ? "" : "s"} remaining.</p>
-        <div class="jsa-ack-choice-grid">
-            <button type="button" class="jsa-ack-choice" onclick="openJsaQrAcknowledgement()">
-                <strong>QR Code</strong>
-                <span>Show a QR code and notify matched employees in their accounts.</span>
-            </button>
-            <button type="button" class="jsa-ack-choice" onclick="openJsaEmployeeSignatures()">
-                <strong>Employee Signature</strong>
-                <span>Pass this device to employees. No account prompts are sent.</span>
-            </button>
-            <button type="button" class="jsa-ack-choice" onclick="openJsaCreatorSignOff()">
-                <strong>Creator Sign Off</strong>
-                <span>The JSA creator signs on this device. No account prompts are sent.</span>
-            </button>
-        </div>
-    `;
-}
-
-async function openJsaQrAcknowledgement() {
-    const panel = document.getElementById("jsaPostSaveQrPanel");
-    const token = typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(jsaPostSaveRows) : "";
-
-    if (!panel || !jsaPostSaveRecord || !token || typeof safetyAckQrUrl !== "function") {
-        return;
-    }
-
-    jsaPostSaveMode = "qr";
-    hideJsaFinalSubmit();
-    if (typeof safetyAckNotifyPendingRows === "function") {
-        await safetyAckNotifyPendingRows(inspectionSupabaseClient, jsaPostSaveRows);
-    }
-
-    const qrUrl = safetyAckQrUrl("jsa", jsaPostSaveRecord.id, token);
-    panel.innerHTML = `
-        <h2>QR Code</h2>
-        <p>Employees can scan this code to review and sign. Matched employees have also been prompted in their accounts.</p>
-        <p><strong id="jsaQrRemaining">${escapeJsaHtml(String(getJsaPendingCount()))}</strong> acknowledgement${getJsaPendingCount() === 1 ? "" : "s"} remaining. Submit will appear when sign-off is complete.</p>
-        <div id="jsaPostSaveQrWrap" class="qr-wrap"></div>
-        <p><a href="${escapeJsaHtml(qrUrl)}" target="_blank" rel="noopener">Open acknowledgement link</a></p>
-        <div class="actions">
-            <button type="button" class="secondary" onclick="renderJsaAcknowledgementChoices()">Back</button>
-            <button type="button" onclick="refreshJsaAcknowledgementsForSubmission()">Check Signatures</button>
-        </div>
-    `;
-
-    if (typeof safetyAckRenderQr === "function") {
-        safetyAckRenderQr(document.getElementById("jsaPostSaveQrWrap"), qrUrl);
-    }
-
-    void refreshJsaAcknowledgementsForSubmission();
-    stopJsaQrRefresh();
-    jsaQrRefreshTimer = window.setInterval(() => {
-        void refreshJsaAcknowledgementsForSubmission();
-    }, 4000);
-}
-
-function openJsaEmployeeSignatures() {
-    const panel = document.getElementById("jsaPostSaveQrPanel");
-
-    if (!panel) {
-        return;
-    }
-
-    jsaPostSaveMode = "employees";
-    stopJsaQrRefresh();
-    updateJsaFinalSubmitState();
-    panel.innerHTML = `
-        <h2>Employee Signatures</h2>
-        <p>Pass this device to each employee and tap <strong>Sign</strong>. This option does not prompt anyone in their account.</p>
-        <p><strong>${escapeJsaHtml(String(getJsaPendingCount()))}</strong> acknowledgement${getJsaPendingCount() === 1 ? "" : "s"} remaining.</p>
-        ${typeof safetyAckSharedRosterHtml === "function" ? safetyAckSharedRosterHtml(jsaPostSaveRows, "signJsaAttendeeOnDevice") : ""}
-        <div class="actions">
-            <button type="button" class="secondary" onclick="renderJsaAcknowledgementChoices()">Back</button>
-        </div>
-    `;
-}
-
-async function openJsaCreatorSignOff() {
-    const worker = typeof safetyAckGetCurrentWorker === "function" ? safetyAckGetCurrentWorker() : {};
-    const row = jsaPostSaveRows.find((item) => typeof safetyAckRowMatchesWorker === "function" && safetyAckRowMatchesWorker(item, worker));
-
-    if (!row) {
-        alert("The creator could not be matched to this JSA. Use Employee Signature instead.");
-        return;
-    }
-
-    if (typeof safetyAckIsAcknowledged === "function" && safetyAckIsAcknowledged(row)) {
-        unlockJsaFinalSubmit("Creator sign-off complete. Review the JSA, then press Submit.");
-        return;
-    }
-
-    jsaPostSaveMode = "creator";
-    await signJsaAttendeeOnDevice(row.id);
-}
-
-async function signJsaAttendeeOnDevice(acknowledgementId) {
-    const row = jsaPostSaveRows.find((item) => item && item.id === acknowledgementId);
-    const token = typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(jsaPostSaveRows) : "";
-
-    if (!row || !jsaPostSaveRecord || !token || typeof safetyAckOpenSignature !== "function") {
-        alert("This attendee could not be opened. Refresh the page and try again.");
-        return;
-    }
-
-    const result = await safetyAckOpenSignature(inspectionSupabaseClient, {
-        recordType: "jsa",
-        recordId: jsaPostSaveRecord.id,
-        recordLabel: "JSA acknowledgement",
-        qrToken: token,
-        acknowledgementId: row.id,
-        attendeeName: row.attendee_name || "",
-        company: row.attendee_company || "",
-        email: row.matched_employee_email || "",
-        source: "shared_device"
-    });
-
-    if (!result.ok && !result.cancelled) {
-        alert(result.message || "Signature could not be saved.");
-        return;
-    }
-
-    if (result.ok) {
-        jsaPostSaveRows = await safetyAckLoadForRecords(inspectionSupabaseClient, "jsa", jsaPostSaveRecord.id);
-        if (jsaPostSaveMode === "creator") {
-            const panel = document.getElementById("jsaPostSaveQrPanel");
-            panel.innerHTML = `
-                <h2>Creator Signed</h2>
-                <p>The creator's signature was saved. No employee account prompts were sent.</p>
-                <div class="actions">
-                    <button type="button" class="secondary" onclick="renderJsaAcknowledgementChoices()">Other Options</button>
-                </div>
-            `;
-            unlockJsaFinalSubmit("Creator sign-off complete. Review the JSA, then press Submit.");
-        } else {
-            updateJsaFinalSubmitState();
-            openJsaEmployeeSignatures();
-        }
-    }
-}
-
-function finalizeJsaSubmission() {
-    const choiceSection = document.getElementById("jsaSignoffChoiceSection");
-    const choiceStatus = document.getElementById("jsaAcknowledgementChoiceStatus");
-
-    if (!jsaPostSaveRecord || !jsaAcknowledgementComplete || !isJsaRequestedSignoffComplete()) {
-        hideJsaFinalSubmit();
-        if (choiceStatus) {
-            choiceStatus.textContent = "Complete the selected sign-off method before submitting this JSA.";
-            choiceStatus.classList.add("is-error");
-        }
-        if (choiceSection) {
-            choiceSection.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-        return;
-    }
-
-    stopJsaQrRefresh();
-    setInspectionSaveStatus("JSA submitted.");
-    window.location.href = "todays-inspections.html?recordType=reports";
-}
-
-function closeJsaPostSaveQr() {
-    const panel = document.getElementById("jsaPostSaveQrPanel");
-
-    if (panel) {
-        panel.hidden = true;
-        panel.innerHTML = "";
-    }
-
-    stopJsaQrRefresh();
-    hideJsaFinalSubmit();
-    jsaPostSaveRecord = null;
-    jsaPostSaveRows = [];
-    jsaPostSaveMode = "choices";
-    jsaRequestedAcknowledgementMode = "";
-}
-
 async function signOut() {
     await signOutJgc(inspectionSupabaseClient);
 }
@@ -827,6 +487,7 @@ async function signOut() {
 renderManualCrewMembers();
 window.jsaCrewReady = loadApprovedCrewWorkers();
 </script>
-<script src="jsa-editor.js?v=2"></script>
+<script src="jsa-editor.js?v=3"></script>
+<script src="jsa-worker-editor.js?v=1"></script>
 </body>
 </html>

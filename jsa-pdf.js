@@ -93,8 +93,11 @@
         const width = doc.internal.pageSize.getWidth(), height = doc.internal.pageSize.getHeight();
         const margin = 12, usable = width - margin * 2, bottom = height - 15;
         const green = [20, 65, 49], ink = [27, 43, 37], muted = [82, 97, 89], line = [181, 191, 185], pale = [242, 246, 243];
-        const prepared = options.prepared === true;
-        const status = prepared ? "PREPARED / DRAFT - NOT ASSIGNED" : "ISSUED JSA";
+        const workerWorkflow=Number(record.form_data?.jsa_worker_workflow_version)===2;
+        const nowDate=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+        const prepared = options.prepared === true || (workerWorkflow && record.inspection_date>nowDate);
+        const workerState=window.JGCJsaWorkers?.state(record,options.acknowledgements);
+        const status = prepared ? "PREPARED - WORK DATE " + (record.inspection_date || "NOT ENTERED") : workerWorkflow ? String(workerState?.status || record.jsa_workflow?.status || "Draft - Awaiting Worker Sign-Offs").replace(/—/g,"-") : "ISSUED JSA";
         let y;
         const text = (value, x, yy, size = 9, bold = false, color = ink) => {
             doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size); doc.setTextColor(...color);
@@ -104,7 +107,7 @@
             doc.addImage(logo.data, "PNG", margin, 9, 49, 49 / logo.ratio);
             text("JOB SAFETY ANALYSIS", 80, 17, 19, true, green);
             text(status, 80, 24, 8, true, muted);
-            text(prepared ? "For advance review. Confirm site conditions and crew before activation." : "Review with the crew each day and when conditions change.", 80, 30, 8, false, muted);
+            text(prepared ? "For advance review. Confirm site conditions and Workers Onsite on the work date." : "Review with Workers Onsite each day and when conditions change.", 80, 30, 8, false, muted);
             doc.setDrawColor(...green); doc.setLineWidth(.65); doc.line(margin, 36, width - margin, 36);
             y = 42;
         }
@@ -172,11 +175,11 @@
         section("TASKS, HAZARDS & CONTROLS / PPE");
         const rows = getRows(record);
         table(["Task / job step", "Hazards", "Controls / PPE"], [usable * .23, usable * .29, usable * .48], (rows.length ? rows : [{step:"Not entered",hazard:"Not entered",action:"Not entered"}]).map((r, i) => ({cells:[`${i+1}. ${r.step}`,r.hazard,r.action]})));
-        section(prepared ? "INTENDED CREW - NOT ASSIGNED / NO ACKNOWLEDGMENTS REQUESTED" : "CREW - PRINTED NAMES");
-        paragraph(findFieldValue(record, /Crew Sign Off/i) || "Not selected");
+        section(prepared ? "WORKERS ONSITE - PLANNED / NO SIGNATURES REQUIRED YET" : "WORKERS ONSITE - PRINTED NAMES");
+        paragraph(findFieldValue(record, /Workers Onsite|Crew Sign Off/i) || "Not selected");
         const acknowledgements = prepared ? [] : (options.acknowledgements || []);
         if (acknowledgements.length) {
-            section("DIGITAL JSA ACKNOWLEDGMENTS");
+            section("WORKER ACKNOWLEDGEMENTS & SIGNATURES");
             table(["Name", "Company", "Acknowledged", "Signature", "Email"], [usable*.22,usable*.16,usable*.18,usable*.24,usable*.20], acknowledgements.map(ack => ({ack,cells:[acknowledgementName(ack),ack.attendee_company || ack.company || "",formatAcknowledgementDate(ack.acknowledged_at) || "Pending","",ack.matched_employee_email || ack.email || ""]})),3);
         }
         const totalPages = doc.getNumberOfPages();
