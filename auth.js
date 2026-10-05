@@ -25,6 +25,11 @@ async function loadJgcProfileAndEnter(supabaseClient, user, setStatus, options) 
       ? cleanJgcAuthText(user.user_metadata.display_name, 80)
       : user.email;
     const workerKey = normalizeWorkerName(displayName);
+    const phone = cleanJgcAuthText(user.user_metadata && user.user_metadata.phone, 40);
+    if (!phone || phone.replace(/\D/g, '').length < 10) {
+      setStatus("Your profile needs a phone number. Please ask admin to complete account setup.");
+      return false;
+    }
 
     const { data: createdProfile, error: createProfileError } = await supabaseClient
       .from("profiles")
@@ -33,6 +38,8 @@ async function loadJgcProfileAndEnter(supabaseClient, user, setStatus, options) 
         email: cleanJgcAuthText(user.email, 254).toLowerCase(),
         display_name: displayName,
         worker_key: workerKey,
+        phone,
+        add_to_contacts: !!(user.user_metadata && user.user_metadata.add_to_contacts === true),
         role: "worker",
         account_status: "pending"
       })

@@ -11,6 +11,8 @@ function clearContactForm() {
     document.getElementById("contactOrder").value = "0";
     document.getElementById("contactNotes").value = "";
     document.getElementById("contactSaveButton").textContent = "Add Contact";
+    ["contactName", "contactPhone", "contactEmail"].forEach(id => document.getElementById(id).disabled = false);
+    document.getElementById("contactEmployeeLinkHint").textContent = "";
     setContactStatus("");
 }
 
@@ -30,18 +32,17 @@ function editContact(id) {
     document.getElementById("contactOrder").value = contact.sort_order || 0;
     document.getElementById("contactNotes").value = contact.notes || "";
     document.getElementById("contactSaveButton").textContent = "Update Contact";
+    const linked = !!contact.employee_linked_at;
+    ["contactName", "contactPhone", "contactEmail"].forEach(id => document.getElementById(id).disabled = linked);
+    document.getElementById("contactEmployeeLinkHint").innerHTML = linked
+        ? 'Linked employee Contact. Name, email and phone update from the account. Notes, description and order remain editable here. ' +
+          (contact.employee_profile_id ? '<a href="accounts.html?employee=' + encodeURIComponent(contact.employee_profile_id) + '">Edit employee contact details</a>' : 'This former employee record is retained for history.')
+        : '';
     setContactStatus("Editing " + (contact.name || "contact") + ".");
 }
 
-function renderContacts() {
-    const list = document.getElementById("contactsList");
-
-    if (!contacts.length) {
-        list.textContent = "No contacts added yet.";
-        return;
-    }
-
-    list.innerHTML = `
+function renderContactTable(contactList) {
+    return `
         <div class="table-wrap jgc-table-wrap" role="region" aria-label="Contacts; swipe horizontally to see all columns" tabindex="0">
             <table class="jgc-table jgc-table--wide">
                 <thead>
@@ -56,9 +57,9 @@ function renderContacts() {
                     </tr>
                 </thead>
                 <tbody>
-                    ${contacts.map((contact) => `
+                    ${contactList.map((contact) => `
                         <tr>
-                            <td>${escapeHtml(contact.name)}</td>
+                            <td>${escapeHtml(contact.name)}${contact.employee_linked_at ? '<div class="small">' + (contact.employee_contact_status === 'former' ? 'Former employee · archived' : 'Linked employee account') + '</div>' : ''}</td>
                             <td>${escapeHtml(contact.role || "")}</td>
                             <td>${escapeHtml(contact.phone || "")}</td>
                             <td>${contact.email ? '<a href="mailto:' + escapeHtml(contact.email) + '">' + escapeHtml(contact.email) + '</a>' : ""}</td>
@@ -67,7 +68,7 @@ function renderContacts() {
                             <td>
                                 <div class="actions jgc-actions jgc-actions--compact">
                                     <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="editContact('${escapeHtml(contact.id)}')">Edit</button>
-                                    <button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteContact('${escapeHtml(contact.id)}')">Delete</button>
+                                    ${contact.is_active ? `<button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteContact('${escapeHtml(contact.id)}')">Archive</button>` : `<button type="button" class="jgc-button jgc-button--secondary" onclick="restoreContact('${escapeHtml(contact.id)}')" ${contact.employee_linked_at && contact.employee_contact_status !== 'active' ? 'disabled' : ''}>Restore</button>`}
                                 </div>
                             </td>
                         </tr>
@@ -78,11 +79,17 @@ function renderContacts() {
     `;
 }
 
+function renderContacts() {
+    const active = contacts.filter(item => item.is_active), archived = contacts.filter(item => !item.is_active);
+    document.getElementById("contactsList").innerHTML =
+        (active.length ? renderContactTable(active) : '<p class="small">No active contacts added yet.</p>') +
+        (archived.length ? `<details class="jgc-archive"><summary><span class="jgc-archive__title">Archived Contacts</span><span class="jgc-archive__count">${archived.length}</span></summary><div class="jgc-archive__body"><p class="small">Former employees and hidden Contacts are retained here. Reactivate an employee account to make their Contact available again.</p>${renderContactTable(archived)}</div></details>` : '');
+}
+
 async function loadContacts() {
     const { data, error } = await supabaseClient
         .from("contacts")
         .select("*")
-        .eq("is_active", true)
         .order("sort_order", { ascending: true })
         .order("name", { ascending: true });
 
@@ -124,6 +131,12 @@ async function saveContact() {
         sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
         updated_at: new Date().toISOString()
     };
+    const existingContact = contacts.find(item => item.id === editingContactId);
+    if (existingContact && existingContact.employee_linked_at) {
+        delete values.name;
+        delete values.phone;
+        delete values.email;
+    }
 
     let result;
 
@@ -144,7 +157,7 @@ async function saveContact() {
     }
 
     if (result.error) {
-        setContactStatus("Contact could not be saved.");
+        setContactStatus("Contact could not be saved: " + (result.error.message || "Try again."));
         return;
     }
 
@@ -161,7 +174,7 @@ async function deleteContact(id) {
         return;
     }
 
-    if (!confirm("Delete " + (contact.name || "this contact") + "?")) {
+    if (!confirm("Archive " + (contact.name || "this contact") + "? The Contact and its notes will be kept.")) {
         return;
     }
 
@@ -182,6 +195,12 @@ async function deleteContact(id) {
         clearContactForm();
     }
 
+    await loadContacts();
+}
+
+async function restoreContact(id) {
+    const { error } = await supabaseClient.from("contacts").update({ is_active: true, updated_at: new Date().toISOString() }).eq("id", id);
+    if (error) { alert(error.message || "Contact could not be restored."); return; }
     await loadContacts();
 }
 
