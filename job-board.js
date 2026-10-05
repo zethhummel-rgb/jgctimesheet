@@ -210,16 +210,18 @@
       await window.JGCJsaPreview.render(report,file,()=>generation===jsaReviewGeneration);
       if(generation!==jsaReviewGeneration)return;
       status('jsaSignOnStatus',model.signed?'You signed this JSA on '+timeLabel(model.signed_at):'Read the JSA below before signing.');
-      const signed=(model.acknowledgements||[]).filter(a=>a.signature_signed_at);
+      const signed=(model.acknowledgements||[]).filter(a=>model.workflow?.version===2 || a.signature_signed_at);
+      if(model.workflow?.version===2)status('jsaSignOnStatus',model.workflow.status+' · '+model.workflow.signed+'/'+model.workflow.required+' workers signed. '+(model.workflow.prepared_in_advance?'Staff with this prepared JSA can collect the signatures on their phone.':'All worker signatures are collected on the JSA creator phone.'));
       if(!signed.length)empty($('jsaSignOnRoster'),'No signatures recorded yet.');
-      signed.forEach(ack=>{const row=text('div','','jgc-record-row');row.append(text('strong',ack.attendee_name),text('span',ack.attendee_company || ''),text('time',timeLabel(ack.signature_signed_at),'board-help'));$('jsaSignOnRoster').append(row);});
-      $('jsaSignOnSign').disabled=!!model.signed;$('jsaSignOnRead').disabled=!!model.signed;$('jsaSignOnSign').textContent=model.signed?'Already signed':'Sign onto JSA';
+      signed.forEach(ack=>{const row=text('div','','jgc-record-row');row.append(text('strong',ack.attendee_name),text('span',ack.attendee_company || ''),text('time',ack.signature_signed_at?'Signed · '+timeLabel(ack.signature_signed_at):model.workflow?.status==='Prepared'?'Planned — sign on work date':'Outstanding','board-help'));$('jsaSignOnRoster').append(row);});
+      $('jsaSignOnSign').disabled=model.workflow?.version===2?!model.can_collect || !model.workflow.active:!!model.signed;$('jsaSignOnRead').disabled=!!model.signed;
+      $('jsaSignOnSign').textContent=model.workflow?.version===2?(model.can_collect?'Collect worker signatures':model.workflow.prepared_in_advance?'Sign on staff phone':'Sign on creator phone'):model.signed?'Already signed':'Sign onto JSA';
     }catch(error){if(generation===jsaReviewGeneration){status('jsaSignOnStatus',errorMessage(error)+' Reopen this JSA to try again.','error');$('jsaSignOnReport').replaceChildren();}}
   }
   $('jsaSignOnBack').addEventListener('click',()=>{jsaReviewGeneration++;jsaReview=null;$('jsaSignOnPanel').hidden=true;$('boardContent').hidden=false;});
   $('jsaSignOnRead').addEventListener('change',()=>{$('jsaReadContinue').disabled=!jsaReview||jsaReview.model.signed||!$('jsaSignOnRead').checked;});
   $('jsaSignOnPdf').addEventListener('click',e=>{if(jsaReview)void viewDocument(jsaReview.doc,e.currentTarget);});
-  $('jsaSignOnSign').addEventListener('click',()=>{if(!jsaReview||jsaReview.model.signed)return;$('jsaSignOnRead').checked=false;$('jsaReadContinue').disabled=true;$('jsaReadDialog').showModal();});
+  $('jsaSignOnSign').addEventListener('click',()=>{if(!jsaReview)return;if(jsaReview.model.workflow?.version===2){if(jsaReview.model.can_collect && jsaReview.model.workflow.active)window.location.href='jsa.html?record='+encodeURIComponent(jsaReview.model.record.id);return;}if(jsaReview.model.signed)return;$('jsaSignOnRead').checked=false;$('jsaReadContinue').disabled=true;$('jsaReadDialog').showModal();});
   $('jsaReadCancel').addEventListener('click',()=>$('jsaReadDialog').close());
   $('jsaReadContinue').addEventListener('click',()=>{
     if(!jsaReview||!$('jsaSignOnRead').checked||jsaReview.model.signed)return;
@@ -291,7 +293,7 @@
       const response = await fetch(base.replace(/\/$/, '') + '/functions/v1/jgc-job-board-document', { method: 'POST', headers, body: JSON.stringify({ boardToken: state.token, visitToken: state.visit && state.visit.token || null, documentId: doc.id }), signal: controller.signal, referrerPolicy: 'no-referrer', cache: 'no-store' });
       const data = await response.json(); if (!response.ok || data.error) throw new Error(data.error || 'The document could not be opened. Sign in if it requires restricted access.');
       let blob;
-      if (data.sourcePayload) { if (!window.JGCJobBoardPdf || !window.JGCJobBoardPdf.create) throw new Error('The report exporter is unavailable. Refresh and try again.'); if(doc.category==='jsa'){const model=await rpc('get_job_board_jsa',{p_token:state.token,p_visit_token:state.visit?.token||null,p_document_id:doc.id});data.sourcePayload.acknowledgements=model.acknowledgements;} blob = await window.JGCJobBoardPdf.create(data.sourcePayload); }
+      if (data.sourcePayload) { if (!window.JGCJobBoardPdf || !window.JGCJobBoardPdf.create) throw new Error('The report exporter is unavailable. Refresh and try again.'); if(doc.category==='jsa'){const model=await rpc('get_job_board_jsa',{p_token:state.token,p_visit_token:state.visit?.token||null,p_document_id:doc.id});data.sourcePayload.acknowledgements=model.acknowledgements;data.sourcePayload.record=model.record || data.sourcePayload.record;} blob = await window.JGCJobBoardPdf.create(data.sourcePayload); }
       else if (data.pdfBase64) { const raw = atob(data.pdfBase64); const bytes = Uint8Array.from(raw, (char) => char.charCodeAt(0)); blob = new Blob([bytes], { type: data.mimeType || 'application/pdf' }); }
       else {
         if (!data.url) throw new Error('The document service did not return a file.');

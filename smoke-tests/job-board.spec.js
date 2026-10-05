@@ -71,7 +71,7 @@ async function install(page, store, options = {}) {
     if (name === 'record_job_board_site_signin') { store.events.push({id:'site',action:'site-signin',actor_name:args.p_name,actor_company:args.p_company,reason:args.p_reason,created_at:new Date().toISOString()}); return route.fulfill({json:{ok:true,recorded_at:new Date().toISOString()}}); }
     if (name === 'get_job_board_jsa') {
       const doc=store.documentRows.find(d=>d.id===args.p_document_id);if(store.failJsa || !doc || !store.visit)return route.fulfill({status:403,json:{message:'JSA sign-in expired. Sign in again.'}});
-      return route.fulfill({json:{document_id:doc.id,title:doc.title,report_date:doc.report_date,version:'2026-10-05T12:00:00Z',identity:{name:role==='guest'?'Synthetic Visitor':'Synthetic Site Staff',company:role==='guest'?'Synthetic Client Company':'John Gordon Construction'},signed:!!store.jsaSigned,signed_at:store.jsaSigned?'2026-10-05T16:00:00Z':null,record:sourceJsa().record,acknowledgements:store.jsaSigned?[{attendee_name:role==='guest'?'Synthetic Visitor':'Synthetic Site Staff',attendee_company:role==='guest'?'Synthetic Client Company':'John Gordon Construction',signature_signed_name:role==='guest'?'Synthetic Visitor':'Synthetic Site Staff',signature_strokes:store.jsaSignature,signature_signed_at:'2026-10-05T16:00:00Z',acknowledged_at:'2026-10-05T16:00:00Z'}]:[]}});
+      return route.fulfill({json:{document_id:doc.id,title:doc.title,report_date:doc.report_date,version:'2026-10-05T12:00:00Z',identity:{name:role==='guest'?'Synthetic Visitor':'Synthetic Site Staff',company:role==='guest'?'Synthetic Client Company':'John Gordon Construction'},signed:!!store.jsaSigned,signed_at:store.jsaSigned?'2026-10-05T16:00:00Z':null,record:{...sourceJsa().record,...(store.workerWorkflow?{id:'00000000-0000-4000-8000-000000000080',form_data:{...sourceJsa().record.form_data,jsa_worker_workflow_version:2},jsa_workflow:store.workerWorkflow}: {})},workflow:store.workerWorkflow,can_collect:store.workerWorkflow && role==='staff' && (store.workerWorkflow.prepared_in_advance || store.isCreator),acknowledgements:store.jsaSigned?[{attendee_name:role==='guest'?'Synthetic Visitor':'Synthetic Site Staff',attendee_company:role==='guest'?'Synthetic Client Company':'John Gordon Construction',signature_signed_name:role==='guest'?'Synthetic Visitor':'Synthetic Site Staff',signature_strokes:store.jsaSignature,signature_signed_at:'2026-10-05T16:00:00Z',acknowledged_at:'2026-10-05T16:00:00Z'}]:[]}});
     }
     if(name==='sign_job_board_jsa') {if(store.failJsaSign)return route.fulfill({status:403,json:{message:'Synthetic signature save failed. Try again.'}});store.jsaSigned=true;store.jsaSignature=args.p_signature_strokes;return route.fulfill({json:{ok:true,signed_at:'2026-10-05T16:00:00Z'}});}
     if (name === 'get_job_board_contacts') return store.failContacts ? route.fulfill({status:403,json:{message:'Contacts unavailable'}}) : route.fulfill({json:[{name:'Synthetic Office',role:'Project coordinator',phone:'613-555-0100',email:'office@example.test'},{name:'Synthetic Site Lead',role:'Supervisor',phone:null,email:null}]});
@@ -517,4 +517,14 @@ test('published site plan refreshes only its parent job board and keeps office a
   expect(await board.locator('#uploadFiles').evaluate(e=>e.files.length)).toBe(1);
   expect(await board.locator('body').evaluate(()=>window.sitePlanBoardMarker)).toBe('same-document');
   expect(await iframe.getAttribute('src')).toBe(source);
+});
+
+for(const prepared of [false,true])test(`Job Board prepared JSA staff phone exception ${prepared}`,async({page})=>{
+ await page.setViewportSize({width:390,height:900});const store=await open(page,'staff');
+ store.workerWorkflow={version:2,active:true,prepared_in_advance:prepared,signing_mode:prepared?'shared_phone':'creator_phone',required:2,signed:0,outstanding:2,status:'Draft — Awaiting Worker Sign-Offs',valid_date:today(),today:today()};
+ await page.locator('#dailyReportsList article').filter({hasText:'Morning JSA'}).getByRole('button',{name:'Sign on to JSA',exact:true}).click();
+ const action=page.locator('#jsaSignOnSign');await expect(page.locator('.board-jsa-pdf-sheet canvas')).toBeVisible();
+ if(prepared){await expect(action).toHaveText('Collect worker signatures');await expect(action).toBeEnabled();await action.click();await expect(page).toHaveURL(/jsa.html\?record=00000000-0000-4000-8000-000000000080/);}
+ else {await expect(action).toHaveText('Sign on creator phone');await expect(action).toBeDisabled();}
+ expect(store.calls.some(c=>c.name==='sign_job_board_jsa')).toBe(false);
 });

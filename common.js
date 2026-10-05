@@ -5059,6 +5059,8 @@ async function loadJgcSafetyAcknowledgementNotifications(client) {
     );
 
     return (data || []).map((row) => {
+      // New Workers Onsite JSAs collect signatures on the creator phone only.
+      if (row.record_type === "jsa" && /^jsa-(?:worker|external):/.test(row.attendee_key || "")) return null;
       const rowAliases = [
         row.attendee_key,
         row.attendee_name,

@@ -13,7 +13,7 @@
   const pickerObserver = new MutationObserver(markJobPicker);
   pickerObserver.observe($("jsaField1").closest(".field"), { childList: true, subtree: true });
   markJobPicker();
-  window.JgcPreparedJsa = { isPrepared: Boolean(param), activate };
+  window.JgcPreparedJsa = { isPrepared: Boolean(param), activate,validate,restore,isActive:()=>!!draft?.activated_at };
   if (param) {
     $("jsaPreparation").hidden = false;
     $("jsaSignoffChoiceSection").hidden = true;
@@ -29,6 +29,7 @@
     document.querySelectorAll("#jsaPreparation button").forEach(b => b.disabled = locked || Boolean(draft && draft.activated_at));
     $("jsaDraftPdf").disabled = locked;
     $("jsaDraftPrint").disabled = locked;
+    updateJsaWorkDate();
   }
   async function payload() {
     markJobPicker();
@@ -66,6 +67,7 @@
   }
   function restore(value) {
     const record = value.record;
+    if(!$("jsaField3").value)$("jsaField3").value=record.inspection_date || "";
     const fields = record.form_data.fields || [];
     document.querySelectorAll(".grid input, .grid select, .checklist input").forEach(input => {
       if (input.dataset.inspectionSkip === "true") return;
@@ -76,7 +78,7 @@
     });
     selectedCrewMembers.clear(); manualCrewMembers.clear();
     (value.crew || []).forEach(worker => selectedCrewMembers.set(getCrewWorkerKey(worker), worker));
-    (value.manual || []).forEach(name => manualCrewMembers.set(getManualCrewKey(name), name));
+    (value.manual || []).forEach(name => manualCrewMembers.set(getManualCrewKey(name), manualWorker(name)));
     renderApprovedCrewSelect(); renderSelectedCrewMembers(); renderManualCrewMembers(); syncCrewSignOffField();
     $("tableBody").replaceChildren();
     (record.form_data.rows || []).forEach(row => insertRow(row.cells || []));
@@ -118,31 +120,24 @@
     await run(async () => {
       if (!draft || savedSnapshot !== snapshot()) await persist();
       const record = draft.payload.record;
-      const names = safetyAckParseManualAttendees(getInspectionFieldValue(record.form_data.fields, /Crew Sign Off/i), "");
-      const creator = getCurrentWorker();
-      names.push({ name: creator.display || creator.key, company: "John Gordon Construction" });
-      const profiles = await safetyAckLoadApprovedProfiles(inspectionSupabaseClient);
-      if (!profiles.length) throw new Error("The employee directory could not be verified. Try activation again when it is available.");
-      if ([...selectedCrewMembers.values()].some(worker => !safetyAckFindEmployeeMatch(worker.display_name || getCrewWorkerKey(worker), profiles))) {
-        throw new Error("An intended employee is no longer approved. Review the crew before activating this JSA.");
-      }
-      const attendees = safetyAckBuildAttendeesFromNames(names, profiles, { defaultCompany: "" });
-      const result = await inspectionSupabaseClient.rpc("activate_prepared_jsa", { p_id: draft.id, p_revision: draft.revision, p_mode: mode, p_attendees: attendees });
+      const entries=getJsaWorkerEntries();
+      const attendees=entries.map(w=>({attendee_name:w.name,attendee_company:w.company,matched_employee_id:w.employee_id || null}));
+      const result = await inspectionSupabaseClient.rpc("activate_prepared_jsa", { p_id: draft.id, p_revision: draft.revision, p_mode: "workers", p_attendees: attendees });
       if (result.error) throw result.error;
       draft = result.data.draft;
+      result.data.record.jsa_workflow=result.data.workflow; result.data.record.jsa_can_collect=result.data.can_collect;result.data.record.jsa_can_edit=result.data.can_edit;
       showActive(result.data.record, result.data.acknowledgements, true);
-      status("Active / Assigned. Complete the existing sign-off process below.");
+      status("All workers need to sign off report before JSA is completed.");
     });
   }
   function showActive(record, acknowledgements, openMode) {
-    $("jsaPreparationTitle").textContent = "Active / Assigned";
-    $("jsaPreparationHelp").textContent = "This JSA has been issued. Sign-off and acknowledgments follow the existing process.";
+    $("jsaPreparationTitle").textContent = record.jsa_workflow?.status || "JSA record";
+    $("jsaPreparationHelp").textContent = "Collect each worker acknowledgement and signature on one phone. A JSA prepared in advance can be signed on the staff phone handling today’s sign-offs.";
     document.querySelectorAll(".grid input, .grid select, .checklist input, #jsaTable textarea, #jsaTable button, .signoff input, .signoff select, .signoff button, .jsa-row-actions button").forEach(f => f.disabled = true);
     $("jsaLibrary").hidden = true;
     $("jsaSignoffChoiceSection").hidden = false;
     jsaPostSaveRecord = record; jsaPostSaveRows = acknowledgements;
-    if (openMode) {
-      selectJsaAcknowledgementMode(draft.acknowledgement_mode);
+    if (openMode || record.form_data?.jsa_worker_workflow_version===2) {
       showJsaSafetyQrAfterSave(record, acknowledgements);
     }
     savedSnapshot = snapshot(); lockDraft(false);
@@ -159,7 +154,7 @@
         const doc = await JgcJsaPdf.create(record, opts);
         if (print) { doc.autoPrint(); const url = doc.output("bloburl"); target.location.href = url; setTimeout(() => URL.revokeObjectURL(url), 300000); }
         else doc.save(`jsa-${draft.activated_at ? "" : "prepared-"}${record.inspection_date || "draft"}.pdf`);
-        status(draft.activated_at ? "Active JSA exported." : "Draft saved and exported. No crew assigned or notified.");
+        status(draft.activated_at ? "Active JSA exported." : "Draft saved and exported. No worker signatures requested.");
       } catch (error) { if (target) target.close(); throw error; }
     });
   }
@@ -218,14 +213,12 @@
   searchPresets();
   loadCustomPresets();
 
-  $("jsaSaveDraft").onclick = () => run(async () => { await persist(); status("Draft saved. No crew assigned or notified."); });
+  $("jsaSaveDraft").onclick = () => run(async () => { await persist(); status("Draft saved. No worker signatures requested."); });
   $("jsaDraftPdf").onclick = () => { if (!busy) void exportDraft(false); };
   $("jsaDraftPrint").onclick = () => { if (!busy) void exportDraft(true); };
   $("jsaActivate").onclick = () => {
-    if (!validate()) return;
-    $("jsaSignoffChoiceSection").hidden = false;
-    $("jsaAcknowledgementChoiceStatus").textContent = "Review the work date and intended crew, then choose the existing sign-off method to activate and assign this JSA.";
-    $("jsaSignoffChoiceSection").scrollIntoView({ behavior: "smooth" });
+    $("jsaAcknowledgementChoiceStatus").textContent='All workers need to sign off report before JSA is completed.';
+    void activate('workers');
   };
   window.addEventListener("beforeunload", event => {
     if (param && admin && !draft?.activated_at && savedSnapshot !== snapshot()) { event.preventDefault(); event.returnValue = ""; }
@@ -244,11 +237,11 @@
       if (draft.activated_at) {
         const recordResult = await inspectionSupabaseClient.from("inspection_records").select("*").eq("id", draft.record_id).single();
         if (recordResult.error) throw recordResult.error;
-        const rows = await safetyAckLoadForRecords(inspectionSupabaseClient, "jsa", draft.record_id);
-        showActive(recordResult.data, rows, false);
+        const model=await JGCJsaWorkers.load(inspectionSupabaseClient,draft.record_id);
+        model.record.jsa_can_collect=model.can_collect;showActive(model.record,model.acknowledgements,false);
       }
     }
-    $("jsaCrewTitle").textContent = draft?.activated_at ? "3. Assigned crew" : "3. Intended crew — not yet assigned";
-    savedSnapshot = snapshot(); lockDraft(false);
+    $("jsaCrewTitle").textContent = draft?.activated_at ? "3. Workers Onsite" : "3. Workers Onsite — planned";
+    savedSnapshot = snapshot(); lockDraft(false);updateJsaWorkDate();
   })().catch(error => { status("Could not open this draft: " + error.message); });
 }());

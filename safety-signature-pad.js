@@ -33,6 +33,8 @@
                 <div class="safety-signature-body">
                     <label for="safetySignaturePrintedName">Printed name</label>
                     <input id="safetySignaturePrintedName" type="text" autocomplete="name" value="${escapeHtml(settings.attendeeName || "")}" placeholder="Full name" />
+                    ${settings.company?'<p class="safety-signature-company">'+escapeHtml(settings.company)+'</p>':''}
+                    ${settings.requireReadConfirmation?'<label class="safety-signature-confirm"><input type="checkbox" id="safetySignatureRead"> I confirm I have read and understood this JSA.</label>':''}
                     <label>Signature</label>
                     <div class="safety-signature-pad-wrap">
                         <canvas class="safety-signature-pad" aria-label="Sign here with your finger or pointer"></canvas>
@@ -177,6 +179,8 @@
         });
         submitButton.addEventListener("click", async () => {
             const cleanName = printedName.value.trim();
+            const readConfirmation=backdrop.querySelector('#safetySignatureRead');
+            if(readConfirmation && !readConfirmation.checked){showError('Please confirm you have read the JSA.');readConfirmation.focus();return;}
             const usableStrokes = strokes.filter((stroke) => stroke.length >= 2);
 
             if (!cleanName) {
@@ -199,6 +203,7 @@
                 const result = typeof settings.onSubmit === "function"
                     ? await settings.onSubmit({
                         printedName: cleanName,
+                        confirmedRead: !!readConfirmation?.checked,
                         strokes: usableStrokes,
                         width: Math.round(canvas.getBoundingClientRect().width),
                         height: Math.round(canvas.getBoundingClientRect().height)

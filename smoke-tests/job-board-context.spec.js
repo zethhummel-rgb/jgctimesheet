@@ -36,6 +36,11 @@ async function install(page, store, options = {}) {
     if (url.pathname.endsWith('/rpc/attach_job_board_report_by_id')) { const args = req.postDataJSON(); store.calls.push({ name: 'attach_job_board_report_by_id', args }); return store.failAttach ? route.fulfill({ status: 403, json: { message: 'Synthetic attachment failure' } }) : route.fulfill({ json: { id: 'attached-document' } }); }
     if (url.pathname.endsWith('/rpc/begin_job_board_upload')) { const args = req.postDataJSON(); store.calls.push({ name: 'begin_job_board_upload', args }); return route.fulfill({ json: { id: '00000000-0000-4000-8000-000000000008', object_path: BOARD + '/daily-photo.png' } }); }
     if (url.pathname.endsWith('/rpc/finalize_job_board_upload')) { const args = req.postDataJSON(); store.calls.push({ name: 'finalize_job_board_upload', args }); return store.failFinalize || !store.storageReady ? route.fulfill({ status: 403, json: { message: 'Synthetic finalize failure or incomplete file' } }) : route.fulfill({ json: {} }); }
+    if (url.pathname.endsWith('/rpc/save_worker_jsa')) {
+      if (!String(req.headers().authorization || '').startsWith('Bearer eyJ')) return route.fulfill({status:403,json:{message:'Signed-in creator required'}});
+      const args=req.postDataJSON(), record={...args.p_payload,id:args.p_id}; store.inspections.push(record);
+      return route.fulfill({json:{record,workflow:{version:2,revision:1,active:true,valid_date:record.inspection_date,required:args.p_workers.length,signed:0,outstanding:args.p_workers.length,status:'Draft — Awaiting Worker Sign-Offs'},acknowledgements:args.p_workers.map((w,i)=>({id:'synthetic-ack-'+i,attendee_name:w.name,attendee_company:w.company})),can_collect:true}});
+    }
     if (url.pathname.includes('/rpc/')) return route.fulfill({ json: [] });
     if (url.pathname.endsWith('/profiles')) return route.fulfill({ json: single ? store.person : [store.person] });
     if (url.pathname.endsWith('/jobs') || url.pathname.endsWith('/active_jobs')) return route.fulfill({ json: [{ id: 'stable-official-job', job_number: '26132', job_name: 'Synthetic site work', address: '14815 County Road 2', active: true }] });
@@ -127,10 +132,10 @@ test('failed JSA crew lookup shows unavailable and retry rather than no approved
   store.failCrew=false;await page.locator('#approvedCrewRetry').click();await expect(page.locator('#approvedCrewStatus')).toContainText('2 approved employees loaded');await expect(page.locator('#approvedCrewRetry')).toBeHidden();
 });
 
-for(const theme of ['light','dark'])for(const width of [390,1440])test(`actual JSA Creator Sign Off popup remains readable ${theme} ${width}`,async({page},testInfo)=>{
+for(const theme of ['light','dark'])for(const width of [390,1440])test(`worker acknowledgement and signature popup remains readable ${theme} ${width}`,async({page},testInfo)=>{
   await page.setViewportSize({width,height:1000});const store=fixture();await install(page,store,{sessionOnly:true});
   await page.goto('/jsa.html?jobBoard=1#'+new URLSearchParams({board:TOKEN,visit:VISIT}));await expect(page.locator('#jobBoardFormStatus')).toContainText('26132');
-  await page.evaluate(theme=>{applyJgcTheme(theme);window.signature=JGCSafetySignature.open({attendeeName:'Synthetic Alpha',recordLabel:'JSA acknowledgement'});},theme);
+  await page.evaluate(theme=>{applyJgcTheme(theme);window.signature=JGCSafetySignature.open({attendeeName:'Synthetic Alpha',company:'JGC',readOnlyName:true,requireReadConfirmation:true,recordLabel:'JSA acknowledgement'});},theme);
   await expect(page.locator('.safety-signature-dialog')).toBeVisible();
   const ratios=await page.evaluate(()=>{
     const luminance=color=>{const n=color.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return .2126*n[0]+.7152*n[1]+.0722*n[2];};

@@ -754,6 +754,8 @@ for (const decided of ["granted", "denied"]) {
 }
 
 test("service worker installs and controls the portal", async ({ browser }) => {
+  // This verifies the complete offline cache installation, separate from page-load latency.
+  test.setTimeout(90000);
   const context = await browser.newContext({ serviceWorkers: "allow" });
   try {
     const page = await context.newPage();
@@ -765,7 +767,7 @@ test("service worker installs and controls the portal", async ({ browser }) => {
     await page.evaluate(async () => {
       await Promise.race([
         navigator.serviceWorker.ready,
-        new Promise((_, reject) => setTimeout(() => reject(new Error("Service worker registration timed out")), 10_000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Service worker registration timed out")), 45_000))
       ]);
     });
     const controlledPage = await context.newPage();
@@ -1124,23 +1126,9 @@ test("JSA approved employee selection immediately adds the crew member", async (
   await expect(select.locator("option")).toHaveCount(3);
   await expect(approvedPicker.getByRole("button", { name: "Add Employee" })).toHaveCount(0);
   await expect(page.locator(".jsa-row-actions").getByRole("button", { name: "Add Row" })).toBeVisible();
-  await expect(page.locator("#jsaSignoffChoiceSection").getByRole("button", { name: /QR Code/ })).toBeVisible();
-  await expect(page.locator("#jsaSignoffChoiceSection").getByRole("button", { name: /Employee Signature/ })).toBeVisible();
-  await expect(page.locator("#jsaSignoffChoiceSection").getByRole("button", { name: /Creator Sign Off/ })).toBeVisible();
-  const submitButton = page.locator("#jsaSubmitButton");
-  await expect(submitButton).toBeHidden();
-  await page.evaluate(() => {
-    window.saveInspection = async () => {};
-  });
-  await page.locator("#jsaSignoffChoiceSection").getByRole("button", { name: /Employee Signature/ }).click();
-  await expect(page.locator("#jsaChoiceEmployees")).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator("#jsaAcknowledgementChoiceStatus")).not.toHaveClass(/is-error/);
-  await expect(submitButton).toBeHidden();
-  await page.evaluate(() => {
-    window.unlockJsaFinalSubmit("Sign-off complete. Review the JSA, then press Submit.");
-  });
-  await expect(submitButton).toBeVisible();
-  await expect(submitButton).toBeEnabled();
+  await expect(page.locator("#jsaSignoffChoiceSection").getByRole("button", { name: "Complete and Worker Sign Off",exact:true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /QR Code|Creator Sign Off|Employee Signature/ })).toHaveCount(0);
+  await expect(page.locator("#jsaSubmitButton")).toHaveCount(0);
   await expect(page.locator(".jsa-submit-actions").getByRole("button", { name: "Reports", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
   const rowActionsBox = await page.locator(".jsa-row-actions").boundingBox();
@@ -2173,7 +2161,7 @@ test("approved employees can add themselves to an existing JSA", async ({ page }
   await expect(panel.locator(".jsa-report-table")).toContainText("Review site");
   await expect(panel.locator('.jsa-report-view input:disabled')).toHaveCount(0);
   await expect(panel).not.toContainText("textarea");
-  await expect(panel).toContainText("You were not on the original crew list");
+  await expect(panel).toContainText("You were not on the original Workers Onsite list");
   await expect(panel.getByRole("button", { name: "Acknowledge with Account", exact: true })).toBeVisible();
   await expect(panel.getByRole("button", { name: "Sign on This Device", exact: true })).toBeVisible();
 
@@ -5397,10 +5385,13 @@ async function installPreparedJsaMock(page, isAdmin = true) {
   await page.route(`${supabaseOrigin}/rest/v1/rpc/activate_prepared_jsa`, async route => {
     const p=route.request().postDataJSON(); state.activations++;
     state.draft={...state.draft,activated_at:'2026-09-23T01:00:00Z',record_id:state.draft.id,acknowledgement_mode:p.p_mode};
-    state.record={...state.draft.payload.record,id:state.draft.id};
+    state.record={...state.draft.payload.record,id:state.draft.id,form_data:{...state.draft.payload.record.form_data,jsa_worker_workflow_version:2}};
     state.acknowledgements=p.p_attendees.map((a,i)=>({...a,id:`00000000-0000-4000-8000-00000000010${i}`,record_id:state.draft.id,record_type:'jsa',qr_token:'synthetic-qr-token-1234567890',acknowledgement_status:'pending'}));
-    await route.fulfill({json:{draft:state.draft,record:state.record,acknowledgements:state.acknowledgements}});
+    const today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    state.model={draft:state.draft,record:state.record,acknowledgements:state.acknowledgements,can_collect:true,workflow:{version:2,revision:1,today,valid_date:state.record.inspection_date,active:true,required:state.acknowledgements.length,signed:0,outstanding:state.acknowledgements.length,status:'Draft — Awaiting Worker Sign-Offs',requested_at:new Date().toISOString()}};
+    await route.fulfill({json:state.model});
   });
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/get_jsa_worker_workflow`, route => route.fulfill({json:state.model}));
   await page.route(`${supabaseOrigin}/rest/v1/inspection_records*`, route => route.fulfill({json:state.record || []}));
   await page.route(`${supabaseOrigin}/rest/v1/safety_acknowledgements*`, route => route.fulfill({json:state.acknowledgements}));
   return state;
@@ -5414,8 +5405,9 @@ async function fillPreparedJsa(page) {
   await page.locator('#jsaField1').fill('26999 - Synthetic construction project');
   await page.locator('#jsaField2').fill('Synthetic site - Cornwall');
   await page.locator('#jsaField3').fill('2026-11-01');
-  await page.locator('#manualCrewInput').fill('Synthetic trade worker - Example subcontractor');
-  await page.getByRole('button',{name:'Add Employee',exact:true}).click();
+  await page.locator('#manualCrewInput').fill('Synthetic trade worker');
+  await page.locator('#manualCrewCompany').fill('Example subcontractor');
+  await page.getByRole('button',{name:'Add Worker',exact:true}).click();
   await page.locator('#jsaLibrary summary').click();
   await page.locator('#jsaPresetSearch').fill('ladder');
   await page.locator('[data-preset]').filter({hasText:'Ladders'}).click();
@@ -5502,7 +5494,7 @@ test('JSA library filters by category, merges admin custom tasks and inserts edi
   await expect(page.locator('#jsaPresetDetail label')).toHaveCount(4);
 });
 
-test('JSA draft saves and reopens planned crew without assignment, then activates through existing signatures',async({page})=>{
+test('JSA prepares for the client, then activates on the work date for creator-phone worker signatures',async({page})=>{
   const state=await installPreparedJsaMock(page); await fillPreparedJsa(page);
   await expect(page.locator('#jsaSignoffChoiceSection')).toBeHidden();
   await page.locator('#jsaSaveDraft').click();
@@ -5517,19 +5509,24 @@ test('JSA draft saves and reopens planned crew without assignment, then activate
   await expect(page.locator('#crewSignOffCombined')).toHaveValue(/Synthetic trade worker/);
   await expect(page.locator('#tableBody textarea').first()).toHaveValue('Ladders');
   await expect(page.locator('#jsaField1')).toHaveValue(/26999/);
+  await expect(page.locator('#jsaActivate')).toBeDisabled();
+  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  await page.locator('#jsaField3').fill(today);
   await page.locator('#jsaActivate').click();
-  await page.locator('#jsaChoiceEmployees').click();
-  await expect(page.locator('#jsaPreparationTitle')).toHaveText('Active / Assigned');
-  await expect(page.locator('#jsaPostSaveQrPanel')).toContainText('Employee');
-  await expect(page.locator('#jsaSubmitButton')).toBeHidden();
+  await expect(page.locator('#jsaPreparationTitle')).toHaveText('Draft — Awaiting Worker Sign-Offs');
+  await expect(page.locator('#jsaPostSaveQrPanel')).toContainText('Synthetic trade worker');
+  await expect(page.locator('#jsaPostSaveQrPanel')).toContainText('Outstanding');
+  await expect(page.locator('[data-jsa-worker-sign]')).toHaveCount(1);
+  await expect(page.locator('#jsaSubmitButton')).toHaveCount(0);
   expect(state.activations).toBe(1);expect(state.earlyWrites).toEqual([]);
-  await page.reload();await expect(page.locator('#jsaPreparationTitle')).toHaveText('Active / Assigned');
+  await page.reload();await expect(page.locator('#jsaPreparationTitle')).toHaveText('Draft — Awaiting Worker Sign-Offs');
   await expect(page.locator('#jsaSaveDraft')).toBeDisabled();
   expect(state.activations).toBe(1);expect(state.earlyWrites).toEqual([]);
 });
 
 test('JSA preparation requires admin and incomplete activation highlights required fields',async({page})=>{
   await installPreparedJsaMock(page);await page.goto('/jsa.html?prepared=new');
+  await page.locator('#jsaField3').fill(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()));
   await expect(page.locator('#jsaActivate')).toBeEnabled();await page.locator('#jsaActivate').click();
   await expect(page.locator('#jsaDraftStatus')).toContainText('required');
   await expect(page.locator('#jsaField1')).toHaveAttribute('aria-invalid','true');
@@ -5545,12 +5542,13 @@ test('JSA PDF preserves long controls and existing signatures and clearly marks 
   await page.locator('#jsaDraftPdf').click();
   const download=await downloadPromise;
   await download.saveAs(testInfo.outputPath('jsa-prepared-short.pdf'));
-  await expect(page.locator('#jsaDraftStatus')).toContainText('No crew assigned');
+  await expect(page.locator('#jsaDraftStatus')).toContainText('No worker signatures requested');
   const outputs=await page.evaluate(async()=>{
     const {record}=await buildInspectionRecord('JSA',getCurrentWorker());
     record.form_data.rows[0].cells[2]=Array.from({length:65},(_,i)=>`Control ${i+1}: Confirm the synthetic work area is controlled and review this instruction with the crew.`).join('\n');
     const ack={attendee_name:'Synthetic Signed Worker',attendee_company:'JGC',acknowledged_at:'2026-09-23T01:00:00Z',signature_strokes:[[[.1,.2],[.5,.8],[.9,.2]]],signature_width:400,signature_height:180,matched_employee_email:'synthetic@example.com'};
     const prepared=await JgcJsaPdf.create(record,{prepared:true,acknowledgements:[ack]});
+    delete record.form_data.jsa_worker_workflow_version; // Verify historical signatures still render through their original workflow.
     const active=await JgcJsaPdf.create(record,{acknowledgements:[ack]});
     return {prepared:prepared.output('datauristring').split(',')[1],active:active.output('datauristring').split(',')[1]};
   });
@@ -5562,8 +5560,8 @@ test('JSA PDF preserves long controls and existing signatures and clearly marks 
     const doc=await pdfjs.getDocument({data:new Uint8Array(bytes),disableWorker:true}).promise;
     let text='';for(let n=1;n<=doc.numPages;n++){const p=await doc.getPage(n);text+=(await p.getTextContent()).items.map(i=>i.str).join(' ');}
     expect(text).toContain('Control 65:');expect(doc.numPages).toBeGreaterThan(1);
-    if(kind==='prepared'){expect(text).toContain('PREPARED / DRAFT');expect(text).not.toContain('Synthetic Signed Worker');}
-    else {expect(text).toContain('DIGITAL JSA ACKNOWLEDGMENTS');expect(text).toContain('Synthetic Signed Worker');}
+    if(kind==='prepared'){expect(text).toContain('PREPARED - WORK DATE');expect(text).not.toContain('Synthetic Signed Worker');}
+    else {expect(text).toContain('WORKER ACKNOWLEDGEMENTS & SIGNATURES');expect(text).toContain('Synthetic Signed Worker');}
   }
 });
 

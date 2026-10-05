@@ -516,3 +516,8 @@ button:hover {
 }
 
 .jsa-preparation a, #jsaAdminEntry a, .jsa-section-heading a, .prepared-jsa-card a { color: var(--jgc-color-text); text-decoration: underline; font-weight: 600; }
+
+.manual-crew-grid { grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; align-items:end; }
+.safety-signature-confirm {display:flex!important;align-items:center;gap:10px;color:var(--jgc-color-text);}
+.safety-signature-confirm input {width:22px;height:22px;flex-shrink:0;}
+@media(max-width:600px){.manual-crew-grid{grid-template-columns:minmax(0,1fr);}#jsaPostSaveQrPanel .jgc-record-row{padding:12px;}#jsaPostSaveQrPanel button{min-height:44px;}}

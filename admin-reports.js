@@ -32,6 +32,15 @@ function formatJsaReportAcknowledgementDate(value) {
 
 function renderJsaReportAcknowledgements(inspection) {
     const acknowledgements = getJsaReportAcknowledgements(inspection);
+    const workflow = window.JGCJsaWorkers?.state(inspection, acknowledgements);
+    if (workflow) {
+        const future = workflow.status === "Prepared";
+        const detail = acknowledgements.map(ack => escapeHtml(
+            (ack.attendee_name || "Worker") + (ack.attendee_company ? " / " + ack.attendee_company : "") + ": " +
+            (ack.signature_signed_at ? "Signed - " + formatJsaReportAcknowledgementDate(ack.signature_signed_at) : future ? "Planned - sign on work date" : "Outstanding")
+        )).join("<br>");
+        return `<strong>${escapeHtml(workflow.status)}</strong><br>${escapeHtml(String(workflow.signed))}/${escapeHtml(String(workflow.required))} signed${workflow.outstanding && !future ? " - " + escapeHtml(String(workflow.outstanding)) + " outstanding" : ""}${detail ? "<br>" + detail : ""}`;
+    }
 
     if (!acknowledgements.length) {
         return "-";
@@ -423,7 +432,7 @@ function getAdminJsaReportFields(report) {
         ? report.form_data.fields
         : [];
 
-    return fields.filter((field) => {
+    return fields.map(field=>({...field,label:String(field.label || "").replace(/Crew Sign Off.*$/i,"Workers Onsite (Print Names)")})).filter((field) => {
         const label = String(field && field.label || "").trim();
         const value = String(field && field.value || "").trim();
         return label && value && label.toLowerCase() !== "textarea";
@@ -526,7 +535,7 @@ function openAdminJsaReport(reportId) {
     panel.innerHTML = `
         <div class="admin-jsa-report-header">
             <div>
-                <span class="small">Completed JSA</span>
+                <span class="small">${escapeHtml(JGCJsaWorkers.state(report,getJsaReportAcknowledgements(report))?.status || "JSA record")}</span>
                 <h3>${escapeHtml(report.title || "Job Safety Analysis")}</h3>
             </div>
             <div class="jgc-actions jgc-actions--compact">
