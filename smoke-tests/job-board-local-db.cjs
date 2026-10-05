@@ -543,6 +543,38 @@ async function createDatabase() {
       await as('authenticated','admin'); await rpc('select public.configure_job_board($1,false,false) result',[rotated.id]);
       await as('anon'); await rejects('select public.get_job_board($1,$2)',[rotated.token,renewed]); await rejects('select public.resolve_job_board_download($1,$2,$3)',[rotated.token,renewed,policyIds.older]); await rejects('select public.log_job_board_activity($1,$2,$3,$4)',[rotated.token,renewed,'view-document',policyIds.older]);
     });
+    await db.exec('reset role');
+    const migration=fs.readdirSync(path.join(__dirname,'../supabase/migrations')).find(n=>n.endsWith('_jgc_job_board_signins_976.sql'));
+    await db.exec(fs.readFileSync(path.join(__dirname,'../supabase/migrations',migration),'utf8'));
+    await as('authenticated','admin'); const attendanceBoard=await rpc('select public.get_or_create_job_board($1) result',[ids.otherJob]);
+    const submission='11111111-1111-4111-8111-111111111111';
+    const site=(token=attendanceBoard.token,name='Synthetic Site Visitor',company='Synthetic Contractor',reason='Delivery',id=submission)=>rpc('select public.record_job_board_site_signin($1,$2,$3,$4,$5) result',[token,name,company,reason,id]);
+    await check('site sign-in records bounded attendance with server time and idempotent retries without document access',async()=>{
+      await as('anon'); const before=Date.now(),first=await site(),again=await site(); assert.deepEqual(first,again); assert(Math.abs(Date.parse(first.recorded_at)-before)<30000);
+      assert.equal((await getBoard(attendanceBoard)).requires_visitor_signin,true); await rejects('select * from public.job_board_activity');
+      await rejects('select public.get_job_board_activity($1)',[attendanceBoard.id]); await rejects('select private.jgc_job_board_append($1,$2,null,$3)',[attendanceBoard.id,'visit',{name:'spoof'}]);
+      await rejects('select public.record_job_board_site_signin($1,$2,$3,$4,$5)',[attendanceBoard.token,'Changed','Synthetic Contractor','Delivery',submission],/retry/i);
+      for(const values of [['', 'Company','',submission],['Name','','',submission],['n'.repeat(151),'Company','',submission],['Name','Company','r'.repeat(1001),submission],['Name','Company','',null]]) await rejects('select public.record_job_board_site_signin($1,$2,$3,$4,$5)',[attendanceBoard.token,...values],/name|company|reason/i);
+      await site(attendanceBoard.token,'Another Visitor','Company','', '22222222-2222-4222-8222-222222222222');
+    });
+    await check('sign-in log excludes historical actions and new document telemetry while preserving canonical login records',async()=>{
+      await as('anon'); const visit=await register(attendanceBoard,'signin-only@example.invalid');
+      await rpc('select public.log_job_board_activity($1,$2,$3,null) result',[attendanceBoard.token,visit,'open-board']);
+      await as('authenticated','admin'); const history=await rpc('select public.get_job_board_activity($1,null,100) result',[attendanceBoard.id]);
+      assert(history.events.every(e=>['visit','site-signin'].includes(e.action))); assert(history.events.some(e=>e.action==='site-signin'&&e.reason==='Delivery'));
+      assert.equal(history.events.filter(e=>e.action==='site-signin'&&e.actor_name==='Synthetic Site Visitor').length,1);
+      const all=[];let before=null;do {const page=await rpc('select public.get_job_board_activity($1,$2,1) result',[attendanceBoard.id,before]);all.push(...page.events);before=page.next_before;}while(before);
+      assert.equal(new Set(all.map(e=>e.id)).size,history.events.length);
+      await db.exec('reset role'); const actions=(await db.query("select action from public.job_board_activity where board_id=$1 and created_at>$2",[attendanceBoard.id,history.events.find(e=>e.action==='site-signin'&&e.reason==='Delivery').created_at])).rows;assert(actions.every(e=>['visit','site-signin'].includes(e.action)));
+    });
+    await check('attendance rejects disabled and replaced QR links and remains append-only and admin-only',async()=>{
+      await as('authenticated','staff');await rejects('select public.get_job_board_activity($1)',[attendanceBoard.id]);
+      await as('authenticated','admin');const rotated=await rpc('select public.configure_job_board($1,true,true) result',[attendanceBoard.id]);
+      await as('anon');await rejects('select public.record_job_board_site_signin($1,$2,$3,$4,$5)',[attendanceBoard.token,'Name','Company','',submission]);
+      await as('authenticated','admin');await rpc('select public.configure_job_board($1,false,false) result',[attendanceBoard.id]);
+      await as('anon');await rejects('select public.record_job_board_site_signin($1,$2,$3,$4,$5)',[rotated.token,'Name','Company','',submission]);
+      await db.exec('reset role');await rejects('delete from public.job_board_activity where board_id=$1',[attendanceBoard.id],/append.only/i);
+    });
     console.log(`${passed}/${passed+failures.length} local Job Board security groups passed. No production connections or writes.`);
     if(failures.length) process.exitCode=1;
   } finally { await db.close(); }

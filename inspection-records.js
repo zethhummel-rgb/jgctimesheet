@@ -2,8 +2,9 @@ const INSPECTION_EMAIL = "zeth@johngordonconstruction.com";
 const INSPECTION_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const INSPECTION_SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
 const INSPECTION_SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
-const inspectionSupabaseClient = window.supabase
-    ? window.supabase.createClient(INSPECTION_SUPABASE_URL, INSPECTION_SUPABASE_KEY)
+// Use the Portal auth storage, including staff sessions kept in this browser tab.
+const inspectionSupabaseClient = typeof createJgcSupabaseClient === "function"
+    ? createJgcSupabaseClient()
     : null;
 const INSPECTION_OFFLINE_QUEUE_KEY = "jgcInspectionOfflineQueueV1";
 let inspectionSaveInFlight = false;

@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#0b5e3b">
   <title>Job Board · JGC Portal</title>
   <link rel="stylesheet" href="jgc-design-system.css?v=13" data-jgc-design-system="13">
-  <link rel="stylesheet" href="job-board.css?v=2">
+  <link rel="stylesheet" href="job-board.css?v=3">
 </head>
 <body class="job-board-page jgc-page jgc-system-page">
   <main class="jgc-page-shell" id="jobBoardPage">
@@ -28,7 +28,8 @@
       <div class="board-header-actions">
         <button class="jgc-button jgc-button--secondary" id="boardRefresh" type="button" data-testid="board-refresh">Refresh</button>
         <button class="jgc-button jgc-button--secondary" id="boardTheme" type="button" aria-label="Switch colour theme">Light theme</button>
-        <button class="jgc-button jgc-button--secondary" id="boardSignIn" type="button">Staff / client sign-in</button>
+        <button class="jgc-button jgc-button--secondary" id="boardSiteSignIn" type="button" hidden>Site Sign in</button>
+        <button class="jgc-button jgc-button--secondary" id="boardSignIn" type="button">Staff Login</button>
       </div>
       <p id="boardIdentity" class="jgc-page-user" hidden></p>
     </header>
@@ -42,6 +43,28 @@
       <button class="jgc-button" id="boardRetry" type="button">Try again</button>
     </section>
 
+    <section class="jgc-panel board-gate" id="loginOptions" hidden aria-labelledby="loginOptionsTitle">
+      <h2 class="jgc-section-title" id="loginOptionsTitle">Welcome to the site</h2>
+      <p>Choose how you would like to continue.</p>
+      <div class="board-login-options">
+        <button class="jgc-button" id="visitorLogin" type="button">Visitor Login</button>
+        <button class="jgc-button" id="staffLogin" type="button">Staff Login</button>
+        <button class="jgc-button jgc-button--secondary" id="siteLogin" type="button">Site Sign in</button>
+      </div>
+    </section>
+    <section class="jgc-panel board-gate" id="siteGate" hidden aria-labelledby="siteTitle">
+      <div class="board-section-heading"><div><h2 class="jgc-section-title" id="siteTitle">Site Sign in</h2><p>Let the office know you are on site.</p></div><button class="jgc-button jgc-button--secondary" id="siteCancel" type="button">Back</button></div>
+      <form id="siteForm" class="board-form">
+        <div class="jgc-form-grid">
+          <div class="jgc-field"><label class="jgc-label" for="siteName">Name</label><input class="jgc-input" id="siteName" autocomplete="name" maxlength="150" required></div>
+          <div class="jgc-field"><label class="jgc-label" for="siteCompany">Company</label><input class="jgc-input" id="siteCompany" autocomplete="organization" maxlength="150" required></div>
+          <div class="jgc-field jgc-field--full"><label class="jgc-label" for="siteReason">Reason for visit (optional)</label><textarea class="jgc-textarea" id="siteReason" rows="3" maxlength="1000"></textarea></div>
+        </div>
+        <p class="board-help">The date and time are recorded automatically. Site sign-in does not give access to restricted reports.</p>
+        <p class="board-form-status" id="siteStatus" role="status" aria-live="polite"></p>
+        <button class="jgc-button" id="siteSubmit" type="submit">Sign in to site</button>
+      </form>
+    </section>
     <section class="jgc-panel board-gate" id="visitorGate" hidden aria-labelledby="visitorTitle" data-testid="visitor-gate">
       <div class="board-section-heading"><div><h2 class="jgc-section-title" id="visitorTitle">Welcome to the site</h2><p>Sign in to view this job’s published safety documents.</p></div><span class="jgc-badge jgc-badge--info">Visitor sign-in</span></div>
       <form id="visitorForm" class="board-form">
@@ -50,14 +73,14 @@
           <div class="jgc-field"><label class="jgc-label" for="visitorCompany">Company</label><input class="jgc-input" id="visitorCompany" name="company" autocomplete="organization" maxlength="160" required></div>
           <div class="jgc-field jgc-field--full"><label class="jgc-label" for="visitorEmail">Email address</label><input class="jgc-input" id="visitorEmail" name="email" type="email" autocomplete="email" maxlength="254" required></div>
         </div>
-        <p class="board-help">Your name, company, email and document activity are recorded for this job. Visitor details are entered by you; this sign-in does not provide access to restricted reports.</p>
+        <p class="board-help">Your name, company, email and sign-in time are recorded for this job. Visitor details are entered by you; this sign-in does not provide access to restricted reports.</p>
         <p class="board-form-status" id="visitorStatus" role="status" aria-live="polite"></p>
-        <button class="jgc-button" id="visitorSubmit" type="submit">Continue to Job Board</button>
+        <div class="board-actions"><button class="jgc-button" id="visitorSubmit" type="submit">Continue to Job Board</button><button class="jgc-button jgc-button--secondary" id="visitorCancel" type="button">Back</button></div>
       </form>
     </section>
 
     <section class="jgc-panel board-gate" id="staffGate" hidden aria-labelledby="staffTitle">
-      <div class="board-section-heading"><div><h2 class="jgc-section-title" id="staffTitle">Staff / client sign-in</h2><p>Use your existing JGC Portal account. Job access is checked after sign-in.</p></div><button class="jgc-button jgc-button--secondary" id="staffCancel" type="button">Close</button></div>
+      <div class="board-section-heading"><div><h2 class="jgc-section-title" id="staffTitle">Staff Login</h2><p>Use your existing JGC Portal account. Job access is checked after sign-in.</p></div><button class="jgc-button jgc-button--secondary" id="staffCancel" type="button">Close</button></div>
       <form id="staffForm" class="board-form">
         <div class="jgc-form-grid">
           <div class="jgc-field"><label class="jgc-label" for="staffEmail">Email address</label><input class="jgc-input" id="staffEmail" type="email" autocomplete="username" maxlength="254" required></div>
@@ -88,25 +111,8 @@
       </nav>
 
       <div id="documentsPanel" role="tabpanel" aria-labelledby="documentsTab">
-        <section class="jgc-panel board-policy" aria-labelledby="policyTitle">
-          <div class="board-section-heading"><div><h2 class="jgc-section-title" id="policyTitle">JGC safety policy</h2><p class="board-help">The current company safety policy is included on every Job Board.</p></div></div>
-          <div id="policyList" class="jgc-record-list" data-testid="policy-list"></div>
-        </section>
-        <section class="jgc-panel board-today" aria-labelledby="todayJsaTitle">
-          <div class="board-section-heading"><div><h2 class="jgc-section-title" id="todayJsaTitle">Today’s JSA</h2><p id="todayDate" class="board-help"></p></div><button class="jgc-button jgc-button--secondary" id="jsaHistory" type="button">JSA history</button></div>
-          <div id="todayJsaList" class="jgc-record-list" data-testid="today-jsa-list"></div>
-        </section>
-        <section class="jgc-panel" aria-labelledby="documentsTitle">
-          <div class="board-section-heading"><div><h2 class="jgc-section-title" id="documentsTitle">Site documents</h2><p class="board-help">H&amp;S, policies, JSAs, reports, permits and inspections in one place.</p></div><span class="jgc-badge jgc-badge--info" id="documentCount"></span></div>
-          <form class="jgc-filter-grid board-filters" id="documentFilters" role="search">
-            <div class="jgc-field"><label class="jgc-label" for="documentSearch">Search documents</label><input class="jgc-input" id="documentSearch" type="search" placeholder="Title, file name or notes…"></div>
-            <div class="jgc-field"><label class="jgc-label" for="documentCategory">Document type</label><select class="jgc-select" id="documentCategory"><option value="">All document types</option></select></div>
-            <div class="jgc-field"><label class="jgc-label" for="documentDate">Report date</label><input class="jgc-input" id="documentDate" type="date"></div>
-          </form>
-          <div class="board-filter-actions"><span class="board-help" id="documentFilterCount" aria-live="polite"></span><button class="jgc-button jgc-button--secondary" id="documentClear" type="button">Clear filters</button></div>
-          <div id="documentList" class="jgc-record-list" data-testid="document-list"></div>
-          <p class="board-help">Email link opens your mail app with a link to this document. Restricted reports require an authorized Portal account.</p>
-        </section>
+        <div id="documentSections" class="board-document-sections" aria-label="Site documents"></div>
+        <p class="board-help">Open a section to view its documents. Newest reports appear first.</p>
       </div>
 
       <section class="jgc-panel" id="uploadPanel" role="tabpanel" aria-labelledby="uploadTab" hidden>
@@ -139,12 +145,21 @@
       </section>
 
       <section class="jgc-panel board-admin-panel" id="boardActivityPanel" hidden>
-        <details id="boardActivity" data-testid="board-activity"><summary>Activity log</summary><div class="board-details-content"><p class="board-help">Job Board sign-ins, document activity, uploads and review actions. Visitor identities are entered by the visitor.</p><div class="board-actions"><button class="jgc-button jgc-button--secondary" id="activityRefresh" type="button">Refresh activity</button></div><p id="activityStatus" class="board-form-status" role="status" aria-live="polite"></p><div id="activityList" class="jgc-record-list"></div><button class="jgc-button jgc-button--secondary" id="activityMore" type="button" hidden>Load more</button></div></details>
+        <details id="boardActivity" data-testid="board-activity"><summary>Sign-in log</summary><div class="board-details-content"><p class="board-help">Visitor, staff and site sign-ins, with date and time. Visitor and site details are entered by the person signing in.</p><div class="board-actions"><button class="jgc-button jgc-button--secondary" id="activityRefresh" type="button">Refresh sign-ins</button></div><p id="activityStatus" class="board-form-status" role="status" aria-live="polite"></p><div id="activityList" class="jgc-record-list"></div><button class="jgc-button jgc-button--secondary" id="activityMore" type="button" hidden>Load more</button></div></details>
       </section>
       <footer class="board-footer">John Gordon Construction · Job Board</footer>
     </div>
   </main>
   <dialog id="documentPreview" class="board-preview"><div class="board-section-heading"><h2 class="jgc-section-title" id="previewTitle">Document preview</h2><button class="jgc-button jgc-button--secondary" id="previewClose" type="button">Close</button></div><p id="previewStatus" class="board-form-status" role="status"></p><div id="previewBody"></div></dialog>
+  <dialog id="emailPdfDialog" class="board-preview board-email-dialog">
+    <div class="board-section-heading"><h2 class="jgc-section-title">Email PDF</h2><button class="jgc-button jgc-button--secondary" id="emailPdfClose" type="button">Close</button></div>
+    <p id="emailPdfTitle"></p><p id="emailPdfStatus" class="board-form-status" role="status" aria-live="polite"></p>
+    <div id="emailPdfReady" hidden>
+      <p>Choose your email app to compose a message with this PDF attached. You choose the recipient and send it.</p>
+      <div class="board-actions"><button class="jgc-button" id="emailPdfShare" type="button">Choose email app</button><button class="jgc-button jgc-button--secondary" id="emailPdfDraft" type="button">Download email draft</button><button class="jgc-button jgc-button--secondary" id="emailPdfDownload" type="button">Download PDF</button></div>
+      <p class="board-help">If your browser cannot share a file, download the email draft and open it in a mail app that supports .eml drafts. The PDF is included as an attachment.</p>
+    </div>
+  </dialog>
   <section id="boardPoster" class="board-poster" aria-label="Printable Job Board QR poster" hidden><img src="logo.webp" alt="John Gordon Construction" class="board-poster-logo"><h1>Job Board</h1><h2 id="posterJob"></h2><p id="posterAddress"></p><img id="posterQr" alt="Scan to open this job’s safety documents" width="320" height="320"><h3>Scan for site safety documents</h3><p>H&amp;S · Policies · JSAs · Toolbox talks<br>Permits · Reports · Inspections</p><p>Sign in with your name, company and email to continue.<br>JGC staff: use your Portal account to upload paper forms and photos.</p></section>
   <script>if (new URLSearchParams(location.search).get('embedded') !== '1') { const u = new URL(location.href); u.searchParams.set('embedded', '1'); history.replaceState(null, '', u); }</script>
   <script src="vendor/supabase-js.min.js?v=1"></script>
@@ -153,6 +168,7 @@
   <script src="job-board-context.js?v=1"></script>
   <script src="vendor/qrcode.min.js?v=1"></script>
   <script src="job-board-report-pdf.js?v=1"></script>
-  <script src="job-board.js?v=2"></script>
+  <script src="job-board-email.js?v=1"></script>
+  <script src="job-board.js?v=3"></script>
 </body>
 </html>

@@ -15,13 +15,13 @@ function board() { return { id: BOARD, job_number: '26132', job_name: 'Synthetic
 function fixture() { return { person: STAFF, calls: [], inspections: [], dailyReports: [], emails: [], failAttach: false, failFinalize: false, storageReady: false }; }
 async function install(page, store, options = {}) {
   await page.exposeFunction('fixturePhotoStorageComplete', () => { store.storageReady = true; });
-  await page.addInitScript(({ person, session, token, board, offline, attachmentQueue, queueKey }) => {
-    localStorage.setItem('sb-xnrljkkszoimegfivlya-auth-token', JSON.stringify(session)); localStorage.setItem('jgcStayLoggedIn', 'true'); sessionStorage.setItem('jgcActiveSession', 'true');
+  await page.addInitScript(({ person, session, token, board, offline, attachmentQueue, queueKey, sessionOnly }) => {
+    (sessionOnly ? sessionStorage : localStorage).setItem('sb-xnrljkkszoimegfivlya-auth-token', JSON.stringify(session)); localStorage.setItem('jgcStayLoggedIn',sessionOnly ? 'false' : 'true'); sessionStorage.setItem('jgcActiveSession', 'true');
     if (!localStorage.getItem('fixtureContextInitialized')) { localStorage.setItem('fixtureContextInitialized', 'true'); localStorage.setItem('fixtureOffline', offline ? 'true' : 'false'); localStorage.setItem(queueKey, JSON.stringify(attachmentQueue)); }
     for (const [key, value] of Object.entries({ currentWorker: person.worker_key, currentWorkerDisplay: person.display_name, currentUserEmail: person.email, currentUserRole: person.role, currentAccountStatus: person.account_status })) { if (!localStorage.getItem(key)) localStorage.setItem(key, value); }
     Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => localStorage.getItem('fixtureOffline') !== 'true' });
     if (offline) sessionStorage.setItem('jgcJobBoardForm:' + token, JSON.stringify({ actor_id: person.id, worker: { key: person.worker_key, display: person.display_name, email: person.email, role: person.role, status: person.account_status }, board }));
-  }, { person: STAFF, session: auth(STAFF), token: TOKEN, board: board(), offline: !!options.offline, attachmentQueue: options.attachmentQueue || [], queueKey: QUEUE });
+  }, { person: STAFF, session: auth(STAFF), token: TOKEN, board: board(), offline: !!options.offline, attachmentQueue: options.attachmentQueue || [], queueKey: QUEUE, sessionOnly: !!options.sessionOnly });
   page.on('dialog', (dialog) => dialog.accept());
   // Block or mock every external request, including the existing email script.
   await page.route('**/*', async (route) => {
@@ -39,6 +39,9 @@ async function install(page, store, options = {}) {
     if (url.pathname.includes('/rpc/')) return route.fulfill({ json: [] });
     if (url.pathname.endsWith('/profiles')) return route.fulfill({ json: single ? store.person : [store.person] });
     if (url.pathname.endsWith('/jobs') || url.pathname.endsWith('/active_jobs')) return route.fulfill({ json: [{ id: 'stable-official-job', job_number: '26132', job_name: 'Synthetic site work', address: '14815 County Road 2', active: true }] });
+    if (['/work_order_labour_workers','/employee_feature_access','/inspection_records'].some(name=>url.pathname.endsWith(name)) && !String(req.headers().authorization || '').startsWith('Bearer eyJ')) return route.fulfill({status:403,json:{code:'42501',message:'permission denied for table inspection_records'}});
+    if (url.pathname.endsWith('/work_order_labour_workers')) return store.failCrew ? route.fulfill({status:403,json:{code:'42501',message:'Synthetic roster lookup failure'}}) : route.fulfill({json:[{id:STAFF.id,profile_id:STAFF.id,display_name:STAFF.display_name,worker_key:STAFF.worker_key,approved:true},{id:OTHER.id,profile_id:OTHER.id,display_name:OTHER.display_name,worker_key:OTHER.worker_key,approved:true}]});
+    if (url.pathname.endsWith('/employee_feature_access')) return route.fulfill({json:[{worker_id:STAFF.id,feature_key:'jsa',enabled:true},{worker_id:OTHER.id,feature_key:'jsa',enabled:true}]});
     if (url.pathname.endsWith('/inspection_records')) {
       if (req.method() === 'POST') { const record = req.postDataJSON(); store.inspections.push(record); return route.fulfill({ status: 201, json: record }); }
       return route.fulfill({ json: single ? null : [] });
@@ -65,7 +68,7 @@ test('daily report attachment failure blocks photo success; retries do not resub
   await page.locator('#workCompleted').fill('Roof access inspection complete'); await page.locator('#photos').setInputFiles({ name: 'daily-photo.png', mimeType: 'image/png', buffer: PNG });
   await page.evaluate(() => { window.fixtureUploadCalls = 0; window.fixtureUploadFails = true; window.uploadJgcFile = async () => { window.fixtureUploadCalls++; if (window.fixtureUploadFails) return { error: { message: 'Synthetic photo connection failure' } }; await window.fixturePhotoStorageComplete(); return { data: {} }; }; });
   await page.locator('#saveReportButton').click(); await expect(page.locator('#jobBoardFormStatus')).toContainText('attachment and photos need a retry'); expect(store.dailyReports).toHaveLength(1); expect(store.calls.filter((c) => c.name === 'begin_job_board_upload')).toHaveLength(0); await expect(page.locator('#jobBoardFormStatus')).not.toContainText('Daily report and photos attached');
-  store.failAttach = false; await page.getByRole('button', { name: 'Retry attaching saved report', exact: true }).click(); await expect(page.locator('#jobBoardFormStatus')).toContainText('photos need a retry'); expect(store.calls.filter((c) => c.name === 'begin_job_board_upload')).toHaveLength(1); expect(store.calls.filter((c) => c.name === 'finalize_job_board_upload')).toHaveLength(0);
+  store.failAttach = false; await page.getByRole('button', { name: 'Retry attaching saved report', exact: true }).click(); await expect(page.locator('#jobBoardFormStatus')).toContainText('The report is attached, but its photos need a retry.'); expect(store.calls.filter((c) => c.name === 'begin_job_board_upload')).toHaveLength(1); expect(store.calls.filter((c) => c.name === 'finalize_job_board_upload')).toHaveLength(0);
   await page.evaluate(() => window.fixtureUploadFails = false); store.failFinalize = true; await page.getByRole('button', { name: 'Retry attaching saved report', exact: true }).click(); await expect(page.locator('#jobBoardFormStatus')).toContainText('listing needs a retry');
   store.failFinalize = false; await page.getByRole('button', { name: 'Retry attaching saved report', exact: true }).click(); await expect(page.locator('#jobBoardFormStatus')).toContainText('Daily report and photos attached');
   expect(store.dailyReports).toHaveLength(1); expect(store.calls.filter((c) => c.name === 'begin_job_board_upload')).toHaveLength(1); expect(await page.evaluate(() => window.fixtureUploadCalls)).toBe(2); expect(store.calls.filter((c) => c.name === 'finalize_job_board_upload')).toHaveLength(3);
@@ -108,4 +111,18 @@ test('returning to the board retries a saved attachment once with its original b
   const store = fixture(), queued = { board_id: OTHER_BOARD, source_type: 'daily_site_reports', source_id: 'saved-report-from-other-board', actor_id: STAFF.id };
   await install(page, store, { attachmentQueue: [queued] }); await page.goto('/job-board.html?embedded=1#board=' + TOKEN); await expect(page.locator('#boardContent')).toBeVisible();
   expect(store.calls.filter((c) => c.name === 'attach_job_board_report_by_id')).toHaveLength(1); expect(store.calls.find((c) => c.name === 'attach_job_board_report_by_id').args).toEqual({ p_board_id: OTHER_BOARD, p_source_type: queued.source_type, p_source_id: queued.source_id }); expect(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), QUEUE)).toEqual([]);
+});
+
+
+test('session-only mobile staff login loads approved JSA crew and saves with the same authenticated session',async ({page})=>{
+  await page.setViewportSize({width:390,height:844});const store=fixture();await openJsa(page,store,{sessionOnly:true});
+  await expect(page.locator('#approvedCrewStatus')).toContainText('2 approved employees loaded');await page.locator('#approvedCrewSelect').selectOption(OTHER.worker_key);
+  await expect(page.locator('#selectedCrewList')).toContainText(OTHER.display_name);
+  const saved=await page.evaluate(async()=>{const prepared=await buildInspectionRecord('JSA',getCurrentWorker());return persistInspectionRecord(prepared.record);});expect(saved.worker_name).toBe(STAFF.worker_key);expect(store.inspections).toHaveLength(1);
+  expect(await page.evaluate(()=>localStorage.getItem('sb-xnrljkkszoimegfivlya-auth-token'))).toBeNull();
+});
+
+test('failed JSA crew lookup shows unavailable and retry rather than no approved employees',async ({page})=>{
+  const store=fixture();store.failCrew=true;await openJsa(page,store,{sessionOnly:true});await expect(page.locator('#approvedCrewStatus')).toContainText('could not be loaded');await expect(page.locator('#approvedCrewSelect')).toContainText('Employee list unavailable');await expect(page.locator('#approvedCrewRetry')).toBeVisible();
+  store.failCrew=false;await page.locator('#approvedCrewRetry').click();await expect(page.locator('#approvedCrewStatus')).toContainText('2 approved employees loaded');await expect(page.locator('#approvedCrewRetry')).toBeHidden();
 });
