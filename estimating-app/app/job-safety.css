@@ -1,0 +1,16 @@
+.job-safety { width: 100%; min-width: 0; }
+.job-safety[hidden], .job-safety > [hidden] { display: none; }
+.job-safety-tabs { margin-bottom: 18px; padding-inline: 0; }
+.job-safety-tabs button { min-height: 44px; }
+.site-specific-setup { padding: 4px 22px 24px; color: var(--navy-900); }
+.site-specific-setup h3 { margin: 0 0 8px; font-size: 16px; }
+.site-specific-setup p { max-width: 780px; color: var(--slate-600); line-height: 1.55; }
+.site-specific-setup dl { display: grid; gap: 16px; margin: 22px 0; }
+.site-specific-setup dl > div { padding-bottom: 16px; border-bottom: 1px solid var(--slate-200); }
+.site-specific-setup dt { margin-bottom: 5px; font-weight: 750; }
+.site-specific-setup dd { max-width: 780px; margin: 0; color: var(--slate-600); line-height: 1.55; }
+.site-specific-setup .site-specific-pending { margin-bottom: 0; font-size: 12px; }
+@media (max-width: 760px) {
+  .job-site-specific .panel-heading { padding: 18px 16px 12px; }
+  .site-specific-setup { padding: 4px 16px 20px; }
+}

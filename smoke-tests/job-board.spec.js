@@ -188,11 +188,25 @@ test('unavailable board shows a retry and never claims it loaded', async ({ page
   const store = fixture('guest'); store.failBoard = true; await install(page, store); await page.goto('/job-board.html?embedded=1#board=' + TOKEN); await expect(page.locator('#boardError')).toBeVisible(); await expect(page.locator('#boardContent')).toBeHidden(); store.failBoard = false; await page.getByRole('button', { name: 'Try again', exact: true }).click(); await expect(page.locator('#loginOptions')).toBeVisible(); await expect(page.locator('#boardError')).toBeHidden();
 });
 
-test('React Job Board tab opens the matching stable job iframe and accepts its height message', async ({ page }) => {
-  const state = directoryState(); await serveDirectory(page, state); const store = fixture('admin'); await install(page, store); await openDirectoryJob(page, '26901'); await page.getByRole('tab', { name: 'Job Board', exact: true }).click();
+test('Safety navigation keeps the matching Job Board alive and supports keyboard sub-tabs', async ({ page }) => {
+  const state = directoryState(); await serveDirectory(page, state); const store = fixture('admin'); await install(page, store); await openDirectoryJob(page, '26901'); await page.getByRole('tab', { name: 'Safety', exact: true }).click();
   const frame = page.getByTitle('Job 26901 Board', { exact: true }); await expect(frame).toBeVisible(); const src = new URL(await frame.getAttribute('src')); expect(src.pathname).toBe('/job-board.html'); expect(src.searchParams.get('job')).toBe('existing-estimator-job'); expect(src.searchParams.get('manage')).toBe('1'); expect(src.searchParams.get('embedded')).toBe('1');
   await expect(page.frameLocator('iframe[title="Job 26901 Board"]').locator('#boardContent')).toBeVisible(); await expect.poll(async () => await frame.evaluate((e) => e.getBoundingClientRect().height)).toBeGreaterThan(1100);
-  await page.getByRole('tab', { name: 'Summary', exact: true }).click(); await expect(frame).toBeHidden(); await page.getByRole('tab', { name: 'Job Board', exact: true }).click(); await expect(frame).toBeVisible(); expect(store.calls.filter((c) => c.name === 'get_or_create_job_board')).toHaveLength(1);
+  const safetyTabs = page.getByRole('tablist', { name: 'Safety sections', exact: true });
+  await expect(safetyTabs.getByRole('tab')).toHaveCount(2);
+  await safetyTabs.getByRole('tab', { name: 'Job Board', exact: true }).focus();
+  await page.keyboard.press('End');
+  await expect(safetyTabs.getByRole('tab', { name: 'Create Site Specific', exact: true })).toBeFocused();
+  await expect(frame).toBeHidden();
+  await expect(page.getByRole('tabpanel', { name: 'Create Site Specific', exact: true })).toContainText('Document creation will be available after the template is defined.');
+  await page.getByRole('tab', { name: 'Summary', exact: true }).click();
+  await page.getByRole('tab', { name: 'Safety', exact: true }).click();
+  await expect(safetyTabs.getByRole('tab', { name: 'Create Site Specific', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await safetyTabs.getByRole('tab', { name: 'Create Site Specific', exact: true }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(safetyTabs.getByRole('tab', { name: 'Job Board', exact: true })).toBeFocused();
+  await expect(frame).toBeVisible();
+  await page.getByRole('tab', { name: 'Summary', exact: true }).click(); await expect(frame).toBeHidden(); await page.getByRole('tab', { name: 'Safety', exact: true }).click(); await expect(frame).toBeVisible(); expect(store.calls.filter((c) => c.name === 'get_or_create_job_board')).toHaveLength(1);
 });
 
 test('lost successful upload response finalizes the stored original without a duplicate file transfer', async ({ page }) => {
@@ -216,7 +230,8 @@ for (const installed of [false, true]) test(`embedded board wheel scrolls its na
   await page.setViewportSize({ width: 1440, height: 1000 });
   if (installed) await page.addInitScript(() => { const original = window.matchMedia.bind(window); window.matchMedia = (query) => { const media = original(query); if (query === '(display-mode: standalone)') Object.defineProperty(media, 'matches', { value: true }); return media; }; });
   await serveDirectory(page, directoryState()); const store = fixture('admin'); await install(page, store);
-  await openDirectoryJob(page, '26901'); await page.getByRole('tab', { name: 'Job Board', exact: true }).click();
+  await openDirectoryJob(page, '26901');
+  await page.getByRole('tab', { name: 'Safety', exact: true }).click();
   const iframe = page.getByTitle('Job 26901 Board', { exact: true }), board = page.frameLocator('iframe[title="Job 26901 Board"]');
   await expect(board.locator('#boardContent')).toBeVisible(); await board.locator('.board-category').evaluateAll(nodes=>nodes.forEach(n=>{n.open=true;n.querySelectorAll('.board-report-period').forEach(p=>p.open=true);}));
   await expect.poll(async()=>Math.abs(await iframe.evaluate(e=>e.getBoundingClientRect().height)-await board.locator('#jobBoardPage').evaluate(e=>Math.ceil(e.getBoundingClientRect().height)))).toBeLessThan(2);
@@ -248,15 +263,17 @@ async function openNativeBoard(page, theme = 'light') {
     // The active parent can differ from a stale device cache; the iframe must use the parent.
     localStorage.setItem('jgcPortalTheme', theme === 'light' ? 'dark' : 'light'); applyJgcTheme(theme);
   }, theme);
-  await openDirectoryJob(page, '26901'); await page.getByRole('tab', { name: 'Job Board', exact: true }).click();
+  await openDirectoryJob(page, '26901');
+  const nativePanel = await page.locator('.job-summary-panel').evaluate((element) => ({ surface: getComputedStyle(element).backgroundColor, heading: getComputedStyle(element.querySelector('h2')).color }));
+  await page.getByRole('tab', { name: 'Safety', exact: true }).click();
   const iframe = page.getByTitle('Job 26901 Board', { exact: true }), board = page.frameLocator('iframe[title="Job 26901 Board"]');
   await expect(board.locator('#boardContent')).toBeVisible(); await board.locator('.board-category').evaluateAll(nodes=>nodes.forEach(n=>{n.open=true;n.querySelectorAll('.board-report-period').forEach(p=>p.open=true);})); await expect(board.locator('html')).toHaveAttribute('data-jgc-theme', theme);
-  return { store, iframe, board };
+  return { store, iframe, board, nativePanel };
 }
 
 for (const theme of ['light', 'dark']) for (const width of [390, 1440]) test(`native embedded job tab preserves parent chrome and fills the content area ${theme} ${width}`, async ({ page }, testInfo) => {
   await page.setViewportSize({ width, height: 1000 }); const errors = []; page.on('pageerror', (error) => errors.push(error.message));
-  const { store, iframe, board } = await openNativeBoard(page, theme);
+  const { store, iframe, board, nativePanel } = await openNativeBoard(page, theme);
   await expect(board.locator('html')).toHaveAttribute('data-job-board-host', 'job');
   for (const selector of ['.board-header', '.board-header .jgc-brand', '#boardTitle', '#boardTheme', '#boardSignIn', '#boardIdentity', '.board-footer']) await expect(board.locator(selector)).toBeHidden();
   await expect(board.locator('#jgcAppearanceSettings,#jgcAdminGlobalSearch,#jgcNotificationBell,#jgcGlobalTopNav,#jgcMobileBottomNav,#jgcPageBar,#jgcPwaPullIndicator')).toHaveCount(0);
@@ -282,6 +299,14 @@ for (const theme of ['light', 'dark']) for (const width of [390, 1440]) test(`na
   const input = await board.locator('#uploadTitle').evaluate((element) => { const style = getComputedStyle(element); return { font: style.fontFamily, size: style.fontSize, radius: style.borderRadius }; }); expect(input).toEqual({ font: desk.font, size: '14px', radius: '6px' });
   await page.evaluate(() => scrollTo(0, 0)); await page.screenshot({ path: receipt(testInfo, `embedded-${theme}-${width}-upload.png`), fullPage: true });
   await expect.poll(async () => Math.abs(await iframe.evaluate((element) => element.getBoundingClientRect().height) - await board.locator('#jobBoardPage').evaluate((element) => Math.ceil(element.getBoundingClientRect().height)))).toBeLessThan(2);
+  await page.getByRole('tab', { name: 'Create Site Specific', exact: true }).click();
+  const setup = page.getByRole('tabpanel', { name: 'Create Site Specific', exact: true });
+  await expect(setup).toBeVisible(); await expect(iframe).toBeHidden();
+  const setupStyle = await setup.evaluate((element) => ({ surface: getComputedStyle(element).backgroundColor, heading: getComputedStyle(element.querySelector('h2')).color }));
+  expect(setupStyle).toEqual(nativePanel);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1);
+  await page.evaluate(() => scrollTo(0, 0)); await page.screenshot({ path: receipt(testInfo, `safety-create-site-specific-${theme}-${width}.png`), fullPage: true });
+  await page.getByRole('tab', { name: 'Job Board', exact: true }).click(); await expect(iframe).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -291,8 +316,11 @@ test('parent theme changes and job-tab hiding preserve upload files and review d
   await board.getByRole('tab', { name: /^(Upload|Create Todays Reports)$/, exact: true }).click(); await board.locator('#uploadTitle').fill('Unsaved paper JSA draft'); await board.locator('#uploadNotes').fill('Keep these field notes'); await board.locator('#uploadFiles').setInputFiles({ name: 'unsaved-jsa.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\nUnsaved synthetic paper') });
   await page.evaluate(() => applyJgcTheme('dark')); await expect(board.locator('html')).toHaveAttribute('data-jgc-theme', 'dark'); await expect(board.locator('#uploadTitle')).toHaveValue('Unsaved paper JSA draft'); expect(await board.locator('#uploadFiles').evaluate((element) => element.files.length)).toBe(1);
   await board.getByRole('tab', { name: 'Review uploads (1)', exact: true }).click(); await board.locator('#reviewList').getByLabel('Title', { exact: true }).fill('Unsaved office review draft');
+  await page.getByRole('tab', { name: 'Create Site Specific', exact: true }).click(); await expect(iframe).toBeHidden();
+  await page.getByRole('tab', { name: 'Job Board', exact: true }).click(); await expect(iframe).toBeVisible();
+  await expect(board.locator('#reviewList').getByLabel('Title', { exact: true })).toHaveValue('Unsaved office review draft');
   await page.getByRole('tab', { name: 'Summary', exact: true }).click(); await expect(iframe).toBeHidden(); await page.evaluate(() => applyJgcTheme('light')); await expect(board.locator('html')).toHaveAttribute('data-jgc-theme', 'light');
-  await page.getByRole('tab', { name: 'Job Board', exact: true }).click(); await expect(iframe).toBeVisible(); await expect(board.locator('#reviewList').getByLabel('Title', { exact: true })).toHaveValue('Unsaved office review draft');
+  await page.getByRole('tab', { name: 'Safety', exact: true }).click(); await expect(iframe).toBeVisible(); await expect(board.locator('#reviewList').getByLabel('Title', { exact: true })).toHaveValue('Unsaved office review draft');
   await board.getByRole('tab', { name: /^(Upload|Create Todays Reports)$/, exact: true }).click(); await expect(board.locator('#uploadTitle')).toHaveValue('Unsaved paper JSA draft'); await expect(board.locator('#uploadNotes')).toHaveValue('Keep these field notes'); expect(await board.locator('#uploadFiles').evaluate((element) => element.files.length)).toBe(1);
   expect(await board.locator('body').evaluate(() => window.embeddedBoardMarker)).toBe('same-document'); expect(store.calls.filter((call) => call.name === 'get_or_create_job_board')).toHaveLength(1); expect(store.calls.filter((call) => call.name === 'begin_job_board_upload' || call.name === 'update_job_board_document')).toHaveLength(0);
 });
@@ -309,7 +337,7 @@ test('embedded board height grows and shrinks with activity, imports and inner t
   await board.locator('#boardImport summary').click(); await expect(board.locator('#importList .board-viewer')).toHaveCount(10); await expect.poll(height).toBeGreaterThan(shorter + 500); const importExpanded = await height();
   await board.locator('#boardImport summary').click(); await expect.poll(height).toBeLessThan(shorter + 2);
   const reopened = [];
-  for (let n = 0; n < 3; n++) { await page.getByRole('tab', { name: 'Summary', exact: true }).click(); await expect(iframe).toBeHidden(); await page.getByRole('tab', { name: 'Job Board', exact: true }).click(); await expect(iframe).toBeVisible(); await expect.poll(height).toBeLessThan(shorter + 2); reopened.push(await height()); }
+  for (let n = 0; n < 3; n++) { await page.getByRole('tab', { name: 'Summary', exact: true }).click(); await expect(iframe).toBeHidden(); await page.getByRole('tab', { name: 'Safety', exact: true }).click(); await expect(iframe).toBeVisible(); await expect.poll(height).toBeLessThan(shorter + 2); reopened.push(await height()); }
   expect(Math.max(...reopened) - Math.min(...reopened)).toBeLessThan(2); expect(store.calls.filter((call) => call.name === 'get_or_create_job_board')).toHaveLength(1);
   fs.writeFileSync(receipt(testInfo, 'embedded-height-lifecycle.json'), JSON.stringify({ initial, activityExpanded, importExpanded, shorter, reopened }, null, 2));
 });
