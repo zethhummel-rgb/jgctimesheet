@@ -129,6 +129,7 @@
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=72"></script>
+<script src="job-board-context.js?v=1"></script>
 <script>
 const INCIDENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const supabaseClient = createJgcSupabaseClient();
@@ -226,6 +227,7 @@ async function finishIncidentReport(baseRecord) {
         throw insertResult.error;
     }
 
+    if (window.attachJgcJobBoardReport) await window.attachJgcJobBoardReport("incident_reports", record.id);
     setStatus("Emailing report...");
     await emailIncidentReport(record);
     setStatus("Incident report saved and emailed.");
@@ -347,6 +349,7 @@ async function emailIncidentReport(record) {
 }
 
 async function submitIncidentReport() {
+    if (window.prepareJgcJobBoardForm && !(await window.prepareJgcJobBoardForm())) return;
     if (!getValue("reportDate") || !getValue("project") || !getValue("location") || !getValue("description")) {
         alert("Add the date, project, location, and what happened.");
         return;
@@ -360,8 +363,8 @@ async function submitIncidentReport() {
         incident_time: getValue("incidentTime"),
         project: getValue("project"),
         location: getValue("location"),
-        reported_by_worker: currentWorker,
-        reported_by_name: currentWorkerDisplay,
+        reported_by_worker: window.JGCJobBoardContext?.worker?.key || currentWorker,
+        reported_by_name: window.JGCJobBoardContext?.worker?.display || currentWorkerDisplay,
         people_involved: getValue("peopleInvolved"),
         witnesses: getValue("witnesses"),
         description: getValue("description"),

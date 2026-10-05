@@ -111,6 +111,7 @@
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=72"></script>
+<script src="job-board-context.js?v=1"></script>
 <script src="employee-feature-access.js?v=3"></script>
 <script src="safety-signature-pad.js?v=1"></script>
 <script src="safety-acknowledgements.js?v=7"></script>
@@ -767,6 +768,7 @@ function buildPdfHtml(record) {
 }
 
 async function submitToolboxTalkReport() {
+    if (window.prepareJgcJobBoardForm && !(await window.prepareJgcJobBoardForm())) return;
     if (toolboxReportSubmitting) {
         return;
     }
@@ -807,8 +809,8 @@ async function submitToolboxTalkReport() {
         project: getValue("projectName"),
         location: getValue("location"),
         presenter_name: getValue("presenterName"),
-        submitted_by_worker: isExistingReport ? loadedToolboxReport.submitted_by_worker : currentWorker,
-        submitted_by_name: isExistingReport ? loadedToolboxReport.submitted_by_name : currentWorkerDisplay,
+        submitted_by_worker: isExistingReport ? loadedToolboxReport.submitted_by_worker : (window.JGCJobBoardContext?.worker?.key || currentWorker),
+        submitted_by_name: isExistingReport ? loadedToolboxReport.submitted_by_name : (window.JGCJobBoardContext?.worker?.display || currentWorkerDisplay),
         discussion_notes: getValue("discussionNotes"),
         hazards_discussed: getValue("hazardsDiscussed"),
         corrective_actions: getValue("correctiveActions"),
@@ -844,6 +846,8 @@ async function submitToolboxTalkReport() {
             }
             return;
         }
+
+        if (window.attachJgcJobBoardReport) await window.attachJgcJobBoardReport("toolbox_talk_reports", record.id);
 
         if (!isExistingReport && crew.length) {
             const attendanceRows = crew.map((person) => ({

@@ -67,6 +67,7 @@
       return signature ? { ...signature, jobTitle: value("signoffTitle" + index) } : null;
     }).filter(Boolean);
     const details = {
+      ...(window.JGCJobBoardContext?.board ? { job_board_id: window.JGCJobBoardContext.board.id } : {}),
       version: 1, employee, witnesses, signatures,
       employerName: value("employerName"), employerAddress: value("employerAddress"), employerCity: value("employerCity"), employerPhone: value("employerPhone"), employerEmail: value("employerEmail"),
       siteAddress: value("siteAddress"), occurrence: selected("occurrence"), occurrenceOther: value("occurrenceOther"),
@@ -81,7 +82,7 @@
       bodily_injury: value("bodilyInjury"), prevention_recommendation: value("preventionRecommendation"), supervisor_name: value("supervisorName"),
       witnesses: witnesses.map(p => p.name).filter(Boolean).join("; "), reported_to_supervisor_at: value("reportedToSupervisorAt"),
       employee_signature: ui.signature("signoff0")?.printedName || "", signature_date: ui.signature("signoff0")?.date || null,
-      created_by_worker: normalizeWorkerName(worker.key), created_by_name: worker.display || worker.key, report_details: details
+      created_by_worker: normalizeWorkerName(window.JGCJobBoardContext?.worker?.key || worker.key), created_by_name: window.JGCJobBoardContext?.worker?.display || worker.display || worker.key, report_details: details
     };
   }
   form.addEventListener("input", () => { form.classList.remove("show-errors"); });
@@ -102,6 +103,7 @@
   };
   form.addEventListener("submit", async event => {
     event.preventDefault();
+    if (window.prepareJgcJobBoardForm && !(await window.prepareJgcJobBoardForm())) return;
     if (submitting || savedRecord || !validate()) return;
     submitting = true;
     const button = document.getElementById("saveReport"); button.disabled = true;
@@ -114,6 +116,7 @@
       const { error } = await client.from("employee_injury_reports").insert(record);
       if (error) throw new Error("The report could not be saved. Your entries are still here. Please try again.");
       savedRecord = record;
+      if (window.attachJgcJobBoardReport) await window.attachJgcJobBoardReport("employee_injury_reports", record.id);
       // Freeze the submitted version so its downloaded PDF always matches the saved record.
       form.querySelectorAll("input,select,textarea,button").forEach(input => { input.disabled = true; });
       document.getElementById("downloadReport").disabled = false;
