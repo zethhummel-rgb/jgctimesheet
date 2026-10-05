@@ -138,3 +138,6 @@ html[data-job-board-host="job"] .jgc-tab[aria-selected="true"] { background: var
 .board-jsa-pdf-pages{max-width:none;min-width:100%}.board-jsa-pdf-sheet{margin:0 0 1rem;padding:0;min-width:0}.board-jsa-pdf-sheet canvas{display:block;width:100%;height:auto;background:white;box-shadow:0 2px 6px #0002}.board-jsa-pdf-sheet figcaption{text-align:center;padding:.4rem;font-size:.85rem;color:var(--jgc-text,#172920)}
 .board-jsa-accessible-text{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .board-jsa-original{display:block;max-width:100%;height:auto;background:white}
+
+/* Keep the close control above a separately scrolling desktop document. */
+#previewBody{max-height:min(72dvh,850px);overflow:auto;overscroll-behavior:contain}
