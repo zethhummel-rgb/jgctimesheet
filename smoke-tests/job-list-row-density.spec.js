@@ -71,7 +71,8 @@ test('desktop density does not shrink mobile job rows or job-opening targets', a
     // A quoted job has one additional visible price line.
     const quoted = await row.locator('[data-label="Quoted price"] strong').count();
     expect((await row.boundingBox()).height).toBeGreaterThanOrEqual(101);
-    expect((await row.locator('.job-status-menu > summary').boundingBox()).height).toBeGreaterThanOrEqual(44);
+    // Viewport changes animate the shared button size; check its settled target.
+    await expect.poll(async () => (await row.locator('.job-status-menu > summary').boundingBox()).height).toBeGreaterThanOrEqual(44);
     expect((await row.locator('.back-button').boundingBox()).height).toBeGreaterThanOrEqual(44);
     expect(await row.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
   }

@@ -86,6 +86,7 @@
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=72"></script>
+<script src="job-board-context.js?v=1"></script>
 <script>
 const DAILY_REPORT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const supabaseClient = createJgcSupabaseClient();
@@ -254,8 +255,9 @@ function buildReportRecord() {
         : [];
 
     return {
-        worker_name: loadedDailyReport ? loadedDailyReport.worker_name : worker.key,
-        worker_display_name: loadedDailyReport ? loadedDailyReport.worker_display_name : (worker.display || worker.key),
+        ...(window.JGCJobBoardContext?.active ? { id: activeDailyReportId || window.JGCJobBoardContext.submissionId } : {}),
+        worker_name: loadedDailyReport ? loadedDailyReport.worker_name : (window.JGCJobBoardContext?.worker?.key || worker.key),
+        worker_display_name: loadedDailyReport ? loadedDailyReport.worker_display_name : (window.JGCJobBoardContext?.worker?.display || worker.display || worker.key),
         report_date: getValue("reportDate"),
         project: getValue("project"),
         weather: getValue("weather"),
@@ -360,6 +362,7 @@ function buildReportPdfHtml(record) {
 }
 
 async function submitDailySiteReport() {
+    if (window.prepareJgcJobBoardForm && !(await window.prepareJgcJobBoardForm())) return;
     if (!getValue("reportDate") || !getValue("project")) {
         alert("Add the report date and project.");
         return;
@@ -386,6 +389,9 @@ async function submitDailySiteReport() {
             return;
         }
     }
+
+    if (window.JGCJobBoardContext?.active && selectedPhotoData.length && window.attachJgcJobBoardPhotos) await window.attachJgcJobBoardPhotos(record.id || activeDailyReportId, record.report_date, selectedPhotoData);
+    else if (window.attachJgcJobBoardReport) await window.attachJgcJobBoardReport("daily_site_reports", record.id || activeDailyReportId);
 
     if (activeDailyReportId) {
         loadedDailyReport = { ...loadedDailyReport, ...record };

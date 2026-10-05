@@ -74,7 +74,7 @@ function queueInspectionRecord(record, worker) {
     const previous = existingIndex >= 0 ? queue[existingIndex] : null;
     const queueItem = {
         localId,
-        workerName: worker.key,
+        workerName: record.worker_name || worker.key,
         record,
         queuedAt: previous && previous.queuedAt ? previous.queuedAt : new Date().toISOString(),
         attempts: previous ? Number(previous.attempts || 0) : 0,
@@ -310,8 +310,7 @@ function getInspectionRecordTypeKey(type) {
     return String(type || "").trim().toLowerCase();
 }
 
-function buildInspectionEmail(type, fields, rows) {
-    const worker = getCurrentWorker();
+function buildInspectionEmail(type, fields, rows, worker = getCurrentWorker()) {
     const lines = [
         `${type}`,
         `Completed by: ${worker.display || ""}`,
@@ -668,10 +667,12 @@ function buildInspectionPdfHtml(record) {
 }
 
 async function buildInspectionRecord(type, worker) {
+    if (window.prepareJgcJobBoardForm && !(await window.prepareJgcJobBoardForm())) throw new Error("Return to the Job Board and sign in before saving this form.");
+    if (window.JGCJobBoardContext?.worker) worker = window.JGCJobBoardContext.worker;
     const fields = collectFields();
     const rows = collectTableRows();
     const inspectionDate = getInspectionDate(fields);
-    const emailBody = buildInspectionEmail(type, fields, rows);
+    const emailBody = buildInspectionEmail(type, fields, rows, worker);
     let jobContext = splitProjectDisplay(getProjectFieldFromFormFields(fields));
 
     try {
@@ -696,7 +697,7 @@ async function buildInspectionRecord(type, worker) {
         form_data: {
             fields,
             rows,
-            job_context: jobContext,
+            job_context: { ...jobContext, ...(window.JGCJobBoardContext?.board ? { job_board_id: window.JGCJobBoardContext.board.id } : {}) },
             offline_submission_id: submissionId
         },
         email_body: emailBody
@@ -726,6 +727,7 @@ async function persistInspectionRecord(record) {
         }
 
         if (existingResult.data) {
+            if (window.attachJgcJobBoardReport) await window.attachJgcJobBoardReport("inspection_records", existingResult.data.id, record.form_data?.job_context?.job_board_id);
             return {
                 ...record,
                 ...existingResult.data
@@ -751,13 +753,14 @@ async function persistInspectionRecord(record) {
         throw error;
     }
 
-    return {
-        ...record,
-        ...(data || {})
-    };
+    const saved = { ...record, ...(data || {}) };
+    if (window.attachJgcJobBoardReport) await window.attachJgcJobBoardReport("inspection_records", saved.id, saved.form_data?.job_context?.job_board_id);
+    return saved;
 }
 
 function getInspectionReturnPage() {
+    const boardReturn = window.getJgcJobBoardReturnUrl && window.getJgcJobBoardReturnUrl();
+    if (boardReturn) return boardReturn;
     return (typeof isJgcSubcontractorSession === "function" && isJgcSubcontractorSession())
         ? "inspections.html"
         : "todays-inspections.html";

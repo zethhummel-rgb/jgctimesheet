@@ -1,0 +1,3 @@
+.job-board-embed { width: 100%; min-width: 0; }
+.job-board-embed[hidden] { display: none; }
+.job-board-embed iframe { display: block; width: 100%; min-width: 0; border: 0; border-radius: 12px; background: var(--jgc-surface, transparent); }
