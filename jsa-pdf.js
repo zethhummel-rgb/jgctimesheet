@@ -67,8 +67,9 @@
         });
     }
 
-    let logoPromise;
-    function loadLogo() {
+    let logoPromise, logoSource;
+    function loadLogo(source = 'logo.webp') {
+        if (logoSource !== source) { logoPromise = null; logoSource = source; }
         if (!logoPromise) logoPromise = new Promise((resolve, reject) => {
             const image = new Image();
             image.onload = () => {
@@ -80,14 +81,14 @@
                 resolve({ data: canvas.toDataURL("image/png"), ratio: canvas.width / canvas.height });
             };
             image.onerror = () => { logoPromise = null; reject(new Error("The JGC logo could not load. Refresh and try again.")); };
-            image.src = "logo.webp";
+            image.src = source;
         });
         return logoPromise;
     }
 
     async function create(record, options = {}) {
         if (!window.jspdf?.jsPDF) throw new Error("The PDF library is not available.");
-        const logo = await loadLogo();
+        const logo = await loadLogo(options.logoUrl);
         const doc = new window.jspdf.jsPDF({ unit: "mm", format: "letter", orientation: "landscape", compress: true });
         const width = doc.internal.pageSize.getWidth(), height = doc.internal.pageSize.getHeight();
         const margin = 12, usable = width - margin * 2, bottom = height - 15;

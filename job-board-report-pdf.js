@@ -9,16 +9,17 @@
     if (typeof value === 'object') return Object.entries(value).filter(([key]) => !/^(id|workerName|worker_name|email|signature|strokes)$/i.test(key)).map(([key, v]) => `${key.replace(/_/g, ' ')}: ${textValue(v)}`).join(' · ');
     return String(value);
   };
-  async function create(payload) {
+  async function create(payload, options = {}) {
+    const asset = path => options.baseUrl ? new URL(path, options.baseUrl).href : path;
     const type = payload.source_type, record = payload.record;
     if (!record || typeof record !== 'object') throw new Error('The saved report is unavailable.');
-    await loadJgcScriptOnce('vendor/jspdf.umd.min.js', 'jspdf');
+    await loadJgcScriptOnce(asset('vendor/jspdf.umd.min.js'), 'jspdf');
     if (type === 'inspection_records' && /^JSA$/i.test(record.inspection_type)) {
-      await loadJgcScriptOnce('jsa-pdf.js?v=3', 'JgcJsaPdf');
-      return (await JgcJsaPdf.create(record,{acknowledgements:payload.acknowledgements || []})).output('blob');
+      await loadJgcScriptOnce(asset('jsa-pdf.js?v=4'), 'JgcJsaPdf');
+      return (await JgcJsaPdf.create(record,{acknowledgements:payload.acknowledgements || [], ...(options.baseUrl ? {logoUrl:asset('logo.webp')} : {})})).output('blob');
     }
     if (type === 'accident_reports' || type === 'employee_injury_reports') {
-      await loadJgcScriptOnce('safety-report-tools.js?v=1', 'JGCSafetyReport');
+      await loadJgcScriptOnce(asset('safety-report-tools.js?v=1'), 'JGCSafetyReport');
       return (await JGCSafetyReport.pdf(record, type === 'accident_reports' ? 'accident' : 'injury')).output('blob');
     }
     if (!TITLES[type]) throw new Error('This report format is unavailable.');

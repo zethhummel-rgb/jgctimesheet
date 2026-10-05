@@ -493,6 +493,20 @@
   function isStaffBoard(){return !!state.user&&!!(state.manage&&state.board?.can_manage||state.board?.can_register_as_staff);}
   function syncBoardTheme(){if(hosted)return;const theme=isStaffBoard()?getStoredJgcThemePreference(state.user.id):'light';if(document.documentElement.dataset.jgcTheme!==theme)applyJgcTheme(theme);}
   window.addEventListener('jgc-theme-change',()=>{if(!hosted&&!isStaffBoard()&&document.documentElement.dataset.jgcTheme!=='light')applyJgcTheme('light');});
+  let parentRefreshBusy = false;
+  window.addEventListener('message', async event => {
+    if (!hosted || event.origin !== location.origin || event.source !== window.parent || event.data?.type !== 'jgc-job-board-refresh' || event.data.jobId !== state.job || !state.board?.can_manage || parentRefreshBusy) return;
+    parentRefreshBusy = true;
+    const generation = state.generation, boardId = state.board.id;
+    try {
+      const updated = await rpc('get_or_create_job_board', { p_job_id: state.job });
+      if (generation !== state.generation || updated?.id !== boardId || !updated.can_manage) return;
+      state.board = updated;
+      // Only document lists need updating. Keep office review inputs and selected files.
+      renderLibrary();
+    } catch (error) { if (generation === state.generation) notice('The plan was published. Refresh the board to load its latest documents. ' + errorMessage(error), 'error'); }
+    finally { parentRefreshBusy = false; }
+  });
   window.addEventListener('storage',event=>{if(event.key?.startsWith('jgcPortalTheme'))syncBoardTheme();});syncBoardTheme();
   document.querySelectorAll('.board-tabs [role="tab"]').forEach((tab) => { tab.addEventListener('click', () => selectTab(tab.dataset.panel)); tab.addEventListener('keydown', (e) => { if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return; e.preventDefault(); const tabs = Array.from(document.querySelectorAll('.board-tabs [role="tab"]')).filter((t) => !t.hidden); const index = tabs.indexOf(tab); const next = e.key === 'Home' ? tabs[0] : e.key === 'End' ? tabs[tabs.length - 1] : tabs[(index + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length]; selectTab(next.dataset.panel); next.focus(); }); });
   $('uploadFiles').addEventListener('change', () => { state.uploads.clear(); showSelectedFiles(); status('uploadStatus', ''); }); $('uploadForm').addEventListener('submit', uploadDocuments);

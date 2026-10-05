@@ -6614,7 +6614,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           <p className="shop-drawing-footnote">Internal by default. Employee sharing is available only for Approved or Approved as noted current revisions and replaces the existing employee job-list document button.</p>
         </section>}
         <JobDrawings key={job.id} job={job} actor={currentEstimator.name} active={tab === "drawings"} />
-        <JobSafety key={`safety-${job.id}`} job={job} active={tab === "job-board"} />
+        <JobSafety key={`safety-${job.id}`} job={job} active={tab === "job-board"} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />
         {tab === "warranty" && <JobWarrantyPage key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />}
         {tab === "rfis" && <JobRfis key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />}
         <div className="schedule-tab" hidden={tab !== "schedule"}><JobSchedule key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} /></div>

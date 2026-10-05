@@ -198,7 +198,7 @@ test('Safety navigation keeps the matching Job Board alive and supports keyboard
   await page.keyboard.press('End');
   await expect(safetyTabs.getByRole('tab', { name: 'Create Site Specific', exact: true })).toBeFocused();
   await expect(frame).toBeHidden();
-  await expect(page.getByRole('tabpanel', { name: 'Create Site Specific', exact: true })).toContainText('Document creation will be available after the template is defined.');
+  await expect(page.getByRole('tabpanel', { name: 'Create Site Specific', exact: true })).toContainText('Save the plan to start.');
   await page.getByRole('tab', { name: 'Summary', exact: true }).click();
   await page.getByRole('tab', { name: 'Safety', exact: true }).click();
   await expect(safetyTabs.getByRole('tab', { name: 'Create Site Specific', exact: true })).toHaveAttribute('aria-selected', 'true');
@@ -302,7 +302,7 @@ for (const theme of ['light', 'dark']) for (const width of [390, 1440]) test(`na
   await page.getByRole('tab', { name: 'Create Site Specific', exact: true }).click();
   const setup = page.getByRole('tabpanel', { name: 'Create Site Specific', exact: true });
   await expect(setup).toBeVisible(); await expect(iframe).toBeHidden();
-  const setupStyle = await setup.evaluate((element) => ({ surface: getComputedStyle(element).backgroundColor, heading: getComputedStyle(element.querySelector('h2')).color }));
+  const setupStyle = await setup.locator('.ss-builder').evaluate((element) => ({ surface: getComputedStyle(element).backgroundColor, heading: getComputedStyle(element.querySelector('h2')).color }));
   expect(setupStyle).toEqual(nativePanel);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1);
   await page.evaluate(() => scrollTo(0, 0)); await page.screenshot({ path: receipt(testInfo, `safety-create-site-specific-${theme}-${width}.png`), fullPage: true });
@@ -492,4 +492,29 @@ for(const identity of ['guest','staff'])test(`Job Board logout clears ${identity
 
 for(const theme of ['light','dark'])test(`hosted desktop PDF close stays reachable in the parent viewport ${theme}`,async({page})=>{
  await page.setViewportSize({width:1440,height:1000});const {board}=await openNativeBoard(page,theme);await board.locator('.board-category').evaluateAll(nodes=>nodes.forEach(n=>{n.open=true;n.querySelectorAll('.board-report-period').forEach(p=>p.open=true);}));await board.locator('#dailyReportsList article').filter({hasText:'Morning JSA'}).getByRole('button',{name:'View',exact:true}).click();await expect(board.locator('#previewBody canvas').first()).toBeVisible({timeout:15000});await board.locator('#previewClose').click();await expect(board.locator('#documentPreview')).not.toBeVisible();
+});
+
+
+test('published site plan refreshes only its parent job board and keeps office and upload drafts', async ({page}) => {
+  const {store,iframe,board}=await openNativeBoard(page,'light');
+  const source=await iframe.getAttribute('src');
+  await board.locator('body').evaluate(()=>window.sitePlanBoardMarker='same-document');
+  await board.getByRole('tab',{name:'Upload',exact:true}).click();
+  await board.locator('#uploadTitle').fill('Keep upload draft');
+  await board.locator('#uploadFiles').setInputFiles({name:'draft.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4 local draft')});
+  await board.getByRole('tab',{name:'Review uploads (1)',exact:true}).click();
+  await board.locator('#reviewList').getByLabel('Title',{exact:true}).fill('Keep office review draft');
+  await page.getByRole('tab',{name:'Create Site Specific',exact:true}).click();
+  store.documentRows.push({id:'published-plan',title:'Published site-specific QA plan',category:'site-specific',report_date:today(),file_name:'plan.pdf',mime_type:'application/pdf',status:'published',visibility:'public'});
+  await board.locator('body').evaluate(()=>window.postMessage({type:'jgc-job-board-refresh',jobId:'existing-estimator-job'},location.origin));
+  await page.evaluate(()=>{window.dispatchEvent(new CustomEvent('jgc-site-plan-published',{detail:{jobId:'different-job'}}));window.dispatchEvent(new CustomEvent('jgc-site-plan-published',{detail:{jobId:'existing-estimator-job'}}));});
+  await expect.poll(()=>store.calls.filter(c=>c.name==='get_or_create_job_board').length).toBe(2);
+  await expect(board.locator('#siteSpecificList')).toContainText('Published site-specific QA plan');
+  await page.getByRole('tab',{name:'Job Board',exact:true}).click();
+  await expect(board.locator('#reviewList').getByLabel('Title',{exact:true})).toHaveValue('Keep office review draft');
+  await board.getByRole('tab',{name:'Upload',exact:true}).click();
+  await expect(board.locator('#uploadTitle')).toHaveValue('Keep upload draft');
+  expect(await board.locator('#uploadFiles').evaluate(e=>e.files.length)).toBe(1);
+  expect(await board.locator('body').evaluate(()=>window.sitePlanBoardMarker)).toBe('same-document');
+  expect(await iframe.getAttribute('src')).toBe(source);
 });

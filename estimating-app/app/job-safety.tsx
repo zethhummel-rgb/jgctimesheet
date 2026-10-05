@@ -1,5 +1,6 @@
-import { useRef, useState, type KeyboardEvent } from 'react';
-import type { Job } from '../lib/estimator-data';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import type { AppState, Job } from '../lib/estimator-data';
+import { SiteSpecificBuilder } from './site-specific-builder';
 import { JobBoard } from './job-board';
 import './job-safety.css';
 
@@ -9,10 +10,21 @@ const sections = [
 ] as const;
 type SafetySection = typeof sections[number]['key'];
 
-export function JobSafety({ job, active }: { job: Job; active: boolean }) {
+export function JobSafety({ job, active, state, setState, actor, workspaceSaved }: { job: Job; active: boolean; state: AppState; setState: React.Dispatch<React.SetStateAction<AppState>>; actor: string; workspaceSaved: boolean }) {
   const [section, setSection] = useState<SafetySection>('job-board');
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const baseId = `safety-${job.id.replace(/[^a-zA-Z0-9_-]/g, '-') || 'selected'}`;
+  useEffect(() => {
+    const refresh = (event: Event) => {
+      if ((event as CustomEvent).detail?.jobId !== job.id) return;
+      document.querySelectorAll<HTMLIFrameElement>('.job-safety iframe').forEach(frame => {
+        const src = new URL(frame.src, document.baseURI);
+        if (src.origin === location.origin && src.searchParams.get('job') === job.id) frame.contentWindow?.postMessage({ type: 'jgc-job-board-refresh', jobId: job.id }, location.origin);
+      });
+    };
+    window.addEventListener('jgc-site-plan-published', refresh);
+    return () => window.removeEventListener('jgc-site-plan-published', refresh);
+  }, [job.id]);
 
   function navigate(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     let next: number;
@@ -45,20 +57,8 @@ export function JobSafety({ job, active }: { job: Job; active: boolean }) {
     <div id={`${baseId}-panel-job-board`} role="tabpanel" aria-labelledby={`${baseId}-tab-job-board`} hidden={section !== 'job-board'}>
       <JobBoard job={job} active={active && section === 'job-board'} />
     </div>
-    <section className="panel job-site-specific" id={`${baseId}-panel-create-site-specific`} role="tabpanel" aria-labelledby={`${baseId}-tab-create-site-specific`} hidden={section !== 'create-site-specific'}>
-      <div className="panel-heading">
-        <div><span className="eyebrow">JOB {job.jobNumber} · SAFETY</span><h2>Create Site Specific</h2><p>Prepare a JGC-branded site-specific safety plan for {job.project}.</p></div>
-      </div>
-      <div className="site-specific-setup">
-        <h3>Plan template setup</h3>
-        <p>Your plan template will be defined here next, with these areas:</p>
-        <dl>
-          <div><dt>Plan pages</dt><dd>Job details, contacts, site risks and emergency information, with pages you can include or leave out.</dd></div>
-          <div><dt>Task and procedure library</dt><dd>Saved pages for different tasks, procedures and risks that can be reused in a job's plan.</dd></div>
-          <div><dt>Supporting documents</dt><dd>Portal certificates, standard JSAs, the full JGC policy and additional forms or pages, combined into one PDF when needed.</dd></div>
-        </dl>
-        <p className="site-specific-pending" role="status">Document creation will be available after the template is defined.</p>
-      </div>
+    <section id={`${baseId}-panel-create-site-specific`} role="tabpanel" aria-labelledby={`${baseId}-tab-create-site-specific`} hidden={section !== 'create-site-specific'}>
+      <SiteSpecificBuilder job={job} state={state} setState={setState} actor={actor} workspaceSaved={workspaceSaved} />
     </section>
   </section>;
 }

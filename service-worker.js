@@ -1,7 +1,24 @@
-const JGC_RELEASE_ID = "982";
+const JGC_RELEASE_ID = "983";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
+  "./estimating/assets/browser-CNT2ZpE-.js",
+  "./estimating/assets/drawing-pdf-BzRA70rV.js",
+  "./estimating/assets/es-CzdUut7b.js",
+  "./estimating/assets/index-B_kXSi3w.js",
+  "./estimating/assets/job-schedule-pdf-CMuDvpLM.js",
+  "./estimating/assets/job-warranty-pdf-DrwOJSn7.js",
+  "./estimating/assets/pdf-CmfyUeSv.js",
+  "./estimating/assets/proposal-pdf-B5pSiJcV.js",
+  "./estimating/assets/purchase-order-pdf-D5nTX5Yv.js",
+  "./estimating/assets/quote-backup-pdf-dM2hxDHu.js",
+  "./estimating/assets/rfi-pdf-C6raQ4Ov.js",
+  "./estimating/assets/site-specific-pdf-DwznDMg2.js",
+  "./estimating/assets/src-DztyyrnD.js",
+
+
+  "./estimating/assets/index-hn0icavN.css",
+
   "./estimating/assets/browser-D_-WhaHI.js",
   "./estimating/assets/drawing-pdf-DqcLat8x.js",
   "./estimating/assets/es-0t63Je_J.js",
@@ -645,7 +662,7 @@ const JGC_APP_SHELL = [
   "./safety-signature-pad.css?v=2",
   "./safety-signature-pad.js?v=2",
   "./safety-acknowledgements.js?v=7",
-  "./jsa-pdf.js?v=3",
+  "./jsa-pdf.js?v=4",
   "./field-calculator.css?v=18",
   "./calculator-engine.js?v=25",
   "./calculator-functions.js?v=28",
