@@ -624,6 +624,47 @@ async function createDatabase() {
       await as('authenticated','staff');assert.equal((await rpc('select public.attach_job_board_report_by_id($1,$2,$3) result',[autoBoard.id,'inspection_records',equipment.source_id])).status,'archived');
       await rejects('select private.jgc_job_board_auto_attach_staff_form()');
     });
+    await db.exec('reset role');
+    await db.exec(`create table public.safety_acknowledgements(id uuid primary key default gen_random_uuid(),record_type text not null,record_id uuid not null,record_title text,record_date date,job_id uuid,job_number text,job_name text,project text,location text,attendee_name text not null,attendee_key text not null,attendee_company text default '',attendee_type text not null default 'unknown',matched_employee_id uuid,matched_employee_email text,acknowledgement_status text not null default 'pending',acknowledgement_method text,acknowledged_at timestamptz,acknowledged_by_user_id uuid,acknowledged_by_name text,acknowledgement_note text,is_late boolean not null default false,unmatched_qr_entry boolean not null default false,qr_token text,created_by text,created_by_name text,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),removed_at timestamptz,unique(record_type,record_id,attendee_key));
+      alter table public.safety_acknowledgements enable row level security;revoke all on public.safety_acknowledgements from public,anon,authenticated;`);
+    await db.exec(`alter table public.safety_acknowledgements add column signature_strokes jsonb,add column signature_width integer,add column signature_height integer,add column signature_version smallint not null default 1,add column signature_signed_name text,add column signature_signed_at timestamptz;
+      alter table public.safety_acknowledgements add constraint synthetic_ack_status check(acknowledgement_status in ('pending','acknowledged_by_user','acknowledged_by_creator','acknowledged_by_qr','late_acknowledgement','not_required','removed')),add constraint synthetic_ack_method check(acknowledgement_method is null or acknowledgement_method in ('user_portal','creator_on_behalf','qr_external','late_user_portal','late_qr_external','shared_device','late_shared_device')),add constraint synthetic_ack_shape check(signature_strokes is null or (jsonb_typeof(signature_strokes)='array' and jsonb_array_length(signature_strokes) between 1 and 200 and octet_length(signature_strokes::text)<=51200 and signature_width between 200 and 2000 and signature_height between 80 and 1000 and nullif(trim(signature_signed_name),'') is not null and signature_signed_at is not null));`);
+    await db.exec(fs.readFileSync(path.join(__dirname,'../supabase/migrations/20261005155511_jgc_job_board_history_jsa_sign_on_978.sql'),'utf8'));
+    await as('authenticated','staff');
+    const jsaSource='97800000-0000-4000-8000-000000000001';await db.query("insert into public.inspection_records(id,worker_name,inspection_type,inspection_date,title,form_data) values($1,'staff','JSA','2026-10-05','Late arrival JSA',$2)",[jsaSource,{job_context:{jobNumber:'26999'},fields:[{label:'Project',value:'26999 - Selected job'}],rows:[{cells:['Lift work','Falls','Fall protection']}]}]);
+    await as('authenticated','admin');const jsaDoc=(await getBoard(autoBoard)).documents.find(d=>d.source_id===jsaSource);
+    const getJsa=(token,visit,id=jsaDoc.id)=>rpc('select public.get_job_board_jsa($1,$2,$3) result',[token,visit,id]);
+    const signature=[[[.1,.2],[.5,.6],[.8,.2]]];
+    const sign=(token,visit,version,strokes=signature,read=true,id=jsaDoc.id)=>rpc('select public.sign_job_board_jsa($1,$2,$3,$4,$5,$6,$7,$8) result',[token,visit,id,read,version,strokes,500,230]);
+    await check('JSA read/sign endpoints require the current board session and published exact-job JSA',async()=>{
+      await as('anon');await rejects('select public.get_job_board_jsa($1,null,$2)',[autoBoard.token,jsaDoc.id]);await rejects('select * from public.safety_acknowledgements');
+      const v=await register(otherBoard,'wrong-job-jsa@example.invalid');await rejects('select public.get_job_board_jsa($1,$2,$3)',[otherBoard.token,v,jsaDoc.id]);
+      await as('authenticated','admin');await rejects('select public.get_job_board_jsa($1,null,$2)',[autoBoard.token,policyIds.current],/JSA|document/i);
+    });
+    let visitor978;
+    await check('visitor JSA read confirmation and signature validation precede canonical late sign-on with immutable retries',async()=>{
+      await as('anon');visitor978=await register(autoBoard,'late-visitor-978@example.invalid');const model=await getJsa(autoBoard.token,visitor978);assert.deepEqual(model.identity,{name:'Synthetic Visitor',company:'Synthetic Company'});assert.equal(model.signed,false);assert(!JSON.stringify(model).includes('qr_token'));
+      await rejects('select public.sign_job_board_jsa($1,$2,$3,false,$4,$5,500,230)',[autoBoard.token,visitor978,jsaDoc.id,model.version,signature],/confirm/i);
+      for(const bad of [null,[],[[]],[[[0,0]]],[[[0,0],[2,0]]],[[[0,0],['bad',.5]]],[[[0,0],null]],[[[0,0],[.1,.1,.1]]]])await assert.rejects(()=>sign(autoBoard.token,visitor978,model.version,bad),/signature/i);
+      const saved=await sign(autoBoard.token,visitor978,model.version);assert(saved.ok);const again=await sign(autoBoard.token,visitor978,model.version,[[[.2,.2],[.3,.3]]]);assert(again.already_signed);assert.equal(again.signed_at,saved.signed_at);
+      const signed=await getJsa(autoBoard.token,visitor978);assert(signed.signed);assert.equal(signed.acknowledgements.length,1);assert.deepEqual(signed.acknowledgements[0].signature_strokes,signature);assert.equal(signed.acknowledgements[0].attendee_company,'Synthetic Company');assert(!JSON.stringify(signed).includes('late-visitor-978@example.invalid'));
+    });
+    await check('staff sign-on uses the approved profile and preserves the original existing crew acknowledgement',async()=>{
+      await db.exec('reset role');const crewId='97800000-0000-4000-8000-000000000002';await db.query("insert into public.safety_acknowledgements(id,record_type,record_id,attendee_name,attendee_key,attendee_company,matched_employee_id) values($1,'jsa',$2,'Old name','existing-crew-key','Old company',$3)",[crewId,jsaSource,ids.staff]);
+      await as('authenticated','staff');const v=await register(autoBoard,'ignored-staff-978@example.invalid');const model=await getJsa(autoBoard.token,v);assert.equal(model.identity.name,'Synthetic staff');assert.equal(model.identity.company,'John Gordon Construction');await sign(autoBoard.token,v,model.version);
+      await db.exec('reset role');const crew=(await db.query('select * from public.safety_acknowledgements where id=$1',[crewId])).rows[0];assert.equal(crew.signature_signed_name,'Synthetic staff');assert.equal(crew.attendee_company,'John Gordon Construction');assert.equal(crew.attendee_key,'existing-crew-key');assert(crew.is_late);assert.equal(crew.acknowledgement_method,'late_user_portal');
+      assert.equal((await db.query('select count(*)::integer n from public.safety_acknowledgements where record_id=$1',[jsaSource])).rows[0].n,2);
+    });
+    await check('JSA changed revisions, revoked visitors, disabled boards and accounts cannot sign stale reports',async()=>{
+      await as('anon');const model=await getJsa(autoBoard.token,visitor978);await db.exec('reset role');await db.query("update public.job_board_documents set updated_at=clock_timestamp(),title='Revised JSA' where id=$1",[jsaDoc.id]);await as('anon');await assert.rejects(()=>sign(autoBoard.token,visitor978,model.version),/changed|updated/i);
+      await db.exec('reset role');await db.query('update public.job_board_visitor_sessions set revoked_at=now() where token_hash=private.jgc_job_board_token_hash($1)',[visitor978]);await as('anon');await rejects('select public.get_job_board_jsa($1,$2,$3)',[autoBoard.token,visitor978,jsaDoc.id]);
+      await as('authenticated','disabled');await rejects('select public.get_job_board_jsa($1,null,$2)',[autoBoard.token,jsaDoc.id]);
+      await as('authenticated','admin');await rpc('select public.configure_job_board($1,false,false) result',[autoBoard.id]);await rejects('select public.get_job_board_jsa($1,null,$2)',[autoBoard.token,jsaDoc.id]);await rpc('select public.configure_job_board($1,true,false) result',[autoBoard.id]);
+    });
+    await check('Portal and Site sign-in pagination are independent and remain admin-only',async()=>{
+      await as('authenticated','admin');for(const kind of ['portal','site']){let before=null,events=[];do{const page=await rpc('select public.get_job_board_signins($1,$2,$3,1) result',[autoBoard.id,kind,before]);events.push(...page.events);before=page.next_before;}while(before);assert(events.every(e=>e.action===(kind==='portal'?'visit':'site-signin')));assert.equal(new Set(events.map(e=>e.id)).size,events.length);}
+      await rejects('select public.get_job_board_signins($1,$2)',[autoBoard.id,'invalid'],/Portal|Site/i);await as('authenticated','staff');await rejects('select public.get_job_board_signins($1,$2)',[autoBoard.id,'portal']);await as('anon');await rejects('select public.get_job_board_signins($1,$2)',[autoBoard.id,'site']);
+    });
     console.log(`${passed}/${passed+failures.length} local Job Board security groups passed. No production connections or writes.`);
     if(failures.length) process.exitCode=1;
   } finally { await db.close(); }

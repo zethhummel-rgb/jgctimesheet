@@ -16,7 +16,8 @@
   <meta name="theme-color" content="#0b5e3b">
   <title>Job Board · JGC Portal</title>
   <link rel="stylesheet" href="jgc-design-system.css?v=13" data-jgc-design-system="13">
-  <link rel="stylesheet" href="job-board.css?v=4">
+  <link rel="stylesheet" href="job-board.css?v=5">
+  <link rel="stylesheet" href="safety-signature-pad.css?v=2">
 </head>
 <body class="job-board-page jgc-page jgc-system-page">
   <main class="jgc-page-shell" id="jobBoardPage">
@@ -146,11 +147,25 @@
       </section>
 
       <section class="jgc-panel board-admin-panel" id="boardActivityPanel" hidden>
-        <details id="boardActivity" data-testid="board-activity"><summary>Sign-in log</summary><div class="board-details-content"><p class="board-help">Visitor, staff and site sign-ins, with date and time. Visitor and site details are entered by the person signing in.</p><div class="board-actions"><button class="jgc-button jgc-button--secondary" id="activityRefresh" type="button">Refresh sign-ins</button></div><p id="activityStatus" class="board-form-status" role="status" aria-live="polite"></p><div id="activityList" class="jgc-record-list"></div><button class="jgc-button jgc-button--secondary" id="activityMore" type="button" hidden>Load more</button></div></details>
+        <details id="boardActivity" data-testid="board-activity"><summary>Sign-in log</summary><div class="board-details-content"><p class="board-help">Visitor, staff and site sign-ins, with date and time. Visitor and site details are entered by the person signing in.</p><nav class="board-signin-tabs board-actions" role="tablist" aria-label="Sign-in type"><button class="jgc-tab" type="button" role="tab" aria-selected="true" id="portalSigninTab" data-signin-kind="portal" aria-controls="activityList">Portal Sign-ins</button><button class="jgc-tab" type="button" role="tab" aria-selected="false" id="siteSigninTab" data-signin-kind="site" aria-controls="activityList">Site Sign-ins</button></nav><div class="board-actions"><button class="jgc-button jgc-button--secondary" id="activityRefresh" type="button">Refresh sign-ins</button></div><p id="activityStatus" class="board-form-status" role="status" aria-live="polite"></p><div id="activityList" class="jgc-record-list" role="tabpanel" aria-labelledby="portalSigninTab"></div><button class="jgc-button jgc-button--secondary" id="activityMore" type="button" hidden>Load more</button></div></details>
       </section>
       <footer class="board-footer">John Gordon Construction · Job Board</footer>
     </div>
   </main>
+  <section id="jsaSignOnPanel" class="jgc-panel board-jsa-sign-on" aria-labelledby="jsaSignOnTitle" hidden>
+    <div class="board-section-heading"><h2 id="jsaSignOnTitle" class="jgc-section-title">Sign on to JSA</h2><button id="jsaSignOnBack" class="jgc-button jgc-button--secondary" type="button">Back to Job Board</button></div>
+    <p id="jsaSignOnStatus" class="board-form-status" role="status" aria-live="polite"></p><div id="jsaSignOnReport"></div>
+    <div class="board-actions"><button id="jsaSignOnPdf" class="jgc-button jgc-button--secondary" type="button">Open JSA PDF</button></div>
+    <p id="jsaSignOnIdentity" class="jgc-notice"></p>
+    <button id="jsaSignOnSign" class="jgc-button" type="button" disabled>Sign onto JSA</button>
+    <details class="board-settings"><summary>JSA sign-on history</summary><div id="jsaSignOnRoster" class="board-details-content"></div></details>
+  </section>
+  <dialog id="jsaReadDialog" class="board-preview" aria-labelledby="jsaReadTitle">
+    <h2 id="jsaReadTitle" class="jgc-section-title">Confirm you have read the JSA</h2>
+    <p>Please read the full report before signing on.</p>
+    <label class="board-read-confirm"><input id="jsaSignOnRead" type="checkbox"> I confirm I have read this JSA and understand the hazards and control measures.</label>
+    <div class="board-actions"><button id="jsaReadContinue" class="jgc-button" type="button" disabled>Continue to signature</button><button id="jsaReadCancel" class="jgc-button jgc-button--secondary" type="button">Cancel</button></div>
+  </dialog>
   <dialog id="contactsDialog" class="board-preview" aria-labelledby="contactsTitle">
     <div class="board-section-heading"><h2 class="jgc-section-title" id="contactsTitle">JGC Contacts</h2><button class="jgc-button jgc-button--secondary" id="contactsClose" type="button">Close</button></div>
     <p class="board-help">Contact John Gordon Construction. Tap a phone number to call or an email address to write a message.</p>
@@ -167,15 +182,16 @@
       <p class="board-help">If your browser cannot share a file, download the email draft and open it in a mail app that supports .eml drafts. The PDF is included as an attachment.</p>
     </div>
   </dialog>
-  <section id="boardPoster" class="board-poster" aria-label="Printable Job Board QR poster" hidden><img src="logo.webp" alt="John Gordon Construction" class="board-poster-logo"><h1>Job Board</h1><h2 id="posterJob"></h2><p id="posterAddress"></p><img id="posterQr" alt="Scan to open this job’s safety documents" width="320" height="320"><h3>Scan for site safety documents</h3><p>H&amp;S · Policies · JSAs · Toolbox talks<br>Permits · Reports · Inspections</p><p>Sign in with your name, company and email to continue.<br>JGC staff: use your Portal account to upload paper forms and photos.</p></section>
+  <section id="boardPoster" class="board-poster" aria-label="Printable Job Board QR poster" hidden><img src="logo.webp" alt="John Gordon Construction" class="board-poster-logo"><h1>Job Board</h1><h2 id="posterJob"></h2><p id="posterAddress"></p><img id="posterQr" alt="Scan to open this job’s safety documents" width="320" height="320"><h3>Site Sign In</h3><p>Scan to sign in to site and open the Job Board.</p><p>H&amp;S · Policies · JSAs · Toolbox talks<br>Permits · Reports · Inspections</p><p>Sign in with your name, company and email to continue.<br>JGC staff: use your Portal account to upload paper forms and photos.</p></section>
   <script>if (new URLSearchParams(location.search).get('embedded') !== '1') { const u = new URL(location.href); u.searchParams.set('embedded', '1'); history.replaceState(null, '', u); }</script>
   <script src="vendor/supabase-js.min.js?v=1"></script>
   <script src="vendor/lucide.min.js"></script>
   <script src="common.js?v=73"></script>
   <script src="job-board-context.js?v=2"></script>
   <script src="vendor/qrcode.min.js?v=1"></script>
-  <script src="job-board-report-pdf.js?v=1"></script>
+  <script src="job-board-report-pdf.js?v=2"></script>
   <script src="job-board-email.js?v=1"></script>
-  <script src="job-board.js?v=4"></script>
+  <script src="safety-signature-pad.js?v=2"></script>
+  <script src="job-board.js?v=5"></script>
 </body>
 </html>
