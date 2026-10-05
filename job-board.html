@@ -2,13 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <script>
+    try {
+      if (parent !== window && parent.location.origin === location.origin && new URLSearchParams(location.search).get('manage') === '1') {
+        document.documentElement.dataset.jobBoardHost = 'job';
+        document.documentElement.dataset.jgcTheme = parent.document.documentElement.dataset.jgcTheme || 'dark';
+      }
+    } catch (_) { /* Standalone and cross-origin views keep their own page layout. */ }
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow, noarchive">
   <meta name="referrer" content="no-referrer">
   <meta name="theme-color" content="#0b5e3b">
   <title>Job Board · JGC Portal</title>
   <link rel="stylesheet" href="jgc-design-system.css?v=13" data-jgc-design-system="13">
-  <link rel="stylesheet" href="job-board.css?v=1">
+  <link rel="stylesheet" href="job-board.css?v=2">
 </head>
 <body class="job-board-page jgc-page jgc-system-page">
   <main class="jgc-page-shell" id="jobBoardPage">
@@ -25,6 +33,7 @@
       <p id="boardIdentity" class="jgc-page-user" hidden></p>
     </header>
 
+    <div id="boardToolbar" class="board-toolbar" hidden></div>
     <div class="jgc-notice board-notice" id="boardNotice" role="status" aria-live="polite" hidden></div>
     <section class="jgc-panel board-loading" id="boardLoading" role="status" aria-live="polite"><span class="board-loader" aria-hidden="true"></span> Loading this Job Board…</section>
     <section class="jgc-panel" id="boardError" hidden>
@@ -79,6 +88,10 @@
       </nav>
 
       <div id="documentsPanel" role="tabpanel" aria-labelledby="documentsTab">
+        <section class="jgc-panel board-policy" aria-labelledby="policyTitle">
+          <div class="board-section-heading"><div><h2 class="jgc-section-title" id="policyTitle">JGC safety policy</h2><p class="board-help">The current company safety policy is included on every Job Board.</p></div></div>
+          <div id="policyList" class="jgc-record-list" data-testid="policy-list"></div>
+        </section>
         <section class="jgc-panel board-today" aria-labelledby="todayJsaTitle">
           <div class="board-section-heading"><div><h2 class="jgc-section-title" id="todayJsaTitle">Today’s JSA</h2><p id="todayDate" class="board-help"></p></div><button class="jgc-button jgc-button--secondary" id="jsaHistory" type="button">JSA history</button></div>
           <div id="todayJsaList" class="jgc-record-list" data-testid="today-jsa-list"></div>
@@ -136,10 +149,10 @@
   <script>if (new URLSearchParams(location.search).get('embedded') !== '1') { const u = new URL(location.href); u.searchParams.set('embedded', '1'); history.replaceState(null, '', u); }</script>
   <script src="vendor/supabase-js.min.js?v=1"></script>
   <script src="vendor/lucide.min.js"></script>
-  <script src="common.js?v=72"></script>
+  <script src="common.js?v=73"></script>
   <script src="job-board-context.js?v=1"></script>
   <script src="vendor/qrcode.min.js?v=1"></script>
   <script src="job-board-report-pdf.js?v=1"></script>
-  <script src="job-board.js?v=1"></script>
+  <script src="job-board.js?v=2"></script>
 </body>
 </html>

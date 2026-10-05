@@ -4,6 +4,7 @@ const { PGlite } = require(process.env.JGC_PGLITE_MODULE || '@electric-sql/pglit
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
+let policyAclBefore, policyAclAfter;
 
 const ids = Object.fromEntries(['admin', 'staff', 'otherStaff', 'client', 'disabled', 'limited', 'deleted', 'job', 'otherJob'].map((name, i) => [name, `00000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`]));
 
@@ -42,7 +43,7 @@ async function createDatabase() {
     create table public.incident_reports(id uuid primary key,reported_by_worker text,report_date date,project text,incident_type text,created_at timestamptz default now(),report_details jsonb);
     create table public.accident_reports(id uuid primary key,created_by_worker text,accident_date date,accident_location text,site_location text,created_at timestamptz default now(),report_details jsonb);
     create table public.employee_injury_reports(id uuid primary key,created_by_worker text,accident_date date,accident_location text,created_at timestamptz default now(),report_details jsonb);
-    create table public.policies(id uuid primary key,title text,description text,file_path text,file_name text,file_type text,is_active boolean);
+    create table public.policies(id uuid primary key,title text,description text,file_path text,file_name text,file_type text,is_active boolean,category text,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
   `);
   for (const [name, accountStatus, role] of [['admin','approved','admin'],['staff','approved','worker'],['otherStaff','approved','worker'],['client','limited','client'],['disabled','disabled','worker'],['limited','limited','worker'],['deleted',null,null]]) {
     await db.query('insert into auth.users(id,email) values($1,$2)', [ids[name], `${name}@example.invalid`]);
@@ -52,6 +53,14 @@ async function createDatabase() {
   await db.query('insert into public.estimator_workspaces(id,payload) values($1,$2)', ['main', {jobs:[{id:ids.job,portalJobId:ids.job,jobNumber:'26999',project:'Synthetic board job',acceptedRevenue:123456,budget:7890},{id:ids.otherJob,portalJobId:ids.otherJob,jobNumber:'26998',project:'Other isolated job'}],secretCosts:'NEVER_EXPOSE_THIS'}]);
   await db.exec(fs.readFileSync(path.join(__dirname,'../supabase/job-board-setup.sql'),'utf8'));
   await db.exec(fs.readFileSync(path.join(__dirname,'../supabase/job-board-sources.sql'),'utf8'));
+  const aclSnapshot = async () => (await db.query(`select jsonb_build_object(
+    'storage_policies',(select jsonb_agg(to_jsonb(p) order by policyname) from pg_policies p where schemaname='storage' and tablename='objects'),
+    'public_rpc_acl',(select jsonb_agg(jsonb_build_object('name',p.proname,'acl',p.proacl) order by p.proname) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname like '%job_board%'),
+    'raw_table_acl',(select jsonb_agg(jsonb_build_object('name',c.relname,'acl',c.relacl,'rls',c.relrowsecurity) order by c.relname) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and (c.relname like 'job_board%' or c.relname='policies'))
+  ) snapshot`)).rows[0].snapshot;
+  policyAclBefore = await aclSnapshot();
+  await db.exec(fs.readFileSync(path.join(__dirname,'../supabase/job-board-policy.sql'),'utf8'));
+  policyAclAfter = await aclSnapshot();
   return db;
 }
 
@@ -400,6 +409,139 @@ async function createDatabase() {
       await rejects('select public.log_job_board_activity($1,$2,$3,$4)',[rotated.token,newVisit,'open-board',null]);
       await rejects('select public.register_job_board_visit($1,$2,$3,$4)',[rotated.token,'Visitor','Company','visit@example.invalid']);
       await as('authenticated','staff'); await rejects('select public.finalize_job_board_upload($1)',[ownPending.id]);
+    });
+    // The automatic company policy correction adds no real document rows. All fixture
+    // policy/source mutations below happen only in the transient local database.
+    await db.exec(`reset role;
+      drop policy legacy_broad_read on storage.objects;
+      drop policy legacy_broad_insert on storage.objects;
+      drop policy legacy_broad_update on storage.objects;
+      drop policy legacy_broad_delete on storage.objects;
+      insert into storage.buckets(id,name,public) values('policies','policies',false);
+    `);
+    await as('authenticated','admin');
+    let policyBoard=await rpc('select public.configure_job_board($1,true,false) result',[board.id]);
+    const policyIds=Object.fromEntries(['older','current','inactive','unrelated','nonPdf','missing','badObjectMime','traversal','otherBucket','leadingSlash','missingMime','replacement'].map((name,index)=>[name,`00000000-0000-4000-8000-${String(100+index).padStart(12,'0')}`]));
+    const policyRows=[
+      ['older','JGC Safety Policy',true,'application/pdf','company/old.pdf','2026-09-01','policies','application/pdf'],
+      ['current',' JGC SAFETY POLICY ',true,'application/pdf','company/current.pdf','2026-10-02','policies','application/pdf'],
+      ['inactive','JGC Safety Policy',false,'application/pdf','company/inactive.pdf','2026-10-04','policies','application/pdf'],
+      ['unrelated','Disciplinary Policy',true,'application/pdf','company/unrelated.pdf','2026-10-04','policies','application/pdf'],
+      ['nonPdf','JGC Safety Policy',true,'image/jpeg','company/non-pdf.jpg','2026-10-04','policies','image/jpeg'],
+      ['missing','JGC Safety Policy',true,'application/pdf','company/missing.pdf','2026-10-04',null,null],
+      ['badObjectMime','JGC Safety Policy',true,'application/pdf','company/bad-mime.pdf','2026-10-04','policies','image/jpeg'],
+      ['traversal','JGC Safety Policy',true,'application/pdf','../unsafe.pdf','2026-10-04','policies','application/pdf'],
+      ['otherBucket','JGC Safety Policy',true,'application/pdf','company/other-bucket.pdf','2026-10-04','legacy-unrelated','application/pdf'],
+      ['leadingSlash','JGC Safety Policy',true,'application/pdf','/absolute.pdf','2026-10-04','policies','application/pdf'],
+      ['missingMime','JGC Safety Policy',true,null,'company/no-type.pdf','2026-10-04','policies','application/pdf']
+    ];
+    await db.exec('reset role');
+    for(const [name,title,active,type,filePath,stamp,bucket,objectMime] of policyRows) {
+      await db.query('insert into public.policies(id,title,description,file_path,file_name,file_type,is_active,category,created_at,updated_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$9)',[policyIds[name],title,'POLICY_DESCRIPTION_SECRET',filePath,name+'.pdf',type,active,'Safety',stamp+'T12:00:00Z']);
+      if(bucket) await db.query('insert into storage.objects(bucket_id,name,metadata) values($1,$2,$3)',[bucket,filePath,{size:4321,mimetype:objectMime}]);
+    }
+    const realDocumentCount=(await db.query('select count(*)::integer count from public.job_board_documents')).rows[0].count;
+    await as('anon');
+    const policyVisit=await register(policyBoard,'policy-visitor@example.invalid');
+    const automatic = model => model.documents.filter(d=>d.automatic===true);
+    await check('automatic policy selects only newest exact-title active PDF with a private matching Storage object',async()=>{
+      const visible=await getBoard(policyBoard,policyVisit);
+      assert.equal(automatic(visible).length,1); assert.equal(automatic(visible)[0].id,policyIds.current);
+      assert.equal(automatic(visible)[0].category,'jgc-policy'); assert.equal(automatic(visible)[0].status,'published'); assert.equal(automatic(visible)[0].visibility,'public');
+      assert.equal(automatic(visible)[0].source_type,'policies'); assert.equal(automatic(visible)[0].source_id,policyIds.current);
+      assert.equal(automatic(visible)[0].file_size,4321); assert.equal(automatic(visible)[0].created_by,null);
+      assert(visible.documents.some(d=>d.id===publicDoc.id),'ordinary source_type-null upload stays visible with current policy');
+      assert(!/file_path|company\/current|POLICY_DESCRIPTION_SECRET/.test(JSON.stringify(visible)),'public listing omits private paths and source description');
+      for(const [name] of policyRows.filter(row=>row[0]!=='current')) await rejects('select public.resolve_job_board_download($1,$2,$3)',[policyBoard.token,policyVisit,policyIds[name]]);
+      await as('authenticated','admin'); const management=await getBoard(policyBoard); assert.equal(automatic(management)[0].id,policyIds.current);
+      await rejects('select public.review_job_board_document($1,$2,$3)',[policyIds.current,'archived','public'],/Finalize|unavailable/i);
+      await as('anon');
+    });
+    await check('automatic policy preserves visitor, account and exact-board gates and rejects unknown IDs',async()=>{
+      await as('anon');
+      assert.equal(automatic(await getBoard(policyBoard)).length,0);
+      for(const visit of [null,visitor,'00000000-0000-4000-8000-000000000999',otherVisitor]) await rejects('select public.resolve_job_board_download($1,$2,$3)',[policyBoard.token,visit,policyIds.current]);
+      await rejects('select public.resolve_job_board_download($1,$2,$3)',[otherBoard.token,policyVisit,policyIds.current]);
+      await rejects('select public.resolve_job_board_download($1,$2,$3)',[policyBoard.token,policyVisit,'00000000-0000-4000-8000-000000000999']);
+      await as('authenticated','client'); assert.equal(automatic(await getBoard(policyBoard,policyVisit)).length,0);
+      await rejects('select public.resolve_job_board_download($1,$2,$3)',[policyBoard.token,policyVisit,policyIds.current]);
+      await rejects('select public.log_job_board_activity($1,$2,$3,$4)',[policyBoard.token,policyVisit,'view-document',policyIds.current]);
+      for(const name of ['disabled','limited','deleted']) { await as('authenticated',name); assert.equal(automatic(await getBoard(policyBoard)).length,0); await rejects('select public.resolve_job_board_download($1,$2,$3)',[policyBoard.token,null,policyIds.current]); }
+      await as('anon');
+    });
+    await check('expired and revoked policy visits deny download and activity immediately',async()=>{
+      const expired=await register(policyBoard,'expired-policy@example.invalid'), revoked=await register(policyBoard,'revoked-policy@example.invalid');
+      await db.exec('reset role');
+      await db.query("update public.job_board_visitor_sessions set expires_at=now()-interval '1 second' where token_hash=private.jgc_job_board_token_hash($1)",[expired]);
+      await db.query('update public.job_board_visitor_sessions set revoked_at=now() where token_hash=private.jgc_job_board_token_hash($1)',[revoked]);
+      await as('anon');
+      for(const visit of [expired,revoked]) { assert.equal(automatic(await getBoard(policyBoard,visit)).length,0); await rejects('select public.resolve_job_board_download($1,$2,$3)',[policyBoard.token,visit,policyIds.current]); await rejects('select public.log_job_board_activity($1,$2,$3,$4)',[policyBoard.token,visit,'email-link',policyIds.current]); }
+      await as('authenticated','staff'); const approvedStaffVisit=await register(policyBoard);
+      assert.equal(automatic(await getBoard(policyBoard,approvedStaffVisit)).length,1);
+      await db.exec('reset role'); await db.query("update public.profiles set account_status='inactive' where id=$1",[ids.staff]);
+      await as('authenticated','staff'); assert.equal(automatic(await getBoard(policyBoard,approvedStaffVisit)).length,0); await rejects('select public.resolve_job_board_download($1,$2,$3)',[policyBoard.token,approvedStaffVisit,policyIds.current]);
+      await db.exec('reset role'); await db.query("update public.profiles set account_status='approved' where id=$1",[ids.staff]); await as('anon');
+    });
+    await check('automatic policy view email and download audit uses canonical identity, deduplicates retries, and avoids document FK errors',async()=>{
+      const started=Date.now();
+      for(const action of ['view-document','email-link']) { await rpc('select public.log_job_board_activity($1,$2,$3,$4) result',[policyBoard.token,policyVisit,action,policyIds.current]); await rpc('select public.log_job_board_activity($1,$2,$3,$4) result',[policyBoard.token,policyVisit,action,policyIds.current]); }
+      const resolved=await download(policyBoard,policyVisit,{id:policyIds.current});
+      assert.equal(resolved.id,policyIds.current); assert.equal(resolved.board_id,policyBoard.id); assert.equal(resolved.source_type,'policies'); assert.equal(resolved.source_payload.file_path,'company/current.pdf'); assert.equal(resolved.mime_type,'application/pdf');
+      assert.deepEqual(Object.keys(resolved.source_payload).sort(),['file_name','file_path','file_type','id','title']);
+      await rejects('select public.log_job_board_activity($1,$2,$3,$4)',[policyBoard.token,policyVisit,'publish',policyIds.current],/Unsupported/i);
+      await rejects('select private.jgc_job_board_append($1,$2,$3,$4)',[policyBoard.id,'view-document',policyIds.current,{name:'Spoofed admin',email:'admin@example.invalid',identity_type:'staff',profile_id:ids.admin}]);
+      await as('authenticated','client'); const canonicalClientVisit=await register(policyBoard,'spoofed-policy@example.invalid');
+      await rpc('select public.log_job_board_activity($1,$2,$3,$4) result',[policyBoard.token,canonicalClientVisit,'view-document',policyIds.current]);
+      await as('authenticated','admin'); const events=(await rpc('select public.get_job_board_activity($1,null,100) result',[policyBoard.id])).events;
+      for(const action of ['view-document','email-link','download-request']) { const rows=events.filter(e=>e.action===action&&e.actor_email==='policy-visitor@example.invalid'); assert.equal(rows.length,1); assert.equal(rows[0].document_id,null); assert.equal(rows[0].document_title,' JGC SAFETY POLICY '); assert.equal(rows[0].identity_type,'visitor'); assert(Math.abs(Date.parse(rows[0].created_at)-started)<30000); }
+      const clientEvent=events.find(e=>e.action==='view-document'&&e.actor_email==='client@example.invalid'&&e.document_title===' JGC SAFETY POLICY '); assert(clientEvent); assert.equal(clientEvent.actor_name,'Synthetic client'); assert.equal(clientEvent.document_id,null);
+      assert(!events.some(e=>e.actor_email==='spoofed-policy@example.invalid'));
+      await db.exec('reset role'); assert.equal((await db.query('select count(*)::integer count from public.job_board_documents')).rows[0].count,realDocumentCount,'derived policy reads/logs never materialize a board document');
+      await as('anon');
+    });
+    await check('public policy bucket is excluded and restoring privacy restores the automatic policy without materialization',async()=>{
+      await db.exec('reset role'); await db.query("update storage.buckets set public=true where id='policies'");
+      await as('anon'); assert.equal(automatic(await getBoard(policyBoard,policyVisit)).length,0); await rejects('select public.resolve_job_board_download($1,$2,$3)',[policyBoard.token,policyVisit,policyIds.current]);
+      await db.exec('reset role'); await db.query("update storage.buckets set public=false where id='policies'");
+      await as('anon'); assert.equal(automatic(await getBoard(policyBoard,policyVisit))[0].id,policyIds.current);
+    });
+    await check('automatic current policy deduplicates an explicit office import while preserving original upload visibility',async()=>{
+      await as('authenticated','admin');
+      const imported=await rpc('select public.attach_job_board_report_by_id($1,$2,$3) result',[policyBoard.id,'policies',policyIds.current]);
+      assert.equal(imported.status,'pending');
+      const management=await getBoard(policyBoard); assert.equal(management.documents.filter(d=>d.source_type==='policies'&&d.source_id===policyIds.current).length,1); assert.equal(automatic(management)[0].id,policyIds.current);
+      assert(!management.documents.some(d=>d.id===imported.id)); assert(management.documents.some(d=>d.id===publicDoc.id));
+      await as('anon'); assert.equal((await getBoard(policyBoard,policyVisit)).documents.filter(d=>d.source_type==='policies'&&d.source_id===policyIds.current).length,1);
+    });
+    await check('policy file replacement deactivation and newest active version update immediately on the next authorized request',async()=>{
+      await db.exec('reset role');
+      await db.query("insert into storage.objects(bucket_id,name,metadata) values('policies','company/revised.pdf',$1)",[{size:5678,mimetype:'application/pdf'}]);
+      await db.query("update public.policies set file_path='company/revised.pdf',file_name='Revised.pdf',updated_at='2026-12-01T12:00:00Z' where id=$1",[policyIds.current]);
+      await as('anon'); const changed=automatic(await getBoard(policyBoard,policyVisit))[0]; assert.equal(changed.id,policyIds.current); assert.equal(changed.file_name,'Revised.pdf'); assert.equal(changed.file_size,5678); assert.equal(changed.report_date,'2026-12-01');
+      assert.equal((await download(policyBoard,policyVisit,{id:policyIds.current})).source_payload.file_path,'company/revised.pdf');
+      await db.exec('reset role'); await db.query('update public.policies set is_active=false where id=$1',[policyIds.current]);
+      await as('anon'); assert.equal(automatic(await getBoard(policyBoard,policyVisit))[0].id,policyIds.older); await rejects('select public.resolve_job_board_download($1,$2,$3)',[policyBoard.token,policyVisit,policyIds.current]);
+      await db.exec('reset role'); await db.query("insert into public.policies(id,title,file_path,file_name,file_type,is_active,category,created_at,updated_at) values($1,'JGC Safety Policy','company/replacement.pdf','Replacement.pdf','application/pdf',true,'Safety','2027-01-01','2027-01-01')",[policyIds.replacement]);
+      await db.query("insert into storage.objects(bucket_id,name,metadata) values('policies','company/replacement.pdf',$1)",[{size:6789,mimetype:'application/pdf'}]);
+      await as('anon'); assert.equal(automatic(await getBoard(policyBoard,policyVisit))[0].id,policyIds.replacement); await rejects('select public.resolve_job_board_download($1,$2,$3)',[policyBoard.token,policyVisit,policyIds.older]);
+      assert.equal((await download(policyBoard,policyVisit,{id:policyIds.replacement})).source_payload.file_path,'company/replacement.pdf');
+      await db.exec('reset role'); await db.query("delete from storage.objects where bucket_id='policies' and name='company/replacement.pdf'");
+      await as('anon'); assert.equal(automatic(await getBoard(policyBoard,policyVisit))[0].id,policyIds.older); await rejects('select public.resolve_job_board_download($1,$2,$3)',[policyBoard.token,policyVisit,policyIds.replacement]);
+    });
+    await check('policy correction preserves all existing RPC/raw ACLs and Storage policies and denies direct helper access',async()=>{
+      assert.deepEqual(policyAclAfter,policyAclBefore,'correction does not add direct data access or Storage permissions');
+      for(const [role,name] of [['anon',null],['authenticated','staff'],['authenticated','client']]) {
+        await as(role,name); await rejects('select private.jgc_job_board_current_policy()'); await rejects('select private.jgc_job_board_policy_document($1,null)',[policyBoard.id]);
+        assert.equal((await db.query("select * from storage.objects where bucket_id='policies'")).rows.length,0,'private policy files still require authorization-gated signed download');
+        await rejects('select * from public.policies');
+      }
+    });
+    await check('automatic policy obeys QR rotation disabled-board and revoked visitor gates',async()=>{
+      await as('authenticated','admin'); const rotated=await rpc('select public.configure_job_board($1,true,true) result',[policyBoard.id]);
+      await as('anon'); await rejects('select public.resolve_job_board_download($1,$2,$3)',[policyBoard.token,policyVisit,policyIds.older]); assert.equal(automatic(await getBoard(rotated,policyVisit)).length,0); await rejects('select public.resolve_job_board_download($1,$2,$3)',[rotated.token,policyVisit,policyIds.older]);
+      const renewed=await register(rotated,'renewed-policy@example.invalid'); assert.equal(automatic(await getBoard(rotated,renewed))[0].id,policyIds.older);
+      await as('authenticated','admin'); await rpc('select public.configure_job_board($1,false,false) result',[rotated.id]);
+      await as('anon'); await rejects('select public.get_job_board($1,$2)',[rotated.token,renewed]); await rejects('select public.resolve_job_board_download($1,$2,$3)',[rotated.token,renewed,policyIds.older]); await rejects('select public.log_job_board_activity($1,$2,$3,$4)',[rotated.token,renewed,'view-document',policyIds.older]);
     });
     console.log(`${passed}/${passed+failures.length} local Job Board security groups passed. No production connections or writes.`);
     if(failures.length) process.exitCode=1;
