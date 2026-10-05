@@ -111,3 +111,7 @@ html[data-job-board-host="job"] .jgc-tab[aria-selected="true"] { background: var
 @media (max-width: 700px) {
   html[data-job-board-host="job"] .jgc-panel { padding: 16px; }
 }
+
+.board-login-options{display:flex;gap:12px;flex-wrap:wrap}.board-login-options button{min-height:48px;flex:1 1 160px}.board-category summary{cursor:pointer;font-weight:700;font-size:1.05rem;padding:12px 0}.board-section-count{margin-left:12px}.board-category-list{padding-top:12px}.board-category-list:empty{display:none}.board-document-sections{display:grid;gap:12px}
+
+.board-category > summary { color: var(--jgc-job-heading, var(--jgc-color-text)); }

@@ -92,7 +92,7 @@
   function boardLink(documentId) { const u = new URL('job-board.html', location.href); u.search = '?embedded=1'; u.hash = new URLSearchParams(Object.assign({ board: state.token }, documentId ? { document: documentId } : {})).toString(); return u.href; }
   async function loadBoard() {
     const generation = ++state.generation;
-    $('boardLoading').hidden = false; $('boardError').hidden = true; $('visitorGate').hidden = true; $('boardContent').hidden = true;
+    ['loginOptions','siteGate','visitorGate','staffGate'].forEach(id => $(id).hidden = true); $('boardLoading').hidden = false; $('boardError').hidden = true; $('visitorGate').hidden = true; $('boardContent').hidden = true;
     try {
       if (!state.token && (!state.manage || !state.job)) throw new Error('This link is missing its Job Board code. Scan the posted QR code or open Job Board from the job.');
       if (!state.client) state.client = typeof createJgcSupabaseClient === 'function' ? createJgcSupabaseClient() : null;
@@ -120,14 +120,6 @@
       if (board.token) state.token = board.token;
       if (state.manage && state.user && board.can_upload) { state.visit = loadVisit(); if (!state.visit) await registerVisit(); }
       if (generation !== state.generation) return;
-      if (!state.manage && !board.requires_visitor_signin && state.visit) {
-        const key = state.token + ':' + state.visit.token + ':' + (state.user?.id || 'visitor');
-        if (state.loggedBoardVisit !== key) {
-          await rpc('log_job_board_activity', { p_token: state.token, p_visit_token: state.visit.token, p_action: 'open-board', p_document_id: null });
-          if (generation !== state.generation) return;
-          state.loggedBoardVisit = key;
-        }
-      }
       renderBoard();
     } catch (error) {
       if (generation !== state.generation) return;
@@ -141,37 +133,50 @@
     document.title = title + ' · JGC Job Board';
     $('boardIdentity').textContent = state.user ? 'Signed in: ' + state.user.email : state.visit ? 'Site visitor: ' + state.visit.label : '';
     $('boardIdentity').hidden = !$('boardIdentity').textContent;
-    $('boardSignIn').hidden = !!state.user;
+    $('boardSignIn').hidden = !!state.user || !!board.requires_visitor_signin;
     const gated = !state.manage && !!board.requires_visitor_signin;
-    $('visitorGate').hidden = !gated; $('boardContent').hidden = gated;
+    $('boardSiteSignIn').hidden = state.manage || gated;
+    $('loginOptions').hidden = !gated; $('visitorGate').hidden = true; $('boardContent').hidden = gated;
     if (gated) { clearVisit(); return; }
     const manager = state.manage && board.can_manage;
     $('boardManager').hidden = !manager; $('reviewTab').hidden = !manager;
     $('boardViewersPanel').hidden = !manager; $('boardActivityPanel').hidden = !manager;
     $('uploadForm').hidden = !board.can_upload; $('uploadSignIn').hidden = !!board.can_upload;
     $('createForms').hidden = !board.can_upload;
-    $('todayDate').textContent = dateLabel(dateToday()) + ' · Site date (Toronto)';
+    $('uploadTab').textContent = state.manage ? 'Upload' : 'Create Todays Reports';
+    $('uploadPanel').querySelector('h2').textContent = state.manage ? 'Upload a site document' : 'Create Todays Reports';
     const documents = Array.isArray(board.documents) ? board.documents : [];
     const published = documents.filter((d) => d.status === 'published');
     const pending = documents.filter((d) => d.status === 'pending');
     $('reviewCount').textContent = pending.length ? '(' + pending.length + ')' : '';
-    const today = published.filter((d) => d.category === 'jsa' && String(d.report_date || '').slice(0, 10) === dateToday());
-    renderDocuments($('policyList'), published.filter((d) => d.category === 'jgc-policy'), 'The company safety policy is unavailable. Please contact the office.');
-    renderDocuments($('todayJsaList'), today, 'No JSA has been published for this job today.');
     renderDocuments($('reviewList'), pending, 'No uploads are waiting for review.', true);
     renderLibrary();
     if (manager) { renderManager(); renderViewers(); if ($('boardActivity').open && !state.activityLoaded) loadActivity(false); }
     if (board.can_upload) renderCreateForms();
     if (state.highlighted) highlightDocument();
   }
+  const SECTIONS = [
+    ['siteSpecificList', 'Site Specific', ['site-specific','hs-documents']],
+    ['dailyReportsList', 'Daily Reports', ['daily-report','jsa','toolbox-talk','accident-incident','other']],
+    ['inspectionList', 'Daily Inspections', ['inspection']],
+    ['permitList', 'Daily Permits', ['permit']],
+    ['policyList', 'JGC Policy', ['jgc-policy']]
+  ];
   function renderLibrary() {
-    const all = (state.board && state.board.documents || []).filter((d) => d.status === 'published');
-    const query = $('documentSearch').value.trim().toLowerCase(), category = $('documentCategory').value, date = $('documentDate').value;
-    const found = all.filter((d) => (!category || d.category === category) && (!date || String(d.report_date || '').slice(0, 10) === date) && (!query || [d.title, d.file_name, d.notes, categoryName(d.category)].join(' ').toLowerCase().includes(query)));
-    found.sort((a, b) => String(b.report_date || b.created_at || '').localeCompare(String(a.report_date || a.created_at || '')));
-    $('documentCount').textContent = all.length + (all.length === 1 ? ' document' : ' documents');
-    $('documentFilterCount').textContent = found.length + ' of ' + all.length + ' shown';
-    renderDocuments($('documentList'), found, all.length ? 'No documents match these filters.' : 'No documents have been published for this job yet.');
+    const all = (state.board?.documents || []).filter(d => d.status === 'published');
+    all.sort((a,b) => String(b.created_at || b.report_date || '').localeCompare(String(a.created_at || a.report_date || '')) || String(b.id).localeCompare(String(a.id)));
+    SECTIONS.forEach(([id,label,categories]) => {
+      let list = $(id);
+      if (!list) {
+        const section = text('details','', 'jgc-panel board-category');
+        const summary = text('summary', label); summary.append(text('span','', 'jgc-badge board-section-count'));
+        list = text('div','', 'board-category-list'); list.id = id;
+        section.append(summary,list); $('documentSections').append(section);
+      }
+      const docs = all.filter(d => categories.includes(d.category));
+      list.parentElement.querySelector('.board-section-count').textContent = docs.length;
+      renderDocuments(list,docs,id === 'policyList' ? 'The company safety policy is unavailable. Please contact the office.' : 'No published documents yet.');
+    });
   }
   function button(label, action, secondary) { const b = text('button', label, 'jgc-button' + (secondary ? ' jgc-button--secondary' : '')); b.type = 'button'; b.addEventListener('click', action); return b; }
   function renderDocuments(parent, docs, message, review) { parent.replaceChildren(); if (!docs.length) return empty(parent, message); docs.forEach((doc) => parent.append(documentCard(doc, review))); if (window.lucide) window.lucide.createIcons(); }
@@ -186,7 +191,7 @@
     detail.append(meta); if (doc.notes) detail.append(text('p', doc.notes, 'board-document-notes'));
     const actions = text('div', '', 'board-document-actions');
     actions.append(button('View', (event) => viewDocument(doc, event.currentTarget), true), button('Download', (event) => downloadDocument(doc, event.currentTarget), true));
-    if (!review) actions.append(button('Email link', (event) => emailDocument(doc, event.currentTarget), true));
+    if (!review) actions.append(button('Email PDF', (event) => emailDocument(doc, event.currentTarget), true));
     card.append(icon, detail, actions);
     if (state.manage && state.board.can_manage && !doc.automatic) card.append(reviewEditor(doc, review));
     return card;
@@ -257,7 +262,6 @@
       viewer.document.body.append(loading);
       busy(control, true);
       try {
-        await logActivity('view-document', doc.id);
         const file = await documentFile(doc);
         if (viewer.closed) return;
         const blob = file.blob.type === file.mimeType ? file.blob : new Blob([file.blob], { type: file.mimeType || 'application/pdf' });
@@ -271,11 +275,25 @@
       return;
     }
     busy(control, true); const version = ++state.previewGeneration; $('previewTitle').textContent = doc.title || 'Document'; $('previewBody').replaceChildren(); status('previewStatus', 'Opening document…'); if (!$('documentPreview').open) $('documentPreview').showModal();
-    try { await logActivity('view-document', doc.id); const file = await documentFile(doc); if (version !== state.previewGeneration) return; if (state.previewUrl) URL.revokeObjectURL(state.previewUrl); state.previewUrl = URL.createObjectURL(file.blob); const preview = document.createElement(String(file.mimeType || '').startsWith('image/') ? 'img' : 'iframe'); if (preview.tagName === 'IMG') preview.alt = doc.title || 'Site document'; else preview.title = doc.title || 'Site document'; preview.src = state.previewUrl; $('previewBody').append(preview); status('previewStatus', ''); }
+    try { const file = await documentFile(doc); if (version !== state.previewGeneration) return; if (state.previewUrl) URL.revokeObjectURL(state.previewUrl); state.previewUrl = URL.createObjectURL(file.blob); const preview = document.createElement(String(file.mimeType || '').startsWith('image/') ? 'img' : 'iframe'); if (preview.tagName === 'IMG') preview.alt = doc.title || 'Site document'; else preview.title = doc.title || 'Site document'; preview.src = state.previewUrl; $('previewBody').append(preview); status('previewStatus', ''); }
     catch (e) { if (version === state.previewGeneration) status('previewStatus', errorMessage(e), 'error'); } finally { busy(control, false); }
   }
-  async function emailDocument(doc, control) { busy(control, true); try { await logActivity('email-link', doc.id); const subject = [state.board.job_number ? 'Job ' + state.board.job_number : state.board.job_name, doc.title].filter(Boolean).join(' · '); const body = (doc.title || 'Job Board document') + '\n' + boardLink(doc.id) + '\n\nSign in to the Job Board to view this document. Restricted reports require an authorized Portal account.'; location.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body); notice('Email link prepared in your mail app.'); } catch (e) { notice(errorMessage(e), 'error'); } finally { busy(control, false); } }
-  function highlightDocument() { const cards = Array.from(document.querySelectorAll('[data-document-id]')); const card = cards.find((e) => e.dataset.documentId === state.highlighted); if (!card) return; card.classList.add('is-highlighted'); card.tabIndex = -1; requestAnimationFrame(() => { card.scrollIntoView({ block: 'center' }); card.focus({ preventScroll: true }); }); }
+  let emailFile = null, emailSubject = '', emailVersion = 0;
+  async function emailDocument(doc, control) {
+    const version = ++emailVersion; emailFile = null;
+    $('emailPdfTitle').textContent = doc.title || 'Email PDF'; $('emailPdfReady').hidden = true;
+    status('emailPdfStatus', 'Preparing PDF…'); $('emailPdfDialog').showModal(); busy(control,true);
+    try {
+      const source = await documentFile(doc);
+      const file = await JGCJobBoardEmail.pdf(source.blob,source.fileName,source.mimeType);
+      if (version !== emailVersion) return;
+      emailFile = file; emailSubject = [state.board.job_number && 'Job '+state.board.job_number,doc.title].filter(Boolean).join(' · ');
+      $('emailPdfShare').hidden = !navigator.canShare?.({files:[file]});
+      $('emailPdfReady').hidden = false; status('emailPdfStatus','PDF ready: '+file.name);
+    } catch(e) { if (version === emailVersion) status('emailPdfStatus',errorMessage(e),'error'); }
+    finally { busy(control,false); }
+  }
+  function highlightDocument() { const cards = Array.from(document.querySelectorAll('[data-document-id]')); const card = cards.find((e) => e.dataset.documentId === state.highlighted); if (!card) return; for (let parent = card.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS') parent.open = true; card.classList.add('is-highlighted'); card.tabIndex = -1; requestAnimationFrame(() => { card.scrollIntoView({ block: 'center' }); card.focus({ preventScroll: true }); }); }
   async function renderManager() {
     const board = state.board, token = state.token;
     $('boardEnabled').checked = !!board.enabled; $('boardEnabledBadge').textContent = board.enabled ? 'Access enabled' : 'Access disabled'; $('boardEnabledBadge').className = 'jgc-badge ' + (board.enabled ? 'jgc-badge--success' : 'jgc-badge--warning');
@@ -326,13 +344,23 @@
     catch (e) { status('activityStatus', errorMessage(e), 'error'); } finally { state.activityBusy = false; busy($('activityRefresh'), false); busy($('activityMore'), false); }
   }
   function renderActivity() {
-    const list = $('activityList'); list.replaceChildren(); if (!state.activity.length) return empty(list, 'No Job Board activity has been recorded yet.');
-    const names = { 'open-board': 'Opened Job Board', visit: 'Signed in to Job Board', 'sign-in': 'Signed in to Job Board', 'visitor-signin': 'Visitor signed in', 'staff-signin': 'Portal account signed in', 'view-document': 'Viewed document', 'download-request': 'Requested download', 'email-link': 'Prepared email link', upload: 'Uploaded document', publish: 'Published document', archive: 'Archived document' };
-    state.activity.forEach((event) => { const row = text('div', '', 'jgc-record-row board-activity-row'); const d = document.createElement('div'); d.append(text('p', event.actor_name || event.actor_email || 'Portal account')); d.append(text('p', [event.actor_company, event.actor_email, event.identity_type === 'visitor' ? 'Visitor (self-reported)' : 'Portal account'].filter(Boolean).join(' · '), 'board-activity-details')); d.append(text('p', [names[event.action] || String(event.action || '').replace(/-/g, ' '), event.document_title].filter(Boolean).join(' · '), 'board-activity-details')); row.append(text('time', timeLabel(event.created_at), 'board-help'), d); list.append(row); });
+    const list = $('activityList'); list.replaceChildren();
+    const events = state.activity.filter(e => ['visit','site-signin'].includes(e.action));
+    if (!events.length) return empty(list,'No sign-ins have been recorded yet.');
+    events.forEach(event => {
+      const row = text('div','', 'jgc-record-row board-activity-row');
+      const detail = text('div','');
+      detail.append(text('strong',event.actor_name || event.actor_email || 'Portal account'));
+      detail.append(text('p',[event.actor_company,event.actor_email].filter(Boolean).join(' · '),'board-activity-details'));
+      detail.append(text('p',event.action === 'site-signin' ? 'Site Sign in (self-reported)' : event.identity_type === 'visitor' ? 'Visitor Login (self-reported)' : 'Staff Login','board-activity-details'));
+      if (event.reason) detail.append(text('p','Reason: '+event.reason,'board-activity-details'));
+      row.append(text('time',timeLabel(event.created_at),'board-help'),detail); list.append(row);
+    });
   }
   async function loadSources() { if (!state.board || !state.board.can_manage) return; busy($('importRefresh'), true); status('importStatus', 'Loading available reports…'); try { const data = await rpc('list_job_board_sources', { p_board_id: state.board.id }); const sources = (Array.isArray(data) ? data : data && data.sources || []).filter((source) => !(source.source_type === 'policies' && (state.board.documents || []).some((doc) => doc.automatic && doc.source_type === 'policies' && String(doc.source_id) === String(source.source_id)))); state.sourcesLoaded = true; $('importList').replaceChildren(); if (!sources.length) empty($('importList'), 'No unattached matching reports or company policies are available.'); sources.forEach((source) => { const row = text('div', '', 'jgc-record-row board-viewer'); const desc = document.createElement('div'); desc.append(text('strong', source.title || categoryName(source.category)), text('p', [categoryName(source.category), dateLabel(source.report_date), source.match === 'company-policy' ? 'Company policy' : 'Job number match'].join(' · '), 'board-help')); row.append(desc, button('Attach for review', async (e) => { const b = e.currentTarget; busy(b, true); try { await rpc('attach_job_board_report', { p_token: state.token, p_visit_token: state.visit && state.visit.token || null, p_source_type: source.source_type, p_source_id: source.source_id }); notice('Report attached for publication review.'); state.activityLoaded = false; await loadBoard(); await loadSources(); } catch (error) { notice(errorMessage(error), 'error'); } finally { busy(b, false); } }, true)); $('importList').append(row); }); status('importStatus', sources.length + ' available items.'); } catch (e) { status('importStatus', errorMessage(e), 'error'); } finally { busy($('importRefresh'), false); } }
   function selectTab(id) { document.querySelectorAll('.board-tabs [role="tab"]').forEach((tab) => { const chosen = tab.dataset.panel === id; tab.classList.toggle('active', chosen); tab.setAttribute('aria-selected', String(chosen)); tab.tabIndex = chosen ? 0 : -1; $(tab.dataset.panel).hidden = !chosen; }); }
-  function openStaff() { $('staffGate').hidden = false; $('staffEmail').focus(); $('staffGate').scrollIntoView({ block: 'center' }); }
+  function chooseLogin(id) { ['loginOptions','visitorGate','staffGate','siteGate'].forEach(key => $(key).hidden = key !== id); }
+  function openStaff() { chooseLogin('staffGate'); $('staffEmail').focus(); $('staffGate').scrollIntoView({ block: 'center' }); }
   async function visitorSignIn(e) { e.preventDefault(); busy($('visitorSubmit'), true); status('visitorStatus', 'Signing in…'); try { await registerVisit({ p_name: $('visitorName').value.trim(), p_company: $('visitorCompany').value.trim(), p_email: $('visitorEmail').value.trim() }); await loadBoard(); if ($('visitorGate').hidden) status('visitorStatus', ''); else status('visitorStatus', 'Site sign-in expired. Please sign in again.', 'error'); } catch (error) { status('visitorStatus', errorMessage(error), 'error'); } finally { busy($('visitorSubmit'), false); } }
   async function staffSignIn(e) {
     e.preventDefault(); busy($('staffSubmit'), true); status('staffStatus', 'Signing in…');
@@ -353,14 +381,23 @@
     } catch (error) { status('staffStatus', errorMessage(error), 'error'); }
     finally { busy($('staffSubmit'), false); }
   }
-  categories($('documentCategory')); categories($('uploadCategory'), 'jsa'); $('uploadDate').value = dateToday();
+  categories($('uploadCategory'), 'jsa'); $('uploadDate').value = dateToday();
   $('boardRefresh').addEventListener('click', loadBoard); $('boardRetry').addEventListener('click', loadBoard);
-  $('boardSignIn').addEventListener('click', openStaff); $('uploadSignInButton').addEventListener('click', openStaff); $('staffCancel').addEventListener('click', () => $('staffGate').hidden = true);
+  $('boardSignIn').addEventListener('click', openStaff); $('uploadSignInButton').addEventListener('click', openStaff); $('staffCancel').addEventListener('click', () => chooseLogin(state.board?.requires_visitor_signin ? 'loginOptions' : ''));
+  $('visitorLogin').addEventListener('click',()=>chooseLogin('visitorGate')); $('staffLogin').addEventListener('click',openStaff); $('siteLogin').addEventListener('click',()=>chooseLogin('siteGate')); $('boardSiteSignIn').addEventListener('click',()=>{chooseLogin('siteGate'); $('siteName').focus(); $('siteGate').scrollIntoView({block:'center'});});
+  ['visitorCancel','siteCancel'].forEach(id => $(id).addEventListener('click',()=>chooseLogin(state.board?.requires_visitor_signin ? 'loginOptions' : '')));
+  let siteSubmission = null;
+  $('siteForm').addEventListener('input',()=>siteSubmission = null);
+  $('siteForm').addEventListener('submit',async e => {
+    e.preventDefault(); if ($('siteSubmit').disabled) return; busy($('siteSubmit'),true); status('siteStatus','Recording sign-in…');
+    siteSubmission ||= crypto.randomUUID();
+    try { const result = await rpc('record_job_board_site_signin',{p_token:state.token,p_name:$('siteName').value.trim(),p_company:$('siteCompany').value.trim(),p_reason:$('siteReason').value.trim(),p_submission_id:siteSubmission});
+      status('siteStatus','Site sign-in recorded: '+timeLabel(result.recorded_at),'success'); $('siteForm').reset(); siteSubmission = null; state.activityLoaded = false;
+    } catch(error) { status('siteStatus',errorMessage(error),'error'); } finally { busy($('siteSubmit'),false); }
+  });
   $('visitorForm').addEventListener('submit', visitorSignIn); $('staffForm').addEventListener('submit', staffSignIn);
   $('boardTheme').addEventListener('click', () => { const next = document.documentElement.dataset.jgcTheme === 'light' ? 'dark' : 'light'; if (typeof applyJgcTheme === 'function') applyJgcTheme(next); updateTheme(); });
   function updateTheme() { $('boardTheme').textContent = document.documentElement.dataset.jgcTheme === 'light' ? 'Dark theme' : 'Light theme'; } window.addEventListener('jgc-theme-change', updateTheme); updateTheme();
-  $('documentFilters').addEventListener('submit', (e) => e.preventDefault()); ['documentSearch', 'documentCategory', 'documentDate'].forEach((id) => $(id).addEventListener(id === 'documentSearch' ? 'input' : 'change', renderLibrary));
-  $('documentClear').addEventListener('click', () => { $('documentFilters').reset(); renderLibrary(); }); $('jsaHistory').addEventListener('click', () => { $('documentFilters').reset(); $('documentCategory').value = 'jsa'; renderLibrary(); $('documentsTitle').scrollIntoView({ block: 'start' }); });
   document.querySelectorAll('.board-tabs [role="tab"]').forEach((tab) => { tab.addEventListener('click', () => selectTab(tab.dataset.panel)); tab.addEventListener('keydown', (e) => { if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return; e.preventDefault(); const tabs = Array.from(document.querySelectorAll('.board-tabs [role="tab"]')).filter((t) => !t.hidden); const index = tabs.indexOf(tab); const next = e.key === 'Home' ? tabs[0] : e.key === 'End' ? tabs[tabs.length - 1] : tabs[(index + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length]; selectTab(next.dataset.panel); next.focus(); }); });
   $('uploadFiles').addEventListener('change', () => { state.uploads.clear(); showSelectedFiles(); status('uploadStatus', ''); }); $('uploadForm').addEventListener('submit', uploadDocuments);
   $('boardPrint').addEventListener('click', () => { if ($('posterQr').src) window.print(); });
@@ -370,6 +407,16 @@
   $('viewerForm').addEventListener('submit', async (e) => { e.preventDefault(); busy($('viewerSubmit'), true); try { await rpc('grant_job_board_viewer', { p_board_id: state.board.id, p_email: $('viewerEmail').value.trim() }); $('viewerForm').reset(); notice('Restricted report access granted.'); await loadBoard(); } catch (error) { notice(errorMessage(error), 'error'); } finally { busy($('viewerSubmit'), false); } });
   $('boardActivity').addEventListener('toggle', () => { if ($('boardActivity').open && !state.activityLoaded) loadActivity(false); }); $('activityRefresh').addEventListener('click', () => loadActivity(false)); $('activityMore').addEventListener('click', () => loadActivity(true));
   $('boardImport').addEventListener('toggle', () => { if ($('boardImport').open && !state.sourcesLoaded) loadSources(); }); $('importRefresh').addEventListener('click', loadSources);
+  $('emailPdfClose').addEventListener('click',()=>$('emailPdfDialog').close());
+  $('emailPdfDialog').addEventListener('close',()=>{ emailVersion++; emailFile = null; });
+  $('emailPdfShare').addEventListener('click',async e => {
+    if (!emailFile) return; const control = e.currentTarget; busy(control,true);
+    try { await navigator.share({files:[emailFile],title:emailSubject,text:emailSubject}); status('emailPdfStatus','PDF handed to your chosen app.'); }
+    catch(error) { if (error.name !== 'AbortError') status('emailPdfStatus','File sharing failed. Download the email draft below.','error'); }
+    finally { busy(control,false); }
+  });
+  $('emailPdfDraft').addEventListener('click',async()=>{ if (emailFile) saveBlob(await JGCJobBoardEmail.draft(emailFile,emailSubject),emailFile.name.replace(/\.pdf$/i,'')+'.eml'); });
+  $('emailPdfDownload').addEventListener('click',()=>{ if (emailFile) saveBlob(emailFile,emailFile.name); });
   $('previewClose').addEventListener('click', () => $('documentPreview').close()); $('documentPreview').addEventListener('close', () => { state.previewGeneration++; if (state.previewUrl) URL.revokeObjectURL(state.previewUrl); state.previewUrl = null; $('previewBody').replaceChildren(); });
   if (hosted && window.ResizeObserver) {
     let scheduled = false, previousHeight = 0;

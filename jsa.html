@@ -124,7 +124,7 @@
             <select id="approvedCrewSelect" data-inspection-skip="true" onchange="addApprovedCrewMember(this.value)">
                 <option value="">Loading approved employees...</option>
             </select>
-            <div id="approvedCrewStatus" class="crew-status"></div>
+            <div id="approvedCrewStatus" class="crew-status" role="status"></div><button type="button" id="approvedCrewRetry" class="secondary" onclick="loadApprovedCrewWorkers()" hidden>Retry employee list</button>
         </div>
     </div>
     <div id="selectedCrewList" class="crew-selected-list"></div>
@@ -178,7 +178,7 @@
 <script src="employee-feature-access.js?v=3"></script>
 <script src="safety-signature-pad.js?v=1"></script>
 <script src="safety-acknowledgements.js?v=7"></script>
-<script src="inspection-records.js?v=13"></script>
+<script src="inspection-records.js?v=14"></script>
 <script src="vendor/jspdf.umd.min.js?v=1"></script>
 <script src="jsa-pdf.js?v=2"></script>
 <script src="jsa-presets.js?v=2"></script>
@@ -229,6 +229,7 @@ function setApprovedCrewStatus(message) {
     }
 }
 
+let approvedCrewLoadState = "loading";
 function renderApprovedCrewSelect() {
     const select = document.getElementById("approvedCrewSelect");
 
@@ -239,7 +240,8 @@ function renderApprovedCrewSelect() {
     const availableWorkers = approvedCrewWorkers.filter((workerRow) => !selectedCrewMembers.has(getCrewWorkerKey(workerRow)));
 
     if (!availableWorkers.length) {
-        select.innerHTML = '<option value="">No approved employees available</option>';
+        const label = approvedCrewLoadState === 'error' ? 'Employee list unavailable — retry below' : approvedCrewLoadState === 'loading' ? 'Loading approved employees…' : approvedCrewWorkers.length ? 'All available employees already selected' : 'No JSA-enabled approved employees';
+        select.innerHTML = '<option value="">' + label + '</option>';
         return;
     }
 
@@ -390,8 +392,11 @@ function handleManualCrewKey(event) {
 }
 
 async function loadApprovedCrewWorkers() {
+    approvedCrewLoadState = 'loading'; renderApprovedCrewSelect();
+    const retry = document.getElementById('approvedCrewRetry'); if (retry) retry.hidden = true;
     if (!inspectionSupabaseClient) {
-        setApprovedCrewStatus("Approved employees could not be loaded.");
+        approvedCrewLoadState = 'error'; if (retry) retry.hidden = false;
+        setApprovedCrewStatus("Approved employees could not be loaded. Sign in and retry.");
         renderApprovedCrewSelect();
         renderSelectedCrewMembers();
         return;
@@ -403,6 +408,7 @@ async function loadApprovedCrewWorkers() {
     );
 
     if (error) {
+        approvedCrewLoadState = 'error'; if (retry) retry.hidden = false;
         approvedCrewWorkers = [];
         setApprovedCrewStatus("Approved employee list could not be loaded. Use manual entry if needed.");
         renderApprovedCrewSelect();
@@ -410,8 +416,9 @@ async function loadApprovedCrewWorkers() {
         return;
     }
 
+    approvedCrewLoadState = 'ready';
     approvedCrewWorkers = (data || []).filter((workerRow) => workerRow.display_name || workerRow.worker_key);
-    setApprovedCrewStatus(approvedCrewWorkers.length ? approvedCrewWorkers.length + " approved employees loaded." : "No approved employees found.");
+    setApprovedCrewStatus(approvedCrewWorkers.length ? approvedCrewWorkers.length + " approved employees loaded." : "No approved employees are enabled for JSA. Ask the office to check Employee Access.");
     renderApprovedCrewSelect();
     renderSelectedCrewMembers();
     syncCrewSignOffField();
