@@ -401,6 +401,7 @@ export interface ShopDrawing {
 }
 
 export interface Job {
+  siteSpecific?: import("./site-specific").SiteSpecificPlan;
   warranty?: import('./job-warranty').JobWarranty;
   jobDate?: string;
   hasQuotedValue?: boolean;
@@ -479,6 +480,7 @@ export interface AppSettings {
 }
 
 export interface AppState {
+  safetyLibrary?: import("./site-specific").SafetyLibraryPage[];
   version: number;
   settings: AppSettings;
   clients: Client[];
