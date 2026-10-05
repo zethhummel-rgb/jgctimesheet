@@ -10,7 +10,7 @@ async function client(page,data,{deny=false,uploadFail=false}={}) {await page.ev
 async function saved(page){await page.getByRole('button',{name:'Save plan',exact:true}).click();await expect(page.getByRole('button',{name:'Download PDF',exact:true})).toBeEnabled({timeout:12000});}
 async function texts(file){const pdfjs=await import(pathToFileURL(path.resolve(__dirname,'../estimating-app/node_modules/pdfjs-dist/legacy/build/pdf.mjs')).href),pdf=await pdfjs.getDocument({data:new Uint8Array(fs.readFileSync(file)),disableWorker:true,standardFontDataUrl:path.resolve(__dirname,'../estimating-app/node_modules/pdfjs-dist/standard_fonts').replaceAll('\\','/')+'/'}).promise,values=[];for(let i=1;i<=pdf.numPages;i++)values.push((await (await pdf.getPage(i)).getTextContent()).items.map(x=>x.str).join(' '));return {pages:pdf.numPages,text:values.join('\n'),values};}
 test('plan dates and concurrent saves prevent invalid dates and silently mixing a single plan',()=>{const s=fixture(),p=model.createSitePlan(s.jobs[0],'QA');p.planDate='2026-02-31';expect(model.sitePlanErrors(p)).toContain('Valid plan date');p.planDate='2028-02-29';expect(model.sitePlanErrors(p)).not.toContain('Valid plan date');s.jobs[0].siteSpecific=p;const a=structuredClone(s),b=structuredClone(s);a.jobs[0].siteSpecific.pages[0].fields[0].value='A';b.jobs[0].siteSpecific.pages[0].fields[1].value='B';expect(merge(s,a,b).state).toBeNull();const c=structuredClone(s);c.jobs[0].notes='Other field';expect(merge(s,a,c).state.jobs[0].siteSpecific.pages[0].fields[0].value).toBe('A');});
-for(const theme of ['light','dark'])for(const width of [390,1440])test(`plan fields, toggles, reusable page copies and layout ${theme} ${width}`,async({page},info)=>{test.setTimeout(60000);const store=await setup(page,{theme,width});await page.getByLabel('Prepared by',{exact:true}).fill('QA Author');await page.getByRole('button',{name:'Pages',exact:true}).click();await page.getByRole('textbox',{name:'Scope of work',exact:true}).fill('Site-specific QA scope');await page.getByRole('button',{name:'Save page to library',exact:true}).click();await page.getByRole('button',{name:'Saved pages',exact:true}).click();await page.locator('.ss-library summary').filter({hasText:'Project location and scope'}).click();await page.getByRole('button',{name:'Use in this plan',exact:true}).click();await expect(page.getByRole('textbox',{name:'Scope of work',exact:true})).toHaveValue('Site-specific QA scope');await page.getByLabel('Page title',{exact:true}).fill('Reusable QA scope copy');await page.locator('.ss-page-list summary').click();await page.getByRole('checkbox',{name:'Personal protective equipment',exact:true}).uncheck();await expect(page.locator('.ss-overview')).not.toContainText('Personal protective equipment');await expect.poll(()=>store.saves.at(-1)?.jobs[0].siteSpecific.pages.some(p=>p.title==='Reusable QA scope copy')).toBe(true);expect(store.getState().safetyLibrary[0].title).toBe('Project location and scope');await page.getByRole('button',{name:'Details',exact:true}).click();await expect(page.getByLabel('Prepared by',{exact:true})).toHaveValue('QA Author');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:info.outputPath('builder-'+theme+'-'+width+'.png'),fullPage:true});await page.reload();await page.getByRole('tab',{name:'Safety',exact:true}).click();await page.getByRole('tab',{name:'Create Site Specific',exact:true}).click();await expect(page.getByLabel('Prepared by',{exact:true})).toHaveValue('QA Author');});
+for(const theme of ['light','dark'])for(const width of [390,1440])test(`plan fields, toggles, reusable page copies and layout ${theme} ${width}`,async({page},info)=>{test.setTimeout(60000);const store=await setup(page,{theme,width});await page.getByLabel('Prepared by',{exact:true}).fill('QA Author');await page.getByRole('button',{name:'Pages',exact:true}).click();await page.getByRole('textbox',{name:'Scope of work',exact:true}).fill('Site-specific QA scope');await page.getByRole('button',{name:'Save page to library',exact:true}).click();await page.getByRole('button',{name:'Saved pages',exact:true}).click();await page.locator('.ss-library summary').filter({hasText:'Specific location of project'}).click();await page.getByRole('button',{name:'Use in this plan',exact:true}).click();await expect(page.getByRole('textbox',{name:'Scope of work',exact:true})).toHaveValue('Site-specific QA scope');await page.getByLabel('Page title',{exact:true}).fill('Reusable QA scope copy');await page.locator('.ss-page-list summary').click();await page.getByRole('checkbox',{name:'Personal protective equipment',exact:true}).uncheck();await expect(page.locator('.ss-overview')).not.toContainText('Personal protective equipment');await expect.poll(()=>store.saves.at(-1)?.jobs[0].siteSpecific.pages.some(p=>p.title==='Reusable QA scope copy')).toBe(true);expect(store.getState().safetyLibrary[0].title).toBe('Specific location of project');await page.getByRole('button',{name:'Details',exact:true}).click();await expect(page.getByLabel('Prepared by',{exact:true})).toHaveValue('QA Author');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:info.outputPath('builder-'+theme+'-'+width+'.png'),fullPage:true});await page.reload();await page.getByRole('tab',{name:'Safety',exact:true}).click();await page.getByRole('tab',{name:'Create Site Specific',exact:true}).click();await expect(page.getByLabel('Prepared by',{exact:true})).toHaveValue('QA Author');});
 test('combined PDF preserves complete policy, certificate reverse and standard JSA; publish uses this job and selected visibility',async({page},info)=>{test.setTimeout(120000);await setup(page);await client(page,await documents());await page.getByRole('button',{name:'Attachments',exact:true}).click();await page.getByRole('button',{name:'Load Portal documents',exact:true}).click();await page.getByRole('checkbox',{name:/JGC full policy/}).check();await page.getByRole('checkbox',{name:/Synthetic worker/}).check();await page.getByRole('checkbox',{name:/Standard job JSA/}).check();await expect(page.getByLabel('Published PDF access')).toHaveValue('restricted');await saved(page);const event=page.waitForEvent('download',{timeout:60000});await page.getByRole('button',{name:'Download PDF',exact:true}).click();const d=await event,file=info.outputPath(d.suggestedFilename());await d.saveAs(file);const parsed=await texts(file);expect(parsed.pages).toBeGreaterThanOrEqual(195);expect(parsed.text).toContain('ORIGINAL POLICY PAGE 184');expect(parsed.text).toContain('CERTIFICATE REVERSE PAGE');expect(parsed.text).toContain('SYNTHETIC JSA WORK');expect(parsed.text).toContain('PLAN CONTENTS');expect(parsed.values.at(-1)).toContain('Page '+parsed.pages+' of '+parsed.pages);await page.getByRole('button',{name:'Publish to Job Board',exact:true}).click();await expect(page.getByRole('status')).toContainText('published in the Job Board');const calls=await page.evaluate(()=>window.__safetyCalls);expect(calls.filter(c=>c.name==='begin_job_board_upload')).toHaveLength(1);expect(calls.find(c=>c.name==='begin_job_board_upload').args.p_board_id).toBe('qa-board');expect(calls.find(c=>c.name==='review_job_board_document').args.p_visibility).toBe('restricted');});
 test('failed publish retains the plan and retries the same reserved upload; extra originals remain separate',async({page})=>{test.setTimeout(60000);await setup(page);await client(page,await documents(),{uploadFail:true});await saved(page);await page.getByRole('button',{name:'Publish to Job Board',exact:true}).click();await expect(page.getByRole('status')).toContainText('Your plan is kept');await page.getByRole('button',{name:'Publish to Job Board',exact:true}).click();await expect(page.getByRole('status')).toContainText('published in the Job Board');let calls=await page.evaluate(()=>window.__safetyCalls);expect(calls.filter(c=>c.name==='begin_job_board_upload')).toHaveLength(1);await page.getByRole('button',{name:'Attachments',exact:true}).click();await page.getByLabel('Additional PDFs, forms or photos').setInputFiles({name:'extra.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4 QA original file')});await page.getByRole('button',{name:'Upload 1 supporting file',exact:true}).click();await expect(page.getByRole('status')).toContainText('saved privately');calls=await page.evaluate(()=>window.__safetyCalls);expect(calls.filter(c=>c.name==='review_job_board_document')).toHaveLength(1);expect(calls.filter(c=>c.name==='begin_job_board_upload')).toHaveLength(2);});
 test('attachment failure produces no partial PDF and unapproved access cannot invoke write RPCs',async({page})=>{test.setTimeout(60000);const seed=fixture();seed.jobs[0].siteSpecific=model.createSitePlan(seed.jobs[0],'QA');seed.jobs[0].siteSpecific.updatedAt=new Date().toISOString();seed.jobs[0].siteSpecific.attachments=[{id:'board:gone',kind:'board',boardId:'wrong-board',documentId:'gone',title:'Missing file',included:true,fileName:'gone.pdf'}];await setup(page,{seed});await client(page,await documents());await page.getByRole('button',{name:'Download PDF',exact:true}).click();await expect(page.getByRole('status')).toContainText('No incomplete PDF was exported');await client(page,await documents(),{deny:true});await page.getByRole('button',{name:'Publish to Job Board',exact:true}).click();await expect(page.getByRole('status')).toContainText('Approved administrator access is required');expect(await page.evaluate(()=>window.__safetyCalls)).toHaveLength(0);});
@@ -35,18 +35,18 @@ test('saved tasks can be reused across jobs without altering the source job or l
 });
 
 test('new plans contain reusable source content without carrying another site identity or unverified rules',()=>{
-  const plan=model.createSitePlan(fixture().jobs[0],'QA Author'),value=id=>plan.pages.find(p=>p.id===id).fields.map(f=>f.value).join('\n');
+  const plan=model.createSitePlan(fixture().jobs[0],'QA Author'),value=id=>{const p=plan.pages.find(p=>p.id===id);return p.fields.map(f=>f.value).join('\n')+JSON.stringify(p.blocks||[]);};
   expect(value('roles')).toContain('JGC project manager');expect(value('roles')).toContain('Subcontractors');expect(value('roles')).toContain('mobile phones');
   expect(value('emergency')).toContain('headcount');expect(value('dust')).toContain('Do not dry sweep');expect(value('waste')).toContain('at least daily');expect(value('sds')).toContain('current supplier SDS');
   expect(plan.pages.find(p=>p.id==='emergency').fields.find(f=>f.id==='emergency-1').value).toBe('');
   expect(plan.pages.find(p=>p.id==='emergency').fields.find(f=>f.label==='Directions to nearest hospital').value).toBe('');
-  expect(value('scope')).toBe('\n\n\n');expect(value('contacts')).not.toMatch(/@|\d{3}[- ]\d{3}/);
+  expect(plan.pages.find(p=>p.id==='scope').fields.every(f=>!f.value)).toBe(true);expect(value('contacts')).not.toMatch(/@|\d{3}[- ]\d{3}/);
   expect(JSON.stringify(plan)).not.toMatch(/Belleville|Dundas|Fieldless|Columbine|COVID|within 3 years|9['’]\s*11|80 dB/);
   const procedure=model.createStandardProcedure('lockout');expect(procedure.fields[1].value).toContain('personal locks');expect(procedure.fields[1].value).toContain('Verify isolation');
 });
 
 test('standard content is an explicit fill-only operation preserving saved revisions, fields, order, files and choices',async({page})=>{
-  const seed=fixture(),plan=model.createSitePlan(seed.jobs[0],'Original Author');
+  const seed=fixture(),plan=model.createSitePlan(seed.jobs[0],'Original Author');plan.pages=load('site-specific-content').standardSafetyPages();
   for(const p of plan.pages)for(const f of p.fields)f.value='';
   plan.pages.reverse();plan.pages.find(p=>p.id==='roles').title='Our site responsibilities';plan.pages.find(p=>p.id==='roles').included=false;
   plan.pages.find(p=>p.id==='roles').fields[0].value='KEEP THE APPROVED SITE WORDING';plan.pages.find(p=>p.id==='emergency').fields=plan.pages.find(p=>p.id==='emergency').fields.filter(f=>f.id!=='emergency-5');
@@ -97,4 +97,83 @@ test('a missing hospital map blocks incomplete export; excluding the map or emer
   await expect(build()).rejects.toThrow(/Nearest hospital map.*No incomplete PDF/);expect(reads).toBe(1);
   plan.hospitalMap.included=false;expect((await build()).pages).toBeGreaterThan(10);expect(reads).toBe(1);
   plan.hospitalMap.included=true;plan.pages.find(p=>p.id==='emergency').included=false;await build();expect(reads).toBe(1);
+});
+
+test('structured upgrade preserves legacy information and adds the full sample section structure without inventing decisions',()=>{
+  const plan=model.createSitePlan(fixture().jobs[0],'QA');
+  expect(plan.pages.slice(0,14).map(p=>p.id)).toEqual(['scope','work','contacts','roles','ppe','noise','dust','locates','logistics','waste','fire','controls','sds','emergency']);
+  const questions=plan.pages.flatMap(p=>p.blocks||[]).filter(b=>b.type==='questions').flatMap(b=>b.rows);
+  expect(questions.every(q=>q.value==='')).toBe(true);
+  expect(questions.map(q=>q.label)).toEqual(expect.arrayContaining(['Powder-actuated tools required','System bypass required','Silica work required','Hot work required','Fire watch required','Concrete / floor scanning required']));
+  const legacy={...structuredClone(plan),pages:load('site-specific-content').standardSafetyPages().reverse()};
+  legacy.pages.find(p=>p.id==='contacts').fields[0].value='Preserve the previously assigned contact and notes';
+  legacy.pages.find(p=>p.id==='contacts').included=false;legacy.pages.find(p=>p.id==='contacts').title='Existing signed plan contacts';
+  legacy.published={documentId:'old-publication',at:'2026-10-01',updatedAt:'old',revision:'1'};
+  const before=structuredClone(legacy),result=model.addStructuredSafetyContent(legacy);
+  expect(legacy).toEqual(before);expect(result.plan.pages.slice(0,before.pages.length).map(p=>p.id)).toEqual(before.pages.map(p=>p.id));
+  for(const old of before.pages){const upgraded=result.plan.pages.find(p=>p.id===old.id);expect(upgraded.fields.slice(0,old.fields.length)).toEqual(old.fields);expect(upgraded.title).toBe(old.title);expect(upgraded.included).toBe(old.included);}
+  expect(result.plan.published).toEqual(before.published);expect(result.pagesAdded).toBe(2);
+  expect(model.addStructuredSafetyContent(result.plan)).toMatchObject({blocksAdded:0,pagesAdded:0,fieldsAdded:0});
+});
+
+for(const theme of ['light','dark'])for(const width of [390,1440])test(`structured contacts, requirements, procedure steps and library persist ${theme} ${width}`,async({page},info)=>{
+  test.setTimeout(90000);const store=await setup(page,{theme,width});await page.getByRole('button',{name:'Pages',exact:true}).click();
+  const choose=page.getByRole('combobox',{name:'Edit plan page',exact:true});await choose.selectOption('contacts');
+  await page.getByRole('textbox',{name:'JGC / contractor contacts row 1 Name',exact:true}).fill('QA Contact');
+  await page.getByRole('textbox',{name:'JGC / contractor contacts row 1 Phone',exact:true}).fill('613-555-0101');
+  await page.getByRole('button',{name:'Add row to JGC / contractor contacts',exact:true}).click();
+  await page.getByRole('textbox',{name:'JGC / contractor contacts row 4 Title / role',exact:true}).fill('Additional trade');
+  await page.getByRole('button',{name:'Move JGC / contractor contacts row 4 up',exact:true}).click();
+  await expect(page.getByRole('textbox',{name:'JGC / contractor contacts row 3 Title / role',exact:true})).toHaveValue('Additional trade');
+  await page.getByRole('button',{name:'Remove JGC / contractor contacts row 3',exact:true}).click();
+  await page.screenshot({path:info.outputPath(`contacts-${theme}-${width}.png`),fullPage:true});
+  await page.getByRole('button',{name:'Save page to library',exact:true}).click();
+  await choose.selectOption('noise');await page.getByRole('combobox',{name:'Project requirement',exact:true}).selectOption('Applicable');
+  await page.getByRole('combobox',{name:'Generators required',exact:true}).selectOption('No');
+  await page.getByRole('textbox',{name:'Generators required notes',exact:true}).fill('Facility supply agreed');
+  await choose.selectOption('ppe');await page.getByRole('combobox',{name:'Safety glasses requirement',exact:true}).selectOption('Required');
+  await page.getByRole('textbox',{name:'Safety glasses details',exact:true}).fill('Task-appropriate eye protection');
+  await page.screenshot({path:info.outputPath(`ppe-${theme}-${width}.png`),fullPage:true});
+  await choose.selectOption('dust');await page.getByRole('textbox',{name:'Dust control procedure step 1 instructions',exact:true}).fill('QA editable source control steps');
+  await page.getByRole('button',{name:'Add step to Dust control procedure',exact:true}).click();
+  await page.getByRole('textbox',{name:'Dust control procedure step 8 heading',exact:true}).fill('Final inspection');
+  await page.getByRole('textbox',{name:'Dust control procedure step 8 instructions',exact:true}).fill('QA end-of-shift inspection');
+  await saved(page);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  await expect.poll(()=>store.getState().jobs[0].siteSpecific?.pages.find(p=>p.id==='dust').blocks.find(b=>b.id==='dust-plan').rows.length).toBe(8);
+  await page.reload();await page.getByRole('tab',{name:'Safety',exact:true}).click();await page.getByRole('tab',{name:'Create Site Specific',exact:true}).click();await page.getByRole('button',{name:'Pages',exact:true}).click();await choose.selectOption('noise');
+  await expect(page.getByRole('combobox',{name:'Generators required',exact:true})).toHaveValue('No');
+  await page.getByRole('button',{name:'Saved pages',exact:true}).click();await page.locator('.ss-library summary').click();await page.getByRole('button',{name:'Use in this plan',exact:true}).click();
+  await page.getByRole('textbox',{name:'JGC / contractor contacts row 1 Name',exact:true}).fill('Adapted copy');
+  await expect.poll(()=>store.getState().jobs[0].siteSpecific?.pages.at(-1).blocks[0].rows[0].cells.name).toBe('Adapted copy');
+  expect(store.getState().safetyLibrary[0].blocks[0].rows[0].cells.name).toBe('QA Contact');
+});
+
+test('section map uploads stay private, retain captions and export inside their section without a duplicate appendix',async({page},info)=>{
+  test.setTimeout(90000);const store=await setup(page),map=await mapImage(page);await client(page,{map,policy:'',cert:''});
+  await page.getByRole('button',{name:'Pages',exact:true}).click();await page.getByRole('combobox',{name:'Edit plan page',exact:true}).selectOption('logistics');
+  await page.getByLabel('Section map or photo',{exact:true}).setInputFiles({name:'qa-site-map.png',mimeType:'image/png',buffer:Buffer.from(map,'base64')});
+  await expect(page.getByRole('status')).toContainText('Plan image saved privately');
+  await page.getByRole('textbox',{name:'Image 1 title',exact:true}).fill('QA Logistics Map');
+  await page.getByRole('textbox',{name:'Image 1 caption',exact:true}).fill('QA red boundary and green muster point');
+  await expect(page.getByRole('img',{name:'QA Logistics Map preview',exact:true})).toBeVisible();
+  await saved(page);const event=page.waitForEvent('download');await page.getByRole('button',{name:'Download PDF',exact:true}).click();const d=await event,file=info.outputPath(d.suggestedFilename());await d.saveAs(file);
+  const pdf=await texts(file),mapPage=pdf.values.findIndex(t=>t.includes('QA Logistics Map'));expect(mapPage).toBeGreaterThan(0);expect(pdf.values[mapPage]).toContain('9. Site plan, logistics and traffic control');expect(pdf.values[mapPage]).toContain('QA red boundary and green muster point');expect(pdf.values[mapPage+1]).toContain('10. Waste and material storage');
+  expect(pdf.text.match(/QA Logistics Map/g)).toHaveLength(1);expect(await page.evaluate(()=>window.__safetyCalls.filter(c=>c.name==='review_job_board_document').length)).toBe(0);
+  expect(store.getState().jobs[0].siteSpecific.pages.find(p=>p.id==='logistics').illustrations[0].caption).toContain('QA red');
+});
+
+test('large table rows and long checklist details continue without losing text; missing section images block export',async({},info)=>{
+  test.setTimeout(60000);const {buildSiteSpecificPdf}=load('site-specific-pdf'),plan=model.createSitePlan(fixture().jobs[0],'QA'),logoBytes=new Uint8Array(fs.readFileSync(path.resolve(__dirname,'../estimating/jgc-logo-transparent.png')));
+  plan.pages=plan.pages.filter(p=>['contacts','ppe','logistics'].includes(p.id));
+  const contacts=plan.pages[0].blocks[0];contacts.rows=Array.from({length:38},(_,i)=>({id:'row-'+i,cells:{role:'Role '+i,name:'Unique contact '+i,phone:'613-555-0100',email:`person${i}@example.invalid`}}));
+  contacts.rows[5].cells.email=Array.from({length:450},(_,i)=>'uniquetoken'+i).join(' ');
+  const ppe=plan.pages[1].blocks[0];ppe.rows[0].notes=Array.from({length:220},(_,i)=>'ppeword'+i).join(' ');ppe.rows[0].value='Required';
+  plan.pages[2].illustrations=[{id:'missing-image',kind:'board',included:true,title:'Site plan image',fileName:'missing.png'}];let reads=0;
+  const build=()=>buildSiteSpecificPdf({plan,logoBytes,readAttachment:async()=>{reads++;throw new Error('Missing image');}});
+  await expect(build()).rejects.toThrow(/No incomplete PDF/);plan.pages[2].illustrations[0].included=false;
+  const result=await build();expect(reads).toBe(1);const file=info.outputPath('structured-long-content.pdf');fs.writeFileSync(file,Buffer.from(await result.blob.arrayBuffer()));const pdf=await texts(file);
+  for(let i=0;i<38;i++)expect(pdf.text).toContain('Unique contact '+i);
+  for(let i=0;i<450;i++)expect(pdf.text).toContain('uniquetoken'+i);
+  for(let i=0;i<220;i++)expect(pdf.text).toContain('ppeword'+i);
+  expect(pdf.values.filter(v=>v.includes('JGC / contractor contacts - continued')).length).toBeGreaterThan(1);
 });

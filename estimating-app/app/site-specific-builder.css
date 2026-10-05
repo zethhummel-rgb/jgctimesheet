@@ -43,3 +43,19 @@
 .ss-map-choice { display:flex; align-items:center; gap:10px; min-height:44px; font-size:13px; }
 .ss-add-procedure .field { margin-bottom:8px; }
 @media (max-width:760px) { .ss-body { grid-template-columns:1fr; padding:16px; gap:18px; } .ss-grid { grid-template-columns:1fr; } .ss-toolbar { padding:0 16px; } .ss-tabs { margin-inline:16px; } .ss-tabs button { font-size:12px; padding:6px; } .ss-save-state,.ss-message { margin-inline:16px; } }
+
+.ss-block { margin:22px 0; padding:16px; border:1px solid var(--slate-200); border-radius:9px; background:var(--slate-50); }
+.ss-block h4 { margin:0 0 14px; font-size:15px; }
+.ss-input-row { border:1px solid var(--slate-200); padding:12px; margin:0 0 14px; border-radius:7px; min-width:0; background:var(--white); }
+.ss-input-row legend { font-size:12px; font-weight:700; padding:0 6px; color:var(--navy-900); }
+.ss-row-grid { display:grid; gap:10px; }
+.ss-row-grid .field { margin-bottom:8px; }
+.ss-row-actions { display:flex; flex-wrap:wrap; gap:6px; }
+.ss-row-actions button { border:1px solid var(--slate-200); border-radius:6px; padding:6px 10px; background:var(--white); color:var(--navy-900); font-size:12px; }
+.ss-row-actions button:disabled { opacity:.4; }
+.ss-question { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.2fr); gap:12px; border-bottom:1px solid var(--slate-200); margin-bottom:12px; }
+.ss-check-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.ss-plan-images img { display:block; max-width:100%; max-height:440px; margin:12px 0; height:auto; object-fit:contain; }
+.ss-plan-image { border-top:1px solid var(--slate-200); padding-top:16px; margin-top:16px; }
+@media (max-width:1050px) { .ss-row-grid { grid-template-columns:1fr 1fr !important; } }
+@media (max-width:760px) { .ss-row-grid,.ss-check-grid,.ss-question { grid-template-columns:1fr !important; } .ss-block { padding:12px; } }
