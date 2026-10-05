@@ -94,14 +94,18 @@
           <h3>Create Account</h3>
 
           <label class="jgc-label" for="signupName">Full Name</label>
-          <input id="signupName" class="jgc-input" maxlength="80" placeholder="Example: Zeth Hummel" />
+          <input id="signupName" class="jgc-input" autocomplete="name" minlength="2" maxlength="80" required placeholder="Example: Zeth Hummel" />
+
+          <label class="jgc-label" for="signupPhone">Phone Number</label>
+          <input id="signupPhone" class="jgc-input" type="tel" autocomplete="tel" maxlength="40" required placeholder="Phone number including area code" />
 
           <label class="jgc-label" for="signupEmail">Email</label>
-          <input id="signupEmail" class="jgc-input" type="email" autocomplete="email" maxlength="254" placeholder="name@example.com" />
+          <input id="signupEmail" class="jgc-input" type="email" autocomplete="email" maxlength="254" required placeholder="name@example.com" />
 
           <label class="jgc-label" for="signupPassword">Password</label>
           <input id="signupPassword" class="jgc-input" type="password" autocomplete="new-password" maxlength="128" placeholder="At least 6 characters" />
 
+          <label class="stay-row jgc-label" for="signupAddToContacts"><input id="signupAddToContacts" type="checkbox"> Add to Contacts after account approval</label>
           <button type="button" class="jgc-button" onclick="signUp()">Create Account</button>
           <div class="small jgc-help-text">Use your real full name. This connects your account to your timesheets, certificates, and inspections.</div>
         </div>
@@ -144,7 +148,8 @@
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=74"></script>
-<script src="auth.js?v=8"></script>
+<script src="auth.js?v=9"></script>
+<script src="employee-contacts.js?v=1"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 
@@ -257,16 +262,22 @@ async function submitJgcAccountRequest() {
 
   const displayName = cleanDisplayName(document.getElementById("signupName").value);
   const email = cleanLoginEmail(document.getElementById("signupEmail").value);
+  const phone = document.getElementById("signupPhone").value.trim();
   const password = document.getElementById("signupPassword").value;
   const workerKey = normalizeWorkerName(displayName);
 
-  if (!displayName || !email || !password) {
-    alert("Enter your name, email, and password.");
+  if (!displayName || !email || !phone || !password) {
+    alert("Enter your full name, phone number, email, and password.");
     return;
   }
 
   if (!isValidDisplayName(displayName)) {
     alert("Use letters, numbers, spaces, periods, apostrophes, or hyphens for your name.");
+    return;
+  }
+
+  if (displayName.length < 2 || !JgcEmployeeContacts.validPhone(phone)) {
+    alert("Enter your full name and a valid phone number including its area code.");
     return;
   }
 
@@ -288,7 +299,9 @@ async function submitJgcAccountRequest() {
       emailRedirectTo: getAppPageUrl("index.html"),
       data: {
         display_name: displayName,
-        worker_key: workerKey
+        worker_key: workerKey,
+        phone,
+        add_to_contacts: document.getElementById("signupAddToContacts").checked
       }
     }
   });

@@ -8,6 +8,7 @@
 <title>JGC Accounts</title>
   <link rel="stylesheet" href="jgc-design-system.css?v=13" data-jgc-design-system="13">
   <link rel="stylesheet" href="accounts-admin.css?v=1">
+  <link rel="stylesheet" href="employee-contacts.css?v=1">
 </head>
 
 <body class="accounts-page jgc-page">
@@ -64,6 +65,7 @@
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
   <script src="common.js?v=74"></script>
+<script src="employee-contacts.js?v=1"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -73,6 +75,8 @@ const currentUserRole = worker.role;
 let accounts = [];
 let currentUserId = "";
 let accountsLoadStarted = false;
+let employeeContactLinks = new Map();
+let accountContactsAvailable = false;
 
 if (!isAdminWorker(currentWorker, currentUserRole)) {
     alert("Accounts is only available to authorized users.");
@@ -98,7 +102,8 @@ function renderAccountRows(accountList) {
         return `
             <tr>
                 <td>${escapeHtml(account.display_name)}</td>
-                <td>${escapeHtml(account.email)}</td>
+                <td>${escapeHtml(account.email)}${account.phone ? '<div class="small">' + escapeHtml(account.phone) + '</div>' : ''}</td>
+                <td>${JgcEmployeeContacts.accountCell(account, employeeContactLinks.get(account.id), accountContactsAvailable)}</td>
                 <td><span class="status ${escapeHtml(statusClass)} jgc-badge ${statusToneClass}">${escapeHtml(statusLabel)}</span></td>
                 <td>${escapeHtml(getAccountTypeLabel(account.role))}</td>
                 <td><span class="status ${account.can_create_digital_pos ? "po-create-allowed" : "po-create-blocked"} jgc-badge ${account.can_create_digital_pos ? "jgc-badge--success" : "jgc-badge--danger"}">${account.can_create_digital_pos ? "PO Allowed" : "PO Not Allowed"}</span></td>
@@ -131,6 +136,7 @@ function renderAccountsTable(accountList) {
                     <tr>
                         <th>Name</th>
                         <th>Email</th>
+                        <th>Contacts</th>
                         <th>Status</th>
                         <th>Account Type</th>
                         <th>Digital PO</th>
@@ -247,7 +253,7 @@ async function loadAccounts() {
 
     const { data, error } = await supabaseClient
         .from("profiles")
-        .select("id,email,display_name,worker_key,role,account_status,can_create_digital_pos,created_at,approved_at,deactivated_at,hire_date")
+        .select("id,email,display_name,worker_key,role,account_status,can_create_digital_pos,created_at,approved_at,deactivated_at,hire_date,phone,add_to_contacts")
         .order("created_at", { ascending: false });
 
     if (error) {
@@ -256,6 +262,13 @@ async function loadAccounts() {
     }
 
     accounts = data || [];
+    try {
+        employeeContactLinks = await JgcEmployeeContacts.loadLinks(supabaseClient);
+        accountContactsAvailable = true;
+    } catch (error) {
+        employeeContactLinks = new Map();
+        accountContactsAvailable = false;
+    }
 
     if (!accounts.length) {
         list.textContent = "No accounts found. Try Refresh Accounts if this page just opened.";
@@ -263,6 +276,15 @@ async function loadAccounts() {
     }
 
     renderAccounts();
+    const requestedEmployee = new URLSearchParams(window.location.search).get('employee');
+    if (requestedEmployee && accounts.some(item => item.id === requestedEmployee) && !document.getElementById('employeeContactDialog')) {
+        openEmployeeContactDetails(requestedEmployee, false);
+    }
+}
+
+function openEmployeeContactDetails(id, addToContacts) {
+    JgcEmployeeContacts.edit({ client: supabaseClient, account: accounts.find(item => item.id === id),
+        link: employeeContactLinks.get(id), addToContacts, onSaved: loadAccounts });
 }
 
 async function updateAccount(id, values) {
