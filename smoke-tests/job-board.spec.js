@@ -528,3 +528,19 @@ for(const prepared of [false,true])test(`Job Board prepared JSA staff phone exce
  else {await expect(action).toHaveText('Sign on creator phone');await expect(action).toBeDisabled();}
  expect(store.calls.some(c=>c.name==='sign_job_board_jsa')).toBe(false);
 });
+
+// Release 990: once a Workers Onsite JSA is Completed, anyone arriving late reads it and signs on from the Job Board.
+for(const identity of ['guest','staff'])test(`late ${identity} signs onto a Completed Workers Onsite JSA`,async({browser})=>{
+ const context=await browser.newContext({hasTouch:true,viewport:{width:390,height:1000},serviceWorkers:'block',baseURL:'http://127.0.0.1:'+(process.env.JGC_SMOKE_PORT||41738)}),page=await context.newPage();const store=await open(page,identity);if(identity==='guest')await visitorSignIn(page);
+ store.workerWorkflow={version:2,active:false,prepared_in_advance:false,signing_mode:'creator_phone',required:2,signed:2,outstanding:0,status:'Completed',completed_at:'2026-10-05T13:00:00Z',valid_date:today(),today:today()};
+ await page.locator('#dailyReportsList article').filter({hasText:'Morning JSA'}).getByRole('button',{name:'Sign on to JSA',exact:true}).click();
+ const action=page.locator('#jsaSignOnSign');await expect(page.locator('.board-jsa-pdf-sheet canvas')).toBeVisible();
+ await expect(page.locator('#jsaSignOnStatus')).toContainText('Arrived late? Read the JSA, then sign on below.');
+ await expect(action).toHaveText('Sign onto JSA');await expect(action).toBeEnabled();await action.click();
+ await expect(page.locator('#jsaReadDialog')).toBeVisible();await page.locator('#jsaSignOnRead').check();await page.locator('#jsaReadContinue').click();await expect(page.locator('.safety-signature-dialog')).toBeVisible();
+ const canvas=page.locator('.safety-signature-pad'),box=await canvas.boundingBox(),touch=await context.newCDPSession(page);for(const [type,x,y]of[['touchStart',30,60],['touchMove',110,100],['touchMove',210,40],['touchEnd',0,0]])await touch.send('Input.dispatchTouchEvent',{type,touchPoints:type==='touchEnd'?[]:[{x:box.x+x,y:box.y+y,id:1,radiusX:2,radiusY:2,force:1}]});
+ await page.locator('.safety-signature-submit').click();await expect(page.locator('.safety-signature-dialog')).toHaveCount(0);
+ expect(store.calls.filter(c=>c.name==='sign_job_board_jsa')).toHaveLength(1);
+ await expect(action).toHaveText('Already signed');await expect(action).toBeDisabled();
+ await context.close();
+});
