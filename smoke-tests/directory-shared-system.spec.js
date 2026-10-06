@@ -124,7 +124,7 @@ test("directory family uses one token-only shared visual source", async () => {
   expect(adminContacts).not.toMatch(/\sstyle\s*=/i);
   expect(adminContacts).toContain("jgc-table jgc-table--wide");
   expect(serviceWorker).toContain('"./directory-design-system.css?v=2"');
-  expect(serviceWorker).toContain('"./admin-contacts.js?v=2"');
+  expect(serviceWorker).toContain('"./admin-contacts.js?v=3"');
 });
 
 for (const viewport of [

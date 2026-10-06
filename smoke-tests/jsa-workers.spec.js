@@ -30,6 +30,11 @@ async function fixture(page){
     const a=store.model.acknowledgements.find(a=>a.id===args.p_acknowledgement_id);Object.assign(a,{signature_signed_name:a.attendee_name,signature_strokes:args.p_strokes,signature_signed_at:new Date().toISOString(),signature_width:args.p_width,signature_height:args.p_height,acknowledged_at:new Date().toISOString()});
     const signed=store.model.acknowledgements.filter(a=>a.signature_signed_at).length;Object.assign(store.model.workflow,{signed,outstanding:store.model.acknowledgements.length-signed,status:signed===store.model.acknowledgements.length?'Completed':'Draft — Awaiting Worker Sign-Offs'});return route.fulfill({json:store.model});
    }
+   if(name==='submit_current_user_safety_acknowledgement'){
+    const now=new Date().toISOString();store.model.acknowledgements.push({id:'00000000-0000-4000-8000-000000000009',attendee_name:creator.display_name,attendee_company:'John Gordon Construction',matched_employee_id:creator.id,is_late:true,signature_signed_name:creator.display_name,signature_strokes:args.p_signature_strokes,signature_width:args.p_signature_width,signature_height:args.p_signature_height,signature_signed_at:now,acknowledged_at:now});
+    const signed=store.model.acknowledgements.filter(a=>a.signature_signed_at).length;Object.assign(store.model.workflow,{required:store.model.acknowledgements.length,signed,outstanding:store.model.acknowledgements.length-signed});
+    return route.fulfill({json:[{success:true,message:'Signature saved.',acknowledgement_id:'00000000-0000-4000-8000-000000000009',already_acknowledged:false}]});
+   }
    return route.fulfill({json:[]});
   }
   if(url.pathname.endsWith('/profiles'))return route.fulfill({json:single?creator:[creator,worker]});
@@ -82,13 +87,33 @@ for(const theme of ['light','dark'])test(`saved JSA review uses actual PDF pages
  await page.setViewportSize({width:390,height:900});const store=await fixture(page);await fill(page);await page.locator('#jsaCompleteWorkers').click();
  const model=store.model;await page.goto('/todays-inspections.html?recordType=reports');await page.evaluate(theme=>applyJgcTheme(theme),theme);
  await page.evaluate(async id=>{await JGCJsaWorkers.openReview(inspectionSupabaseClient,id,document.getElementById('editPanel'));},model.record.id);
- await expect(page.locator('.board-jsa-pdf-sheet canvas').first()).toBeVisible();await expect(page.locator('#editPanel [data-jsa-worker-sign]')).toHaveCount(2);
+ await expect(page.locator('.board-jsa-pdf-sheet canvas').first()).toBeVisible();await expect(page.locator('#editPanel [data-jsa-worker-sign]')).toHaveCount(2);await expect(page.locator('#editPanel [data-jsa-late-sign]')).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(await page.locator('.board-jsa-accessible-text').first().evaluate(e=>getComputedStyle(e).clipPath)).toBe('inset(50%)');
  await page.getByRole('button',{name:'Zoom in JSA'}).click();await expect(page.locator('.board-jsa-preview-tools output')).toHaveText('125%');
  expect(await page.locator('.board-jsa-preview-scroll').evaluate(e=>e.scrollWidth>e.clientWidth)).toBe(true);
  await page.getByRole('button',{name:'Fit width',exact:true}).click();await page.locator('#editPanel').screenshot({path:info.outputPath('saved-jsa-review.png')});
  store.model.can_collect=false;await page.locator('#editPanel [data-jsa-refresh]').click();await expect(page.locator('#editPanel [data-jsa-worker-sign]')).toHaveCount(0);await expect(page.locator('#editPanel [data-jsa-request]')).toHaveCount(0);
+});
+
+for(const theme of ['light','dark'])test(`a late arrival signs onto a Completed JSA from Today's Reports in ${theme}`,async({page},info)=>{
+ await page.setViewportSize({width:390,height:900});const store=await fixture(page);await fill(page);await page.locator('#jsaCompleteWorkers').click();
+ const done=new Date().toISOString();store.model.acknowledgements.forEach(a=>Object.assign(a,{signature_signed_name:a.attendee_name,signature_strokes:[[[0.2,0.2],[0.6,0.5]]],signature_width:400,signature_height:150,signature_signed_at:done,acknowledged_at:done}));Object.assign(store.model.workflow,{signed:2,outstanding:0,completed_at:done,status:'Completed'});
+ await page.goto('/todays-inspections.html?recordType=reports');await page.evaluate(theme=>applyJgcTheme(theme),theme);
+ // Same entry point as the Today's Reports "View" button.
+ await page.evaluate(record=>{inspectionRecords.push(record);openJsaSignOn(record.id);},store.model.record);
+ const panel=page.locator('#editPanel');await expect(panel.locator('[data-jsa-status]')).toHaveText('Arrived late? Read the JSA above, then tap Sign onto JSA.');
+ await expect(page.locator('.board-jsa-pdf-sheet canvas').first()).toBeVisible();await expect(panel.locator('[data-jsa-request]')).toHaveCount(0);await expect(panel.locator('[data-jsa-worker-sign]')).toHaveCount(0);
+ await panel.getByRole('button',{name:'Sign onto JSA',exact:true}).click();
+ await expect(page.locator('#safetySignaturePrintedName')).toHaveValue(creator.display_name);await expect(page.locator('#safetySignaturePrintedName')).toHaveAttribute('readonly','');
+ const canvas=page.locator('.safety-signature-pad'),box=await canvas.boundingBox();await page.mouse.move(box.x+30,box.y+30);await page.mouse.down();await page.mouse.move(box.x+70,box.y+55,{steps:6});await page.mouse.move(box.x+110,box.y+35,{steps:6});await page.mouse.up();
+ await page.getByRole('button',{name:'Confirm signature',exact:true}).click();await expect(page.locator('.safety-signature-error')).toContainText('confirm you have read');
+ await page.locator('#safetySignatureRead').check();await page.getByRole('button',{name:'Confirm signature',exact:true}).click();await expect(page.locator('.safety-signature-dialog')).toHaveCount(0);
+ await expect(panel.locator('[data-jsa-status]')).toContainText('You signed this JSA on');await expect(panel.locator('[data-jsa-late-sign]')).toHaveCount(0);
+ await expect(panel.locator('.jgc-notice').first()).toContainText('Completed · 3/3 workers signed');await expect(panel.locator('.jgc-record-row').filter({hasText:creator.display_name})).toContainText('Signed late');
+ const calls=store.calls.filter(c=>c.name==='submit_current_user_safety_acknowledgement');expect(calls).toHaveLength(1);expect(calls[0].args).toMatchObject({p_record_type:'jsa',p_record_id:store.model.record.id,p_mode:'signature'});expect(calls[0].args.p_signature_strokes.length).toBeGreaterThan(0);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await panel.screenshot({path:info.outputPath(`late-sign-on-${theme}.png`)});
 });
 
 test('creator-phone worker roster does not generate account reminders, including a future JSA',async({page})=>{
