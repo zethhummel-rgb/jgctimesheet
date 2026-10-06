@@ -208,7 +208,7 @@
       status('jsaSignOnStatus','Preparing JSA PDF…');
       const file = model.record ? {blob:await window.JGCJobBoardPdf.create({source_type:'inspection_records',record:model.record,acknowledgements:model.acknowledgements}),mimeType:'application/pdf'} : await documentFile(doc);
       if(generation!==jsaReviewGeneration)return;
-      if(!window.JGCJsaPreview)await loadJgcScriptOnce('job-board-jsa-preview.js?v=2');
+      if(!window.JGCJsaPreview)await loadJgcScriptOnce('job-board-jsa-preview.js?v=3');
       await window.JGCJsaPreview.render(report,file,()=>generation===jsaReviewGeneration);
       if(generation!==jsaReviewGeneration)return;
       status('jsaSignOnStatus',model.signed?'You signed this JSA on '+timeLabel(model.signed_at):'Read the JSA below before signing.');
@@ -218,7 +218,10 @@
       signed.forEach(ack=>{const row=text('div','','jgc-record-row');row.append(text('strong',ack.attendee_name),text('span',ack.attendee_company || ''),text('time',ack.signature_signed_at?'Signed · '+timeLabel(ack.signature_signed_at):model.workflow?.status==='Prepared'?'Planned — sign on work date':'Outstanding','board-help'));$('jsaSignOnRoster').append(row);});
       $('jsaSignOnSign').disabled=jsaCollecting(model)?!model.can_collect || !model.workflow.active:!!model.signed;$('jsaSignOnRead').disabled=!!model.signed;
       $('jsaSignOnSign').textContent=jsaCollecting(model)?(model.can_collect?'Collect worker signatures':model.workflow.prepared_in_advance?'Sign on staff phone':'Sign on creator phone'):model.signed?'Already signed':'Sign onto JSA';
-    }catch(error){if(generation===jsaReviewGeneration){status('jsaSignOnStatus',errorMessage(error)+' Reopen this JSA to try again.','error');$('jsaSignOnReport').replaceChildren();}}
+    }catch(error){if(generation===jsaReviewGeneration){
+      // Signing stays off until the JSA itself is shown. Browser errors ("undefined is not a function…") mean nothing to the person signing.
+      const shown=error instanceof TypeError||error instanceof ReferenceError||error instanceof SyntaxError?'The JSA could not be shown on this device, so signing is paused.':errorMessage(error);
+      status('jsaSignOnStatus',shown+' Reopen this JSA to try again.','error');$('jsaSignOnReport').replaceChildren();}}
   }
   $('jsaSignOnBack').addEventListener('click',()=>{jsaReviewGeneration++;jsaReview=null;$('jsaSignOnPanel').hidden=true;$('boardContent').hidden=false;});
   $('jsaSignOnRead').addEventListener('change',()=>{$('jsaReadContinue').disabled=!jsaReview||jsaReview.model.signed||!$('jsaSignOnRead').checked;});
@@ -344,7 +347,7 @@
       return;
     }
     busy(control, true); const version = ++state.previewGeneration; $('previewTitle').textContent = doc.title || 'Document'; $('previewBody').replaceChildren(); status('previewStatus', 'Opening document…'); fitDesktopPreview(); if (!$('documentPreview').open) $('documentPreview').showModal();
-    try { const file=await documentFile(doc);if(version!==state.previewGeneration)return;if(!window.JGCJsaPreview)await loadJgcScriptOnce('job-board-jsa-preview.js?v=2');await JGCJsaPreview.render($('previewBody'),file,()=>version===state.previewGeneration&&$('documentPreview').open);if(version===state.previewGeneration){fitDesktopPreview();status('previewStatus','');} }
+    try { const file=await documentFile(doc);if(version!==state.previewGeneration)return;if(!window.JGCJsaPreview)await loadJgcScriptOnce('job-board-jsa-preview.js?v=3');await JGCJsaPreview.render($('previewBody'),file,()=>version===state.previewGeneration&&$('documentPreview').open);if(version===state.previewGeneration){fitDesktopPreview();status('previewStatus','');} }
     catch (e) { if (version === state.previewGeneration) status('previewStatus', errorMessage(e), 'error'); } finally { busy(control, false); }
   }
   let emailFile = null, emailSubject = '', emailVersion = 0;
@@ -432,9 +435,16 @@
   function selectTab(id) { document.querySelectorAll('.board-tabs [role="tab"]').forEach((tab) => { const chosen = tab.dataset.panel === id; tab.classList.toggle('active', chosen); tab.setAttribute('aria-selected', String(chosen)); tab.tabIndex = chosen ? 0 : -1; $(tab.dataset.panel).hidden = !chosen; }); }
   function chooseLogin(id) { ['loginOptions','visitorGate','staffGate','siteGate'].forEach(key => $(key).hidden = key !== id); }
   function openStaff() { chooseLogin('staffGate'); $('staffEmail').focus(); $('staffGate').scrollIntoView({ block: 'center' }); }
-  async function visitorSignIn(e) { e.preventDefault(); busy($('visitorSubmit'), true); status('visitorStatus', 'Signing in…'); try { await registerVisit({ p_name: $('visitorName').value.trim(), p_company: $('visitorCompany').value.trim(), p_email: $('visitorEmail').value.trim() }); await loadBoard(); if ($('visitorGate').hidden) status('visitorStatus', ''); else status('visitorStatus', 'Site sign-in expired. Please sign in again.', 'error'); } catch (error) { status('visitorStatus', errorMessage(error), 'error'); } finally { busy($('visitorSubmit'), false); } }
+  // Logging in also records a site sign-in (name, company, date and time) unless the person unticks the box.
+  async function recordLoginSiteSignIn(name, company) {
+    try {
+      const result = await rpc('record_job_board_site_signin', { p_token: state.token, p_name: String(name || '').trim().slice(0, 150), p_company: String(company || '').trim().slice(0, 150), p_reason: '', p_submission_id: crypto.randomUUID() });
+      notice('Signed in on site at ' + timeLabel(result.recorded_at)); invalidateLogs();
+    } catch (error) { notice('You are logged in, but your site sign-in was not saved: ' + errorMessage(error) + ' Use Site Sign in to try again.', 'error'); }
+  }
+  async function visitorSignIn(e) { e.preventDefault(); busy($('visitorSubmit'), true); status('visitorStatus', 'Signing in…'); const name = $('visitorName').value.trim(), company = $('visitorCompany').value.trim(), onSite = $('visitorSiteSignIn').checked; try { await registerVisit({ p_name: name, p_company: company, p_email: $('visitorEmail').value.trim() }); await loadBoard(); if ($('visitorGate').hidden) status('visitorStatus', ''); else status('visitorStatus', 'Site sign-in expired. Please sign in again.', 'error'); if (onSite && !$('boardContent').hidden) await recordLoginSiteSignIn(name, company); } catch (error) { status('visitorStatus', errorMessage(error), 'error'); } finally { busy($('visitorSubmit'), false); } }
   async function staffSignIn(e) {
-    e.preventDefault(); busy($('staffSubmit'), true); status('staffStatus', 'Signing in…');
+    e.preventDefault(); busy($('staffSubmit'), true); status('staffStatus', 'Signing in…'); const onSite = $('staffSiteSignIn').checked;
     try {
       if (!state.client) throw new Error('The Portal is unavailable. Refresh and try again.');
       if (typeof setJgcAuthPersistencePreference === 'function') setJgcAuthPersistencePreference(false);
@@ -449,6 +459,7 @@
       localStorage.setItem('currentUserEmail', profile.email || verified.data.user.email || ''); localStorage.setItem('currentUserRole', profile.role || 'worker');
       localStorage.setItem('currentAccountStatus', profile.account_status); localStorage.setItem('jgcStayLoggedIn', 'false'); sessionStorage.setItem('jgcActiveSession', 'true');
       state.user = verified.data.user; clearVisit(); $('staffPassword').value = ''; $('staffGate').hidden = true; status('staffStatus', ''); await loadBoard();
+      if (onSite && !state.manage && !$('boardContent').hidden) await recordLoginSiteSignIn(profile.display_name || verified.data.user.email, 'John Gordon Construction');
     } catch (error) { status('staffStatus', errorMessage(error), 'error'); }
     finally { busy($('staffSubmit'), false); }
   }
@@ -494,6 +505,7 @@
     } catch(error) { status('siteStatus',errorMessage(error),'error'); } finally { busy($('siteSubmit'),false); }
   });
   $('visitorForm').addEventListener('submit', visitorSignIn); $('staffForm').addEventListener('submit', staffSignIn);
+  $('staffSiteSignIn').closest('label').hidden = state.manage; // The office managing a board is not on site.
   function isStaffBoard(){return !!state.user&&!!(state.manage&&state.board?.can_manage||state.board?.can_register_as_staff);}
   function syncBoardTheme(){if(hosted)return;const theme=isStaffBoard()?getStoredJgcThemePreference(state.user.id):'light';if(document.documentElement.dataset.jgcTheme!==theme)applyJgcTheme(theme);}
   window.addEventListener('jgc-theme-change',()=>{if(!hosted&&!isStaffBoard()&&document.documentElement.dataset.jgcTheme!=='light')applyJgcTheme('light');});

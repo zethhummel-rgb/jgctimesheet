@@ -27,6 +27,12 @@
 .board-settings-content, .board-details-content { display: grid; gap: var(--jgc-space-3); padding-top: var(--jgc-space-3); }
 .board-checkbox { display: flex; gap: var(--jgc-space-2); align-items: center; min-height: 44px; }
 .board-checkbox input { width: 20px; height: 20px; accent-color: var(--jgc-color-brand-600); }
+/* Login also signs the person in on site unless they untick this box. */
+.board-site-checkin { display: flex; gap: var(--jgc-space-3); align-items: flex-start; margin: var(--jgc-space-4) 0 var(--jgc-space-2); padding: var(--jgc-space-3); border: 1px solid var(--jgc-color-border); border-radius: var(--jgc-radius-md); background: var(--jgc-color-surface-soft); cursor: pointer; }
+.board-site-checkin[hidden] { display: none; }
+.board-site-checkin input { flex: none; width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--jgc-color-brand-600); }
+.board-site-checkin strong { display: block; color: var(--jgc-color-text); }
+.board-site-checkin .board-help { display: block; margin-top: 2px; }
 .board-settings-content .jgc-button { justify-self: start; }
 .board-tabs { margin-block: var(--jgc-space-5) var(--jgc-space-3); }
 .board-today { border-top-color: var(--jgc-color-brand-500); }
