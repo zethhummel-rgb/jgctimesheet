@@ -143,7 +143,9 @@ async function signUp() {
     setStatus("We couldn’t finish your account request. Please try again.");
   } finally {
     if (jgcLoginOperation === operation) jgcLoginOperation = null;
-    setJgcLoginView("ready", document.getElementById("loginStatus").textContent);
+    // A missing or invalid field returns after its alert, before any request; don't leave "Creating account…" showing.
+    const status = document.getElementById("loginStatus").textContent;
+    setJgcLoginView("ready", status === "Creating account…" ? "" : status);
   }
 }
 
