@@ -67,6 +67,14 @@
 .board-preview::backdrop { background: var(--jgc-color-page-deep); opacity: .85; }
 .board-preview iframe { display: block; width: 100%; height: min(72dvh, 850px); border: 0; background: var(--jgc-color-surface-soft); }
 .board-preview img { display: block; max-width: 100%; max-height: 72dvh; margin: auto; object-fit: contain; }
+/* "Active JSA" reminder after signing on, and the emergency "On site today" list. */
+.board-jsa-prompt { width: min(460px, calc(100vw - 24px)); border-top: 4px solid var(--jgc-color-brand-600); }
+.board-jsa-prompt p { margin: var(--jgc-space-3) 0; line-height: 1.5; }
+#onsiteDialog { width: min(640px, calc(100vw - 24px)); }
+#onsiteDialog .board-actions { margin-top: var(--jgc-space-3); }
+.board-onsite-row { display: flex; align-items: center; justify-content: space-between; gap: var(--jgc-space-3); }
+.board-onsite-row > div { display: grid; min-width: 0; overflow-wrap: anywhere; }
+.board-onsite-row time { flex: none; text-align: right; }
 @media (max-width: 700px) {
   .board-qr-layout { grid-template-columns: 1fr; gap: var(--jgc-space-4); }
   .board-document { grid-template-columns: 34px minmax(0, 1fr); gap: var(--jgc-space-2); padding: var(--jgc-space-3); }
