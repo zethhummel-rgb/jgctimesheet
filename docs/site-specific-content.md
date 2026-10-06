@@ -41,7 +41,7 @@ An optional additional hazard assessment remains available. New task/risk pages 
 
 ### Saved data and publication
 
-`SafetyPage` gains optional `blocks`, `layoutKey` and `illustrations` fields in the existing workspace JSON. No database schema, access policy or publication workflow changes are required. Opening an old plan does not write or migrate it. **Add structured sections** adds missing blocks/fields/pages only; existing values, titles, order, included flags, hospital map, attachments and published metadata remain unchanged. Original free-text fields remain visible and are exported alongside the new structures; names and Yes/No answers are never guessed from old text. Blank assessments print as **Not assessed**, not No or approved.
+`SafetyPage` gains optional `blocks`, `layoutKey` and `illustrations` fields in the existing workspace JSON. No database schema, access policy or publication workflow changes are required. Opening an old plan does not write or migrate it. **Add structured sections** adds missing blocks/fields/pages only; existing values, titles, order, included flags, hospital map, attachments and published metadata remain unchanged. Original free-text fields remain visible and entered values are exported alongside the new structures; names and Yes/No answers are never guessed from old text. Blank assessments are omitted from PDF output; they are never interpreted as No or approved.
 
 Section images use the existing approved-admin private attachment service. The original is stored separately and referenced in the plan; image data is not embedded in workspace JSON. Images are never automatically published by uploading. Missing/unreadable selected images stop export. Images print once inside their section, without a duplicate appendix, and are omitted when the image or section is excluded. Reusable page text and structured rows are deep-copied; images from a different job stay with that original job so a reused page cannot silently carry the wrong site's map.
 
@@ -54,6 +54,20 @@ The editor opens on the plan cover. Previous and Next move through every safety 
 
 The form is an editable JGC document with the PDF's letterhead, green table headings, section headings and white paper. Text expands as it is entered. Table cells, questions, PPE, procedure steps and field headings are editable in place. Phones use labelled table rows to keep input readable. Long sections reflow across printed pages when exported; Preview PDF shows the final pagination.
 
-Text fields and tables can be added to the current page. Existing blocks, rows, questions and fields can be removed, with an immediate Undo removal action. Further edits clear that undo snapshot so restoring an old snapshot cannot overwrite newer input. More plan options contains new pages, optional procedure templates, page ordering, saved page copies and explicit upgrades for older plans. PDF preview, download, visibility and publication are together in PDF & publish.
+Text fields and tables can be added to the current page. Blocks, rows, questions and fields stay in the editor when their answers are cleared. More plan options contains new pages, optional procedure templates, page ordering, saved page copies and explicit upgrades for older plans. PDF preview, download, visibility and publication are together in PDF & publish.
 
 This changes the editor only. Workspace data shapes, original attachments, access rules, publication methods and the PDF renderer are retained. Opening a saved plan does not migrate or write it.
+
+## Empty entries and PDF output (release 989)
+
+Blank entries stay available in the editor. Fields, table rows, assessment questions,
+equipment requirements and procedure steps have no delete control; clear their
+answers to leave them out of the PDF. Add controls and whole-section inclusion
+remain available. Uploaded maps and photos use their inclusion checkbox.
+
+PDF output omits blank fields, unanswered assessments, empty table columns/rows,
+empty blocks and sections with no content. Default contact roles and site-map
+legend prompts appear only once information is entered. Completed answers such
+as No, Not applicable, Not required and 0 remain visible. Existing standard
+procedure text remains content until it is cleared. Saved data is not changed by
+export, and contents numbering reflects only the sections that actually appear.

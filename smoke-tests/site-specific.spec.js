@@ -99,7 +99,7 @@ for(const theme of ['light','dark'])for(const width of [390,1440])test(`hospital
   await saved(page);await page.screenshot({path:info.outputPath('hospital-map-'+theme+'-'+width+'.png'),fullPage:true});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   if(theme==='light'&&width===1440){const event=page.waitForEvent('download');await pdfMenu(page);await page.getByRole('button',{name:'Download PDF',exact:true}).click();const d=await event,file=info.outputPath(d.suggestedFilename());await d.saveAs(file);const parsed=await texts(file);expect(parsed.text).toContain('Nearest hospital map');expect(parsed.text).toContain('QA Hospital, 456 Synthetic Road');expect(parsed.text).toContain('JGC project manager');expect(parsed.text).toContain('headcount');}
   await page.reload();await client(page,{map,policy:'',cert:''});await page.getByRole('tab',{name:'Safety',exact:true}).click();await page.getByRole('tab',{name:'Create Site Specific',exact:true}).click();await showPage(page,'scope');await showPage(page,'emergency');await expect(page.getByRole('img',{name:'Nearest hospital map preview',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'Remove hospital map from plan',exact:true}).click();await expect.poll(()=>store.getState().jobs[0].siteSpecific.hospitalMap).toBeUndefined();
+  await expect(page.locator('.ss-paper').getByRole('button',{name:/Remove|Delete/i})).toHaveCount(0);await page.getByRole('checkbox',{name:'Include hospital map in PDF',exact:true}).uncheck();await expect.poll(()=>store.getState().jobs[0].siteSpecific.hospitalMap?.included).toBe(false);expect(store.getState().jobs[0].siteSpecific.hospitalMap.fileName).toBe('qa-hospital-map.png');
 });
 
 test('a missing hospital map blocks incomplete export; excluding the map or emergency section never reads it',async()=>{
@@ -137,7 +137,7 @@ for(const theme of ['light','dark'])for(const width of [390,1440])test(`structur
   await page.getByRole('textbox',{name:'JGC / contractor contacts row 4 Title / role',exact:true}).fill('Additional trade');
   await rowOptions(page,'JGC / contractor contacts row 4');await page.getByRole('button',{name:'Move JGC / contractor contacts row 4 up',exact:true}).click();
   await expect(page.getByRole('textbox',{name:'JGC / contractor contacts row 3 Title / role',exact:true})).toHaveValue('Additional trade');
-  await rowOptions(page,'JGC / contractor contacts row 3');await page.getByRole('button',{name:'Remove JGC / contractor contacts row 3',exact:true}).click();
+  await page.getByRole('textbox',{name:'JGC / contractor contacts row 3 Title / role',exact:true}).fill('');await expect(page.getByRole('textbox',{name:'JGC / contractor contacts row 3 Title / role',exact:true})).toBeVisible();await expect(page.locator('.ss-paper').getByRole('button',{name:/Remove|Delete/i})).toHaveCount(0);
   await page.screenshot({path:info.outputPath(`contacts-${theme}-${width}.png`),fullPage:true});
   await page.getByRole('button',{name:'Save page to library',exact:true}).click();
   await choose.selectOption('noise');await page.getByRole('combobox',{name:'Project requirement',exact:true}).selectOption('Applicable');
@@ -169,7 +169,7 @@ test('section map uploads stay private, retain captions and export inside their 
   await page.getByRole('textbox',{name:'Image 1 caption',exact:true}).fill('QA red boundary and green muster point');
   await expect(page.getByRole('img',{name:'QA Logistics Map preview',exact:true})).toBeVisible();
   await saved(page);const event=page.waitForEvent('download');await pdfMenu(page);await page.getByRole('button',{name:'Download PDF',exact:true}).click();const d=await event,file=info.outputPath(d.suggestedFilename());await d.saveAs(file);
-  const pdf=await texts(file),mapPage=pdf.values.findIndex(t=>t.includes('QA Logistics Map'));expect(mapPage).toBeGreaterThan(0);expect(pdf.values[mapPage]).toContain('9. Site plan, logistics and traffic control');expect(pdf.values[mapPage]).toContain('QA red boundary and green muster point');expect(pdf.values[mapPage+1]).toContain('10. Waste and material storage');
+  const pdf=await texts(file),mapPage=pdf.values.findIndex(t=>t.includes('QA Logistics Map'));expect(mapPage).toBeGreaterThan(0);const mapSection=pdf.values[mapPage].match(/(\d+)\. Site plan, logistics and traffic control/);expect(mapSection).not.toBeNull();expect(pdf.values[mapPage]).toContain('QA red boundary and green muster point');expect(pdf.values[mapPage+1]).toContain(`${Number(mapSection[1])+1}. Waste and material storage`);
   expect(pdf.text.match(/QA Logistics Map/g)).toHaveLength(1);expect(await page.evaluate(()=>window.__safetyCalls.filter(c=>c.name==='review_job_board_document').length)).toBe(0);
   expect(store.getState().jobs[0].siteSpecific.pages.find(p=>p.id==='logistics').illustrations[0].caption).toContain('QA red');
 });
@@ -190,10 +190,62 @@ test('large table rows and long checklist details continue without losing text; 
   expect(pdf.values.filter(v=>v.includes('JGC / contractor contacts - continued')).length).toBeGreaterThan(1);
 });
 
-test('document pages navigate, exclude safely, add editable text and tables, undo removals and export their values',async({page},info)=>{
+test('document pages navigate, exclude safely, add editable text and tables, keep their structure and export values',async({page},info)=>{
  test.setTimeout(90000);const store=await setup(page);await expect(page.getByRole('button',{name:'Previous page',exact:true})).toBeDisabled();await page.getByRole('button',{name:'Next page',exact:true}).click();await expect(page.locator('.ss-paper')).toHaveAttribute('data-page-id','scope');
  await page.getByRole('textbox',{name:'Scope of work',exact:true}).fill('DOCUMENT EDITOR SCOPE');await page.getByRole('checkbox',{name:'Include this page',exact:true}).uncheck();await page.getByRole('button',{name:'Next page',exact:true}).click();await page.getByRole('button',{name:'Previous page',exact:true}).click();await expect(page.getByRole('textbox',{name:'Scope of work',exact:true})).toHaveValue('DOCUMENT EDITOR SCOPE');await expect(page.getByRole('checkbox',{name:'Include this page',exact:true})).not.toBeChecked();await page.getByRole('checkbox',{name:'Include this page',exact:true}).check();
- await page.getByRole('button',{name:'+ Text',exact:true}).click();await page.getByRole('textbox',{name:'Additional information',exact:true}).fill('DOCUMENT EDITOR EXTRA TEXT');await page.getByRole('button',{name:'Remove Additional information field',exact:true}).click();await expect(page.getByRole('textbox',{name:'Additional information',exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Undo removal',exact:true}).click();await expect(page.getByRole('textbox',{name:'Additional information',exact:true})).toHaveValue('DOCUMENT EDITOR EXTRA TEXT');
- await page.getByRole('button',{name:'+ Table',exact:true}).click();await page.getByRole('textbox',{name:'Additional details row 1 Item',exact:true}).fill('DOCUMENT EDITOR TABLE ITEM');await page.getByRole('textbox',{name:'Additional details row 1 Details',exact:true}).fill('DOCUMENT EDITOR TABLE VALUE');await page.getByRole('button',{name:'Remove Additional details section',exact:true}).click();await page.getByRole('button',{name:'Undo removal',exact:true}).click();await expect(page.getByRole('textbox',{name:'Additional details row 1 Details',exact:true})).toHaveValue('DOCUMENT EDITOR TABLE VALUE');
+ await page.getByRole('button',{name:'+ Text',exact:true}).click();await page.getByRole('textbox',{name:'Additional information',exact:true}).fill('DOCUMENT EDITOR EXTRA TEXT');await expect(page.locator('.ss-paper').getByRole('button',{name:/Remove|Delete/i})).toHaveCount(0);
+ await page.getByRole('button',{name:'+ Table',exact:true}).click();await page.getByRole('textbox',{name:'Additional details row 1 Item',exact:true}).fill('DOCUMENT EDITOR TABLE ITEM');await page.getByRole('textbox',{name:'Additional details row 1 Details',exact:true}).fill('DOCUMENT EDITOR TABLE VALUE');await expect(page.locator('.ss-paper').getByRole('button',{name:/Remove|Delete/i})).toHaveCount(0);
  await saved(page);await page.reload();await page.getByRole('tab',{name:'Safety',exact:true}).click();await page.getByRole('tab',{name:'Create Site Specific',exact:true}).click();await showPage(page,'scope');await expect(page.getByRole('textbox',{name:'Additional information',exact:true})).toHaveValue('DOCUMENT EDITOR EXTRA TEXT');await pdfMenu(page);const download=page.waitForEvent('download');await page.getByRole('button',{name:'Download PDF',exact:true}).click();const d=await download,file=info.outputPath(d.suggestedFilename());await d.saveAs(file);const pdf=await texts(file);for(const value of ['DOCUMENT EDITOR SCOPE','DOCUMENT EDITOR EXTRA TEXT','DOCUMENT EDITOR TABLE ITEM','DOCUMENT EDITOR TABLE VALUE'])expect(pdf.text).toContain(value);expect(store.getState().jobs[0].siteSpecific.pages[0].included).toBe(true);
+});
+
+test('PDF omits unanswered content, prompt-only rows and empty sections without changing the saved plan',async({},info)=>{
+ const {buildSiteSpecificPdf}=load('site-specific-pdf'),plan=model.createSitePlan(fixture().jobs[0],'QA'),logoBytes=new Uint8Array(fs.readFileSync(path.resolve(__dirname,'../estimating/jgc-logo-transparent.png')));
+ const empty=model.createTaskPage('custom');empty.title='UNFILLED SECTION';empty.fields=[{id:'blank',label:'UNFILLED FIELD',value:' \n '}];
+ const content=model.createTaskPage('custom');content.title='Completed site information';content.fields=[{id:'filled',label:'Entered information',value:'KEEP ENTERED INFORMATION'},{id:'blank',label:'UNFILLED FIELD',value:''}];
+ const columns=[{id:'item',label:'Item'},{id:'detail',label:'Details'},{id:'unused',label:'UNFILLED COLUMN'}];
+ content.blocks=[
+  {type:'table',id:'empty-table',title:'UNFILLED TABLE',columns,rows:[{id:'blank',cells:{item:' ',detail:'\n',unused:''}}]},
+  {type:'table',id:'filled-table',title:'Entered rows',columns,rows:[{id:'blank',cells:{}},{id:'one',cells:{item:'KEEP FIRST ITEM',detail:'N/A'}},{id:'two',cells:{item:'KEEP SECOND ITEM',detail:'0'}}]},
+  {type:'questions',id:'questions',title:'Assessed requirements',rows:[{id:'blank',label:'UNANSWERED QUESTION',options:['Yes','No'],value:'',notes:''},{id:'no',label:'KEEP NO ANSWER',options:['Yes','No'],value:'No',notes:''},{id:'na',label:'KEEP NOT APPLICABLE',options:['Applicable','Not applicable'],value:'Not applicable',notes:''},{id:'notes',label:'KEEP NOTES QUESTION',options:['Yes','No'],value:'',notes:'KEEP NOTES WITHOUT AN ANSWER'}]},
+  {type:'checklist',id:'ppe',title:'Assessed equipment',rows:[{id:'blank',label:'UNASSESSED EQUIPMENT',value:'',notes:''},{id:'no',label:'KEEP NOT REQUIRED',value:'Not required',notes:''},{id:'notes',label:'KEEP EQUIPMENT NOTES',value:'',notes:'KEEP NOTES WITHOUT A STATUS'}]},
+  {type:'steps',id:'steps',title:'Entered procedure',rows:[{id:'blank',title:'UNFILLED STEP',body:' '},{id:'filled',title:'Carry out the work',body:'KEEP PROCEDURE INSTRUCTIONS'}]},
+ ];
+ const defaults=load('site-specific-structure').structuredSafetyPages();
+ const contacts=defaults.find(p=>p.id==='contacts');contacts.title='UNFILLED CONTACTS';
+ const legend=defaults.find(p=>p.id==='logistics');legend.title='UNFILLED LEGEND';legend.fields=[];
+ const imageOnly={...model.createTaskPage('custom'),title:'Site map only',fields:[],blocks:[],illustrations:[{id:'site-map',kind:'board',title:'KEEP SITE MAP',included:true,fileName:'map.png'}]};
+ const emergency={...model.createTaskPage('custom'),id:'emergency',title:'Hospital map only',fields:[],blocks:[]};
+ plan.client=' ';plan.pages=[empty,content,contacts,legend,imageOnly,emergency];plan.hospitalMap={id:'hospital-map',kind:'board',title:'Nearest hospital map',included:true,fileName:'hospital.png'};
+ const before=structuredClone(plan),reads=[];
+ const result=await buildSiteSpecificPdf({plan,logoBytes,readAttachment:async item=>{reads.push(item.id);return new Blob([logoBytes],{type:'image/png'});}});
+ expect(plan).toEqual(before);expect(reads.sort()).toEqual(['hospital-map','site-map']);
+ const file=info.outputPath('filled-content-only.pdf');fs.writeFileSync(file,Buffer.from(await result.blob.arrayBuffer()));const pdf=await texts(file);
+ expect(pdf.pages).toBe(5);
+ for(const value of ['UNFILLED','UNANSWERED','UNASSESSED','Not entered','Not assessed','No entries','Details not entered','CLIENT / OWNER'])expect(pdf.text).not.toContain(value);
+ for(const value of ['KEEP ENTERED INFORMATION','KEEP FIRST ITEM','KEEP SECOND ITEM','N/A','0','No','Not applicable','Not required','KEEP NOTES WITHOUT AN ANSWER','KEEP NOTES WITHOUT A STATUS','KEEP PROCEDURE INSTRUCTIONS','KEEP SITE MAP','Nearest hospital map'])expect(pdf.text).toContain(value);
+ expect(pdf.values[1]).toContain('1. Completed site information');expect(pdf.values[1]).toContain('2. Site map only');expect(pdf.values[1]).toContain('3. Hospital map only');
+ expect(pdf.values[3]).not.toContain('continued');expect(pdf.values[4]).not.toContain('continued');
+ for(let i=0;i<pdf.pages;i++)expect(pdf.values[i]).toContain(`Page ${i+1} of ${pdf.pages}`);
+});
+
+test('a plan with only blank sections exports its cover without empty contents or section pages',async({},info)=>{
+ const {buildSiteSpecificPdf}=load('site-specific-pdf'),plan=model.createSitePlan(fixture().jobs[0],'QA'),logoBytes=new Uint8Array(fs.readFileSync(path.resolve(__dirname,'../estimating/jgc-logo-transparent.png')));
+ plan.pages=[model.createTaskPage('task')];plan.pages[0].title='UNFILLED SECTION';plan.client='';
+ const before=structuredClone(plan);const result=await buildSiteSpecificPdf({plan,logoBytes,readAttachment:async()=>{throw new Error('No attachments expected');}});
+ const file=info.outputPath('cover-only.pdf');fs.writeFileSync(file,Buffer.from(await result.blob.arrayBuffer()));const pdf=await texts(file);
+ expect(pdf.pages).toBe(1);expect(pdf.text).not.toMatch(/UNFILLED|PLAN CONTENTS|Not entered|CLIENT \/ OWNER/);expect(plan).toEqual(before);
+});
+
+test('blank editor fields remain available, cannot be deleted and only populated table columns reach the PDF',async({page},info)=>{
+ test.setTimeout(60000);const store=await setup(page);await showPage(page,'scope');
+ const floor=page.getByRole('textbox',{name:'Work areas and access row 1 Floor / level',exact:true});
+ const room=page.getByRole('textbox',{name:'Work areas and access row 1 Room / work area',exact:true});
+ await expect(page.locator('.ss-paper').getByRole('button',{name:/Remove|Delete/i})).toHaveCount(0);
+ await expect(page.locator('.ss-paper .ss-row-actions')).toHaveCount(0);
+ async function download(name){await saved(page);const event=page.waitForEvent('download');await pdfMenu(page);await page.getByRole('button',{name:'Download PDF',exact:true}).click();const d=await event,file=info.outputPath(name);await d.saveAs(file);return texts(file);}
+ const blank=await download('empty-work-areas.pdf');expect(blank.text).not.toContain('Work areas and access');await expect(floor).toBeVisible();await expect(room).toHaveValue('');
+ await floor.fill('KEEP COMPLETED WORK AREA');const filled=await download('filled-work-areas.pdf');expect(filled.text).toContain('Work areas and access');expect(filled.text).toContain('KEEP COMPLETED WORK AREA');expect(filled.text).not.toContain('Room / work area');
+ await floor.fill('');const cleared=await download('cleared-work-areas.pdf');expect(cleared.text).not.toContain('Work areas and access');
+ await expect(floor).toBeVisible();await expect(room).toBeVisible();const table=store.getState().jobs[0].siteSpecific.pages.find(p=>p.id==='scope').blocks[0];expect(table.columns).toHaveLength(3);expect(table.rows).toHaveLength(1);
+ await page.reload();await page.getByRole('tab',{name:'Safety',exact:true}).click();await page.getByRole('tab',{name:'Create Site Specific',exact:true}).click();await showPage(page,'scope');await expect(floor).toHaveValue('');await expect(room).toBeVisible();
 });
