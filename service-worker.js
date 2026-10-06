@@ -1,7 +1,20 @@
-const JGC_RELEASE_ID = "993";
+const JGC_RELEASE_ID = "994";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
+  "./estimating/assets/browser-Bi6ZfJdg.js",
+  "./estimating/assets/drawing-pdf-CC9Yoafs.js",
+  "./estimating/assets/es-CEioaJBl.js",
+  "./estimating/assets/index-CSa1ikjq.js",
+  "./estimating/assets/job-schedule-pdf-BkCp2zbq.js",
+  "./estimating/assets/job-warranty-pdf-DGesuMc1.js",
+  "./estimating/assets/pdf-CBbQH5QN.js",
+  "./estimating/assets/proposal-pdf-B91tlEUn.js",
+  "./estimating/assets/purchase-order-pdf-YgQrLkBe.js",
+  "./estimating/assets/quote-backup-pdf-CgEgRtNv.js",
+  "./estimating/assets/rfi-pdf-CBOjjfmz.js",
+  "./estimating/assets/site-specific-pdf-o3wtJSOZ.js",
+  "./estimating/assets/src-BfdlOM6Q.js",
   "./estimating/assets/browser-BI958H4s.js",
   "./estimating/assets/drawing-pdf-uAfoCBjz.js",
   "./estimating/assets/es-DDD86X8W.js",
@@ -88,7 +101,7 @@ const JGC_APP_SHELL = [
   "./estimating/assets/site-specific-pdf-B4yzUH2p.js",
   "./employee-contacts.js?v=1",
   "./employee-contacts.css?v=1",
-  "./jsa-workers.js?v=2",
+  "./jsa-workers.js?v=3",
   "./jsa-workers.css?v=1",
   "./jsa-worker-editor.js?v=1",
   "./estimating/assets/browser-CNT2ZpE-.js",
@@ -136,10 +149,10 @@ const JGC_APP_SHELL = [
   "./estimating/assets/rfi-pdf-CcuvmGUQ.js",
   "./estimating/assets/src-Csk4h7RB.js",
   "./job-board-context.js?v=2",
-  "./job-board-report-pdf.js?v=4",
-  "./job-board.css?v=7",
+  "./job-board-report-pdf.js?v=5",
+  "./job-board.css?v=8",
   "./job-board.html",
-  "./job-board.js?v=10",
+  "./job-board.js?v=11",
   "./job-board-email.js?v=1",
   "./vendor/qrcode.min.js?v=1",
 

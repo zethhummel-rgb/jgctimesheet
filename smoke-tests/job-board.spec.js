@@ -458,6 +458,37 @@ for(const theme of ['light','dark'])for(const width of [390,1440])test(`JSA sign
   await page.screenshot({path:receipt(testInfo,`jsa-review-${theme}-${width}.png`),fullPage:true});await page.locator('#jsaSignOnSign').click();await expect(page.locator('#jsaReadDialog')).toBeVisible();await page.screenshot({path:receipt(testInfo,`jsa-read-confirmation-${theme}-${width}.png`)});await page.locator('#jsaReadCancel').click();await page.locator('#jsaSignOnBack').click();await expect(page.locator('#boardContent')).toBeVisible();
 });
 
+test('JSA review works on iPhone Safari, which cannot loop over download streams',async({page})=>{
+ // Like iPhone Safari: no ReadableStream async iterator. pdf.js page text then failed with "undefined is not a function (near '...t of e...')".
+ await page.addInitScript(()=>{delete ReadableStream.prototype[Symbol.asyncIterator];});
+ await open(page,'guest');await visitorSignIn(page);expect(await page.evaluate(()=>Symbol.asyncIterator in ReadableStream.prototype)).toBe(false);
+ await page.locator('#dailyReportsList article').filter({hasText:'Morning JSA'}).getByRole('button',{name:'Sign on to JSA',exact:true}).click();
+ await expect(page.locator('#jsaSignOnSign')).toBeEnabled({timeout:15000});await expect(page.locator('.board-jsa-pdf-sheet canvas').first()).toBeVisible();
+ await expect(page.locator('#jsaSignOnStatus')).not.toContainText('not a function');await expect(page.locator('.board-jsa-accessible-text').first()).toContainText('Hazards');
+});
+
+async function fillVisitor(page){await page.getByLabel('Your name',{exact:true}).fill('Synthetic Visitor');await page.locator('#visitorForm').getByLabel('Company',{exact:true}).fill('Synthetic Client Company');await page.getByLabel('Email address',{exact:true}).first().fill('visitor@example.test');}
+test('visitor login also signs in on site by default',async({page})=>{
+ const store=await open(page,'guest');await page.locator('#visitorLogin').click();
+ await expect(page.locator('#visitorSiteSignIn')).toBeChecked();await expect(page.locator('#visitorGate .board-site-checkin')).toContainText('Logging in also signs you in on site. The date and time are saved. Uncheck if you are not signing in on site.');
+ await fillVisitor(page);await page.getByRole('button',{name:'Continue to Job Board',exact:true}).click();await expect(page.locator('#boardContent')).toBeVisible();
+ await expect(page.locator('#boardNotice')).toContainText('Signed in on site at');
+ const site=store.calls.filter(c=>c.name==='record_job_board_site_signin');expect(site).toHaveLength(1);expect(site[0].args).toMatchObject({p_token:TOKEN,p_name:'Synthetic Visitor',p_company:'Synthetic Client Company',p_reason:''});
+ expect(store.events.filter(e=>e.action==='site-signin').map(e=>[e.actor_name,e.actor_company])).toEqual([['Synthetic Visitor','Synthetic Client Company']]);
+});
+test('unticking the box logs a visitor in without a site sign-in',async({page})=>{
+ const store=await open(page,'guest');await page.locator('#visitorLogin').click();await page.locator('#visitorSiteSignIn').uncheck();
+ await fillVisitor(page);await page.getByRole('button',{name:'Continue to Job Board',exact:true}).click();await expect(page.locator('#boardContent')).toBeVisible();
+ expect(store.calls.some(c=>c.name==='record_job_board_site_signin')).toBe(false);await expect(page.locator('#boardNotice')).toBeHidden();
+});
+test('staff login also signs in on site with their Portal name; the office managing a board does not see the box',async({page,browser})=>{
+ const store=await open(page,'guest');await page.locator('#staffLogin').click();await expect(page.locator('#staffSiteSignIn')).toBeChecked();
+ await page.locator('#staffEmail').fill('staff@example.test');await page.locator('#staffPassword').fill('fixture-password');await page.locator('#staffSubmit').click();await expect(page.locator('#boardContent')).toBeVisible();
+ await expect(page.locator('#boardNotice')).toContainText('Signed in on site at');
+ expect(store.calls.filter(c=>c.name==='record_job_board_site_signin').map(c=>[c.args.p_name,c.args.p_company])).toEqual([['Synthetic Site Staff','John Gordon Construction']]);
+ const office=await browser.newPage();await open(office,'admin');await expect(office.locator('#staffGate .board-site-checkin')).toHaveAttribute('hidden','');await office.close();
+});
+
 test('JSA review shows actual PDF pages, zooms, and blocks signing until the PDF is ready',async({page})=>{
  const store=await open(page,'guest');await visitorSignIn(page);let release;const gate=new Promise(resolve=>release=resolve);
  await page.route('**/vendor/pdfjs/pdf.min.mjs*',async route=>{await gate;await route.continue();});
@@ -470,7 +501,7 @@ test('JSA review shows actual PDF pages, zooms, and blocks signing until the PDF
 
 test('JSA preview failure blocks signing and reopening retries the real PDF',async({page})=>{
  await open(page,'guest');await visitorSignIn(page);await page.route('**/vendor/pdfjs/pdf.min.mjs*',route=>route.abort());
- const action=()=>page.locator('#dailyReportsList article').filter({hasText:'Morning JSA'}).getByRole('button',{name:'Sign on to JSA',exact:true}).click();await action();await expect(page.locator('#jsaSignOnStatus')).toContainText('Reopen this JSA');await expect(page.locator('#jsaSignOnSign')).toBeDisabled();await expect(page.locator('.board-jsa-pdf-sheet')).toHaveCount(0);
+ const action=()=>page.locator('#dailyReportsList article').filter({hasText:'Morning JSA'}).getByRole('button',{name:'Sign on to JSA',exact:true}).click();await action();await expect(page.locator('#jsaSignOnStatus')).toHaveText('The JSA could not be shown on this device, so signing is paused. Reopen this JSA to try again.');await expect(page.locator('#jsaSignOnSign')).toBeDisabled();await expect(page.locator('.board-jsa-pdf-sheet')).toHaveCount(0);
  await page.unroute('**/vendor/pdfjs/pdf.min.mjs*');await page.locator('#jsaSignOnBack').click();await action();await expect(page.locator('#jsaSignOnSign')).toBeEnabled({timeout:15000});await expect(page.locator('.board-jsa-pdf-sheet canvas').first()).toBeVisible();
 });
 
@@ -482,7 +513,7 @@ test('separate collapsed site attendance PDF includes every page and excludes Po
  const store=await open(page,'admin');store.activityPages=Array.from({length:125},(_,i)=>({id:'attendance-'+i,action:'site-signin',actor_name:'Site attendee '+i,actor_company:'Test Company '+i,reason:i===124?'Last-page site delivery':'' ,created_at:new Date(Date.UTC(2026,9,5,16)-i*60000).toISOString()})).concat([{id:'portal-only',action:'visit',actor_name:'Portal-only person',created_at:new Date().toISOString()}]);
  await expect(page.locator('#boardActivity')).not.toHaveAttribute('open','');await expect(page.locator('#boardSiteActivity')).not.toHaveAttribute('open','');await expect(page.locator('#boardActivity > summary')).toHaveText('Portal Sign-ins');await expect(page.locator('#boardSiteActivity > summary')).toHaveText('Site Sign-ins');await page.locator('#boardSiteActivity summary').click();await expect(page.locator('#siteActivityList .board-activity-row')).toHaveCount(50);await expect(page.locator('#boardActivity')).not.toHaveAttribute('open','');
  const pending=page.waitForEvent('download');await page.locator('#siteActivityPdf').click();const file=await pending,output=receipt(testInfo,'site-signins-register.pdf');await file.saveAs(output);const text=await pdfTexts(fs.readFileSync(output));expect(text).toContain('SITE SIGN-IN REGISTER');expect(text).toContain('26132');expect(text).toContain('125 site sign-ins');expect(text).toContain('Site attendee 0');expect(text).toContain('Site attendee 124');expect(text).toContain('Last-page site delivery');expect(text).not.toContain('Portal-only person');expect(text).toContain('Toronto time');expect(text).toContain('Page 2');
- await page.evaluate(async data=>{await loadJgcScriptOnce('job-board-jsa-preview.js?v=2');const report=document.createElement('div');report.id='registerRender';document.body.append(report);await JGCJsaPreview.render(report,{blob:new Blob([Uint8Array.from(data)],{type:'application/pdf'}),mimeType:'application/pdf'},()=>true);},Array.from(fs.readFileSync(output)));
+ await page.evaluate(async data=>{await loadJgcScriptOnce('job-board-jsa-preview.js?v=3');const report=document.createElement('div');report.id='registerRender';document.body.append(report);await JGCJsaPreview.render(report,{blob:new Blob([Uint8Array.from(data)],{type:'application/pdf'}),mimeType:'application/pdf'},()=>true);},Array.from(fs.readFileSync(output)));
  const headerInk=await page.locator('#registerRender canvas').evaluateAll(nodes=>[nodes[0],nodes.at(-1)].map(c=>{const d=c.getContext('2d').getImageData(0,0,c.width,Math.floor(c.height*92/792)).data;let white=0;for(let i=0;i<d.length;i+=4)if(d[i]>235&&d[i+1]>235&&d[i+2]>235)white++;return white;}));expect(headerInk[0]).toBeGreaterThan(1000);expect(headerInk[1]).toBeGreaterThan(headerInk[0]*.9);
 expect(store.calls.filter(c=>c.name==='get_job_board_signins').map(c=>[c.args.p_kind,c.args.p_limit])).toEqual([['site',50],['site',100],['site',100]]);
 });

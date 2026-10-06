@@ -54,7 +54,7 @@
       panel.querySelector('[data-jsa-request]')?.addEventListener('click',()=>action(async()=>{message.textContent='All workers need to sign off report before JSA is completed.';const next=await request(client,id);await options.onSaved?.(next);await openReview(client,id,panel,options);panel.querySelector('[data-jsa-status]').textContent='All workers need to sign off report before JSA is completed.';}));
       panel.querySelector('[data-jsa-refresh]').onclick=()=>void openReview(client,id,panel,options);
       panel.querySelector('[data-jsa-close]').onclick=()=>{reviewGeneration++;panel.hidden=true;panel.replaceChildren();};
-      if (!window.JGCJsaPreview) await loadJgcScriptOnce('job-board-jsa-preview.js?v=2');
+      if (!window.JGCJsaPreview) await loadJgcScriptOnce('job-board-jsa-preview.js?v=3');
       const pdf=await window.JgcJsaPdf.create(record,{acknowledgements:model.acknowledgements});
       if(generation!==reviewGeneration)return;
       await window.JGCJsaPreview.render(panel.querySelector('.jgc-jsa-worker-preview'),{blob:pdf.output('blob'),mimeType:'application/pdf'},()=>generation===reviewGeneration);

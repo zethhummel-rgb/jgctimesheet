@@ -1,6 +1,15 @@
 /* Review the same PDF bytes used by the Job Board export. Loaded only on JSA review. */
 (function () {
   'use strict';
+  // pdf.js reads each page's text with `for await (… of readableStream)`. iPhone Safari cannot loop over a
+  // ReadableStream that way, so the JSA failed with "undefined is not a function (near '...t of e...')".
+  if (typeof ReadableStream === 'function' && !ReadableStream.prototype[Symbol.asyncIterator]) {
+    ReadableStream.prototype[Symbol.asyncIterator] = async function* () {
+      const reader = this.getReader();
+      try { for (;;) { const { done, value } = await reader.read(); if (done) return; yield value; } }
+      finally { reader.releaseLock(); }
+    };
+  }
   let library, attempt = 0;
   window.JGCJsaPreview = { async render(parent, file, isCurrent) {
     parent.replaceChildren();
