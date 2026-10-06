@@ -31,7 +31,7 @@
   if (hosted) {
     const toolbar = $('boardToolbar');
     toolbar.hidden = false;
-    toolbar.append($('boardRefresh'));
+    toolbar.append($('jsaSignOnBack'), $('boardRefresh'), $('boardOnsite'));
     const parentTokens = {
       '--jgc-color-surface': '--jgc-estimator-surface',
       '--jgc-color-surface-raised': '--jgc-estimator-surface',
@@ -91,7 +91,7 @@
   async function registerVisit(details) { const data = await rpc('register_job_board_visit', Object.assign({ p_token: state.token, p_name: '', p_company: '', p_email: '' }, details)); if (!data || !data.visit_token) throw new Error('Your site sign-in could not be saved. Please try again.'); saveVisit(data, details && details.p_name); }
   function boardLink(documentId) { const u = new URL('job-board.html', location.href); u.search = '?embedded=1'; u.hash = new URLSearchParams(Object.assign({ board: state.token }, documentId ? { document: documentId } : {})).toString(); return u.href; }
   async function loadBoard() {
-    jsaReviewGeneration++;jsaReview=null;$('jsaSignOnPanel').hidden=true;
+    jsaReviewGeneration++;jsaReview=null;showJsaPanel(false);
     const generation = ++state.generation;
     ['loginOptions','siteGate','visitorGate','staffGate'].forEach(id => $(id).hidden = true); $('boardLoading').hidden = false; $('boardError').hidden = true; $('visitorGate').hidden = true; $('boardContent').hidden = true;
     try {
@@ -139,6 +139,7 @@
     $('boardSignIn').hidden = !!state.user || !!board.requires_visitor_signin;
     const gated = !state.manage && !!board.requires_visitor_signin;
     $('boardSiteSignIn').hidden = state.manage || gated;
+    $('boardOnsite').hidden = gated || !isStaffBoard(); if ($('boardOnsite').hidden && $('onsiteDialog').open) $('onsiteDialog').close();
     $('boardContacts').hidden = gated;
     if (gated && $('contactsDialog').open) $('contactsDialog').close();
     $('loginOptions').hidden = !gated; $('visitorGate').hidden = true; $('boardContent').hidden = gated;
@@ -159,6 +160,7 @@
     if (manager) { renderManager(); renderViewers(); for(const kind of ['portal','site'])if($(kind==='portal'?'boardActivity':'boardSiteActivity').open && !state.logs[kind].loaded)void loadActivity(kind,false); }
     if (board.can_upload) renderCreateForms();
     if (state.highlighted) highlightDocument();
+    if (!state.manage && (state.user || state.visit)) void promptActiveJsa();
   }
   const SECTIONS = [
     ['siteSpecificList', 'Site Specific', ['site-specific','hs-documents'], 'Safety plans, site hazards, emergency procedures and requirements for this job.'],
@@ -196,8 +198,34 @@
   let jsaReview = null, jsaReviewGeneration = 0;
   // Workers Onsite JSAs collect their listed workers' signatures on the creator phone; once Completed, anyone arriving late signs on here.
   const jsaCollecting = model => model.workflow?.version===2 && !model.workflow.completed_at;
+  // The JSA page replaces the board; its Back button sits with the header buttons (or the embedded toolbar).
+  function showJsaPanel(open) { $('jsaSignOnPanel').hidden = !open; $('jsaSignOnBack').hidden = !open; }
+  // After signing on, point people at today's JSA they still need to read and sign. Once a day per person on
+  // this device, however many times they sign on.
+  let jsaPromptBusy = false;
+  function jsaPromptKey() { return 'jgcJobBoardJsaPrompt:' + state.token + ':' + (state.user ? state.user.id : 'visitor:' + String(state.visit?.label || '').trim().toLowerCase()); }
+  async function promptActiveJsa() {
+    const today = dateToday(), key = jsaPromptKey();
+    try { if (jsaPromptBusy || localStorage.getItem(key) === today) return; } catch (_) { return; }
+    const docs = (state.board?.documents || []).filter(d => d.status === 'published' && d.category === 'jsa' && String(d.report_date || '').slice(0, 10) === today)
+      .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+    if (!docs.length) return;
+    jsaPromptBusy = true;
+    try {
+      for (const doc of docs) {
+        const model = await rpc('get_job_board_jsa', { p_token: state.token, p_visit_token: state.visit?.token || null, p_document_id: doc.id });
+        if (model.signed || jsaCollecting(model)) continue;
+        if (jsaReview || $('boardContent').hidden) return; // They already opened a JSA or left the board.
+        try { localStorage.setItem(key, today); } catch (_) {}
+        $('jsaPromptName').textContent = doc.title || 'JSA'; $('jsaPromptReview').onclick = () => { $('jsaPromptDialog').close(); void openJsaSignOn(doc); };
+        if (!$('jsaPromptDialog').open) $('jsaPromptDialog').showModal();
+        return;
+      }
+      try { localStorage.setItem(key, today); } catch (_) {} // Nothing left to sign today.
+    } catch (_) { /* The prompt is a reminder; the JSA stays available on the board. */ } finally { jsaPromptBusy = false; }
+  }
   async function openJsaSignOn(doc) {
-    const generation=++jsaReviewGeneration; jsaReview=null; $('boardContent').hidden=true; $('jsaSignOnPanel').hidden=false;
+    const generation=++jsaReviewGeneration; jsaReview=null; $('boardContent').hidden=true; showJsaPanel(true);
     $('jsaSignOnTitle').textContent=doc.title || 'Sign on to JSA';$('jsaSignOnReport').replaceChildren();$('jsaSignOnRoster').replaceChildren();$('jsaSignOnRead').checked=false;$('jsaSignOnSign').disabled=true;$('jsaSignOnPdf').disabled=true;status('jsaSignOnStatus','Loading JSA…');
     $('jsaSignOnPanel').scrollIntoView({block:'start'});
     try {
@@ -223,7 +251,8 @@
       const shown=error instanceof TypeError||error instanceof ReferenceError||error instanceof SyntaxError?'The JSA could not be shown on this device, so signing is paused.':errorMessage(error);
       status('jsaSignOnStatus',shown+' Reopen this JSA to try again.','error');$('jsaSignOnReport').replaceChildren();}}
   }
-  $('jsaSignOnBack').addEventListener('click',()=>{jsaReviewGeneration++;jsaReview=null;$('jsaSignOnPanel').hidden=true;$('boardContent').hidden=false;});
+  $('jsaSignOnBack').addEventListener('click',()=>{jsaReviewGeneration++;jsaReview=null;showJsaPanel(false);$('boardContent').hidden=false;});
+  $('jsaPromptLater').addEventListener('click',()=>$('jsaPromptDialog').close());
   $('jsaSignOnRead').addEventListener('change',()=>{$('jsaReadContinue').disabled=!jsaReview||jsaReview.model.signed||!$('jsaSignOnRead').checked;});
   $('jsaSignOnPdf').addEventListener('click',e=>{if(jsaReview)void viewDocument(jsaReview.doc,e.currentTarget);});
   $('jsaSignOnSign').addEventListener('click',()=>{if(!jsaReview)return;if(jsaCollecting(jsaReview.model)){if(jsaReview.model.can_collect && jsaReview.model.workflow.active)window.location.href='jsa.html?record='+encodeURIComponent(jsaReview.model.record.id);return;}if(jsaReview.model.signed)return;$('jsaSignOnRead').checked=false;$('jsaReadContinue').disabled=true;$('jsaReadDialog').showModal();});
@@ -487,6 +516,29 @@
   $('boardContacts').addEventListener('click',showContacts); $('contactsRetry').addEventListener('click',showContacts);
   $('contactsClose').addEventListener('click',()=>$('contactsDialog').close());
   $('contactsDialog').addEventListener('close',()=>{contactsGeneration++; $('contactsList').replaceChildren();});
+  // Emergency list for signed-in JGC staff: today's site sign-ins, one line per person.
+  let onsiteGeneration = 0;
+  const clockLabel = value => new Date(value).toLocaleTimeString('en-CA', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' });
+  async function showOnsite() {
+    const generation = ++onsiteGeneration;
+    if (!$('onsiteDialog').open) $('onsiteDialog').showModal();
+    $('onsiteList').replaceChildren(); status('onsiteStatus', 'Loading today’s site sign-ins…');
+    try {
+      const result = await rpc('get_job_board_onsite_today', { p_token: state.token });
+      if (generation !== onsiteGeneration || !$('onsiteDialog').open) return;
+      const people = Array.isArray(result?.people) ? result.people : [];
+      status('onsiteStatus', people.length ? people.length + (people.length === 1 ? ' person' : ' people') + ' signed in on site today, ' + dateLabel(result.date) + '.' : 'Nobody has signed in on site today.');
+      people.forEach(person => {
+        const row = text('div', '', 'jgc-record-row board-onsite-row'), who = document.createElement('div');
+        who.append(text('strong', person.name), text('span', person.company, 'board-help'));
+        row.append(who, text('time', 'Signed in ' + clockLabel(person.first_at) + (person.count > 1 ? ' · last ' + clockLabel(person.last_at) : ''), 'board-help'));
+        $('onsiteList').append(row);
+      });
+    } catch (error) { if (generation === onsiteGeneration) status('onsiteStatus', errorMessage(error), 'error'); }
+  }
+  $('boardOnsite').addEventListener('click', showOnsite); $('onsiteRefresh').addEventListener('click', showOnsite);
+  $('onsiteClose').addEventListener('click', () => $('onsiteDialog').close());
+  $('onsiteDialog').addEventListener('close', () => { onsiteGeneration++; $('onsiteList').replaceChildren(); });
   $('boardLogout').addEventListener('click',async()=>{
     const control=$('boardLogout');busy(control,true);
     try{if(state.user){const result=await state.client.auth.signOut({scope:'local'});if(result.error)throw result.error;}clearVisit();state.user=null;state.board=null;state.loggedBoardVisit='';state.generation++;state.previewGeneration++;jsaReviewGeneration++;jsaReview=null;$('jsaSignOnPanel').hidden=true;['documentPreview','contactsDialog','emailPdfDialog','jsaReadDialog'].forEach(id=>{if($(id).open)$(id).close();});['documentSections','activityList','siteActivityList','viewerList','contactsList','jsaSignOnReport','jsaSignOnRoster'].forEach(id=>$(id).replaceChildren());Object.values(state.logs).forEach(log=>{log.events=[];log.loaded=false;log.before=null;});$('boardLogout').hidden=true;syncBoardTheme();await loadBoard();notice('You have logged out of this Job Board.');}catch(error){notice(errorMessage(error),'error');}finally{busy(control,false);}

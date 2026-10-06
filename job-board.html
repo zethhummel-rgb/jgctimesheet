@@ -17,7 +17,7 @@
   <meta name="theme-color" content="#0b5e3b">
   <title>Job Board · JGC Portal</title>
   <link rel="stylesheet" href="jgc-design-system.css?v=13" data-jgc-design-system="13">
-  <link rel="stylesheet" href="job-board.css?v=8">
+  <link rel="stylesheet" href="job-board.css?v=9">
   <link rel="stylesheet" href="safety-signature-pad.css?v=3">
 </head>
 <body class="job-board-page jgc-page jgc-system-page">
@@ -28,8 +28,10 @@
       <h1 class="jgc-page-title" id="boardTitle">Job Board</h1>
       <p id="boardAddress" class="jgc-muted"></p>
       <div class="board-header-actions">
+        <button class="jgc-button" id="jsaSignOnBack" type="button" hidden>Back to Job Board</button>
         <button class="jgc-button jgc-button--secondary" id="boardRefresh" type="button" data-testid="board-refresh">Refresh</button>
         <button class="jgc-button jgc-button--secondary" id="boardSiteSignIn" type="button" hidden>Site Sign in</button>
+        <button class="jgc-button jgc-button--secondary" id="boardOnsite" type="button" hidden>On site today</button>
         <button class="jgc-button jgc-button--secondary" id="boardContacts" type="button" hidden>JGC Contacts</button>
         <button class="jgc-button jgc-button--secondary" id="boardLogout" type="button" hidden>Log out</button>
         <button class="jgc-button jgc-button--secondary" id="boardSignIn" type="button">Staff Login</button>
@@ -159,7 +161,7 @@
     </div>
   </main>
   <section id="jsaSignOnPanel" class="jgc-panel board-jsa-sign-on" aria-labelledby="jsaSignOnTitle" hidden>
-    <div class="board-section-heading"><h2 id="jsaSignOnTitle" class="jgc-section-title">Sign on to JSA</h2><button id="jsaSignOnBack" class="jgc-button jgc-button--secondary" type="button">Back to Job Board</button></div>
+    <h2 id="jsaSignOnTitle" class="jgc-section-title">Sign on to JSA</h2>
     <p id="jsaSignOnStatus" class="board-form-status" role="status" aria-live="polite"></p><div id="jsaSignOnReport"></div>
     <div class="board-actions"><button id="jsaSignOnPdf" class="jgc-button jgc-button--secondary" type="button">Open JSA PDF</button></div>
     <p id="jsaSignOnIdentity" class="jgc-notice"></p>
@@ -171,6 +173,18 @@
     <p>Please read the full report before signing on.</p>
     <label class="board-read-confirm"><input id="jsaSignOnRead" type="checkbox"> I confirm I have read this JSA and understand the hazards and control measures.</label>
     <div class="board-actions"><button id="jsaReadContinue" class="jgc-button" type="button" disabled>Continue to signature</button><button id="jsaReadCancel" class="jgc-button jgc-button--secondary" type="button">Cancel</button></div>
+  </dialog>
+  <dialog id="jsaPromptDialog" class="board-preview board-jsa-prompt" aria-labelledby="jsaPromptTitle">
+    <h2 id="jsaPromptTitle" class="jgc-section-title">Active JSA for this site</h2>
+    <p>There is an active JSA for this site. Please review the JSA and sign off that you have read it.</p>
+    <p id="jsaPromptName" class="board-help"></p>
+    <div class="board-actions"><button id="jsaPromptReview" class="jgc-button" type="button">Review JSA</button><button id="jsaPromptLater" class="jgc-button jgc-button--secondary" type="button">Not now</button></div>
+  </dialog>
+  <dialog id="onsiteDialog" class="board-preview" aria-labelledby="onsiteTitle">
+    <div class="board-section-heading"><h2 class="jgc-section-title" id="onsiteTitle">On site today</h2><button class="jgc-button jgc-button--secondary" id="onsiteClose" type="button">Close</button></div>
+    <p class="board-help">Everyone who signed in on site today, from Site Sign in or the login box. Use this list to account for everyone in an emergency.</p>
+    <p id="onsiteStatus" class="board-form-status" role="status" aria-live="polite"></p><div id="onsiteList" class="jgc-record-list"></div>
+    <div class="board-actions"><button class="jgc-button jgc-button--secondary" id="onsiteRefresh" type="button">Refresh list</button></div>
   </dialog>
   <dialog id="contactsDialog" class="board-preview" aria-labelledby="contactsTitle">
     <div class="board-section-heading"><h2 class="jgc-section-title" id="contactsTitle">JGC Contacts</h2><button class="jgc-button jgc-button--secondary" id="contactsClose" type="button">Close</button></div>
@@ -198,6 +212,6 @@
   <script src="job-board-report-pdf.js?v=5"></script>
   <script src="job-board-email.js?v=1"></script>
   <script src="safety-signature-pad.js?v=3"></script>
-  <script src="job-board.js?v=11"></script>
+  <script src="job-board.js?v=12"></script>
 </body>
 </html>

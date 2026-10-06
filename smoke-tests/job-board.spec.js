@@ -45,11 +45,13 @@ function fixture(identity = 'guest') {
 }
 async function install(page, store, options = {}) {
   await page.exposeFunction('fixtureBoardStorageComplete', () => { store.storageReady = true; });
-  await page.addInitScript(({ auth, theme, forgedAdmin }) => {
+  await page.addInitScript(({ auth, theme, forgedAdmin, jsaPrompt, token, userId, date }) => {
     localStorage.setItem('jgcPortalTheme', theme);
+    // Most tests are not about the once-a-day "Active JSA" reminder; mark it as already shown today.
+    if (!jsaPrompt) for (const who of [userId, 'visitor:synthetic visitor']) localStorage.setItem('jgcJobBoardJsaPrompt:' + token + ':' + who, date);
     if (auth) { localStorage.setItem('sb-xnrljkkszoimegfivlya-auth-token', JSON.stringify(auth)); localStorage.setItem('jgcStayLoggedIn', 'true'); sessionStorage.setItem('jgcActiveSession', 'true'); }
     if (forgedAdmin) { localStorage.setItem('currentWorker', 'forged admin'); localStorage.setItem('currentUserRole', 'admin'); localStorage.setItem('currentAccountStatus', 'approved'); }
-  }, { auth: store.auth, theme: options.theme || 'dark', forgedAdmin: !!options.forgedAdmin });
+  }, { auth: store.auth, theme: options.theme || 'dark', forgedAdmin: !!options.forgedAdmin, jsaPrompt: !!options.jsaPrompt, token: TOKEN, userId: USER_ID, date: today() });
   // Every non-local request is intercepted. These fixtures never contact production.
   await page.route('**/*', async (route) => {
     const req = route.request(), url = new URL(req.url());
@@ -68,6 +70,7 @@ async function install(page, store, options = {}) {
     const board = () => ({ id: BOARD_ID, job_id: 'existing-estimator-job', job_number: '26132', job_name: '14815 County Road 2 – Site safety', address: 'South Stormont, Ontario', token: TOKEN, enabled: true, can_manage: manager, can_upload: canUpload, can_register_as_staff: canUpload, can_read_restricted: restricted, requires_visitor_signin: !validVisit && !manager, documents: manager ? store.documentRows : !validVisit ? [] : store.documentRows.filter((d) => d.status === 'published' && (d.visibility === 'public' || restricted)), viewers: manager ? [{ id: 'viewer-id', email: 'client@example.test' }] : [] });
     if (name === 'get_job_board' || name === 'get_or_create_job_board') return store.failBoard ? route.fulfill({ status: 403, json: { message: 'Board unavailable for this test' } }) : route.fulfill({ json: board() });
     if (name === 'register_job_board_visit') { if (!canUpload && (!args.p_name || !args.p_company || !args.p_email)) return route.fulfill({ status: 403, json: { message: 'Visitor name, company and email are required' } }); store.visit = VISIT; store.events.push({ id: 'visit-event', actor_name: canUpload ? 'Synthetic Site Staff' : args.p_name, actor_company: args.p_company, actor_email: canUpload ? store.auth.user.email : args.p_email, identity_type: canUpload ? 'staff' : 'visitor', action: 'visit', created_at: new Date().toISOString() }); return route.fulfill({ json: { visit_token: VISIT } }); }
+    if (name === 'get_job_board_onsite_today') { if (!canUpload) return route.fulfill({ status: 403, json: { message: 'Sign in with your JGC account to see who is on site' } }); const people = new Map(); for (const e of store.events.filter(e => e.action === 'site-signin')) { const key = (e.actor_name + '|' + e.actor_company).toLowerCase(), p = people.get(key); if (p) { p.last_at = e.created_at; p.count++; } else people.set(key, { name: e.actor_name, company: e.actor_company, first_at: e.created_at, last_at: e.created_at, count: 1 }); } return route.fulfill({ json: { date: today(), people: [...people.values()] } }); }
     if (name === 'record_job_board_site_signin') { store.events.push({id:'site',action:'site-signin',actor_name:args.p_name,actor_company:args.p_company,reason:args.p_reason,created_at:new Date().toISOString()}); return route.fulfill({json:{ok:true,recorded_at:new Date().toISOString()}}); }
     if (name === 'get_job_board_jsa') {
       const doc=store.documentRows.find(d=>d.id===args.p_document_id);if(store.failJsa || !doc || !store.visit)return route.fulfill({status:403,json:{message:'JSA sign-in expired. Sign in again.'}});
@@ -487,6 +490,34 @@ test('staff login also signs in on site with their Portal name; the office manag
  await expect(page.locator('#boardNotice')).toContainText('Signed in on site at');
  expect(store.calls.filter(c=>c.name==='record_job_board_site_signin').map(c=>[c.args.p_name,c.args.p_company])).toEqual([['Synthetic Site Staff','John Gordon Construction']]);
  const office=await browser.newPage();await open(office,'admin');await expect(office.locator('#staffGate .board-site-checkin')).toHaveAttribute('hidden','');await office.close();
+});
+
+test('signing on asks once a day to review the active JSA; Back to Job Board sits with the header buttons',async({page})=>{
+ const store=await open(page,'guest',{jsaPrompt:true});await visitorSignIn(page);
+ const prompt=page.locator('#jsaPromptDialog');await expect(prompt).toBeVisible();
+ await expect(prompt).toContainText('There is an active JSA for this site. Please review the JSA and sign off that you have read it.');await expect(prompt).toContainText('Morning JSA');
+ await prompt.getByRole('button',{name:'Review JSA',exact:true}).click();await expect(prompt).toBeHidden();
+ await expect(page.locator('#jsaSignOnPanel')).toBeVisible();await expect(page.locator('#jsaSignOnTitle')).toContainText('Morning JSA');await expect(page.locator('#jsaSignOnSign')).toBeEnabled({timeout:15000});
+ const back=page.locator('.board-header-actions #jsaSignOnBack');await expect(back).toBeVisible();await expect(page.locator('#jsaSignOnPanel #jsaSignOnBack')).toHaveCount(0);
+ await back.click();await expect(page.locator('#boardContent')).toBeVisible();await expect(back).toBeHidden();
+ // Signing on again the same day does not ask again.
+ const asked=store.calls.filter(c=>c.name==='get_job_board_jsa').length;await page.locator('#boardLogout').click();await expect(page.locator('#loginOptions')).toBeVisible();
+ await visitorSignIn(page);await page.waitForTimeout(300);await expect(prompt).toBeHidden();expect(store.calls.filter(c=>c.name==='get_job_board_jsa').length).toBe(asked);
+});
+for(const reason of ['already signed','creator phone still collecting'])test(`no JSA reminder when ${reason}`,async({page})=>{
+ const store=fixture('staff');if(reason==='already signed')store.jsaSigned=true;else store.workerWorkflow={version:2,active:true,status:'Draft — Awaiting Worker Sign-Offs',required:2,signed:0,outstanding:2,valid_date:today(),today:today()};
+ await install(page,store,{jsaPrompt:true});await page.goto('/job-board.html?embedded=1#board='+TOKEN);await expect(page.locator('#boardContent')).toBeVisible();
+ await expect.poll(()=>store.calls.filter(c=>c.name==='get_job_board_jsa').length).toBeGreaterThan(0);await page.waitForTimeout(300);await expect(page.locator('#jsaPromptDialog')).toBeHidden();
+});
+test('signed-in staff can see who is on site today; visitors cannot',async({page,browser})=>{
+ const store=await open(page,'staff');const at=(h,m)=>new Date(Date.UTC(2026,9,6,h,m)).toISOString();
+ store.events.push({id:'s1',action:'site-signin',actor_name:'Synthetic Electrician',actor_company:'Synthetic Electric',created_at:at(11,5)},{id:'s2',action:'site-signin',actor_name:'Synthetic Site Staff',actor_company:'John Gordon Construction',created_at:at(11,30)},{id:'s3',action:'site-signin',actor_name:'synthetic electrician',actor_company:'Synthetic Electric',created_at:at(17,15)});
+ await expect(page.locator('#boardOnsite')).toBeVisible();await page.locator('#boardOnsite').click();
+ const dialog=page.locator('#onsiteDialog');await expect(dialog).toBeVisible();await expect(page.locator('#onsiteStatus')).toContainText('2 people signed in on site today');
+ const rows=page.locator('#onsiteList .board-onsite-row');await expect(rows).toHaveCount(2);await expect(rows.first()).toContainText('Synthetic Electrician');await expect(rows.first()).toContainText('Synthetic Electric');await expect(rows.first()).toContainText('Signed in 7:05');await expect(rows.first()).toContainText('last 1:15');
+ expect(store.calls.find(c=>c.name==='get_job_board_onsite_today').args).toEqual({p_token:TOKEN});
+ await page.locator('#onsiteClose').click();await expect(dialog).toBeHidden();
+ const visitorPage=await browser.newPage();await open(visitorPage,'guest');await visitorSignIn(visitorPage);await expect(visitorPage.locator('#boardOnsite')).toBeHidden();await visitorPage.close();
 });
 
 test('JSA review shows actual PDF pages, zooms, and blocks signing until the PDF is ready',async({page})=>{
