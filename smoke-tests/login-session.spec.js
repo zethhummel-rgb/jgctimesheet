@@ -3,8 +3,9 @@ const path = require("node:path");
 const { test, expect } = require("@playwright/test");
 
 const ref = "xnrljkkszoimegfivlya";
+// Account requests now carry a phone number; a profile is only created from one that has it.
 const user = { id: "00000000-0000-4000-8000-000000000001", email: "synthetic@example.com",
-  aud: "authenticated", role: "authenticated", app_metadata: {}, user_metadata: {} };
+  aud: "authenticated", role: "authenticated", app_metadata: {}, user_metadata: { phone: "613-555-0100" } };
 const profile = { id: user.id, email: user.email, worker_key: "synthetic", display_name: "Synthetic",
   role: "admin", account_status: "approved" };
 const gate = () => { let release; const promise = new Promise(r => { release = r; }); return { promise, release }; };
@@ -199,6 +200,7 @@ test("account requests do not race automatic session entry", async ({ page }) =>
   await page.locator("#createAccountToggle").click();
   await page.locator("#signupName").fill("Synthetic Worker");
   await page.locator("#signupEmail").fill(user.email);
+  await page.locator("#signupPhone").fill(user.user_metadata.phone);
   await page.locator("#signupPassword").fill("synthetic-only");
   await page.evaluate(() => {
     window.alert = () => {};

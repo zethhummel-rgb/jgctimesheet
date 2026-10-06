@@ -11,17 +11,19 @@ test("Login uses one token-only visual source", async () => {
 
   expect(html).not.toContain("styles.css");
   expect(html).toContain('jgc-design-system.css?v=13');
-  expect(html).toContain('login-design-system.css?v=8');
+  expect(html).toContain('login-design-system.css?v=11');
   expect(html).toMatch(/<body\b[^>]*\bjgc-page\b/i);
   expect(screenMarkup).not.toMatch(/<style\b/i);
   expect(screenMarkup).not.toMatch(/\sstyle\s*=/i);
-  expect(css).not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
+  // The sign-in hammer illustration (962-964) keeps its own wood and steel colours; everything else uses tokens.
+  const themedCss = css.replace(/^\.login-loader-[\w-]+ \{[^}\n]*\}$/gm, "");
+  expect(themedCss).not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
   expect(css).not.toMatch(/\bcolor:\s*(?:white|black)\b/i);
   expect(css).toContain("var(--jgc-color-");
 
   const worker = fs.readFileSync(path.join(portalRoot, "service-worker.js"), "utf8");
   expect(worker).toMatch(/const JGC_RELEASE_ID = "\d+"/);
-  expect(worker).toContain('"./login-design-system.css?v=8"');
+  expect(worker).toContain('"./login-design-system.css?v=11"');
 });
 
 test("iPhone PWA uses an opaque status bar above the app controls", () => {

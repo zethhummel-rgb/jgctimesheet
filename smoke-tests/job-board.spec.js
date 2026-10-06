@@ -198,7 +198,7 @@ test('Safety navigation keeps the matching Job Board alive and supports keyboard
   await page.keyboard.press('End');
   await expect(safetyTabs.getByRole('tab', { name: 'Create Site Specific', exact: true })).toBeFocused();
   await expect(frame).toBeHidden();
-  await expect(page.getByRole('tabpanel', { name: 'Create Site Specific', exact: true })).toContainText('Save the plan to start.');
+  await expect(page.getByRole('tabpanel', { name: 'Create Site Specific', exact: true })).toContainText('Your entries save with this job.');
   await page.getByRole('tab', { name: 'Summary', exact: true }).click();
   await page.getByRole('tab', { name: 'Safety', exact: true }).click();
   await expect(safetyTabs.getByRole('tab', { name: 'Create Site Specific', exact: true })).toHaveAttribute('aria-selected', 'true');
@@ -380,7 +380,8 @@ test('scanned board presents three login choices and site attendance without gra
 });
 
 test('five document sections start collapsed, retain expanded state and sort newest entries first without search',async ({page})=>{
-  const store=fixture('staff'); store.documentRows[0].created_at='2026-10-05T10:00:00Z';store.documentRows[1].created_at='2026-10-05T11:00:00Z';
+  // Same-day reports sort by upload time, so give each row one (relative to today; a fixed date breaks once that day passes).
+  const store=fixture('staff'); store.documentRows[0].created_at=today()+'T15:00:00Z';store.documentRows[1].created_at=previousDate+'T11:00:00Z';store.documentRows[3].created_at=today()+'T14:00:00Z';
   await install(page,store);await page.goto('/job-board.html?embedded=1#board='+TOKEN);await expect(page.locator('#boardContent')).toBeVisible();
   const sections=page.locator('.board-category');await expect(sections).toHaveCount(5);expect(await sections.evaluateAll(nodes=>nodes.map(n=>n.open))).toEqual([false,false,false,false,false]);
   expect(await sections.locator(':scope > summary').evaluateAll(nodes=>nodes.map(n=>n.firstChild.textContent))).toEqual(['Site Specific','Daily Reports','Daily Inspections','Daily Permits','JGC Policy']);
@@ -524,7 +525,8 @@ for(const prepared of [false,true])test(`Job Board prepared JSA staff phone exce
  store.workerWorkflow={version:2,active:true,prepared_in_advance:prepared,signing_mode:prepared?'shared_phone':'creator_phone',required:2,signed:0,outstanding:2,status:'Draft — Awaiting Worker Sign-Offs',valid_date:today(),today:today()};
  await page.locator('#dailyReportsList article').filter({hasText:'Morning JSA'}).getByRole('button',{name:'Sign on to JSA',exact:true}).click();
  const action=page.locator('#jsaSignOnSign');await expect(page.locator('.board-jsa-pdf-sheet canvas')).toBeVisible();
- if(prepared){await expect(action).toHaveText('Collect worker signatures');await expect(action).toBeEnabled();await action.click();await expect(page).toHaveURL(/jsa.html\?record=00000000-0000-4000-8000-000000000080/);}
+ // Wait for the navigation request itself: this fixture's staff session has no Portal worker keys, so jsa.html then bounces to the home page and the URL check would race it.
+ if(prepared){await expect(action).toHaveText('Collect worker signatures');await expect(action).toBeEnabled();const opened=page.waitForRequest(request=>request.isNavigationRequest() && /\/jsa\.html\?record=00000000-0000-4000-8000-000000000080$/.test(request.url()));await action.click();await opened;}
  else {await expect(action).toHaveText('Sign on creator phone');await expect(action).toBeDisabled();}
  expect(store.calls.some(c=>c.name==='sign_job_board_jsa')).toBe(false);
 });
