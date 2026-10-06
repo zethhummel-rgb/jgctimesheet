@@ -129,6 +129,8 @@ for(const theme of ['light','dark'])for(const viewport of [{width:1440,height:90
  await page.evaluate(y=>window.scrollTo(0,y),await page.evaluate(()=>window.scrollY)+start.y-130+100);
  await expect.poll(async()=>Math.round((await toolbar.boundingBox()).y)).toBe(130);
  const bounds=await toolbar.boundingBox(),tabs=await page.locator('.job-tabs').boundingBox();
+ // All job tabs stay on one row (ten tabs wrapped to two on desktop and covered this toolbar).
+ expect(await page.locator('.job-tabs button').evaluateAll(buttons=>new Set(buttons.map(button=>Math.round(button.getBoundingClientRect().top))).size)).toBe(1);
  expect(bounds.y).toBeGreaterThanOrEqual(tabs.y+tabs.height-1);
  expect(bounds.y+bounds.height).toBeLessThan(viewport.height-100);
  const dateBox=await page.locator('.schedule-datebar').boundingBox();expect(dateBox.y).toBeGreaterThanOrEqual(bounds.y+bounds.height);

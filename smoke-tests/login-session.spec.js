@@ -214,6 +214,22 @@ test("account requests do not race automatic session entry", async ({ page }) =>
   await expect(page.locator("#loginSubmit")).toBeEnabled();
 });
 
+test("a missing phone number does not leave the account request looking busy", async ({ page }) => {
+  const state = await setup(page);
+  await page.goto("/index.html");
+  await page.locator("#createAccountToggle").click();
+  await page.locator("#signupName").fill("Synthetic Worker");
+  await page.locator("#signupEmail").fill(user.email);
+  await page.locator("#signupPassword").fill("synthetic-only");
+  const alerts = [];
+  page.on("dialog", dialog => { alerts.push(dialog.message()); dialog.accept(); });
+  await page.locator("#createAccountPanel button").click();
+  await expect.poll(() => alerts.join(" ")).toContain("phone number");
+  await expect(page.locator("#loginSubmit")).toBeEnabled();
+  await expect(page.locator("#loginStatus")).not.toContainText("Creating account");
+  expect(state.tokens).toBe(0);
+});
+
 for (const event of ["online", "visibilitychange"]) {
   test(`recovery retries when ${event} arrives after a connection failure`, async ({ page }) => {
     const options = { stored: true, failProfile: true };

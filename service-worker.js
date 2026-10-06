@@ -1,7 +1,21 @@
-const JGC_RELEASE_ID = "991";
+const JGC_RELEASE_ID = "992";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
+  "./estimating/assets/browser-BI958H4s.js",
+  "./estimating/assets/drawing-pdf-uAfoCBjz.js",
+  "./estimating/assets/es-DDD86X8W.js",
+  "./estimating/assets/index-Dr9ET-jF.css",
+  "./estimating/assets/index-Il2jF9hn.js",
+  "./estimating/assets/job-schedule-pdf-DCUoqPzu.js",
+  "./estimating/assets/job-warranty-pdf-D80G60Dt.js",
+  "./estimating/assets/pdf-DCq-D7Hc.js",
+  "./estimating/assets/proposal-pdf-B-m1Lz_h.js",
+  "./estimating/assets/purchase-order-pdf-LLtmWeoz.js",
+  "./estimating/assets/quote-backup-pdf-B1S6VGay.js",
+  "./estimating/assets/rfi-pdf-D--2XaOX.js",
+  "./estimating/assets/site-specific-pdf-CtsI1YeI.js",
+  "./estimating/assets/src-Dpp0q0V1.js",
   "./estimating/assets/browser-f9gs_K2X.js",
   "./estimating/assets/drawing-pdf-CV-wP4hb.js",
   "./estimating/assets/es-CvvLp3z1.js",
@@ -743,7 +757,7 @@ const JGC_APP_SHELL = [
   "./calculator-functions.js?v=28",
   "./field-calculator.js?v=31",
   "./auth.js?v=9",
-  "./login-session.js?v=1",
+  "./login-session.js?v=2",
   "./inspection-records.js?v=15",
   "./inspection-mobile.css?v=3",
   "./inspection-mobile.js?v=6",
