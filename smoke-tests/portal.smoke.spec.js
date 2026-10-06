@@ -1997,13 +1997,88 @@ test("today's toolbox talk reports expose their report actions", async ({ page }
   await installAuthenticatedPortalState(page);
   await page.goto("/todays-inspections.html?recordType=reports", { waitUntil: "domcontentloaded" });
 
-  const row = page.locator("tbody tr").filter({ hasText: "Toolbox Talk" });
+  const row = page.locator("#inspectionList .history-card").filter({ hasText: "Toolbox Talk" });
   await expect(row).toContainText(report.talk_title);
   await expect(row.getByRole("button", { name: "View", exact: true })).toBeVisible();
   await expect(row.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
   await expect(row.getByRole("button", { name: "Save PDF", exact: true })).toBeVisible();
   await expect(row.getByRole("button", { name: "Email", exact: true })).toBeVisible();
   await expectNoRuntimeErrors(errors, "today toolbox report actions");
+});
+
+for (const theme of ["light", "dark"]) test(`today's reports are compact cards without sideways scrolling on phones in ${theme}`, async ({ page }, testInfo) => {
+  const errors = watchRuntimeErrors(page);
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const project = "26142 - New Control Room - Washroom Facelift and Block Wall Removal";
+  const jsa = {
+    id: "00000000-0000-4000-8000-000000000131", worker_name: fakeProfile.worker_key, worker_display_name: fakeProfile.display_name,
+    inspection_type: "JSA", inspection_date: today, created_at: now.toISOString(),
+    form_data: { fields: [
+      { label: "Contractor", value: "John Gordon Construction" }, { label: "Project / Job", value: project },
+      { label: "Location", value: "1001 Sydney St, Cornwall" }, { label: "Date", value: today },
+      { label: "Contractor Supervisor", value: "Synthetic Supervisor" }, { label: "Crew Sign Off (Print Names)", value: "Synthetic Worker" }
+    ], rows: [{ cells: ["Remove block wall", "Dust and falling debris", "Wet cutting and barricade"], table: 1 }] }
+  };
+  const daily = { id: "00000000-0000-4000-8000-000000000132", report_date: today, project, location: "1001 Sydney St, Cornwall",
+    work_completed: "Removed the block wall on the north side, framed the new washroom, ran temporary power and cleaned the work area. ".repeat(3),
+    worker_name: fakeProfile.worker_key, worker_display_name: fakeProfile.display_name, created_at: new Date(now.getTime() - 60000).toISOString() };
+  const incident = { id: "00000000-0000-4000-8000-000000000133", incident_type: "Near Miss", report_date: today, project, location: "Loading dock",
+    severity: "Low", description: "A pallet shifted on the forks; nobody was hurt.", reported_by_name: fakeProfile.display_name,
+    reported_by_worker: fakeProfile.worker_key, created_at: new Date(now.getTime() - 120000).toISOString() };
+  const rows = { inspection_records: [jsa], daily_site_reports: [daily], incident_reports: [incident] };
+
+  await mockPortalServices(page, fakeProfile, { themePreferenceState: { theme, writes: [] } });
+  for (const [table, body] of Object.entries(rows)) {
+    await page.route(`${supabaseOrigin}/rest/v1/${table}**`, (route) => route.fulfill({
+      status: 200, contentType: "application/json",
+      headers: { "Access-Control-Allow-Origin": "*", "Content-Range": `0-${body.length - 1}/${body.length}` },
+      body: JSON.stringify(body)
+    }));
+  }
+  await installAuthenticatedPortalState(page);
+  await page.addInitScript((value) => localStorage.setItem("jgcPortalTheme", value), theme);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/todays-inspections.html?recordType=reports", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("html")).toHaveAttribute("data-jgc-theme", theme);
+
+  const cards = page.locator("#inspectionList .history-card");
+  await expect(cards).toHaveCount(3);
+  await expect(page.locator("#inspectionList table")).toHaveCount(0);
+  const jsaCard = cards.filter({ hasText: "JSA" });
+  await expect(jsaCard.locator(".history-card__job")).toHaveText(project);
+  await expect(jsaCard.locator(".history-card__meta")).toContainText(`${fakeProfile.display_name} · Saved`);
+  // The job, location and date each appear once, not again in the summary.
+  await expect(jsaCard.locator(".history-card__details")).toContainText("Location: 1001 Sydney St, Cornwall");
+  await expect(jsaCard.locator(".history-card__details")).toContainText("Contractor Supervisor: Synthetic Supervisor");
+  await expect(jsaCard.locator(".history-card__details")).not.toContainText("Project");
+  await expect(jsaCard.locator(".history-card__details")).not.toContainText("Date:");
+  await expect(jsaCard.getByRole("button", { name: "View", exact: true })).toBeVisible();
+  await expect(cards.filter({ hasText: "Near Miss" })).toHaveClass(/is-incident/);
+
+  const layout = await page.evaluate(() => ({
+    pageFits: document.documentElement.scrollWidth <= innerWidth + 1,
+    cards: Array.from(document.querySelectorAll("#inspectionList .history-card")).map((card) => {
+      const rect = card.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, height: rect.height, fits: card.scrollWidth <= card.clientWidth + 1 };
+    })
+  }));
+  expect(layout.pageFits).toBe(true);
+  for (const card of layout.cards) {
+    expect(card.left).toBeGreaterThanOrEqual(0);
+    expect(card.right).toBeLessThanOrEqual(391);
+    expect(card.fits).toBe(true);
+    // One report used to be over 1,500px tall here; a card is now a few lines plus its buttons.
+    expect(card.height).toBeLessThan(300);
+  }
+  await page.locator("#inspectionList").screenshot({ path: testInfo.outputPath(`todays-reports-phone-${theme}.png`) });
+  // On a desktop the same cards sit side by side.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const tops = await cards.evaluateAll((nodes) => nodes.map((node) => Math.round(node.getBoundingClientRect().top)));
+  expect(new Set(tops).size).toBe(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.locator("#inspectionList").screenshot({ path: testInfo.outputPath(`todays-reports-desktop-${theme}.png`) });
+  await expectNoRuntimeErrors(errors, "today reports phone cards");
 });
 
 test("today's inspection management actions are limited to creators and admins", async ({ page }) => {
@@ -2153,7 +2228,7 @@ test("approved employees can add themselves to an existing JSA", async ({ page }
   await installAuthenticatedPortalState(page);
   await page.goto("/todays-inspections.html?recordType=reports", { waitUntil: "domcontentloaded" });
 
-  const row = page.locator("tbody tr").filter({ hasText: "JSA" });
+  const row = page.locator("#inspectionList .history-card").filter({ hasText: "JSA" });
   await row.getByRole("button", { name: "View", exact: true }).click();
   const panel = page.locator("#editPanel");
   await expect(panel.locator(".jsa-report-view")).toBeVisible();

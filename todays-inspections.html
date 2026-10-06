@@ -8,6 +8,7 @@
 <title>Today's Inspections</title>
 <link rel="stylesheet" href="jgc-design-system.css?v=13" data-jgc-design-system="13">
 <link rel="stylesheet" href="inspection-history-today.css?v=2">
+<link rel="stylesheet" href="inspection-record-cards.css?v=1">
 <link rel="stylesheet" href="safety-signature-pad.css?v=3">
 <link rel="stylesheet" href="jsa-workers.css?v=1">
 </head>
@@ -498,54 +499,27 @@ function isVehicleInspectionRecord(record) {
     return Boolean(record && record.vehicle_inspection_source);
 }
 
+// Plain-text summary of a JSA's other answers. The job, location and date already have their own lines.
 function buildFieldSummaryText(record) {
     const fields = record.form_data && Array.isArray(record.form_data.fields)
         ? record.form_data.fields
         : [];
 
     return fields
-        .filter((field) => field.value)
-        .slice(0, 5)
+        .filter((field) => field.label && field.value && field.value !== "No" && !/^(Project|Job|Location|Date)/i.test(field.label))
+        .slice(0, 4)
         .map((field) => `${field.label}: ${field.value}`)
-        .join(" | ");
+        .join("; ");
 }
 
-function buildDetails(record) {
-    if (isVehicleInspectionRecord(record)) {
-        const lines = [
-            record.vehicle_license_plate || record.vehicle_name ? "Vehicle: " + (record.vehicle_license_plate || record.vehicle_name) : "",
-            record.trailer_1_license_plate ? "Trailer 1: " + record.trailer_1_license_plate : "",
-            record.trailer_2_license_plate ? "Trailer 2: " + record.trailer_2_license_plate : "",
-            record.location ? "Location: " + record.location : "",
-            record.defects_found ? (record.major_defects_found ? "Major defects found" : "Minor defects found") : "No defects reported"
-        ].filter(Boolean).map((line) => escapeHtml(line));
-        return lines.join("<br>");
-    }
-
-    if (record.report_source) {
-        const lines = [
-            record.project ? "Project: " + record.project : "",
-            record.location ? "Location: " + record.location : "",
-            record.summary ? "Summary: " + record.summary : ""
-        ]
-            .filter(Boolean)
-            .map((line) => escapeHtml(line))
-            .concat(renderJsaAcknowledgementSummary(record))
-            .filter(Boolean);
-
-        return lines.join("<br>");
-    }
-
-    const lines = buildFieldSummaryText(record)
-        .split(" | ")
-        .filter(Boolean)
-        .map((line) => escapeHtml(line));
-
-    if (isJsaRecord(record)) {
-        lines.push(renderJsaAcknowledgementSummary(record));
-    }
-
-    return lines.join("<br>");
+function buildVehicleDetails(record) {
+    return [
+        record.vehicle_license_plate || record.vehicle_name ? "Vehicle: " + (record.vehicle_license_plate || record.vehicle_name) : "",
+        record.trailer_1_license_plate ? "Trailer 1: " + record.trailer_1_license_plate : "",
+        record.trailer_2_license_plate ? "Trailer 2: " + record.trailer_2_license_plate : "",
+        record.location ? "Location: " + record.location : "",
+        record.defects_found ? (record.major_defects_found ? "Major defects found" : "Minor defects found") : "No defects reported"
+    ].filter(Boolean).map((line) => escapeHtml(line)).join("<br>");
 }
 
 function normalizeVehicleInspectionRecord(record) {
@@ -789,46 +763,76 @@ async function loadInspections() {
     renderInspectionRows(filteredData);
 }
 
+// Everything here is dated today, so a card shows when it was saved instead of repeating the date.
+function formatSavedLabel(value) {
+    const date = new Date(value);
+    if (!value || Number.isNaN(date.getTime())) {
+        return "";
+    }
+    return "Saved " + (date.toDateString() === new Date().toDateString()
+        ? date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+        : date.toLocaleDateString([], { month: "short", day: "numeric" }));
+}
+
+function getRecordJob(record) {
+    const project = record.report_source
+        ? record.project
+        : findFieldValue(record, /^(Project|Job)/i) || findFieldValue(record, /Project|Job|Location of Use|Site Location/i);
+    return String(project || "").trim();
+}
+
+// Short details under the job line; the job, date and person are already shown on the card.
+function buildCardDetails(record) {
+    if (isVehicleInspectionRecord(record)) {
+        return buildVehicleDetails(record);
+    }
+    if (record.report_source) {
+        return [record.location ? "Location: " + record.location : "", record.summary || ""]
+            .filter(Boolean)
+            .map((line) => escapeHtml(line))
+            .join("<br>");
+    }
+    const fields = record.form_data && Array.isArray(record.form_data.fields) ? record.form_data.fields : [];
+    return fields
+        .filter((field) => field.label && field.value && field.value !== "No" && !/^(Project|Job|Date)/i.test(field.label))
+        .slice(0, 3)
+        .map((field) => `${escapeHtml(field.label)}: ${escapeHtml(field.value)}`)
+        .join("<br>");
+}
+
+function renderRecordCard(record) {
+    const type = String(record.report_type || record.inspection_type || "Record").trim();
+    const person = String(record.completed_by || record.worker_display_name || record.worker_name || "").trim();
+    const job = getRecordJob(record);
+    const details = buildCardDetails(record);
+    const status = isSafetyAckRecord(record) ? renderJsaAcknowledgementSummary(record) : "";
+    const actions = [];
+    [renderInspectionViewCell(record), renderInspectionEditCell(record), renderInspectionPdfCell(record), renderInspectionEmailCell(record), renderInspectionDeleteCell(record)]
+        .forEach((html) => {
+            if (html && html !== "-" && !actions.includes(html)) {
+                actions.push(html);
+            }
+        });
+
+    return `
+        <article class="history-card history-card--standalone${/incident|accident|injury|near miss/i.test(type) ? " is-incident" : ""}">
+            <div class="history-card__top">
+                <strong class="history-card__type">${escapeHtml(type)}</strong>
+                <span class="history-card__meta">${escapeHtml([person, formatSavedLabel(record.created_at)].filter(Boolean).join(" · "))}</span>
+            </div>
+            ${job ? `<div class="history-card__job">${escapeHtml(job)}</div>` : ""}
+            ${details ? `<div class="history-card__details">${details}</div>` : ""}
+            ${status ? `<div class="history-card__status">${status}</div>` : ""}
+            ${actions.length ? `<div class="history-card__actions">${actions.join("")}</div>` : ""}
+        </article>
+    `;
+}
+
 function renderInspectionRows(filteredData) {
     const list = document.getElementById("inspectionList");
     inspectionRecords = filteredData;
-    list.className = "table-wrap jgc-table-wrap";
-    const dateHeading = isReportsView ? "Report Date" : "Inspection Date";
-    const typeHeading = isReportsView ? "Report" : "Inspection";
-    list.innerHTML = `
-        <table class="jgc-table">
-            <thead>
-                <tr>
-                    <th>Saved</th>
-                    <th>${dateHeading}</th>
-                    <th>${typeHeading}</th>
-                    <th>Completed By</th>
-                    <th>Details</th>
-                    <th>View</th>
-                    <th>Edit</th>
-                    <th>PDF</th>
-                    <th>Email</th>
-                    <th>Delete</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${filteredData.map((record) => `
-                    <tr>
-                        <td>${escapeHtml(formatDate(record.created_at))}</td>
-                        <td>${escapeHtml(formatDate(record.report_date || record.inspection_date))}</td>
-                        <td>${escapeHtml(record.report_type || record.inspection_type)}</td>
-                        <td>${escapeHtml(record.completed_by || record.worker_display_name || record.worker_name)}</td>
-                        <td>${buildDetails(record)}</td>
-                        <td>${renderInspectionViewCell(record)}</td>
-                        <td>${renderInspectionEditCell(record)}</td>
-                        <td>${renderInspectionPdfCell(record)}</td>
-                        <td>${renderInspectionEmailCell(record)}</td>
-                        <td>${renderInspectionDeleteCell(record)}</td>
-                    </tr>
-                `).join("")}
-            </tbody>
-        </table>
-    `;
+    list.className = "record-card-list";
+    list.innerHTML = filteredData.map(renderRecordCard).join("");
 }
 
 function buildEmailBodyFromRecord(record) {
