@@ -655,3 +655,47 @@ for(const identity of ['guest','staff'])test(`late ${identity} signs onto a Comp
  await expect(action).toHaveText('Already signed');await expect(action).toBeDisabled();
  await context.close();
 });
+
+// Release 1003: what people type survives an unexpected reload, and the JSA they were signing on to reopens.
+test('a reload keeps what a visitor typed and reopens their form; signing in clears it', async ({ page }) => {
+  const store = await open(page, 'guest');
+  await page.getByRole('button', { name: 'Visitor Login', exact: true }).click();
+  await page.getByLabel('Your name', { exact: true }).fill('Synthetic Visitor');
+  await page.locator('#visitorForm').getByLabel('Company', { exact: true }).fill('Synthetic Client Company');
+  await page.locator('#visitorEmail').fill('visitor@example.test');
+  await page.locator('#visitorSiteSignIn').uncheck();
+  await page.reload();
+  await expect(page.locator('#visitorGate')).toBeVisible(); await expect(page.locator('#loginOptions')).toBeHidden();
+  await expect(page.getByLabel('Your name', { exact: true })).toHaveValue('Synthetic Visitor');
+  await expect(page.locator('#visitorForm').getByLabel('Company', { exact: true })).toHaveValue('Synthetic Client Company');
+  await expect(page.locator('#visitorEmail')).toHaveValue('visitor@example.test');
+  await expect(page.locator('#visitorSiteSignIn')).not.toBeChecked();
+  await page.getByRole('button', { name: 'Continue to Job Board', exact: true }).click();
+  await expect(page.locator('#boardContent')).toBeVisible();
+  expect(store.calls.filter((c) => c.name === 'record_job_board_site_signin')).toHaveLength(0);
+  expect(await page.evaluate((token) => sessionStorage.getItem('jgcJobBoardSignInDraft:' + token), TOKEN)).toBeNull();
+});
+
+test('a reload keeps a staff email but never the password; Back stops the form reopening', async ({ page }) => {
+  await open(page, 'guest');
+  await page.locator('#staffLogin').click();
+  await page.locator('#staffEmail').fill('staff@example.test'); await page.locator('#staffPassword').fill('fixture-password-not-kept');
+  await page.reload();
+  await expect(page.locator('#staffGate')).toBeVisible();
+  await expect(page.locator('#staffEmail')).toHaveValue('staff@example.test'); await expect(page.locator('#staffPassword')).toHaveValue('');
+  expect(await page.evaluate(() => JSON.stringify(sessionStorage) + JSON.stringify(localStorage))).not.toContain('fixture-password-not-kept');
+  await page.locator('#staffCancel').click(); await page.reload();
+  await expect(page.locator('#loginOptions')).toBeVisible(); await expect(page.locator('#staffGate')).toBeHidden();
+});
+
+test('a reload reopens the JSA a visitor was signing on to; Back forgets it', async ({ page }) => {
+  await open(page, 'guest'); await visitorSignIn(page);
+  await page.locator(`[data-document-id="${DOCUMENT_ID}"]`).first().getByRole('button', { name: 'Sign on to JSA', exact: true }).click();
+  await expect(page.locator('#jsaSignOnPanel')).toBeVisible();
+  await page.reload();
+  await expect(page.locator('#jsaSignOnPanel')).toBeVisible(); await expect(page.locator('#boardContent')).toBeHidden();
+  await expect(page.locator('#jsaSignOnTitle')).toHaveText('Morning JSA – elevated work');
+  await page.locator('#jsaSignOnBack').click(); await expect(page.locator('#boardContent')).toBeVisible();
+  await page.reload();
+  await expect(page.locator('#boardContent')).toBeVisible(); await expect(page.locator('#jsaSignOnPanel')).toBeHidden();
+});

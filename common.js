@@ -526,6 +526,25 @@ if (document.readyState === "loading") {
   applyJgcTheme();
 }
 
+// A new Portal release must never reload a page someone is typing or signing on: the update then applies on
+// the next page they open. (Release 1003: Job Board visitors lost their sign-in details to these reloads.)
+let jgcPageHasInput = false;
+document.addEventListener("input", function() { jgcPageHasInput = true; }, true);
+document.addEventListener("change", function() { jgcPageHasInput = true; }, true);
+
+function hasJgcWorkInProgress() {
+  return jgcPageHasInput || Boolean(document.querySelector("dialog[open], [data-jgc-keep-open]:not([hidden])"));
+}
+
+// People who scan a Job Board, safety acknowledgement or equipment QR code without a Portal account do not
+// need the Portal's offline copy (about 870 files) downloaded to their phone.
+function isJgcPublicQrVisit() {
+  const page = getCurrentJgcPageName();
+  let signedIn = false;
+  try { signedIn = Boolean(localStorage.getItem("currentWorker")); } catch (error) { signedIn = false; }
+  return ["job-board.html", "acknowledge.html", "equipment-inspection.html"].includes(page) && !signedIn;
+}
+
 function activateJgcPwa() {
   if (!document.querySelector('link[rel="manifest"]')) {
     const manifest = document.createElement("link");
@@ -562,6 +581,8 @@ function activateJgcPwa() {
   if ("serviceWorker" in navigator && window.location.protocol.startsWith("http")) {
     window.addEventListener("load", function() {
       let refreshing = false;
+      // A page that opened without a worker is already up to date, so the first install does not reload it.
+      const hadController = Boolean(navigator.serviceWorker.controller);
 
       function askWorkerToActivate(worker) {
         if (worker) {
@@ -578,13 +599,17 @@ function activateJgcPwa() {
       }
 
       navigator.serviceWorker.addEventListener("controllerchange", function() {
-        if (refreshing) {
+        if (refreshing || !hadController || hasJgcWorkInProgress()) {
           return;
         }
 
         refreshing = true;
         window.location.reload();
       });
+
+      if (!hadController && isJgcPublicQrVisit()) {
+        return;
+      }
 
       navigator.serviceWorker.register("service-worker.js", { updateViaCache: "none" }).then(function(registration) {
         checkForUpdate(registration);
