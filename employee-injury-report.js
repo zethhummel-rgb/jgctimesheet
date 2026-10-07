@@ -110,6 +110,7 @@
     const record = collect();
     let acknowledgementFailed = false;
     try {
+      if (await isJgcSignedOut(client)) throw new Error(JGC_SIGNED_OUT_SAVE_MESSAGE);
       // Prepare the complete PDF before saving; a logo failure cannot leave a partial submission.
       const pdfHtml = await ui.html(record, "injury");
       status.textContent = "Saving injury report…";

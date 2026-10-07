@@ -41,6 +41,7 @@ async function submitAccidentReport(){
   const button=document.getElementById("saveAccidentReport");button.disabled=true;
   let acknowledgementFailed=false;
   try {
+    if(await isJgcSignedOut(supabaseClient))throw new Error(JGC_SIGNED_OUT_SAVE_MESSAGE);
     const pdfHtml=await JGCSafetyReport.html(record,"accident");
     setStatus("Saving accident report…");
     const {error}=await supabaseClient.from("accident_reports").insert(record);

@@ -1435,6 +1435,27 @@ async function signOutJgc(client) {
   window.location.href = "index.html";
 }
 
+// Forms save as the signed-in account (release 1002 removed anonymous saves). A page can stay open after the
+// login has quietly expired, so forms check first and say so plainly; the entries stay on the page.
+const JGC_SIGNED_OUT_SAVE_MESSAGE = "You're signed out, so this wasn't saved. Your entries are still here. Sign in to the Portal in a new tab, then come back and save again.";
+
+async function isJgcSignedOut(client) {
+  if (!client || !client.auth || navigator.onLine === false) {
+    return false;
+  }
+
+  try {
+    const { data, error } = await client.auth.getSession();
+    // A network failure is not a sign-out: the save reports its own connection error.
+    if (error) {
+      return !(error.name === "AuthRetryableFetchError" || error.status === 0);
+    }
+    return !(data && data.session);
+  } catch (error) {
+    return false;
+  }
+}
+
 function requireJgcWorker() {
   const worker = getCurrentWorkerRecord();
   const page = getCurrentJgcPageName();

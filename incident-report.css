@@ -140,7 +140,7 @@ button:hover {
     min-height: 20px;
     margin-top: 12px;
     font-weight: bold;
-    color: var(--jgc-color-danger-dark);
+    color: var(--jgc-color-text);
 }
 
 .small {

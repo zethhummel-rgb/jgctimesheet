@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "1001";
+const JGC_RELEASE_ID = "1002";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -451,8 +451,8 @@ const JGC_APP_SHELL = [
   "./portal-readability.css?v=2",
   "./safety-report-tools.js?v=1",
   "./safety-report-tools.css?v=1",
-  "./employee-injury-report.js?v=3",
-  "./accident-report.js?v=3",
+  "./employee-injury-report.js?v=4",
+  "./accident-report.js?v=4",
   "./estimating/assets/index-D4hAxtua.css",
   "./estimating/assets/purchase-order-pdf-CI2_EU5K.js",
   "./estimating/assets/proposal-pdf-Brr-FvCs.js",
@@ -710,7 +710,7 @@ const JGC_APP_SHELL = [
   "./daily-site-report.css?v=1",
   "./jsa-report.css?v=4",
   "./toolbox-talks-report.css?v=1",
-  "./incident-report.css?v=1",
+  "./incident-report.css?v=2",
   "./accident-report.css?v=2",
   "./employee-injury-report.css?v=3",
   "./reports-admin.css?v=3",
@@ -730,7 +730,7 @@ const JGC_APP_SHELL = [
   "./notification-settings-design-system.css?v=4",
   "./acknowledgement-design-system.css?v=3",
   "./login-design-system.css?v=12",
-  "./common.js?v=76",
+  "./common.js?v=77",
   "./admin-global-search.js?v=11",
   "./accounting-workbook.js?v=9",
   "./accounting-admin.js?v=14",
@@ -772,7 +772,7 @@ const JGC_APP_SHELL = [
   "./field-calculator.js?v=31",
   "./auth.js?v=9",
   "./login-session.js?v=2",
-  "./inspection-records.js?v=16",
+  "./inspection-records.js?v=17",
   "./inspection-mobile.css?v=3",
   "./inspection-mobile.js?v=6",
   "./manifest.json?v=7",
