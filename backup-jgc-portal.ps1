@@ -433,6 +433,29 @@ function Get-SupabaseStorageObjects($Url, $Key, $BucketName, $Prefix = "", $Visi
   return $objects.ToArray()
 }
 
+# A stored file's name decides where its copy is written, so it must stay inside the bucket's backup folder:
+# no "..", ".", empty or rooted parts, and no characters Windows treats specially (such as ":" or "\").
+function Resolve-StorageBackupPath($BucketDirectory, $ObjectPath) {
+  $segments = ([string]$ObjectPath).Split("/")
+  $invalid = [System.IO.Path]::GetInvalidFileNameChars()
+
+  foreach ($segment in $segments) {
+    if (-not $segment -or $segment -eq "." -or $segment -eq ".." -or $segment.IndexOfAny($invalid) -ge 0 -or
+        $segment.EndsWith(".") -or $segment.EndsWith(" ")) {
+      throw "Skipped a stored file with an unsafe name."
+    }
+  }
+
+  $root = [System.IO.Path]::GetFullPath($BucketDirectory).TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+  $targetPath = [System.IO.Path]::GetFullPath((Join-Path $BucketDirectory ($segments -join [System.IO.Path]::DirectorySeparatorChar)))
+
+  if (-not $targetPath.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Skipped a stored file with an unsafe name."
+  }
+
+  return $targetPath
+}
+
 function Backup-SupabaseStorageBucket($Url, $Key, $BucketName, $OutputDirectory) {
   $bucketDirectory = Join-Path $OutputDirectory $BucketName
   New-Item -ItemType Directory -Path $bucketDirectory -Force | Out-Null
@@ -444,8 +467,7 @@ function Backup-SupabaseStorageBucket($Url, $Key, $BucketName, $OutputDirectory)
 
   foreach ($object in $objects) {
     try {
-      $relativePath = $object.path -replace "/", [System.IO.Path]::DirectorySeparatorChar
-      $targetPath = Join-Path $bucketDirectory $relativePath
+      $targetPath = Resolve-StorageBackupPath -BucketDirectory $bucketDirectory -ObjectPath $object.path
       New-Item -ItemType Directory -Path (Split-Path -Parent $targetPath) -Force | Out-Null
       $encodedPath = Get-EncodedStoragePath $object.path
       $uri = "$Url/storage/v1/object/$([uri]::EscapeDataString($BucketName))/$encodedPath"

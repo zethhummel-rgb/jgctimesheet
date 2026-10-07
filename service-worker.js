@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "1004";
+const JGC_RELEASE_ID = "1005";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -730,7 +730,7 @@ const JGC_APP_SHELL = [
   "./notification-settings-design-system.css?v=4",
   "./acknowledgement-design-system.css?v=3",
   "./login-design-system.css?v=12",
-  "./common.js?v=79",
+  "./common.js?v=80",
   "./admin-global-search.js?v=11",
   "./accounting-workbook.js?v=9",
   "./accounting-admin.js?v=14",
@@ -769,7 +769,7 @@ const JGC_APP_SHELL = [
   "./field-calculator.css?v=18",
   "./calculator-engine.js?v=25",
   "./calculator-functions.js?v=28",
-  "./field-calculator.js?v=31",
+  "./field-calculator.js?v=32",
   "./auth.js?v=9",
   "./login-session.js?v=2",
   "./inspection-records.js?v=17",
@@ -1076,7 +1076,16 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
-  const targetUrl = new URL(event.notification.data && event.notification.data.url || "./home.html", self.location.origin).href;
+  // Only open a Portal page from a notification, never another site or a javascript:/data: address.
+  let targetUrl = new URL("home.html", self.registration.scope).href;
+  try {
+    const requested = new URL(event.notification.data && event.notification.data.url || "home.html", self.registration.scope);
+    if (requested.origin === self.location.origin) {
+      targetUrl = requested.href;
+    }
+  } catch (error) {
+    // Keep the Home page.
+  }
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {

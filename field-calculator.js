@@ -4,8 +4,6 @@
   const PREF_KEY = "jgc_field_calculator_preferences";
   const HISTORY_KEY = "jgc_field_calculator_history";
   const QUICK_PREF_KEY = "jgc_field_quick_calc_preferences";
-  const QUICK_PREF_REMOTE_KEY = "field_quick_calcs";
-  const QUICK_PREF_REMOTE_TABLE = "user_preferences";
   const SONO_BAG_YIELDS_FT3 = {
     "25kg": 0.424,
     "30kg": 0.5,
@@ -78,7 +76,6 @@
 
   let calculator;
   let quickPrefs = {};
-  let quickRemoteSaveTimer;
 
   function loadJson(key, fallback) {
     try {
@@ -160,71 +157,9 @@
     }
   }
 
-  function getSupabaseForQuickPrefs() {
-    try {
-      if (typeof getSupabaseClient === "function") {
-        return getSupabaseClient();
-      }
-      if (window.supabaseClient) {
-        return window.supabaseClient;
-      }
-    } catch (error) {
-      return null;
-    }
-    return null;
-  }
-
-  async function loadQuickPrefsRemote() {
-    const owner = getQuickPrefsOwner();
-    const client = getSupabaseForQuickPrefs();
-    if (!client || owner === "guest" || !navigator.onLine) {
-      return;
-    }
-    try {
-      const response = await client
-        .from(QUICK_PREF_REMOTE_TABLE)
-        .select("preferences")
-        .eq("user_key", owner)
-        .eq("preference_key", QUICK_PREF_REMOTE_KEY)
-        .maybeSingle();
-      if (!response.error && response.data && response.data.preferences) {
-      quickPrefs = Object.assign({}, quickDefaults(), quickPrefs, response.data.preferences);
-      applySonotubePrefs();
-      applyStairsPrefs();
-      calculateSonotube();
-      calculateStairs();
-      showQuickCalc(quickPrefs.lastTab || "main", false);
-      saveQuickPrefsLocal();
-    }
-    } catch (error) {
-      console.warn("Quick calculator remote preferences could not be loaded.", error);
-    }
-  }
-
-  async function saveQuickPrefsRemote() {
-    const owner = getQuickPrefsOwner();
-    const client = getSupabaseForQuickPrefs();
-    if (!client || owner === "guest" || !navigator.onLine) {
-      return;
-    }
-    try {
-      await client
-        .from(QUICK_PREF_REMOTE_TABLE)
-        .upsert({
-          user_key: owner,
-          preference_key: QUICK_PREF_REMOTE_KEY,
-          preferences: quickPrefs,
-          updated_at: new Date().toISOString()
-        }, { onConflict: "user_key,preference_key" });
-    } catch (error) {
-      console.warn("Quick calculator remote preferences could not be saved.", error);
-    }
-  }
-
+  // Quick-calculator preferences are kept on this device only.
   function scheduleQuickPrefsSave() {
     saveQuickPrefsLocal();
-    clearTimeout(quickRemoteSaveTimer);
-    quickRemoteSaveTimer = setTimeout(saveQuickPrefsRemote, 750);
   }
 
   function setInputValue(id, value) {
@@ -601,7 +536,6 @@
     }
 
     showQuickCalc(quickPrefs.lastTab || "main", false);
-    loadQuickPrefsRemote();
   }
 
   function getPortalBackDestination() {
