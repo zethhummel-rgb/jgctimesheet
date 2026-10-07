@@ -14,7 +14,7 @@ const USER_ID = 'eeeeeeee-eeee-4eee-eeee-eeeeeeeeeeee';
 const DOCUMENT_ID = 'ffffffff-ffff-4fff-ffff-ffffffffffff';
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto' }).format(new Date());
 const previousDate = '2026-09-30';
-const categoryValues = ['hs-documents', 'site-specific', 'jgc-policy', 'jsa', 'toolbox-talk', 'accident-incident', 'daily-report', 'permit', 'inspection', 'other'];
+const categoryValues = ['notice-of-project', 'hs-documents', 'site-specific', 'jgc-policy', 'jsa', 'toolbox-talk', 'accident-incident', 'daily-report', 'permit', 'inspection', 'other'];
 
 function session(identity) {
   const now = Math.floor(Date.now() / 1000);
@@ -402,14 +402,28 @@ test('scanned board presents three login choices and site attendance without gra
   expect(store.calls.filter(c=>c.name==='register_job_board_visit')).toHaveLength(0); const call=store.calls.find(c=>c.name==='record_job_board_site_signin');expect(call.args).toMatchObject({p_name:'Synthetic Delivery Driver',p_company:'Synthetic Delivery',p_reason:'Material delivery'});expect(call.args.p_submission_id).toMatch(/^[a-f0-9-]{36}$/);
 });
 
-test('five document sections start collapsed, retain expanded state and sort newest entries first without search',async ({page})=>{
+test('six document sections, Notice of Project first, start collapsed, retain expanded state and sort newest entries first without search',async ({page})=>{
   // Same-day reports sort by upload time, so give each row one (relative to today; a fixed date breaks once that day passes).
   const store=fixture('staff'); store.documentRows[0].created_at=today()+'T15:00:00Z';store.documentRows[1].created_at=previousDate+'T11:00:00Z';store.documentRows[3].created_at=today()+'T14:00:00Z';
   await install(page,store);await page.goto('/job-board.html?embedded=1#board='+TOKEN);await expect(page.locator('#boardContent')).toBeVisible();
-  const sections=page.locator('.board-category');await expect(sections).toHaveCount(5);expect(await sections.evaluateAll(nodes=>nodes.map(n=>n.open))).toEqual([false,false,false,false,false]);
-  expect(await sections.locator(':scope > summary').evaluateAll(nodes=>nodes.map(n=>n.firstChild.textContent))).toEqual(['Site Specific','Daily Reports','Daily Inspections','Daily Permits','JGC Policy']);
-  await sections.nth(1).locator(':scope > summary').click();await expect(page.locator('#dailyReportsList [data-period="today"] article').first()).toContainText('Morning JSA');await page.locator('#dailyReportsList .board-report-period').nth(1).locator('summary').click();await expect(page.locator('#dailyReportsList [data-period="previous"] article').first()).toContainText('Previous roof access');await page.locator('#boardRefresh').click();await expect(sections.nth(1)).toHaveAttribute('open','');await expect(page.locator('#documentSearch')).toHaveCount(0);
+  const sections=page.locator('.board-category');await expect(sections).toHaveCount(6);expect(await sections.evaluateAll(nodes=>nodes.map(n=>n.open))).toEqual([false,false,false,false,false,false]);
+  expect(await sections.locator(':scope > summary').evaluateAll(nodes=>nodes.map(n=>n.firstChild.textContent))).toEqual(['Notice of Project','Site Specific','Daily Reports','Daily Inspections','Daily Permits','JGC Policy']);
+  await sections.nth(2).locator(':scope > summary').click();await expect(page.locator('#dailyReportsList [data-period="today"] article').first()).toContainText('Morning JSA');await page.locator('#dailyReportsList .board-report-period').nth(1).locator('summary').click();await expect(page.locator('#dailyReportsList [data-period="previous"] article').first()).toContainText('Previous roof access');await page.locator('#boardRefresh').click();await expect(sections.nth(2)).toHaveAttribute('open','');await expect(page.locator('#documentSearch')).toHaveCount(0);
   await page.getByRole('tab',{name:'Create Todays Reports',exact:true}).click();await expect(page.locator('#createForms')).toBeVisible();
+});
+
+test('Notice of Project is an upload choice and has its own collapsed section on the board',async ({page,browser})=>{
+  const store=fixture('staff');store.documentRows.push({id:'00000000-0000-4000-8000-000000000010',title:'Notice of Project - 1001 Sydney St',category:'notice-of-project',report_date:previousDate,file_name:'Notice-of-Project.pdf',mime_type:'application/pdf',file_size:120000,status:'published',visibility:'public'});
+  await install(page,store);await page.goto('/job-board.html?embedded=1#board='+TOKEN);await expect(page.locator('#boardContent')).toBeVisible();
+  const section=page.locator('.board-category').first();
+  await expect(section).not.toHaveAttribute('open','');await expect(section.locator(':scope > summary')).toContainText('Notice of Project');await expect(section.locator(':scope > summary .board-section-count')).toHaveText('1');
+  await section.locator(':scope > summary').click();
+  const card=page.locator('#noticeOfProjectList article');await expect(card).toHaveCount(1);await expect(card).toContainText('Notice of Project - 1001 Sydney St');await expect(card.locator('.board-document-meta')).toContainText('Notice of Project');
+  await expect(card.getByRole('button',{name:'View',exact:true})).toBeVisible();await expect(card.getByRole('button',{name:'Sign on to JSA',exact:true})).toHaveCount(0);
+  await page.getByRole('tab',{name:'Create Todays Reports',exact:true}).click();await expect(page.locator('#uploadCategory option[value="notice-of-project"]')).toHaveText('Notice of Project');
+  // The office uploads it from the admin Job Board.
+  const admin=await browser.newPage();await open(admin,'admin');await admin.getByRole('tab',{name:'Upload',exact:true}).click();
+  await admin.locator('#uploadCategory').selectOption('notice-of-project');await expect(admin.locator('#uploadCategory')).toHaveValue('notice-of-project');await admin.close();
 });
 
 test('phone Email PDF passes a real PDF File to native sharing and permits cancellation',async ({page})=>{
@@ -431,9 +445,9 @@ function contrast(a,b){const luminance=c=>{const x=c.match(/[\d.]+/g).slice(0,3)
 for(const theme of ['light','dark']) for(const width of [390,1440]) test(`section descriptions and count contrast in scanned and admin board ${theme} ${width}`,async({page,context})=>{
   await page.setViewportSize({width,height:1000});await open(page,'staff',{theme});
   await page.locator('.board-category').evaluateAll(nodes=>nodes.forEach(n=>n.open=false));
-  await expect(page.locator('.board-category-description')).toHaveCount(5);
+  await expect(page.locator('.board-category-description')).toHaveCount(6);
   for(const badge of await page.locator('.board-section-count').all()){const colors=await badge.evaluate(e=>({text:getComputedStyle(e).color,bg:getComputedStyle(e).backgroundColor}));expect(contrast(colors.text,colors.bg)).toBeGreaterThanOrEqual(4.5);}
-  await expect(page.locator('.board-category-description').nth(2)).toBeVisible();await expect(page.locator('.board-category-description').nth(2)).toContainText('equipment QR');
+  await expect(page.locator('.board-category-description').nth(3)).toBeVisible();await expect(page.locator('.board-category-description').nth(3)).toContainText('equipment QR');
   const adminPage=await context.newPage();await adminPage.setViewportSize({width,height:1000});const {board}=await openNativeBoard(adminPage,theme);
   for(const badge of await board.locator('.board-section-count').all()){const colors=await badge.evaluate(e=>({text:getComputedStyle(e).color,bg:getComputedStyle(e).backgroundColor}));expect(contrast(colors.text,colors.bg)).toBeGreaterThanOrEqual(4.5);}
 });

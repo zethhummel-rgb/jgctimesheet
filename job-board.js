@@ -1,6 +1,7 @@
 (function () {
   'use strict';
   const CATEGORIES = [
+    ['notice-of-project', 'Notice of Project'],
     ['hs-documents', 'H&S documentation'], ['site-specific', 'Site-specific safety'],
     ['jgc-policy', 'JGC policies'], ['jsa', 'Job safety analysis (JSA)'],
     ['toolbox-talk', 'Toolbox talks'], ['accident-incident', 'Accident / incident reports'],
@@ -194,6 +195,7 @@
     const sectionCount = list.parentElement.querySelector(':scope > summary .board-section-count'); if (sectionCount) sectionCount.textContent = list.querySelectorAll('article').length;
   }
   const SECTIONS = [
+    ['noticeOfProjectList', 'Notice of Project', ['notice-of-project'], 'The Notice of Project filed for this job, as posted on site.'],
     ['siteSpecificList', 'Site Specific', ['site-specific','hs-documents'], 'Safety plans, site hazards, emergency procedures and requirements for this job.'],
     ['dailyReportsList', 'Daily Reports', ['daily-report','jsa','toolbox-talk','accident-incident','other'], 'Daily site updates, job safety analyses (JSAs), toolbox talks and report photos. Restricted reports require authorized staff or client access.'],
     ['inspectionList', 'Daily Inspections', ['inspection'], 'Equipment and safety inspections completed for this job, including inspections submitted through equipment QR codes.'],
