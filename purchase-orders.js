@@ -8,6 +8,11 @@
   const RECEIPT_STORE = "receipts";
   const TEMP_BUCKET = "digital-po-temp";
   const EDITABLE_STATUSES = new Set(["draft", "assigned", "opened", "ready_to_submit"]);
+  // Weak signal: a PO is saved on this phone before anything is sent, so a slow or dropped connection never
+  // loses it. The page stops waiting after SLOW_SEND_MS (the send carries on) and retries while it is open.
+  const SLOW_SEND_MS = 20000;
+  const RETRY_EVERY_MS = 60000;
+  const sendsInFlight = new Map();
 
   const state = {
     db: null,
@@ -165,6 +170,25 @@
       elements.notice.scrollIntoView({ behavior: "smooth", block: "start" });
       elements.notice.focus({ preventScroll: true });
     });
+  }
+
+  // A dropped or too-weak connection, as opposed to the server refusing the PO.
+  function isConnectionProblem(error) {
+    if (navigator.onLine === false) return true;
+    if (!error) return false;
+    if (error.status === 0 || error.name === "AbortError" || error.name === "TimeoutError") return true;
+    const text = String(error.message || error).toLowerCase();
+    return /failed to fetch|load failed|networkerror|network request failed|network connection was lost|appears to be offline|timed out|lost its internet connection|tus: failed.*(progressevent|response code: n\/a)/.test(text);
+  }
+
+  // The PO is already on this phone: say so calmly instead of "failed".
+  function showWaitingToSend(draft, submitting) {
+    showNotice(formatPoNumber(draft.po.po_number) + " is saved on this phone. The signal is too weak to "
+      + (submitting ? "submit" : "sync") + " it right now; it will send automatically. Keep this page open, or open Purchase Orders again later.", "warning");
+  }
+
+  function wait(ms) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
   }
 
   function showPurchaseOrderList(tab) {
@@ -1644,7 +1668,17 @@
     return draft;
   }
 
-  async function syncDraft(id) {
+  // One send at a time per PO: a retry joins the send already under way instead of starting a second one.
+  function syncDraft(id) {
+    if (sendsInFlight.has(id)) {
+      return sendsInFlight.get(id);
+    }
+    const sending = syncDraftNow(id).finally(() => sendsInFlight.delete(id));
+    sendsInFlight.set(id, sending);
+    return sending;
+  }
+
+  async function syncDraftNow(id) {
     let draft = getDraft(id);
     if (!draft || !navigator.onLine) {
       return draft;
@@ -1698,6 +1732,7 @@
     state.syncing = true;
     updateSyncBadge();
     const failures = [];
+    const waiting = [];
     const discarded = [];
     const reconciled = [];
     try {
@@ -1714,6 +1749,8 @@
           if (isMissingPurchaseOrderError(error)) {
             await discardDeletedLocalDraft(draft);
             discarded.push(formatPoNumber(draft.po.po_number));
+          } else if (isConnectionProblem(error)) {
+            waiting.push(formatPoNumber(draft.po.po_number));
           } else {
             failures.push(formatPoNumber(draft.po.po_number) + ": " + (error.message || "Sync failed"));
           }
@@ -1729,11 +1766,18 @@
         if (reconciled.length) messages.push(reconciled.join(", ") + " updated to match the submitted portal record.");
         if (failures.length) messages.push(failures.join(" | "));
         showNotice(messages.join(" | "), failures.length ? "error" : "");
+      } else if (waiting.length) {
+        // Automatic retries stay quiet on a weak signal; the badge already shows what is waiting.
+        if (settings.showSuccess) showNotice(waiting.join(", ") + " saved on this phone and still waiting for a better signal.", "warning");
       } else if (settings.showSuccess) {
         showNotice("Purchase orders are synced.");
       }
     } catch (error) {
-      showNotice(error.message || "Purchase order sync failed.", "error");
+      if (!isConnectionProblem(error)) {
+        showNotice(error.message || "Purchase order sync failed.", "error");
+      } else if (settings.showSuccess) {
+        showNotice("The signal is too weak to sync right now. Saved purchase orders stay on this phone and will send automatically.", "warning");
+      }
     } finally {
       state.syncing = false;
       updateSyncBadge();
@@ -1773,9 +1817,37 @@
     }
   }
 
+  // A send that outlasted SLOW_SEND_MS: report how it ended without interrupting what the person is doing now.
+  async function finishLateSend(sending, draft, submitting) {
+    try {
+      await sending;
+      state.drafts = await idbGetAll(DRAFT_STORE);
+      await loadServerRecords();
+      if (!state.activeId) renderList();
+      showNotice(formatPoNumber(draft.po.po_number) + (submitting ? " submitted. It will email at 8:00 AM tomorrow." : " saved."));
+    } catch (error) {
+      if (!isConnectionProblem(error)) {
+        if (submitting) showSubmitError(error); else showNotice(error.message || "PO could not be saved.", "error");
+      }
+    } finally {
+      updateSyncBadge();
+    }
+  }
+
+  // Send now, but give up waiting on a weak signal: true when it finished, false when it is still going.
+  async function sendOrKeepWaiting(draft, submitting) {
+    const sending = syncDraft(draft.id);
+    const outcome = await Promise.race([sending.then(() => "sent"), wait(SLOW_SEND_MS).then(() => "slow")]);
+    if (outcome === "sent") return true;
+    showWaitingToSend(draft, submitting);
+    void finishLateSend(sending, draft, submitting);
+    return false;
+  }
+
   async function handleSave(event) {
     event.preventDefault();
     elements.saveButton.disabled = true;
+    let savedDraft = null;
     try {
       const activeRecord = state.activeId ? getRecord(state.activeId) : null;
       if (activeRecord && isPendingHandoff(activeRecord.po)) {
@@ -1786,10 +1858,10 @@
         await savePendingSubmissionChanges(activeRecord);
         return;
       }
-      const draft = await saveDraftLocally();
+      const draft = savedDraft = await saveDraftLocally();
       showNotice(navigator.onLine ? "Saving purchase order..." : formatPoNumber(draft.po.po_number) + " saved offline.");
       if (navigator.onLine) {
-        await syncDraft(draft.id);
+        if (!(await sendOrKeepWaiting(draft, false))) return;
         state.drafts = await idbGetAll(DRAFT_STORE);
         await loadServerRecords();
         showNotice(formatPoNumber(draft.po.po_number) + " saved.");
@@ -1799,7 +1871,11 @@
         elements.formStatusBadge.className = badgeClass("warning");
       }
     } catch (error) {
-      showNotice(error.message || "PO could not be saved.", "error");
+      if (savedDraft && isConnectionProblem(error)) {
+        showWaitingToSend(savedDraft, false);
+      } else {
+        showNotice(error.message || "PO could not be saved.", "error");
+      }
     } finally {
       elements.saveButton.disabled = false;
       updateSyncBadge();
@@ -1808,6 +1884,7 @@
 
   async function handleSubmit() {
     elements.submitButton.disabled = true;
+    let draft = null;
     try {
       const record = state.activeId ? getRecord(state.activeId) : null;
       if (record && !canSubmitPo(record.po)) {
@@ -1820,7 +1897,7 @@
       if (!confirm("Submit this purchase order? It will remain available for material changes by exact PO number and email at 8:00 AM tomorrow.")) {
         return;
       }
-      const draft = await saveDraftLocally({ submit: true });
+      draft = await saveDraftLocally({ submit: true });
       if (!navigator.onLine) {
         showNotice(formatPoNumber(draft.po.po_number) + " is pending sync and will submit when online.", "warning");
         showPurchaseOrderList("pending");
@@ -1828,12 +1905,19 @@
         return;
       }
       showNotice("Submitting " + formatPoNumber(draft.po.po_number) + "...");
-      await syncDraft(draft.id);
-      showNotice(formatPoNumber(draft.po.po_number) + " submitted. It will email at 8:00 AM tomorrow.");
+      if (await sendOrKeepWaiting(draft, true)) {
+        showNotice(formatPoNumber(draft.po.po_number) + " submitted. It will email at 8:00 AM tomorrow.");
+      }
       showPurchaseOrderList("pending");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
-      showSubmitError(error);
+      if (draft && isConnectionProblem(error)) {
+        showWaitingToSend(draft, true);
+        showPurchaseOrderList("pending");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        showSubmitError(error);
+      }
     } finally {
       elements.submitButton.disabled = false;
       updateSyncBadge();
@@ -2127,6 +2211,19 @@
         syncAll();
       }
     });
+    // Phones return to the app with visibilitychange rather than focus.
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && navigator.onLine && state.initialized) {
+        syncAll();
+      }
+    });
+    // While POs wait on this phone, keep trying in the background: a weak signal often recovers within minutes.
+    window.setInterval(() => {
+      const waiting = state.drafts.some((draft) => draft.dirty || draft.assignment_dirty || draft.pending_submit || draft.pending_cancel);
+      if (waiting && state.initialized && navigator.onLine && !document.hidden) {
+        syncAll();
+      }
+    }, RETRY_EVERY_MS);
   }
 
   function captureElements() {
