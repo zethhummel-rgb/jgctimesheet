@@ -5550,6 +5550,26 @@ test('JSA library presets are complete, categorised, unique and keep the origina
   // Every topic on the requested list has at least one task.
   const text=presets.map(p=>[p.category,p.task].join(' ').toLowerCase()).join('\n');
   for(const topic of ['ladder','scaffold','height','hand tools','power tools','knives','saw','grinding','silica','demolition','lifting','overhead','extension cords','hot work','trench','confined','concrete','whmis','vehicle','traffic','housekeeping','heat','cold','noise','spill','lockout','first aid','eyewash'])expect(text,topic).toContain(topic);
+  // Release 998 (Zeth): electrical and plumbing trade tasks.
+  const trade=category=>presets.filter(p=>p.category===category).map(p=>p.task);
+  expect(trade('Electrical trade work')).toEqual(expect.arrayContaining(['Pulling wire and cable','Panel and breaker work','Testing for absence of voltage','Light fixture installation and replacement']));
+  expect(trade('Plumbing & gas fitting')).toEqual(expect.arrayContaining(['Soldering and brazing copper pipe','Drain cleaning and sewer lines','Water heater replacement','Gas piping and appliance connections']));
+  expect(presets.find(p=>p.task==='Gas piping and appliance connections').controls[0]).toBe('Only licensed gas technicians install, alter or test gas piping and appliances');
+});
+
+test('JSA library shows the electrical and plumbing tasks and inserts one into the JSA',async({page})=>{
+  await installPreparedJsaMock(page);await page.goto('/jsa.html?prepared=new');await expect(page.locator('#jsaSaveDraft')).toBeEnabled();
+  await page.locator('#jsaLibrary summary').click();
+  for(const [category,task] of [['Electrical trade work','Panel and breaker work'],['Plumbing & gas fitting','Drain cleaning and sewer lines']]){
+    await page.locator('#jsaPresetCategory').selectOption(category);
+    await expect(page.locator('.jsa-preset-group h3')).toHaveText(category);
+    await expect(page.locator('.jsa-preset-group [data-preset]').filter({hasText:task})).toHaveCount(1);
+  }
+  await page.locator('[data-preset]').filter({hasText:'Drain cleaning and sewer lines'}).click();await page.locator('#jsaInsertPreset').click();
+  const row=page.locator('#tableBody tr').first();
+  await expect(row.getByLabel('Task / job step')).toHaveValue('Drain cleaning and sewer lines');
+  await expect(row.getByLabel('Hazards')).toHaveValue(/Sewage exposure and infection/);
+  await expect(row.getByLabel('Controls / PPE')).toHaveValue(/never loose cloth gloves/);
 });
 
 test('JSA library filters by category, merges admin custom tasks and inserts editable copies',async({page},testInfo)=>{
