@@ -8,7 +8,7 @@
 <title>Today's Inspections</title>
 <link rel="stylesheet" href="jgc-design-system.css?v=13" data-jgc-design-system="13">
 <link rel="stylesheet" href="inspection-history-today.css?v=2">
-<link rel="stylesheet" href="inspection-record-cards.css?v=1">
+<link rel="stylesheet" href="inspection-record-cards.css?v=2">
 <link rel="stylesheet" href="safety-signature-pad.css?v=3">
 <link rel="stylesheet" href="jsa-workers.css?v=1">
 </head>
@@ -708,13 +708,13 @@ async function loadInspections() {
 
     if (isReportsView) {
         try {
-            const reportRecords = await loadReportRecords(todayDate);
-            if (!reportRecords.length) {
+            const [reportRecords, preparedJsas] = await Promise.all([loadReportRecords(todayDate), loadTodayPreparedJsas()]);
+            if (!reportRecords.length && !preparedJsas.length) {
                 list.className = "empty";
                 list.textContent = "No reports are dated today.";
                 return;
             }
-            renderInspectionRows(reportRecords);
+            renderInspectionRows(reportRecords, preparedJsas);
         } catch (error) {
             list.className = "empty";
             list.textContent = "Could not load reports.";
@@ -828,11 +828,37 @@ function renderRecordCard(record) {
     `;
 }
 
-function renderInspectionRows(filteredData) {
+// JSAs the office prepared for today that nobody has activated yet. JGC staff can open and activate them; for
+// anyone else the list is simply empty.
+async function loadTodayPreparedJsas() {
+    try {
+        const { data, error } = await inspectionSupabaseClient.rpc("list_today_prepared_jsas");
+        return !error && Array.isArray(data) ? data : [];
+    } catch (_) {
+        return [];
+    }
+}
+
+function renderPreparedJsaCard(item) {
+    return `
+        <article class="history-card history-card--standalone is-prepared">
+            <div class="history-card__top">
+                <strong class="history-card__type">JSA</strong>
+                <span class="history-card__meta">${escapeHtml("Prepared by " + (item.prepared_by || "the office"))}</span>
+            </div>
+            ${item.project ? `<div class="history-card__job">${escapeHtml(item.project)}</div>` : ""}
+            ${item.location ? `<div class="history-card__details">Location: ${escapeHtml(item.location)}</div>` : ""}
+            <div class="history-card__status"><strong>Prepared for today</strong> · not active yet. Open it, choose today’s Workers Onsite, then Complete and Worker Sign Off.</div>
+            <div class="history-card__actions"><a class="jgc-button" href="jsa.html?prepared=${encodeURIComponent(item.id)}">Open and activate</a></div>
+        </article>
+    `;
+}
+
+function renderInspectionRows(filteredData, preparedJsas = []) {
     const list = document.getElementById("inspectionList");
     inspectionRecords = filteredData;
     list.className = "record-card-list";
-    list.innerHTML = filteredData.map(renderRecordCard).join("");
+    list.innerHTML = preparedJsas.map(renderPreparedJsaCard).join("") + filteredData.map(renderRecordCard).join("");
 }
 
 function buildEmailBodyFromRecord(record) {

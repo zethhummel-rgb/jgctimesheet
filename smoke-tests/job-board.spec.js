@@ -70,6 +70,7 @@ async function install(page, store, options = {}) {
     const board = () => ({ id: BOARD_ID, job_id: 'existing-estimator-job', job_number: '26132', job_name: '14815 County Road 2 – Site safety', address: 'South Stormont, Ontario', token: TOKEN, enabled: true, can_manage: manager, can_upload: canUpload, can_register_as_staff: canUpload, can_read_restricted: restricted, requires_visitor_signin: !validVisit && !manager, documents: manager ? store.documentRows : !validVisit ? [] : store.documentRows.filter((d) => d.status === 'published' && (d.visibility === 'public' || restricted)), viewers: manager ? [{ id: 'viewer-id', email: 'client@example.test' }] : [] });
     if (name === 'get_job_board' || name === 'get_or_create_job_board') return store.failBoard ? route.fulfill({ status: 403, json: { message: 'Board unavailable for this test' } }) : route.fulfill({ json: board() });
     if (name === 'register_job_board_visit') { if (!canUpload && (!args.p_name || !args.p_company || !args.p_email)) return route.fulfill({ status: 403, json: { message: 'Visitor name, company and email are required' } }); store.visit = VISIT; store.events.push({ id: 'visit-event', actor_name: canUpload ? 'Synthetic Site Staff' : args.p_name, actor_company: args.p_company, actor_email: canUpload ? store.auth.user.email : args.p_email, identity_type: canUpload ? 'staff' : 'visitor', action: 'visit', created_at: new Date().toISOString() }); return route.fulfill({ json: { visit_token: VISIT } }); }
+    if (name === 'list_today_prepared_jsas') return canUpload ? route.fulfill({ json: store.preparedJsas || [] }) : route.fulfill({ status: 403, json: { message: 'Sign in with your JGC account to see prepared JSAs' } });
     if (name === 'get_job_board_onsite_today') { if (!canUpload) return route.fulfill({ status: 403, json: { message: 'Sign in with your JGC account to see who is on site' } }); const people = new Map(); for (const e of store.events.filter(e => e.action === 'site-signin')) { const key = (e.actor_name + '|' + e.actor_company).toLowerCase(), p = people.get(key); if (p) { p.last_at = e.created_at; p.count++; } else people.set(key, { name: e.actor_name, company: e.actor_company, first_at: e.created_at, last_at: e.created_at, count: 1 }); } return route.fulfill({ json: { date: today(), people: [...people.values()] } }); }
     if (name === 'record_job_board_site_signin') { store.events.push({id:'site',action:'site-signin',actor_name:args.p_name,actor_company:args.p_company,reason:args.p_reason,created_at:new Date().toISOString()}); return route.fulfill({json:{ok:true,recorded_at:new Date().toISOString()}}); }
     if (name === 'get_job_board_jsa') {
@@ -518,6 +519,19 @@ test('signed-in staff can see who is on site today; visitors cannot',async({page
  expect(store.calls.find(c=>c.name==='get_job_board_onsite_today').args).toEqual({p_token:TOKEN});
  await page.locator('#onsiteClose').click();await expect(dialog).toBeHidden();
  const visitorPage=await browser.newPage();await open(visitorPage,'guest');await visitorSignIn(visitorPage);await expect(visitorPage.locator('#boardOnsite')).toBeHidden();await visitorPage.close();
+});
+
+test('staff see the JSA prepared for today in Todays Reports and can open it to activate; visitors do not',async({page,browser})=>{
+ const store=await open(page,'staff');store.preparedJsas=[{id:'00000000-0000-4000-8000-000000000099',work_date:today(),project:'26132 - Synthetic project',location:'North roof',prepared_by:'Synthetic Office'}];
+ await page.locator('#boardRefresh').click();await expect(page.locator('#boardContent')).toBeVisible();
+ const todayList=page.locator('#dailyReportsList [data-period="today"]'),card=todayList.locator('.board-prepared-jsa');
+ await expect(card).toHaveCount(1);await expect(todayList.locator('article').first()).toHaveClass(/board-prepared-jsa/);
+ await expect(card).toContainText('Prepared JSA for today');await expect(card).toContainText('26132 - Synthetic project');await expect(card).toContainText('Not active yet');await expect(card).toContainText('Prepared by Synthetic Office');
+ await expect(card.getByRole('link',{name:'Activate JSA',exact:true})).toHaveAttribute('href','jsa.html?prepared=00000000-0000-4000-8000-000000000099');
+ await expect(page.locator('#dailyReportsList .board-report-period').first().locator('summary .board-section-count')).toHaveText(String(await todayList.locator('article').count()));
+ expect(store.calls.filter(c=>c.name==='list_today_prepared_jsas').at(-1).args).toEqual({p_token:TOKEN});
+ const visitorPage=await browser.newPage();const visitor=await open(visitorPage,'guest');await visitorSignIn(visitorPage);
+ await expect(visitorPage.locator('.board-prepared-jsa')).toHaveCount(0);expect(visitor.calls.some(c=>c.name==='list_today_prepared_jsas')).toBe(false);await visitorPage.close();
 });
 
 test('JSA review shows actual PDF pages, zooms, and blocks signing until the PDF is ready',async({page})=>{

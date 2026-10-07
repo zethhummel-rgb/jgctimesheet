@@ -23,7 +23,7 @@ test("inspection records screens and Admin Safety Records use token-only visual 
     expect(css).not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
     expect(css).toContain("var(--jgc-color-");
     // Both pages draw saved records with the same shared card styles.
-    expect(source).toContain("inspection-record-cards.css?v=1");
+    expect(source).toContain("inspection-record-cards.css?v=2");
   }
   const cardCss = fs.readFileSync(path.join(portalRoot, "inspection-record-cards.css"), "utf8");
   expect(cardCss).not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
@@ -39,7 +39,7 @@ test("inspection records screens and Admin Safety Records use token-only visual 
   expect(safetyCss).toContain("var(--jgc-color-");
 
   const serviceWorker = fs.readFileSync(path.join(portalRoot, "service-worker.js"), "utf8");
-  for (const asset of ["inspection-history-today.css?v=2", "inspection-history-previous.css?v=4", "inspection-record-cards.css?v=1", "safety-records-admin.css?v=3", "admin.css?v=18"]) {
+  for (const asset of ["inspection-history-today.css?v=2", "inspection-history-previous.css?v=4", "inspection-record-cards.css?v=2", "safety-records-admin.css?v=3", "admin.css?v=18"]) {
     expect(serviceWorker).toContain(`"./${asset}"`);
   }
 });

@@ -83,7 +83,7 @@
   function dateLabel(value) { if (!value) return 'No report date'; const date = new Date(String(value).slice(0, 10) + 'T12:00:00Z'); return Number.isNaN(date.getTime()) ? String(value).slice(0, 10) : date.toLocaleDateString('en-CA', { timeZone: 'America/Toronto', month: 'short', day: 'numeric', year: 'numeric' }); }
   function timeLabel(value) { const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : d.toLocaleString('en-CA', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' }); }
   function bytes(value) { const n = Number(value || 0); return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n ? Math.ceil(n / 1024) + ' KB' : ''; }
-  async function rpc(name, args) { if (!state.client) throw new Error('The Portal connection is unavailable. Refresh and try again.'); const result = await state.client.rpc(name, args); if (result.error) throw result.error; const data = result.data; return Array.isArray(data) && data.length === 1 && name !== 'get_job_board_activity' && name !== 'list_job_board_sources' && name !== 'get_job_board_contacts' ? data[0] : data; }
+  async function rpc(name, args) { if (!state.client) throw new Error('The Portal connection is unavailable. Refresh and try again.'); const result = await state.client.rpc(name, args); if (result.error) throw result.error; const data = result.data; return Array.isArray(data) && data.length === 1 && name !== 'get_job_board_activity' && name !== 'list_job_board_sources' && name !== 'get_job_board_contacts' && name !== 'list_today_prepared_jsas' ? data[0] : data; }
   function storageKey() { return 'jgcJobBoardVisit:' + state.token; }
   function loadVisit() { try { const saved = JSON.parse(sessionStorage.getItem(storageKey()) || 'null'); return saved && saved.token && saved.userId === (state.user && state.user.id || '') ? saved : null; } catch (_) { return null; } }
   function saveVisit(data, label) { state.visit = { token: data.visit_token, userId: state.user && state.user.id || '', label: label || state.user && state.user.email || 'Visitor' }; try { sessionStorage.setItem(storageKey(), JSON.stringify(state.visit)); } catch (_) {} }
@@ -161,6 +161,37 @@
     if (board.can_upload) renderCreateForms();
     if (state.highlighted) highlightDocument();
     if (!state.manage && (state.user || state.visit)) void promptActiveJsa();
+    if (isStaffBoard()) void loadPreparedJsas(); else state.preparedJsas = [];
+  }
+  // JSAs the office prepared for today that are not active yet. Staff see them in Todays Reports and can open
+  // one in the Portal to choose today's Workers Onsite and activate it. Visitors never see drafts.
+  let preparedGeneration = 0;
+  async function loadPreparedJsas() {
+    const generation = ++preparedGeneration;
+    let items = [];
+    try { const data = await rpc('list_today_prepared_jsas', { p_token: state.token }); items = Array.isArray(data) ? data : []; } catch (_) { items = []; }
+    if (generation !== preparedGeneration) return;
+    state.preparedJsas = items; renderPreparedJsas();
+  }
+  function preparedJsaCard(item) {
+    const card = document.createElement('article'); card.className = 'jgc-record-row board-document board-prepared-jsa'; card.dataset.preparedId = item.id;
+    const icon = text('span', '', 'board-document-icon'); icon.setAttribute('aria-hidden', 'true'); const i = document.createElement('i'); i.dataset.lucide = 'clipboard-list'; icon.append(i);
+    const detail = document.createElement('div'); detail.append(text('h3', 'Prepared JSA for today', 'board-document-title'));
+    const meta = text('div', '', 'board-document-meta'); [item.project, item.location].filter(Boolean).forEach(value => meta.append(text('span', value)));
+    meta.append(text('span', 'Not active yet', 'jgc-badge jgc-badge--warning')); detail.append(meta);
+    detail.append(text('p', 'Prepared by ' + (item.prepared_by || 'the office') + '. Open it in the Portal, choose today’s Workers Onsite, then Complete and Worker Sign Off.', 'board-document-notes'));
+    const actions = text('div', '', 'board-document-actions'), open = document.createElement('a');
+    open.className = 'jgc-button'; open.textContent = 'Activate JSA'; open.href = 'jsa.html?prepared=' + encodeURIComponent(item.id); if (hosted) open.target = '_top';
+    actions.append(open); card.append(icon, detail, actions); return card;
+  }
+  function renderPreparedJsas() {
+    const list = $('dailyReportsList'), today = list?.querySelector('[data-period="today"]'); if (!today) return;
+    today.querySelectorAll('.board-prepared-jsa').forEach(card => card.remove());
+    const items = state.preparedJsas || [];
+    if (items.length) { today.querySelector(':scope > .jgc-empty-state')?.remove(); items.slice().reverse().forEach(item => today.prepend(preparedJsaCard(item))); if (window.lucide) window.lucide.createIcons(); }
+    else if (!today.children.length) empty(today, 'No reports for today.');
+    const periodCount = today.closest('.board-report-period')?.querySelector('summary .board-section-count'); if (periodCount) periodCount.textContent = today.querySelectorAll('article').length;
+    const sectionCount = list.parentElement.querySelector(':scope > summary .board-section-count'); if (sectionCount) sectionCount.textContent = list.querySelectorAll('article').length;
   }
   const SECTIONS = [
     ['siteSpecificList', 'Site Specific', ['site-specific','hs-documents'], 'Safety plans, site hazards, emergency procedures and requirements for this job.'],
@@ -194,6 +225,7 @@
         if(future.length){const section=text('details','','board-report-period'),summary=text('summary','Upcoming');summary.append(text('span',future.length,'jgc-badge board-section-count'));const records=text('div','','board-category-list');renderDocuments(records,future,'');section.append(summary,records);list.append(section);}
       } else renderDocuments(list,docs,id === 'policyList' ? 'The company safety policy is unavailable. Please contact the office.' : 'No published documents yet.');
     });
+    renderPreparedJsas();
   }
   let jsaReview = null, jsaReviewGeneration = 0;
   // Workers Onsite JSAs collect their listed workers' signatures on the creator phone; once Completed, anyone arriving late signs on here.
