@@ -176,11 +176,14 @@ function eventBody(event: ScheduleEvent, reminderLabel: string, reminderSentAt: 
   ].join("\n");
 }
 
-async function sendReminder(event: ScheduleEvent, creatorEmail: string, reminderLabel: string, reminderSentAt: Date) {
+// Reminders go to JGC people only: the admins, the event creator and tagged employees who have a Portal
+// account. Addresses typed onto an event are never emailed on their own (the reminder is not a relay).
+async function sendReminder(event: ScheduleEvent, creatorEmail: string, employeeEmails: Set<string>, reminderLabel: string, reminderSentAt: Date) {
   const recipients = uniqueEmails([
     ...ADMIN_EMAILS,
     creatorEmail,
-    ...(event.employee_emails || []),
+    ...(Array.isArray(event.employee_emails) ? event.employee_emails : [])
+      .filter((email) => employeeEmails.has(String(email || "").trim().toLowerCase())),
   ]);
 
   if (!recipients.length) {
@@ -211,6 +214,29 @@ async function sendReminder(event: ScheduleEvent, creatorEmail: string, reminder
   });
 }
 
+// Claim a reminder before sending it: of two overlapping runs only one gets the row, so nobody is emailed
+// twice. If the email cannot be sent, the claim is released for the next run.
+async function claimAndSend(supabase: any, event: ScheduleEvent, column: "one_day_reminder_sent_at" | "two_hour_reminder_sent_at", send: () => Promise<void>, now: Date) {
+  const stamp = now.toISOString();
+  const { data: claimed, error } = await supabase
+    .from("schedule_events")
+    .update({ [column]: stamp })
+    .eq("id", event.id)
+    .is(column, null)
+    .select("id");
+  if (error || !claimed || !claimed.length) {
+    return false;
+  }
+  try {
+    await send();
+    return true;
+  } catch (sendError) {
+    await supabase.from("schedule_events").update({ [column]: null }).eq("id", event.id).eq(column, stamp);
+    console.error("Schedule reminder could not be sent.", event.id, sendError);
+    return false;
+  }
+}
+
 Deno.serve(async () => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -239,6 +265,11 @@ Deno.serve(async () => {
     ? await supabase.from("profiles").select("id,email").in("id", creatorIds)
     : { data: [] as Profile[] };
   const profileEmailById = new Map((profiles || []).map((profile: Profile) => [profile.id, profile.email || ""]));
+  const { data: employeeProfiles } = await supabase
+    .from("profiles")
+    .select("email")
+    .in("account_status", ["approved", "limited"]);
+  const employeeEmails = new Set((employeeProfiles || []).map((profile: { email: string | null }) => String(profile.email || "").trim().toLowerCase()).filter(Boolean));
 
   let oneDaySent = 0;
   let twoHourSent = 0;
@@ -247,21 +278,13 @@ Deno.serve(async () => {
     const creatorEmail = event.created_by ? profileEmailById.get(event.created_by) || "" : "";
     const start = eventDateTime(event);
 
-    if (shouldSendTimedReminder(start, now, ONE_DAY_MS, event.one_day_reminder_sent_at)) {
-      await sendReminder(event, creatorEmail, "In 24 Hours", now);
-      await supabase
-        .from("schedule_events")
-        .update({ one_day_reminder_sent_at: now.toISOString() })
-        .eq("id", event.id);
+    if (shouldSendTimedReminder(start, now, ONE_DAY_MS, event.one_day_reminder_sent_at)
+      && await claimAndSend(supabase, event, "one_day_reminder_sent_at", () => sendReminder(event, creatorEmail, employeeEmails, "In 24 Hours", now), now)) {
       oneDaySent += 1;
     }
 
-    if (shouldSendTimedReminder(start, now, TWO_HOUR_MS, event.two_hour_reminder_sent_at)) {
-      await sendReminder(event, creatorEmail, "In 2 Hours", now);
-      await supabase
-        .from("schedule_events")
-        .update({ two_hour_reminder_sent_at: now.toISOString() })
-        .eq("id", event.id);
+    if (shouldSendTimedReminder(start, now, TWO_HOUR_MS, event.two_hour_reminder_sent_at)
+      && await claimAndSend(supabase, event, "two_hour_reminder_sent_at", () => sendReminder(event, creatorEmail, employeeEmails, "In 2 Hours", now), now)) {
       twoHourSent += 1;
     }
   }

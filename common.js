@@ -3735,18 +3735,16 @@ function formatJgcNotificationTime(value) {
   });
 }
 
+// Notification links open Portal pages (with an optional ?query or #fragment) or https addresses only; any
+// other link (javascript:, data:, ...) is ignored so it can never run in the Portal.
 function getJgcNotificationHref(value) {
-  const href = String(value || "").trim();
+  const href = String(value || "").trim().replace(/^\/+/, "");
 
-  if (!href) {
-    return "";
-  }
-
-  if (/^https?:\/\//i.test(href)) {
+  if (/^https:\/\/\S+$/i.test(href) || /^[A-Za-z0-9][A-Za-z0-9._\/-]*([?#]\S*)?$/.test(href)) {
     return href;
   }
 
-  return href.replace(/^\/+/, "");
+  return "";
 }
 
 function getJgcNotificationUuid(value) {
