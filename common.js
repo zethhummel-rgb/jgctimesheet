@@ -9,48 +9,18 @@ const JGC_PUSH_SENT_SESSION_IDS = new Set();
 const JGC_PUSH_IN_FLIGHT_IDS = new Set();
 const JGC_SCRIPT_LOAD_PROMISES = new Map();
 let jgcLoadedNotificationRecords = [];
-const JGC_SUBCONTRACTOR_ROLE = "subcontractor";
-const JGC_SUBCONTRACTOR_HOME_PAGE = "subcontractor.html";
+// Release 1001 retired the old Subcontractor Access sign-in, a device-only session with this role.
+// Subcontractors and visitors use each site's Job Board QR code instead.
+const JGC_RETIRED_SUBCONTRACTOR_ROLE = "subcontractor";
+clearJgcRetiredSubcontractorSession();
 const JGC_LIMITED_ACCESS_STATUS = "limited";
 const JGC_LIMITED_ACCESS_HOME_PAGE = "limited-access.html";
 const JGC_LIMITED_ACCESS_ALLOWED_PAGES = [
   "limited-access.html"
 ];
-const JGC_SUBCONTRACTOR_ALLOWED_PAGES = [
-  "subcontractor.html",
-  "acknowledge.html",
-  "equipment-inspection.html",
-  "reports.html",
-  "daily-site-report.html",
-  "jsa.html",
-  "toolbox-talks.html",
-  "incident-report.html",
-  "accident-report.html",
-  "employee-injury-report.html",
-  "inspections.html",
-  "aerial-lifts.html",
-  "forklift.html",
-  "harness.html",
-  "tele-handler.html",
-  "permits.html",
-  "hot-work-permit.html",
-  "confined-space-permit.html",
-  "excavation-permit.html",
-  "todays-inspections.html",
-  "policies-announcements.html",
-  "contacts.html",
-  "field-calculator.html"
-];
-const JGC_SUBCONTRACTOR_NAV_LINKS = [
-  { label: "Inspections", href: "inspections.html" },
-  { label: "Permits", href: "permits.html" },
-  { label: "Reports", href: "reports.html" },
-  { label: "Policies", href: "policies-announcements.html" },
-  { label: "Contacts", href: "contacts.html" }
-];
 const JGC_DESIGN_SYSTEM_VERSION = "14";
 const JGC_UPLOAD_SYSTEM_VERSION = "3";
-const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "10";
+const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "11";
 const JGC_THEME_PREFERENCE_TABLE = "portal_user_preferences";
 const JGC_THEME_STORAGE_KEY = "jgcPortalTheme";
 const JGC_THEME_ACCOUNT_STORAGE_PREFIX = "jgcPortalTheme:";
@@ -448,8 +418,7 @@ function applyJgcPortalName() {
     "job-lists.html": "Job Notes",
     "job-lists-admin.html": "Job Notes Admin",
     "diagnostics-admin.html": "Diagnostics",
-    "reports.html": "Reports",
-    "subcontractor.html": "Subcontractor Access"
+    "reports.html": "Reports"
   };
   const page = window.location.pathname.split("/").pop() || "index.html";
   const section = pageTitles[page];
@@ -1274,11 +1243,6 @@ async function recordJgcPortalActivity() {
     return;
   }
 
-  if (isJgcSubcontractorSession()) {
-    await recordJgcSubcontractorActivity("page_view");
-    return;
-  }
-
   const lastRecorded = Number(sessionStorage.getItem("jgcPortalActivityRecordedAt") || 0);
   const nowMs = Date.now();
 
@@ -1398,10 +1362,7 @@ function getCurrentWorkerRecord() {
     display: localStorage.getItem("currentWorkerDisplay") || key,
     email: localStorage.getItem("currentUserEmail") || "",
     role: localStorage.getItem("currentUserRole") || "worker",
-    status: localStorage.getItem("currentAccountStatus") || "",
-    company: localStorage.getItem("jgcSubcontractorCompany") || "",
-    phone: localStorage.getItem("jgcSubcontractorPhone") || "",
-    sessionId: localStorage.getItem("jgcSubcontractorSessionId") || ""
+    status: localStorage.getItem("currentAccountStatus") || ""
   };
 }
 
@@ -1421,19 +1382,9 @@ function getJgcAccountTypeLabel(role) {
   const labels = {
     admin: "Admin",
     supervisor: "Supervisor",
-    worker: "Employee",
-    subcontractor: "Subcontractor"
+    worker: "Employee"
   };
   return labels[normalizedRole] || "Employee";
-}
-
-function isJgcSubcontractorSession(worker) {
-  const record = worker || getCurrentWorkerRecord();
-  return record && record.role === JGC_SUBCONTRACTOR_ROLE;
-}
-
-function isJgcSubcontractorAllowedPage(page) {
-  return JGC_SUBCONTRACTOR_ALLOWED_PAGES.includes(page || "");
 }
 
 function isJgcLimitedAccessSession(worker) {
@@ -1449,46 +1400,30 @@ function getCurrentJgcPageName() {
   return window.location.pathname.split("/").pop() || "index.html";
 }
 
-function createJgcSessionId() {
-  if (window.crypto && typeof window.crypto.randomUUID === "function") {
-    return window.crypto.randomUUID();
-  }
-
-  return "sub-" + Date.now() + "-" + Math.random().toString(16).slice(2);
-}
-
-function setJgcSubcontractorSession(details) {
-  const contactName = String(details && details.contactName || "").trim().replace(/\s+/g, " ");
-  const companyName = String(details && details.companyName || "").trim().replace(/\s+/g, " ");
-  const email = String(details && details.email || "").trim().toLowerCase();
-  const phone = String(details && details.phone || "").trim();
-  const sessionId = createJgcSessionId();
-
-  localStorage.setItem("currentWorker", "subcontractor:" + email);
-  localStorage.setItem("currentWorkerDisplay", contactName + (companyName ? " - " + companyName : ""));
-  localStorage.setItem("currentUserEmail", email);
-  localStorage.setItem("currentUserRole", JGC_SUBCONTRACTOR_ROLE);
-  localStorage.setItem("currentAccountStatus", "approved");
-  localStorage.setItem("jgcSubcontractorCompany", companyName);
-  localStorage.setItem("jgcSubcontractorPhone", phone);
-  localStorage.setItem("jgcSubcontractorSessionId", sessionId);
-  localStorage.setItem("jgcStayLoggedIn", "true");
-  sessionStorage.setItem("jgcActiveSession", "true");
-
-  return getCurrentWorkerRecord();
-}
-
 function clearJgcSession() {
   localStorage.removeItem("currentWorker");
   localStorage.removeItem("currentWorkerDisplay");
   localStorage.removeItem("currentUserEmail");
   localStorage.removeItem("currentUserRole");
   localStorage.removeItem("currentAccountStatus");
+  // Left behind by the retired Subcontractor Access sign-in.
   localStorage.removeItem("jgcSubcontractorCompany");
   localStorage.removeItem("jgcSubcontractorPhone");
   localStorage.removeItem("jgcSubcontractorSessionId");
   localStorage.removeItem("jgcStayLoggedIn");
   sessionStorage.removeItem("jgcActiveSession");
+}
+
+// A device still holding a retired Subcontractor Access session is signed out, so pages treat it like any
+// signed-out visitor (the sign-in page points subcontractors to the Job Board QR code).
+function clearJgcRetiredSubcontractorSession() {
+  try {
+    if (localStorage.getItem("currentUserRole") === JGC_RETIRED_SUBCONTRACTOR_ROLE) {
+      clearJgcSession();
+    }
+  } catch (error) {
+    // Runs as common.js loads; blocked storage must not stop the rest of the file.
+  }
 }
 
 async function signOutJgc(client) {
@@ -1508,10 +1443,6 @@ function requireJgcWorker() {
     window.location.href = "index.html";
   }
 
-  if (isJgcSubcontractorSession(worker) && !isJgcSubcontractorAllowedPage(page)) {
-    window.location.href = JGC_SUBCONTRACTOR_HOME_PAGE;
-  }
-
   if (isJgcLimitedAccessSession(worker) && !isJgcLimitedAccessAllowedPage(page)) {
     window.location.href = JGC_LIMITED_ACCESS_HOME_PAGE;
   }
@@ -1519,13 +1450,9 @@ function requireJgcWorker() {
   return worker;
 }
 
-function enforceJgcSubcontractorAccess() {
+function enforceJgcLimitedAccessPages() {
   const worker = getCurrentWorkerRecord();
   const page = getCurrentJgcPageName();
-
-  if (isJgcSubcontractorSession(worker) && !isJgcSubcontractorAllowedPage(page) && page !== "index.html" && page !== "reset-password.html") {
-    window.location.href = JGC_SUBCONTRACTOR_HOME_PAGE;
-  }
 
   if (isJgcLimitedAccessSession(worker) && !isJgcLimitedAccessAllowedPage(page) && page !== "index.html" && page !== "reset-password.html") {
     window.location.href = JGC_LIMITED_ACCESS_HOME_PAGE;
@@ -1536,7 +1463,7 @@ async function refreshJgcAccountAccess() {
   const worker = getCurrentWorkerRecord();
   const page = getCurrentJgcPageName();
 
-  if (!worker.key || isJgcSubcontractorSession(worker) || page === "index.html" || page === "reset-password.html") {
+  if (!worker.key || page === "index.html" || page === "reset-password.html") {
     return;
   }
 
@@ -1610,77 +1537,12 @@ async function refreshJgcAccountAccess() {
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", function() {
-    enforceJgcSubcontractorAccess();
+    enforceJgcLimitedAccessPages();
     refreshJgcAccountAccess();
   });
 } else {
-  enforceJgcSubcontractorAccess();
+  enforceJgcLimitedAccessPages();
   refreshJgcAccountAccess();
-}
-
-function getJgcSubcontractorEmailPayloadExtras() {
-  const worker = getCurrentWorkerRecord();
-
-  if (!isJgcSubcontractorSession(worker)) {
-    return {};
-  }
-
-  return {
-    subcontractor_email: worker.email,
-    subcontractor_name: worker.display,
-    subcontractor_company: worker.company,
-    replyTo: worker.email,
-    additionalRecipients: worker.email ? [worker.email] : []
-  };
-}
-
-function withJgcSubcontractorEmailCopy(payload) {
-  return Object.assign({}, payload || {}, getJgcSubcontractorEmailPayloadExtras());
-}
-
-async function recordJgcSubcontractorActivity(action) {
-  const worker = getCurrentWorkerRecord();
-
-  if (!isJgcSubcontractorSession(worker) || !worker.email || !window.supabase) {
-    return;
-  }
-
-  const page = getCurrentJgcPageName();
-  const activityAction = action || "page_view";
-  const throttleKey = "jgcSubcontractorActivity:" + page + ":" + activityAction;
-  const lastRecorded = Number(sessionStorage.getItem(throttleKey) || 0);
-  const nowMs = Date.now();
-
-  if (activityAction === "page_view" && lastRecorded && nowMs - lastRecorded < 5 * 60 * 1000) {
-    return;
-  }
-
-  const client = createJgcSupabaseClient();
-
-  if (!client) {
-    return;
-  }
-
-  try {
-    const { error } = await client
-      .from("subcontractor_portal_activity")
-      .insert({
-        session_id: worker.sessionId || createJgcSessionId(),
-        contact_name: worker.display || "",
-        company_name: worker.company || "",
-        email: worker.email || "",
-        phone: worker.phone || "",
-        page,
-        action: activityAction,
-        user_agent: navigator.userAgent || ""
-      });
-
-    if (!error) {
-      sessionStorage.setItem(throttleKey, String(nowMs));
-    }
-  } catch (error) {
-    console.warn("Subcontractor activity could not be recorded.", error);
-  }
 }
 
 function isJgcAdminPageName(page) {
@@ -1952,7 +1814,7 @@ function activateGlobalTopNavigation() {
     { label: "Timesheets", href: "limited-access.html#timesheets" },
     { label: "Inspections", href: "limited-access.html#inspections" },
     { label: "Reports", href: "limited-access.html#reports" }
-  ] : (isJgcSubcontractorSession(workerRecord) ? JGC_SUBCONTRACTOR_NAV_LINKS : [
+  ] : [
     { label: "Timesheets", href: "timesheet.html" },
     { label: "Inspections", href: "inspections.html" },
     { label: "Certificates", href: "certificates.html" },
@@ -1967,7 +1829,7 @@ function activateGlobalTopNavigation() {
     { label: "Policies", href: "policies-announcements.html" },
     { label: "Contacts", href: "contacts.html" },
     { label: "Subs/Suppliers", href: "subcontractors-suppliers.html" }
-  ]);
+  ];
 
   const style = document.createElement("style");
   style.id = "jgcGlobalTopNavStyles";
@@ -2248,8 +2110,6 @@ function activateGlobalTopNavigation() {
     const worker = getCurrentWorkerRecord();
     window.location.href = isJgcLimitedAccessSession(worker)
       ? JGC_LIMITED_ACCESS_HOME_PAGE
-      : isJgcSubcontractorSession(worker)
-      ? JGC_SUBCONTRACTOR_HOME_PAGE
       : (isAdminWorker(worker.key, worker.role, worker.email) ? "admin.html?tab=summary" : "home.html");
   }
   nav.querySelector(".jgc-nav-home").addEventListener("click", goJgcHome);
@@ -2306,20 +2166,6 @@ function getJgcMobileNavItems() {
         { label: "Timesheets", href: "limited-access.html#timesheets", icon: "clock", tile: "timesheet.html" },
         { label: "Inspections", href: "limited-access.html#inspections", icon: "shield", tile: "inspections.html" },
         { label: "Reports", href: "limited-access.html#reports", icon: "report", tile: "reports.html" }
-      ],
-      more: []
-    };
-  }
-
-  if (isJgcSubcontractorSession()) {
-    return {
-      primary: [
-        { label: "Home", href: JGC_SUBCONTRACTOR_HOME_PAGE, icon: "home", home: true },
-        { label: "Reports", href: "reports.html", icon: "report" },
-        { label: "Inspect", href: "inspections.html", icon: "shield" },
-        { label: "Permits", href: "permits.html", icon: "permit" },
-        { label: "Policies", href: "policies-announcements.html", icon: "policy" },
-        { label: "Contacts", href: "contacts.html", icon: "phone" }
       ],
       more: []
     };
@@ -2646,8 +2492,6 @@ function activateMobileBottomNavigation() {
       const worker = getCurrentWorkerRecord();
       window.location.href = isJgcLimitedAccessSession(worker)
         ? JGC_LIMITED_ACCESS_HOME_PAGE
-        : isJgcSubcontractorSession(worker)
-        ? JGC_SUBCONTRACTOR_HOME_PAGE
         : (isAdminWorker(worker.key, worker.role, worker.email) ? "admin.html?tab=summary" : "home.html");
     });
   }
@@ -3461,7 +3305,7 @@ function shouldActivateJgcNotificationBell() {
   if (isJgcJobBoardTab()) return false;
   const page = getCurrentJgcPageName();
   const worker = getCurrentWorkerRecord();
-  return getJgcNotificationPages().includes(page) && worker && worker.key && !isJgcSubcontractorSession(worker);
+  return Boolean(getJgcNotificationPages().includes(page) && worker && worker.key);
 }
 
 function shouldActivateJgcAdminGlobalSearch() {
@@ -6498,9 +6342,8 @@ const JGC_PAGE_BAR_PAGES = {
   "confined-space-permit.html": { title: "Confined Space Entry Permit", subtitle: "Complete before anyone enters the space", icon: "warning", tone: "gold", hide: ["header.permit-page-header", "main > .container > h1"] },
   "excavation-permit.html": { title: "Excavation Permit", subtitle: "Complete before digging starts", icon: "warning", tone: "amber", hide: ["header.permit-page-header", "main > .container > h1"] },
 
-  // Home pages for limited and subcontractor accounts: the green Home tile, as on their tab bar.
-  "limited-access.html": { title: "Limited Access", subtitle: "Read-only view of your own records", icon: "home", tone: "green", hide: ["header.limited-hero"] },
-  "subcontractor.html": { title: "Subcontractor Portal", subtitle: "Submit project paperwork or review JGC safety information", icon: "home", tone: "green", hide: ["main > section.subcontractor-header"] }
+  // Home page for limited accounts: the green Home tile, as on their tab bar.
+  "limited-access.html": { title: "Limited Access", subtitle: "Read-only view of your own records", icon: "home", tone: "green", hide: ["header.limited-hero"] }
 };
 
 // Tile colours: [background, icon]. Neighbouring Home cards must not share a colour.

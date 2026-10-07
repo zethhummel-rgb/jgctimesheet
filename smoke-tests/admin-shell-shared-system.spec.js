@@ -18,7 +18,7 @@ test("main Admin shell uses one scoped token-only visual layer", async () => {
   expect(html).not.toMatch(/href=["']styles\.css/i);
   expect(html).not.toMatch(/\sstyle\s*=/i);
   expect(html).toContain('jgc-design-system.css?v=14');
-  expect(html).toContain('admin-shell-design-system.css?v=5');
+  expect(html).toContain('admin-shell-design-system.css?v=6');
   expect(html).toMatch(/<body\b[^>]*\bjgc-page\b[^>]*\bjgc-admin-shell-page\b/i);
   expect(html).toContain('id="summarySection" class="dashboard-summary"');
   expect(html).toContain('<nav class="dashboard-quick-actions" aria-label="Quick actions">');
@@ -47,11 +47,11 @@ test("main Admin shell uses one scoped token-only visual layer", async () => {
     expect(css).toContain("var(--jgc-color-");
   }
 
-  expect(common).toContain('const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "10";');
+  expect(common).toContain('const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "11";');
   expect(worker).toMatch(/const JGC_RELEASE_ID = "\d+";/);
-  expect(worker).toContain('"./admin-shell-design-system.css?v=5"');
+  expect(worker).toContain('"./admin-shell-design-system.css?v=6"');
   expect(worker).toContain('"./admin-global-search.css?v=10"');
-  expect(worker).toContain('"./admin-global-search.js?v=10"');
+  expect(worker).toContain('"./admin-global-search.js?v=11"');
   expect(worker).toContain('"./' + commonAsset[1] + '"');
 });
 

@@ -130,7 +130,7 @@
       const subject = "Employee Injury Report - " + record.employee_name + " - " + record.accident_date;
       await fetch("https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec", {
         method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(withJgcSubcontractorEmailCopy({ subject, body: subject + "\nLocation: " + record.accident_location + "\nSee attached full report.", text: subject, pdfHtml, pdfFileName: `JGC-Injury-${record.accident_date}.pdf`, source: "employee_injury_report" }))
+        body: JSON.stringify({ subject, body: subject + "\nLocation: " + record.accident_location + "\nSee attached full report.", text: subject, pdfHtml, pdfFileName: `JGC-Injury-${record.accident_date}.pdf`, source: "employee_injury_report" })
       });
       status.textContent = "Report saved. Email request sent; delivery cannot be confirmed here." + (acknowledgementFailed ? " Employee acknowledgement could not be created; contact an administrator." : "");
     } catch (error) {

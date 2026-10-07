@@ -207,16 +207,13 @@
             pdfFileName: subject.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") + ".pdf",
             source: "toolbox_talk_report"
         };
-        const finalPayload = typeof global.withJgcSubcontractorEmailCopy === "function"
-            ? global.withJgcSubcontractorEmailCopy(payload)
-            : payload;
 
         try {
             await global.fetch(EMAIL_SCRIPT_URL, {
                 method: "POST",
                 mode: "no-cors",
                 headers: { "Content-Type": "text/plain;charset=utf-8" },
-                body: JSON.stringify(finalPayload)
+                body: JSON.stringify(payload)
             });
 
             if (!settings.silent) {

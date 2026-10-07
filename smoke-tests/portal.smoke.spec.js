@@ -5779,7 +5779,7 @@ test('Dashboard saves layout, hides/restores widgets, resets, and preserves the 
 
 test('Dashboard approved default layout applies to new accounts and Reset while preserving personal layouts',async({page})=>{
  const state=await mockDashboard(page);await page.setViewportSize({width:1440,height:1100});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();
- const expected=[['jobs-stat',3,44,0,0],['quotes',3,44,3,0],['work-orders',3,44,6,0],['purchase-orders',3,44,9,0],['vacation',2,44,0,0],['equipment-expiry',2,44,2,0],['missing-timesheets',2,44,4,0],['calendar',6,574,0,64],['recent',6,310,6,0],['active-jobs',6,310,6,328],['subcontractors',4,280,0,652],['tasks',4,280,4,652],['announcements',4,280,8,652]];
+ const expected=[['jobs-stat',3,44,0,0],['quotes',3,44,3,0],['work-orders',3,44,6,0],['purchase-orders',3,44,9,0],['vacation',2,44,0,0],['equipment-expiry',2,44,2,0],['missing-timesheets',2,44,4,0],['calendar',6,574,0,64],['recent',6,310,6,0],['active-jobs',6,310,6,328],['job-board-signins',4,280,0,652],['tasks',4,280,4,652],['announcements',4,280,8,652]];
  const read=()=>page.locator('.dashboard-widget').evaluateAll(els=>els.map(e=>[e.dataset.widget,Number(e.style.getPropertyValue('--widget-width')),parseInt(e.style.getPropertyValue('--widget-height')),Number(e.style.getPropertyValue('--widget-x'))-1,Number(e.style.getPropertyValue('--widget-y'))-1]));
  expect(await read()).toEqual(expected);expect(state.writes).toHaveLength(0);
  for(const id of ['jobs-stat','quotes','work-orders','purchase-orders'])await expect(page.locator(`[data-widget="${id}"]`)).toBeHidden();
@@ -5932,16 +5932,26 @@ async function mockDashboardVisualRecords(page) {
  const jobs=clients.map((customer,i)=>({id:'visual-job-'+i,job_number:String(26999-i),customer,job_name:projects[i],active:true,job_type:i%2?'T&M':'Contract'}));
  await page.route(`${supabaseOrigin}/rest/v1/jobs*`,r=>r.fulfill({json:jobs}));
  await page.route(`${supabaseOrigin}/rest/v1/estimator_workspaces*`,r=>r.fulfill({json:{payload:{clients:clients.map((name,i)=>({id:'c'+i,name})),jobs:[],quotes:projects.map((project,i)=>({id:'q'+i,number:'JGC-Q-2026-00'+(50-i),clientId:'c'+i,project,status:i===4?'Draft':'Finished',updatedAt:'2026-09-22T12:00:00Z'}))}}}));
- await page.route(`${supabaseOrigin}/rest/v1/subcontractor_portal_activity*`,r=>r.fulfill({json:clients.slice(0,3).map((company_name,i)=>({id:'s'+i,company_name,action:['Submitted quote','Uploaded site document','Confirmed start date'][i],created_at:'2026-09-22T12:00:00Z'}))}));
+ await page.route(`${supabaseOrigin}/rest/v1/rpc/get_recent_job_board_signins`,r=>r.fulfill({json:clients.slice(0,3).map((actor_company,i)=>({id:'s'+i,actor_name:['Synthetic Visitor','Synthetic Electrician','Synthetic Foreman'][i],actor_company,action:i?'site-signin':'visit',identity_type:i===2?'staff':'visitor',job_number:jobs[i].job_number,job_name:jobs[i].job_name,created_at:'2026-09-22T12:00:00Z'}))}));
  await page.route(`${supabaseOrigin}/rest/v1/tasks*`,r=>r.fulfill({json:['Order synthetic material','Confirm concrete pour schedule','Review shop drawings','Follow up with painter'].map((title,i)=>({id:'t'+i,title,status:'open',priority:i?'normal':'high',due_date:'2026-09-23'}))}));
 }
 
-test('Dashboard restores subcontractor activity after a failed request',async({page})=>{
- await mockDashboard(page);let fail=true;
- await page.route(`${supabaseOrigin}/rest/v1/subcontractor_portal_activity*`,r=>r.fulfill(fail?{status:400,json:{message:'synthetic failure'}}:{json:[{id:'s',company_name:'Recovered Supplier',action:'Document updated',created_at:'2026-09-22T12:00:00Z'}]}));
- await page.goto('/admin.html?tab=summary');await expect(page.locator('[data-widget="subcontractors"]')).toContainText('Could not load this widget');
- fail=false;await page.locator('#dashboardRefresh').click();await expect(page.locator('.dashboard-sub-recent')).toContainText('Recovered Supplier');
- await expect(page.locator('#subcontractorActivityPanel')).toHaveCount(1);
+// Release 1001: Job Board Sign-ins replaced the retired Subcontractor Activity card, in the same place.
+test('Dashboard Job Board Sign-ins lists recent board sign-ins and recovers after a failed request',async({page})=>{
+ await mockDashboard(page,{layout:{version:2,widgets:[{id:'subcontractors',width:8,height:408,visible:true}]}});let fail=true;const calls=[];
+ await page.route(`${supabaseOrigin}/rest/v1/rpc/get_recent_job_board_signins`,r=>{calls.push(r.request().postDataJSON());return r.fulfill(fail?{status:400,json:{message:'synthetic failure'}}:{json:[
+  {id:'s1',action:'site-signin',actor_name:'Recovered Visitor',actor_company:'Synthetic Electric',identity_type:'visitor',job_number:'26147',job_name:'Generator roof',created_at:'2026-10-07T13:05:00Z'},
+  {id:'s2',action:'visit',actor_name:'',actor_email:'staff@example.com',actor_company:'',identity_type:'staff',job_number:'26150',job_name:'Office fit-up',created_at:'2026-10-07T12:00:00Z'}]});});
+ await page.goto('/admin.html?tab=summary');const card=page.locator('[data-widget="job-board-signins"]');
+ await expect(card.locator('h2')).toHaveText('Job Board Sign-ins');await expect(card).toContainText('Could not load this widget');
+ await expect(page.locator('[data-widget="subcontractors"], #subcontractorActivityPanel')).toHaveCount(0);
+ expect(await card.evaluate(e=>e.style.getPropertyValue('--widget-width'))).toBe('8');
+ fail=false;await page.locator('#dashboardRefresh').click();
+ const rows=card.locator('.dashboard-list li');await expect(rows).toHaveCount(2);
+ await expect(rows.nth(0).locator('a')).toHaveText('Recovered Visitor · Synthetic Electric');await expect(rows.nth(0).locator('a')).toHaveAttribute('href','estimating/?view=jobs&job=26147');
+ await expect(rows.nth(0).locator('small')).toContainText('Site sign-in · 26147 Generator roof · ');
+ await expect(rows.nth(1).locator('a')).toHaveText('staff@example.com');await expect(rows.nth(1).locator('small')).toContainText('Staff login · 26150 Office fit-up');
+ expect(calls.at(-1)).toEqual({p_limit:8});
 });
 
 test('Dashboard counts active jobs across pages and normalizes invalid layout',async({page})=>{

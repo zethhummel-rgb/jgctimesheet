@@ -80,8 +80,7 @@ function queueInspectionRecord(record, worker) {
         queuedAt: previous && previous.queuedAt ? previous.queuedAt : new Date().toISOString(),
         attempts: previous ? Number(previous.attempts || 0) : 0,
         lastAttemptAt: previous ? previous.lastAttemptAt || "" : "",
-        lastError: previous ? previous.lastError || "" : "",
-        emailAfterSync: Boolean(typeof isJgcSubcontractorSession === "function" && isJgcSubcontractorSession())
+        lastError: previous ? previous.lastError || "" : ""
     };
 
     if (existingIndex >= 0) {
@@ -111,8 +110,7 @@ function getCurrentWorker() {
         key: localStorage.getItem("currentWorker"),
         display: localStorage.getItem("currentWorkerDisplay") || localStorage.getItem("currentWorker"),
         email: localStorage.getItem("currentUserEmail") || "",
-        role: localStorage.getItem("currentUserRole") || "",
-        company: localStorage.getItem("jgcSubcontractorCompany") || ""
+        role: localStorage.getItem("currentUserRole") || ""
     };
 }
 
@@ -724,9 +722,8 @@ async function persistInspectionRecord(record) {
         return saved;
     }
     const submissionId = record && record.form_data ? record.form_data.offline_submission_id : "";
-    const isPublicCreator = typeof isJgcSubcontractorSession === "function" && isJgcSubcontractorSession();
 
-    if (submissionId && !isPublicCreator) {
+    if (submissionId) {
         const existingResult = await inspectionSupabaseClient
             .from("inspection_records")
             .select("*")
@@ -751,17 +748,13 @@ async function persistInspectionRecord(record) {
         record.id = makeInspectionRecordId();
     }
 
-    const insertQuery = inspectionSupabaseClient
+    const { data, error } = await inspectionSupabaseClient
         .from("inspection_records")
-        .insert(record);
-    const { data, error } = isPublicCreator
-        ? await insertQuery
-        : await insertQuery.select().single();
+        .insert(record)
+        .select()
+        .single();
 
     if (error) {
-        if (isPublicCreator && error.code === "23505") {
-            return record;
-        }
         throw error;
     }
 
@@ -773,9 +766,7 @@ async function persistInspectionRecord(record) {
 function getInspectionReturnPage() {
     const boardReturn = window.getJgcJobBoardReturnUrl && window.getJgcJobBoardReturnUrl();
     if (boardReturn) return boardReturn;
-    return (typeof isJgcSubcontractorSession === "function" && isJgcSubcontractorSession())
-        ? "inspections.html"
-        : "todays-inspections.html";
+    return "todays-inspections.html";
 }
 
 async function finishInspectionSave(savedRecord, fields) {
@@ -783,11 +774,6 @@ async function finishInspectionSave(savedRecord, fields) {
         ? await createJsaSafetyAcknowledgements(savedRecord, fields, { notifyPending: false })
         : [];
     savedRecord.safety_acknowledgements = safetyRows;
-
-    if (typeof isJgcSubcontractorSession === "function" && isJgcSubcontractorSession()) {
-        setInspectionSaveStatus("Inspection saved. Emailing PDF...");
-        await emailInspectionRecord(savedRecord);
-    }
 
     if (typeof showJsaSafetyQrAfterSave === "function" && showJsaSafetyQrAfterSave(savedRecord, safetyRows)) {
         setInspectionSaveStatus(typeof getJsaAfterSaveStatus === "function"
@@ -885,11 +871,7 @@ async function runPendingInspectionSync() {
                 await createJsaSafetyAcknowledgements(savedRecord, item.record && item.record.form_data ? item.record.form_data.fields || [] : []);
             }
 
-            if (item.emailAfterSync) {
-                await emailInspectionRecord(savedRecord, { silent: true });
-            }
-
-            queue = getInspectionOfflineQueue().filter((queuedItem) => queuedItem.localId !== item.localId);
+            queue =getInspectionOfflineQueue().filter((queuedItem) => queuedItem.localId !== item.localId);
             saveInspectionOfflineQueue(queue);
         } catch (error) {
             queue = getInspectionOfflineQueue();
@@ -959,7 +941,7 @@ async function emailInspectionRecord(record, options) {
             headers: {
                 "Content-Type": "text/plain;charset=utf-8"
             },
-            body: JSON.stringify(withJgcSubcontractorEmailCopy({
+            body: JSON.stringify({
                 subject,
                 body,
                 text: body,
@@ -968,7 +950,7 @@ async function emailInspectionRecord(record, options) {
                 inspectionDate: record.inspection_date || "",
                 completedBy: record.worker_display_name || record.worker_name || "",
                 pdfFileName: `inspection-${String(record.inspection_type || "inspection").toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${record.inspection_date || "record"}.pdf`
-            }))
+            })
         });
 
         if (!settings.silent) {

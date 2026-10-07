@@ -86,7 +86,7 @@
 </main>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-<script src="common.js?v=75"></script>
+<script src="common.js?v=76"></script>
 <script src="job-board-context.js?v=2"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
@@ -95,13 +95,6 @@ const currentWorker = normalizeWorkerName(worker.key);
 const currentWorkerDisplay = worker.display || worker.key;
 let myDailyReportsLoaded = false;
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
-
-if (isJgcSubcontractorSession(worker)) {
-    const grids = document.querySelectorAll(".reports-grid");
-    if (grids[0]) {
-        grids[0].querySelectorAll("[onclick*='previous-inspections']").forEach((button) => button.remove());
-    }
-}
 
 function formatDailyReportDate(value) {
     if (!value) {
@@ -117,7 +110,7 @@ function dailyReportLink(reportId, mode) {
 }
 
 async function handleMyDailyReportsToggle(section) {
-    if (!section.open || myDailyReportsLoaded || !supabaseClient || isJgcSubcontractorSession(worker)) {
+    if (!section.open || myDailyReportsLoaded || !supabaseClient) {
         return;
     }
 
