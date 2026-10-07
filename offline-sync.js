@@ -5,6 +5,7 @@
   let onlineMessageTimer = 0;
   let indicator = null;
   let indicatorText = null;
+  let indicatorLink = null;
   const loggedErrors = {};
 
   function normalizeState(source, detail) {
@@ -14,6 +15,9 @@
       pending: Math.max(0, Number(value.pending || 0)),
       status: String(value.status || "idle"),
       message: String(value.message || ""),
+      // Work that waits on another page (POs send from Purchase Orders) links there.
+      href: String(value.href || ""),
+      label: String(value.label || ""),
       updatedAt: new Date().toISOString()
     };
   }
@@ -23,7 +27,8 @@
     return {
       pending: entries.reduce((total, item) => total + Math.max(0, Number(item && item.pending || 0)), 0),
       syncing: entries.some((item) => item && item.status === "syncing"),
-      error: entries.find((item) => item && item.status === "error" && item.message)
+      error: entries.find((item) => item && item.status === "error" && item.message),
+      action: entries.find((item) => item && Number(item.pending) > 0 && item.href)
     };
   }
 
@@ -58,6 +63,19 @@
       .jgc-offline-status.is-visible { display: inline-flex; }
       .jgc-offline-status.is-warning { background: #74550d; }
       .jgc-offline-status.is-error { background: #a52a22; }
+      .jgc-offline-status.is-action { pointer-events: auto; gap: 10px; }
+      .jgc-offline-status__action {
+        display: inline-flex;
+        align-items: center;
+        min-height: 32px;
+        padding: 0 4px;
+        color: inherit;
+        font-weight: 800;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        white-space: nowrap;
+      }
+      .jgc-offline-status__action[hidden] { display: none; }
 
       @media (max-width: 800px) {
         .jgc-offline-status {
@@ -74,6 +92,11 @@
     indicator.setAttribute("aria-live", "polite");
     indicatorText = document.createElement("span");
     indicator.appendChild(indicatorText);
+    indicatorLink = document.createElement("a");
+    indicatorLink.className = "jgc-offline-status__action";
+    indicatorLink.textContent = "Send now";
+    indicatorLink.hidden = true;
+    indicator.appendChild(indicatorLink);
     document.body.appendChild(indicator);
   }
 
@@ -85,6 +108,8 @@
 
     const summary = getSummary();
     indicator.className = "jgc-offline-status";
+    indicatorLink.hidden = true;
+    indicatorLink.removeAttribute("href");
 
     if (navigator.onLine === false) {
       indicatorText.textContent = summary.pending
@@ -107,8 +132,16 @@
     }
 
     if (summary.pending) {
-      indicatorText.textContent = summary.pending + " item" + (summary.pending === 1 ? "" : "s") + " waiting to sync";
+      const action = summary.action;
+      indicatorText.textContent = action && action.label && action.pending === summary.pending
+        ? summary.pending + " " + action.label
+        : summary.pending + " item" + (summary.pending === 1 ? "" : "s") + " waiting to sync";
       indicator.classList.add("is-visible", "is-warning");
+      if (action) {
+        indicatorLink.href = action.href;
+        indicatorLink.hidden = false;
+        indicator.classList.add("is-action");
+      }
       return;
     }
 

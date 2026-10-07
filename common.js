@@ -659,13 +659,79 @@ function activateJgcOfflineSupport() {
 
   window.__jgcSyncStates = window.__jgcSyncStates || {};
   const script = document.createElement("script");
-  script.src = "offline-sync.js?v=2";
+  script.src = "offline-sync.js?v=3";
   script.async = true;
   script.dataset.jgcOfflineSync = "true";
   document.head.appendChild(script);
 }
 
 activateJgcOfflineSupport();
+
+// Purchase orders wait on this phone until the Purchase Orders page sends them (a weak signal, a closed app).
+// Other Portal pages show how many are waiting, with a link that sends them.
+function countJgcWaitingPurchaseOrders() {
+  return new Promise(function(resolve) {
+    let request = null;
+    try {
+      request = window.indexedDB ? window.indexedDB.open("jgc-digital-purchase-orders") : null;
+    } catch (error) {
+      request = null;
+    }
+    if (!request) {
+      resolve(0);
+      return;
+    }
+    // Never create the PO store from here: on a phone that has never used POs, cancel instead.
+    request.onupgradeneeded = function() { request.transaction.abort(); };
+    request.onerror = function() { resolve(0); };
+    request.onblocked = function() { resolve(0); };
+    request.onsuccess = function() {
+      const db = request.result;
+      try {
+        if (!db.objectStoreNames.contains("drafts")) {
+          db.close();
+          resolve(0);
+          return;
+        }
+        const all = db.transaction("drafts", "readonly").objectStore("drafts").getAll();
+        all.onsuccess = function() {
+          db.close();
+          resolve((all.result || []).filter(function(draft) {
+            return draft && (draft.pending_submit || draft.dirty || draft.pending_cancel || draft.assignment_dirty);
+          }).length);
+        };
+        all.onerror = function() { db.close(); resolve(0); };
+      } catch (error) {
+        db.close();
+        resolve(0);
+      }
+    };
+  });
+}
+
+async function remindJgcWaitingPurchaseOrders() {
+  const page = getCurrentJgcPageName();
+  const embedded = new URLSearchParams(window.location.search).get("embedded") === "1";
+  if (embedded || ["purchase-orders.html", "index.html", "reset-password.html", "job-board.html"].includes(page) || !getCurrentWorkerRecord().key) {
+    return;
+  }
+  const pending = await countJgcWaitingPurchaseOrders();
+  if (!pending) {
+    return;
+  }
+  const detail = { source: "purchase-orders", pending: pending, status: "idle", message: "", href: "purchase-orders.html", label: pending === 1 ? "purchase order waiting to send" : "purchase orders waiting to send" };
+  window.__jgcSyncStates = window.__jgcSyncStates || {};
+  window.__jgcSyncStates["purchase-orders"] = detail;
+  if (typeof window.reportJgcSyncState === "function") {
+    window.reportJgcSyncState("purchase-orders", detail);
+  }
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", remindJgcWaitingPurchaseOrders);
+} else {
+  remindJgcWaitingPurchaseOrders();
+}
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", activateJgcPwa);

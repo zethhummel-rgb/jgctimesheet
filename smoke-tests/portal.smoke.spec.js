@@ -4351,6 +4351,89 @@ test("purchase order submit feedback closes success and emphasizes failure", asy
   await expectNoRuntimeErrors(errors, "purchase order submission feedback");
 });
 
+// Release 1004: on a weak signal the PO is already saved on the phone, so the page says so calmly, keeps
+// trying while it is open, and other pages remind the person that a PO is waiting.
+async function openLowSignalPoPage(page, submitRoute) {
+  const poProfile = Object.assign({}, fakeProfile, { can_create_digital_pos: true });
+  await installAuthenticatedPortalState(page, poProfile);
+  await mockPortalServices(page, poProfile);
+  let savedOrder = null;
+  const calls = { submit: 0 };
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/digital_po_get_device_context`, (route) => route.fulfill({ json: {
+    registered: true, device_id: "00000000-0000-4000-8000-000000000101", device_status: "active", lease_expires_at: "2027-07-20T12:00:00.000Z",
+    blocks: [{ id: "00000000-0000-4000-8000-000000000102", range_start: 39000, range_end: 39009, next_number: 39000, status: "active" }]
+  } }));
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/digital_po_save_manual`, async (route) => {
+    savedOrder = Object.assign({}, route.request().postDataJSON().p_order, { revision: 1 });
+    await route.fulfill({ json: savedOrder });
+  });
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/digital_po_submit`, async (route) => {
+    calls.submit++;
+    await submitRoute(route, () => Object.assign({}, savedOrder, { workflow_status: "submitted", email_status: "pending", revision: 2 }), calls.submit);
+  });
+  page.on("dialog", (dialog) => dialog.accept());
+  await page.goto("/purchase-orders.html", { waitUntil: "domcontentloaded" });
+  await page.evaluate(() => { window.uploadJgcFile = async (options) => ({ data: { path: options.path, fullPath: `${options.bucket}/${options.path}` }, error: null }); });
+  await expect(page.locator("#poNewButton")).toBeEnabled();
+  await page.locator("#poNewButton").click();
+  await page.locator("#poManualJobName").fill("Smoke Test Project");
+  await page.locator("#poSupplierName").fill("Smoke Test Supplier");
+  await page.locator('[data-item-field="quantity_ordered"]').fill("1");
+  await page.locator('[data-item-field="description"]').fill("Smoke test material");
+  return calls;
+}
+
+test("a slow PO submit stops waiting after 20 seconds, says it is saved on this phone, then reports when it lands", async ({ page }) => {
+  await page.clock.install();
+  let release;
+  const released = new Promise((resolve) => { release = resolve; });
+  await openLowSignalPoPage(page, async (route, submitted) => { await released; await route.fulfill({ json: submitted() }); });
+  await page.locator("#poSubmitButton").click();
+  await expect(page.locator("#poNotice")).toContainText("Submitting PO-39000");
+  await page.clock.runFor(21000);
+  await expect(page.locator("#poNotice")).toContainText("PO-39000 is saved on this phone. The signal is too weak to submit it right now; it will send automatically.");
+  await expect(page.locator("#poNotice")).toHaveClass(/jgc-notice--warning/);
+  await expect(page.locator("#poNotice")).not.toHaveClass(/po-submit-error/);
+  await expect(page.locator('[data-po-list-tab="pending"]')).toHaveClass(/active/);
+  await expect(page.locator("#poList")).toContainText("PO-39000");
+  release();
+  await expect(page.locator("#poNotice")).toContainText("PO-39000 submitted. It will email at 8:00 AM tomorrow.");
+  await expect(page.locator("#poSyncBadge")).toHaveText("Synced");
+});
+
+test("a dropped connection keeps the PO on this phone and the open page sends it on the next minute's try", async ({ page }) => {
+  await page.clock.install();
+  const calls = await openLowSignalPoPage(page, async (route, submitted, count) => count === 1 ? route.abort("internetdisconnected") : route.fulfill({ json: submitted() }));
+  await page.locator("#poSubmitButton").click();
+  await expect(page.locator("#poNotice")).toContainText("PO-39000 is saved on this phone.");
+  await expect(page.locator("#poNotice")).not.toContainText("FAILED");
+  await expect(page.locator("#poSyncBadge")).toHaveText("1 pending");
+  await expect(page.locator("#poList")).toContainText("Pending Sync");
+  await page.clock.runFor(61000);
+  await expect(page.locator("#poSyncBadge")).toHaveText("Synced");
+  expect(calls.submit).toBe(2);
+});
+
+test("other pages show a PO waiting to send with a link to send it", async ({ page }) => {
+  await openLowSignalPoPage(page, (route) => route.abort("internetdisconnected"));
+  await page.locator("#poSubmitButton").click();
+  await expect(page.locator("#poSyncBadge")).toHaveText("1 pending");
+  await page.goto("/home.html", { waitUntil: "domcontentloaded" });
+  const pill = page.locator(".jgc-offline-status");
+  await expect(pill).toContainText("1 purchase order waiting to send");
+  await expect(pill.getByRole("link", { name: "Send now" })).toHaveAttribute("href", "purchase-orders.html");
+});
+
+test("the PO reminder never creates the PO store on a phone that has not used POs", async ({ page }) => {
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  await page.goto("/home.html", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => typeof countJgcWaitingPurchaseOrders === "function");
+  expect(await page.evaluate(() => countJgcWaitingPurchaseOrders())).toBe(0);
+  expect(await page.evaluate(async () => (await indexedDB.databases()).map((db) => db.name))).not.toContain("jgc-digital-purchase-orders");
+  await expect(page.locator(".jgc-offline-status__action")).toBeHidden();
+});
+
 test("purchase order sync reconciles a stale local draft with a submitted server record", async ({ page }) => {
   const poProfile = Object.assign({}, fakeProfile, { can_create_digital_pos: true });
   const errors = watchRuntimeErrors(page);
