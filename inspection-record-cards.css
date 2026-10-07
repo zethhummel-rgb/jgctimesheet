@@ -10,6 +10,11 @@
     box-shadow: inset 3px 0 0 var(--jgc-color-danger);
 }
 
+/* A JSA the office prepared for today that still needs someone on site to activate it. */
+.inspection-history-page .history-card.is-prepared {
+    box-shadow: inset 3px 0 0 var(--jgc-color-warning);
+}
+
 .inspection-history-page .history-card__top {
     display: flex;
     flex-wrap: wrap;

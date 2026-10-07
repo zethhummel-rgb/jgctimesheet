@@ -2081,6 +2081,28 @@ for (const theme of ["light", "dark"]) test(`today's reports are compact cards w
   await expectNoRuntimeErrors(errors, "today reports phone cards");
 });
 
+for (const theme of ["light", "dark"]) test(`a JSA prepared for today shows first in Today's Reports with Open and activate in ${theme}`, async ({ page }, testInfo) => {
+  const errors = watchRuntimeErrors(page);
+  const prepared = { id: "00000000-0000-4000-8000-000000000141", work_date: new Date().toISOString().slice(0, 10), project: "26142 - New Control Room - Washroom Facelift and Block Wall Removal", location: "1001 Sydney St, Cornwall", prepared_by: "Synthetic Office" };
+  await mockPortalServices(page, fakeProfile, { themePreferenceState: { theme, writes: [] } });
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/list_today_prepared_jsas`, (route) => route.fulfill({ status: 200, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify([prepared]) }));
+  await installAuthenticatedPortalState(page);
+  await page.addInitScript((value) => localStorage.setItem("jgcPortalTheme", value), theme);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/todays-inspections.html?recordType=reports", { waitUntil: "domcontentloaded" });
+  // No reports are saved yet today, so the prepared JSA must still be easy to find.
+  const card = page.locator("#inspectionList .history-card.is-prepared");
+  await expect(card).toHaveCount(1);
+  await expect(page.locator("#inspectionList")).not.toContainText("No reports are dated today");
+  await expect(card).toContainText("Prepared for today");
+  await expect(card.locator(".history-card__job")).toHaveText(prepared.project);
+  await expect(card).toContainText("Prepared by Synthetic Office");
+  await expect(card.getByRole("link", { name: "Open and activate", exact: true })).toHaveAttribute("href", `jsa.html?prepared=${prepared.id}`);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.locator("#inspectionList").screenshot({ path: testInfo.outputPath(`todays-prepared-jsa-${theme}.png`) });
+  await expectNoRuntimeErrors(errors, "today prepared JSA card");
+});
+
 test("today's inspection management actions are limited to creators and admins", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   const employeeProfile = {
@@ -5609,6 +5631,26 @@ test('JSA preparation requires admin and incomplete activation highlights requir
   await page.route(`${supabaseOrigin}/rest/v1/rpc/is_admin`,route=>route.fulfill({json:false}));
   await page.reload();await expect(page.locator('.container')).toContainText('approved administrators only');
   await expect(page.locator('#jsaSaveDraft')).toHaveCount(0);
+});
+
+test('on its work date JGC staff open the prepared JSA read-only and activate it with today’s workers',async({page})=>{
+  const state=await installPreparedJsaMock(page); await fillPreparedJsa(page);
+  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  await page.locator('#jsaField3').fill(today);await page.locator('#jsaSaveDraft').click();await expect(page.locator('#jsaDraftStatus')).toContainText('Draft saved');
+  const id=state.draft.id;
+  // Now a non-admin staff member on site opens it through get_prepared_jsa.
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/is_admin`,route=>route.fulfill({json:false}));
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/get_prepared_jsa`,route=>route.fulfill({json:state.draft}));
+  await page.goto('/jsa.html?prepared='+id);
+  await expect(page.locator('#jsaPreparationTitle')).toHaveText('Prepared JSA for today');await expect(page.locator('#jsaSaveDraft')).toBeHidden();
+  await expect(page.locator('#jsaField1')).toBeDisabled();await expect(page.locator('#tableBody textarea').first()).toHaveValue('Ladders');await expect(page.locator('#tableBody textarea').first()).toBeDisabled();
+  await expect(page.locator('#manualCrewInput')).toBeEnabled();await expect(page.locator('#crewSignOffCombined')).toHaveValue(/Synthetic trade worker/);
+  await expect(page.locator('#jsaActivate')).toBeEnabled();await page.locator('#jsaActivate').click();
+  await expect(page.locator('#jsaPreparationTitle')).toHaveText('Draft — Awaiting Worker Sign-Offs');await expect(page.locator('[data-jsa-worker-sign]')).toHaveCount(1);
+  expect(state.activations).toBe(1);expect(state.saves).toBe(1);
+  // Before the work date the page explains why it cannot open yet.
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/get_prepared_jsa`,route=>route.fulfill({status:403,json:{message:'JGC staff can open a prepared JSA on its work date. Ask the office to open it before then.'}}));
+  await page.goto('/jsa.html?prepared='+id);await expect(page.locator('.container')).toContainText('on its work date');
 });
 
 test('JSA PDF preserves long controls and existing signatures and clearly marks prepared copies',async({page},testInfo)=>{

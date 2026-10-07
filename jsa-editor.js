@@ -2,7 +2,9 @@
   "use strict";
   const $ = id => document.getElementById(id);
   const param = new URLSearchParams(location.search).get("prepared");
-  let draft = null, busy = false, admin = false, savedSnapshot = "";
+  // staffToday: a non-admin JGC staff member opened a prepared JSA on its work date. The office's wording is
+  // read-only for them; they choose today's Workers Onsite and activate it.
+  let draft = null, busy = false, admin = false, staffToday = false, savedSnapshot = "";
   const draftId = param && param !== "new" ? param : crypto.randomUUID();
   // The shared picker is a UI helper; the original input holds the actual job.
   // Do not serialize its "__manual__" option as a second Project / Job field.
@@ -116,9 +118,11 @@
     return true;
   }
   async function activate(mode) {
-    if (busy || !admin || !validate()) return;
+    if (busy || !(admin || staffToday) || !validate()) return;
     await run(async () => {
-      if (!draft || savedSnapshot !== snapshot()) await persist();
+      // Staff activate the office's saved draft as it is; only admins save edits first.
+      if (admin && (!draft || savedSnapshot !== snapshot())) await persist();
+      if (!draft) throw new Error("Save this prepared JSA before activating it.");
       const record = draft.payload.record;
       const entries=getJsaWorkerEntries();
       const attendees=entries.map(w=>({attendee_name:w.name,attendee_company:w.company,matched_employee_id:w.employee_id || null}));
@@ -148,13 +152,13 @@
     if (print && !target) { status("Allow the print preview window, or download the PDF to print it."); return; }
     await run(async () => {
       try {
-        if (!draft?.activated_at) await persist();
+        if (!draft?.activated_at && admin) await persist();
         const record = draft.activated_at ? jsaPostSaveRecord : draft.payload.record;
         const opts = { prepared: !draft.activated_at, acknowledgements: draft.activated_at ? jsaPostSaveRows : [] };
         const doc = await JgcJsaPdf.create(record, opts);
         if (print) { doc.autoPrint(); const url = doc.output("bloburl"); target.location.href = url; setTimeout(() => URL.revokeObjectURL(url), 300000); }
         else doc.save(`jsa-${draft.activated_at ? "" : "prepared-"}${record.inspection_date || "draft"}.pdf`);
-        status(draft.activated_at ? "Active JSA exported." : "Draft saved and exported. No worker signatures requested.");
+        status(draft.activated_at ? "Active JSA exported." : admin ? "Draft saved and exported. No worker signatures requested." : "Prepared JSA exported.");
       } catch (error) { if (target) target.close(); throw error; }
     });
   }
@@ -228,12 +232,23 @@
     admin = !result.error && result.data === true;
     $("jsaLibraryManage").hidden = !admin;
     if (!param) { $("jsaAdminEntry").hidden = !admin; return; }
-    if (!admin) { document.querySelector(".container").textContent = "Prepared JSAs are available to approved administrators only."; return; }
+    if (!admin && param === "new") { document.querySelector(".container").textContent = "Prepared JSAs are available to approved administrators only."; return; }
     await window.jsaCrewReady;
     if (param !== "new") {
-      const loaded = await inspectionSupabaseClient.from("jsa_preparations").select("*").eq("id", draftId).single();
+      // Admins read drafts directly. JGC staff open one through get_prepared_jsa, which allows it on the work date only.
+      const loaded = admin
+        ? await inspectionSupabaseClient.from("jsa_preparations").select("*").eq("id", draftId).single()
+        : await inspectionSupabaseClient.rpc("get_prepared_jsa", { p_id: draftId });
+      if (loaded.error && !admin) { document.querySelector(".container").textContent = loaded.error.message || "This prepared JSA can be opened by JGC staff on its work date."; return; }
       if (loaded.error) throw loaded.error;
       draft = loaded.data; restore(draft.payload);
+      staffToday = !admin;
+      if (staffToday && !draft.activated_at) {
+        $("jsaSaveDraft").hidden = true; $("jsaLibrary").hidden = true;
+        $("jsaPreparationTitle").textContent = "Prepared JSA for today";
+        $("jsaPreparationHelp").textContent = "Prepared by the office for today. Review it, choose today’s Workers Onsite, then press Complete and Worker Sign Off.";
+        document.querySelectorAll(".grid input, .grid select, .checklist input, #jsaTable textarea, #jsaTable button, .jsa-row-actions button").forEach(f => f.disabled = true);
+      }
       if (draft.activated_at) {
         const recordResult = await inspectionSupabaseClient.from("inspection_records").select("*").eq("id", draft.record_id).single();
         if (recordResult.error) throw recordResult.error;
