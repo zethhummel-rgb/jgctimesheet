@@ -26,14 +26,15 @@ function fixture(kind = 'complete') {
   if (kind === 'escaped') { b.wo.customer = 'A&B <Contractor>'; b.wo.description_of_work = '<script>not executable</script> & "quoted"'; b.rentals[0].notes = 'REFERENCE'.repeat(35); }
   return b;
 }
-function render(source, edge, b) {
+function render(source, edge, b, withoutBranding = false) {
   const code = source.slice(source.indexOf('function buildPdfRows('), source.indexOf('\nfunction buildWorkOrderEmailBody('));
-  const c = vm.createContext({getWorkOrderBundle: () => b,
+  const c = vm.createContext({getWorkOrderBundle: () => b, URL, window: {location: {href: 'http://127.0.0.1:41806/work-orders.html'}},
     escapeHtml: v => String(v ?? '').replace(/[&<>"']/g, x => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x])),
     moneylessNumber: v => Number.isFinite(Number(v || 0)) ? Number(v || 0).toFixed(2) : '0.00',
     formatDigitalPoNumber: v => 'PO-' + String(v || '').replace(/^PO-/i, ''),
     getStatusLabel: v => String(v || 'draft').replace(/\b\w/g, x => x.toUpperCase())});
   vm.runInContext(fs.readFileSync(path.join(root, 'work-order-pdf-branding.js'), 'utf8'), c);
+  if (withoutBranding) delete c.JgcWorkOrderPdfBranding;
   vm.runInContext(edge ? stripTypeScriptTypes(code) : code, c);
   return c.buildWorkOrderPdfHtml(edge ? b : b.wo.id);
 }
@@ -87,3 +88,15 @@ for (const edge of [false, true]) for (const kind of ['complete', 'empty', 'long
     }
   });
 }
+
+test('Work Order PDF still opens when the branding script is unavailable', async ({ page, baseURL }) => {
+  const b = fixture();
+  const source = fs.readFileSync(path.join(root, 'work-orders.html'), 'utf8');
+  const html = render(source, false, b, true).replaceAll('http://127.0.0.1:41806', baseURL);
+  await page.setContent(html);
+  await expect(page.locator('.brand img')).toBeVisible();
+  await expect.poll(() => page.locator('.brand img').evaluate(e => e.naturalWidth)).toBeGreaterThan(0);
+  await expect(page.locator('.summary')).toContainText(b.wo.wo_number);
+  await expect(page.locator('h2')).toHaveCount(10);
+  await expect(page.locator('.line')).toHaveText(['Supervisor Signature', 'Client Signature']);
+});
