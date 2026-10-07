@@ -813,6 +813,12 @@ async function saveInspection(type) {
             return;
         }
 
+        if (await isJgcSignedOut(inspectionSupabaseClient)) {
+            setInspectionSaveStatus(JGC_SIGNED_OUT_SAVE_MESSAGE);
+            alert(JGC_SIGNED_OUT_SAVE_MESSAGE);
+            return;
+        }
+
         try {
             const savedRecord = await persistInspectionRecord(prepared.record);
             await finishInspectionSave(savedRecord, prepared.fields);
