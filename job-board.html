@@ -17,7 +17,7 @@
   <meta name="theme-color" content="#0b5e3b">
   <title>Job Board · JGC Portal</title>
   <link rel="stylesheet" href="jgc-design-system.css?v=14" data-jgc-design-system="14">
-  <link rel="stylesheet" href="job-board.css?v=9">
+  <link rel="stylesheet" href="job-board.css?v=10">
   <link rel="stylesheet" href="safety-signature-pad.css?v=3">
 </head>
 <body class="job-board-page jgc-page jgc-system-page">
@@ -55,6 +55,19 @@
         <button class="jgc-button" id="visitorLogin" type="button">Visitor Login</button>
         <button class="jgc-button" id="staffLogin" type="button">Staff Login</button>
         <button class="jgc-button jgc-button--secondary" id="siteLogin" type="button">Site Sign in</button>
+      </div>
+      <!-- Site rules everyone sees before signing in. PPE icons follow the blue "must wear" safety-sign style. -->
+      <div class="board-site-rules">
+        <p class="jgc-notice jgc-notice--warning board-visitor-notice" id="boardVisitorNotice">All Visitors should report to Site Supervisor or Project Manager.</p>
+        <h3 class="board-ppe-title" id="boardPpeTitle">ALL PPE to be Worn At All Times</h3>
+        <ul class="board-ppe-list" aria-labelledby="boardPpeTitle">
+          <li><span class="board-ppe-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M10 31C10 22.5 16.2 16 24 16S38 22.5 38 31Z"/><rect class="board-ppe-cut" x="22" y="16" width="4" height="15"/><rect x="6" y="31" width="36" height="4.5" rx="2.25"/></svg></span><span class="board-ppe-name">Hardhats</span></li>
+          <li><span class="board-ppe-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M13 9h12v16l10 4c4 1.6 6 4 6 7v3H11V11a2 2 0 0 1 2-2Z"/><rect x="11" y="39" width="30" height="4" rx="1.5"/><path class="board-ppe-line" d="M31 28c3.6 1.6 5.6 4.6 5.6 11"/></svg></span><span class="board-ppe-name">Safety Shoes</span></li>
+          <li><span class="board-ppe-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="6.5" y="19" width="15" height="11.5" rx="5"/><rect x="26.5" y="19" width="15" height="11.5" rx="5"/><path class="board-ppe-band" d="M21 22.5c2-2 4-2 6 0M7 21 3.5 18M41 21l3.5-3"/></svg></span><span class="board-ppe-name">Safety Glasses</span></li>
+          <li><span class="board-ppe-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path class="board-ppe-band" d="M12.5 27a11.5 11.5 0 0 1 23 0"/><rect x="7.5" y="24" width="10" height="15" rx="4.5"/><rect x="30.5" y="24" width="10" height="15" rx="4.5"/></svg></span><span class="board-ppe-name">Hearing Protection<small>when required</small></span></li>
+          <li><span class="board-ppe-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="15" y="20" width="18" height="15" rx="4"/><rect x="15.5" y="10" width="4" height="14" rx="2"/><rect x="20.5" y="7.5" width="4" height="16" rx="2"/><rect x="25.5" y="8.5" width="4" height="15" rx="2"/><rect x="30" y="12.5" width="3.6" height="12" rx="1.8"/><rect x="9" y="19" width="4.2" height="12" rx="2.1" transform="rotate(-35 11 25)"/><rect x="15" y="35.5" width="18" height="6.5" rx="1.5"/></svg></span><span class="board-ppe-name">Proper Gloves<small>when required</small></span></li>
+          <li><span class="board-ppe-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M16 7l8 9 8-9 6.5 4-3 8.5V41h-23V19.5L9.5 11Z"/><rect class="board-ppe-cut" x="12.5" y="25" width="23" height="3"/><rect class="board-ppe-cut" x="12.5" y="32" width="23" height="3"/><path class="board-ppe-line" d="M24 16v25"/></svg></span><span class="board-ppe-name">Safety Vest<small>when required</small></span></li>
+        </ul>
       </div>
     </section>
     <section class="jgc-panel board-gate" id="siteGate" hidden aria-labelledby="siteTitle">
