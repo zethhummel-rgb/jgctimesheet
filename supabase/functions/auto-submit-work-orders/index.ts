@@ -1,3 +1,4 @@
+import "../../../work-order-pdf-branding.js";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 
 const TZ = "America/Toronto";
@@ -409,7 +410,7 @@ function buildOptionalPdfSection(title: string, rows: Record<string, any>[], hea
 
   return `
   <h2>${escapeHtml(title)}</h2>
-  <table>
+  <table class="pdf-table--${headers.length}">
     <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead>
     <tbody>${rows.map((row) => "<tr>" + cellsBuilder(row).map((cell) => "<td>" + escapeHtml(cell) + "</td>").join("") + "</tr>").join("")}</tbody>
   </table>`;
@@ -437,27 +438,14 @@ function buildWorkOrderPdfHtml(bundle: WorkOrderBundle) {
 <meta charset="UTF-8">
 <title>${escapeHtml(wo.wo_number || "Work Order")}</title>
 <style>
-  @page { size: letter; margin: 0.45in; }
-  body { font-family: Arial, sans-serif; color: #111; margin: 0; font-size: 12px; }
-  h1 { color: #0b5e3b; margin: 0; font-size: 25px; text-align: center; }
-  h2 { color: #0b5e3b; border-bottom: 2px solid #0b5e3b; padding-bottom: 3px; margin: 18px 0 8px; font-size: 16px; }
-  .brand { text-align: center; font-weight: bold; color: #0b5e3b; letter-spacing: 1px; margin-bottom: 8px; }
-  .summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; border: 2px solid #111; margin-top: 12px; }
-  .summary div { border: 1px solid #111; padding: 7px; min-height: 30px; }
-  .summary b { display: block; font-size: 10px; text-transform: uppercase; color: #333; margin-bottom: 2px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 8px; page-break-inside: auto; }
-  th, td { border: 1px solid #111; padding: 5px; vertical-align: top; }
-  th { background: #e9f2e8; color: #111; text-align: left; }
-  .description { border: 1px solid #111; min-height: 70px; padding: 8px; white-space: pre-wrap; }
-  .empty { color: #555; font-style: italic; }
-  .totals { font-weight: bold; background: #f3f7f2; }
-  .signatures { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-top: 34px; }
-  .line { border-top: 1px solid #111; padding-top: 5px; }
+${(globalThis as any).JgcWorkOrderPdfBranding.css}
 </style>
 </head>
 <body>
-  <div class="brand">JOHN GORDON CONSTRUCTION</div>
-  <h1>Work Order</h1>
+  <div class="pdf-header">
+    <div class="brand"><img src="${(globalThis as any).JgcWorkOrderPdfBranding.logo}" alt="">JOHN GORDON CONSTRUCTION</div>
+    <h1>Work Order</h1>
+  </div>
   <div class="summary">
     <div><b>WO Number</b>${escapeHtml(wo.wo_number || "")}</div>
     <div><b>Date</b>${escapeHtml(wo.work_order_date || "")}</div>
@@ -473,7 +461,7 @@ function buildWorkOrderPdfHtml(bundle: WorkOrderBundle) {
   <div class="description">${escapeHtml(wo.description_of_work || "")}</div>
 
   <h2>Labour</h2>
-  <table>
+  <table class="labour-table">
     <thead><tr><th>Employee</th><th>Hours</th></tr></thead>
     <tbody>
       ${buildPdfRows(labour, "No labour rows entered.", (row) => [row.employee_name || "", moneylessNumber(row.hours)])}
