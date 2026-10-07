@@ -5,7 +5,6 @@ const DESKTOP = { width: 1366, height: 900 };
 const ADMIN = { id: "00000000-0000-4000-8000-000000000094", email: "zeth@johngordonconstruction.com", name: "Zeth Hummel", key: "zeth hummel", role: "admin" };
 const EMPLOYEE = { id: "00000000-0000-4000-8000-00000000e001", email: "pat.framer@example.com", name: "Pat Framer", key: "pat framer", role: "worker" };
 const LIMITED = { id: "00000000-0000-4000-8000-00000000e002", email: "sam.reed@example.com", name: "Sam Reed", key: "sam reed", role: "worker", status: "limited" };
-const SUBCONTRACTOR = { id: "00000000-0000-4000-8000-00000000e003", email: "lee@subtrade.example.com", name: "Lee Subtrade", key: "lee subtrade", role: "subcontractor" };
 
 async function signIn(page, theme = "light", person = ADMIN) {
   const b64 = v => Buffer.from(JSON.stringify(v)).toString("base64url");
@@ -327,11 +326,10 @@ test("employee pages opened without signing in do not get a bar", async ({ page 
   await expect(page.locator("#jgcPageBar")).toHaveCount(0);
 });
 
-// Limited and subcontractor accounts land on their own home page: it gets the top bar and the page bar
+// Limited accounts land on their own home page: it gets the top bar and the page bar
 // (with the green Home tile of their tab bar) like every other page they can open.
 for (const [who, person, url, title, replaced, links] of [
-  ["Limited Access", LIMITED, "/limited-access.html", "Limited Access", ".limited-hero", ["Certificates", "Timesheets", "Inspections", "Reports"]],
-  ["Subcontractor home", SUBCONTRACTOR, "/subcontractor.html", "Subcontractor Portal", ".subcontractor-header", ["Inspections", "Permits", "Reports", "Policies", "Contacts"]]
+  ["Limited Access", LIMITED, "/limited-access.html", "Limited Access", ".limited-hero", ["Certificates", "Timesheets", "Inspections", "Reports"]]
 ]) {
   for (const viewport of [PHONE, DESKTOP]) {
     test(`${who} gets the top bar and the page bar at ${viewport.width}px`, async ({ page }) => {

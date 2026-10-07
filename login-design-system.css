@@ -300,17 +300,6 @@
       margin-bottom: 8px;
     }
 
-    .subcontractor-access-button {
-      margin-top: 18px;
-      background: color-mix(in srgb, var(--jgc-color-text) 6%, transparent);
-      border-color: color-mix(in srgb, var(--jgc-color-text) 28%, transparent);
-      color: var(--jgc-color-on-brand);
-    }
-
-    .subcontractor-access-button:hover {
-      background: color-mix(in srgb, var(--jgc-color-brand-400) 12%, transparent);
-    }
-
     .portal-share-qr {
       margin-top: 18px;
       padding: 14px;
@@ -342,56 +331,6 @@
       color: var(--muted);
       font-size: 13px;
       line-height: 1.35;
-    }
-
-    .subcontractor-overlay[hidden] {
-      display: none;
-    }
-
-    .subcontractor-overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 50;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      background: color-mix(in srgb, var(--jgc-color-page-deep) 72%, transparent);
-      backdrop-filter: blur(8px);
-    }
-
-    .subcontractor-panel {
-      width: min(760px, 100%);
-      max-height: min(88dvh, 760px);
-      overflow: auto;
-      border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 45%, transparent);
-      border-top: 5px solid var(--jgc-color-brand-500);
-      border-radius: 18px;
-      background: color-mix(in srgb, var(--jgc-color-surface) 98%, transparent);
-      box-shadow: 0 28px 80px color-mix(in srgb, var(--jgc-color-page-deep) 48%, transparent);
-      color: var(--jgc-color-on-brand);
-    }
-
-    .subcontractor-panel {
-      width: min(560px, 100%);
-    }
-
-    .subcontractor-panel-inner {
-      padding: 24px;
-    }
-
-    .subcontractor-panel h3 {
-      margin: 0 0 8px;
-      color: var(--jgc-color-brand-500);
-      font-size: 1.55rem;
-      text-align: left;
-    }
-
-    .subcontractor-status {
-      margin: 0;
-      color: var(--jgc-color-text-muted);
-      font-size: 0.92rem;
-      line-height: 1.4;
     }
 
     .small {
@@ -706,17 +645,6 @@ body.login-page.jgc-page {
   background: linear-gradient(135deg, var(--jgc-color-warning), color-mix(in srgb, var(--jgc-color-warning) 72%, var(--jgc-color-badge-warning)));
 }
 
-.login-page button.subcontractor-access-button.jgc-button {
-  margin-top: 18px;
-  color: var(--jgc-color-on-brand);
-  background: color-mix(in srgb, var(--jgc-color-text) 6%, transparent);
-  border-color: color-mix(in srgb, var(--jgc-color-text) 28%, transparent);
-}
-
-.login-page button.subcontractor-access-button.jgc-button:hover {
-  background: color-mix(in srgb, var(--jgc-color-brand-400) 12%, transparent);
-}
-
 :root[data-jgc-theme="light"] .login-page button.public-tool-button.jgc-button {
   color: var(--jgc-color-on-brand);
   background: var(--jgc-color-warning);
@@ -726,23 +654,12 @@ body.login-page.jgc-page {
   background: var(--jgc-color-warning);
 }
 
-:root[data-jgc-theme="light"] .login-page button.subcontractor-access-button.jgc-button {
-  color: var(--jgc-color-text);
-  background: var(--jgc-color-surface-soft);
-  border-color: var(--jgc-color-border);
-}
-
-:root[data-jgc-theme="light"] .login-page button.subcontractor-access-button.jgc-button:hover {
-  background: var(--jgc-color-surface-soft);
-}
-
 /* Light mode darkens the headline over the pale photo; the label above it follows. */
 :root[data-jgc-theme="light"] .login-page .portal-label {
   color: var(--jgc-color-text);
 }
 
-.login-page .status.jgc-notice,
-.login-page .subcontractor-status.jgc-notice {
+.login-page .status.jgc-notice {
   min-height: 18px;
   margin: 0;
   padding: 0;
@@ -808,42 +725,13 @@ body.login-page.jgc-page {
   text-align: center;
 }
 
-.login-page .subcontractor-overlay.jgc-modal {
-  z-index: 50;
-  display: flex;
-  padding: 24px;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--jgc-color-page-deep) 72%, transparent);
-  backdrop-filter: blur(8px);
-}
-
-.login-page .subcontractor-overlay.jgc-modal[hidden] {
-  display: none !important;
-}
-
-.login-page .subcontractor-panel.jgc-modal__dialog {
-  width: min(760px, 100%);
-  max-height: min(88dvh, 760px);
-  margin: 0;
-  padding: 0;
-  overflow: auto;
-  color: var(--jgc-color-on-brand);
-  background: color-mix(in srgb, var(--jgc-color-surface) 98%, transparent);
-  border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 45%, transparent);
-  border-top: 5px solid var(--jgc-color-brand-500);
-  border-radius: 18px;
-  box-shadow: 0 28px 80px color-mix(in srgb, var(--jgc-color-page-deep) 48%, transparent);
-}
-
-.login-page .subcontractor-panel.jgc-modal__dialog {
-  width: min(560px, 100%);
-}
-
-.login-page .subcontractor-status.jgc-notice {
-  color: var(--jgc-color-text-muted);
+/* Subcontractors and visitors sign in through each site's Job Board QR code. */
+.login-page .site-access-note.jgc-help-text {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 13px;
   line-height: 1.4;
-  text-align: left;
+  text-align: center;
 }
 
 @media (max-width: 940px) {
@@ -881,10 +769,6 @@ body.login-page.jgc-page {
   }
 }
 
-
-.login-page .login-signup-help {
-  margin: 0 0 var(--jgc-space-4);
-}
 
 /* Decorative, indeterminate activity: follows the existing session busy state. */
 .login-page .login-loader { display: none; width: 96px; margin: 18px auto 10px; color: var(--jgc-color-brand-400); }

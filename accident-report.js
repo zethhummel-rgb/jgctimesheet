@@ -53,7 +53,7 @@ async function submitAccidentReport(){
       try{const result=await supabaseClient.from("accident_report_acknowledgements").insert({accident_report_id:record.id,worker_name:injured.workerName,worker_display_name:injured.displayName});acknowledgementFailed=Boolean(result.error);}catch(_){acknowledgementFailed=true;}
     }
     const subject="Supervisor Accident Investigation - "+injured.displayName+" - "+record.accident_date;
-    await fetch(REPORT_EMAIL_SCRIPT_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(withJgcSubcontractorEmailCopy({subject,body:buildBody(record),text:buildBody(record),pdfHtml,pdfFileName:makeSafeFileName(subject)+".pdf",source:"accident_report"}))});
+    await fetch(REPORT_EMAIL_SCRIPT_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({subject,body:buildBody(record),text:buildBody(record),pdfHtml,pdfFileName:makeSafeFileName(subject)+".pdf",source:"accident_report"})});
     setStatus("Report saved. Email request sent; delivery cannot be confirmed here."+(acknowledgementFailed?" Employee acknowledgement could not be created; contact an administrator.":""));
   }catch(error){setStatus(savedAccidentReport?"Report saved, but the email request failed. Download the PDF to send it manually."+(acknowledgementFailed?" Employee acknowledgement also needs administrator attention.":""):error.message);}
   finally{savingAccidentReport=false;button.disabled=Boolean(savedAccidentReport);}

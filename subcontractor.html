@@ -9,64 +9,24 @@
   <link rel="stylesheet" href="jgc-design-system.css?v=14" data-jgc-design-system="14">
 </head>
 <body class="subcontractor-page jgc-page jgc-system-page">
-  <main class="page subcontractor-shell jgc-page-shell jgc-stack">
-    <section class="hero subcontractor-header jgc-page-header">
-      <div class="subcontractor-brand jgc-brand">
-        <img src="logo.webp" alt="John Gordon Construction">
-      </div>
-      <h1>Subcontractor Portal</h1>
-      <div id="subcontractorUser" class="jgc-page-user"></div>
-      <div class="subtitle jgc-muted">Use these links to submit project paperwork or review JGC safety information.</div>
-    </section>
-
-    <section class="portal-card jgc-panel">
-      <div class="quick-grid jgc-card-grid">
-        <button type="button" class="quick-card jgc-link-card" onclick="window.location.href='reports.html'">
-          <strong>Reports</strong>
-          <span>Daily site reports, JSA, incident/near miss, accident, and injury forms.</span>
-        </button>
-        <button type="button" class="quick-card jgc-link-card" onclick="window.location.href='inspections.html'">
-          <strong>Inspections</strong>
-          <span>Equipment and safety inspections available to project partners.</span>
-        </button>
-        <button type="button" class="quick-card jgc-link-card" onclick="window.location.href='permits.html'">
-          <strong>Permits</strong>
-          <span>Hot work, confined space, and excavation permit forms.</span>
-        </button>
-        <button type="button" class="quick-card jgc-link-card" onclick="window.location.href='policies-announcements.html'">
-          <strong>Policies</strong>
-          <span>Review active JGC policies and safety announcements.</span>
-        </button>
-        <button type="button" class="quick-card jgc-link-card" onclick="window.location.href='contacts.html'">
-          <strong>Contacts</strong>
-          <span>Find current JGC contacts for coordination and questions.</span>
-        </button>
-      </div>
-    </section>
-
-    <div class="actions jgc-actions jgc-actions--center">
-      <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Sign Out</button>
+  <!-- Release 1001 retired the old Subcontractor Access sign-in. This page stays for old bookmarks and
+       installed shortcuts; common.js clears any session that sign-in left on the device. -->
+  <main class="subcontractor-shell jgc-page-shell jgc-page-shell--narrow jgc-stack">
+    <div class="logo-wrap jgc-brand">
+      <img src="logo.webp" alt="John Gordon Construction">
     </div>
+
+    <section class="subcontractor-moved jgc-panel jgc-stack" aria-labelledby="subcontractorMovedTitle">
+      <h1 id="subcontractorMovedTitle" class="jgc-page-title">Subcontractor sign-in has moved</h1>
+      <p class="jgc-muted">Subcontractors and visitors now use the Job Board for their site. Scan the Job Board QR code posted on site to see site documents, sign onto the JSA and sign in to the site.</p>
+      <p class="jgc-help-text">Can't find the QR code? Ask the JGC supervisor on site.</p>
+      <div class="jgc-actions jgc-actions--stacked">
+        <a class="jgc-button" href="index.html">JGC employee sign-in</a>
+      </div>
+    </section>
   </main>
 
   <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-  <script src="common.js?v=75"></script>
-  <script>
-    const supabaseClient = createJgcSupabaseClient();
-    const worker = requireJgcWorker();
-
-    if (!isJgcSubcontractorSession(worker)) {
-      window.location.href = isAdminWorker(worker.key, worker.role, worker.email) ? "admin.html" : "home.html";
-    }
-
-    document.getElementById("subcontractorUser").textContent = [
-      worker.display || "Subcontractor",
-      worker.email || ""
-    ].filter(Boolean).join(" | ");
-
-    async function signOut() {
-      await signOutJgc(supabaseClient);
-    }
-  </script>
+  <script src="common.js?v=76"></script>
 </body>
 </html>

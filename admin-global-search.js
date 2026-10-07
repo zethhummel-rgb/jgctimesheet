@@ -39,7 +39,6 @@
     { key: "contacts", table: "contacts", activeOnly: true },
     { key: "subcontractors", table: "subcontractors_suppliers", activeOnly: true },
     { key: "supplierContacts", table: "subcontractor_supplier_contacts", activeOnly: true },
-    { key: "subcontractorActivity", table: "subcontractor_portal_activity" },
     { key: "tasks", table: "tasks" }
   ];
 
@@ -136,7 +135,6 @@
     { dataset: "contacts", category: "Contact", tab: "contacts", keywords: "contact company phone email", titleKeys: ["name", "company_name"], detailKeys: ["company", "role", "phone", "email"], dateKeys: ["updated_at", "created_at"] },
     { dataset: "subcontractors", category: "Subcontractor / Supplier", tab: "subcontractorsSuppliers", keywords: "subcontractor supplier rental service company contact", titleKeys: ["company_name", "name"], detailKeys: ["category", "phone", "email", "address"], dateKeys: ["updated_at", "created_at"] },
     { dataset: "supplierContacts", category: "Supplier Contact", tab: "subcontractorsSuppliers", keywords: "subcontractor supplier contact company phone email", titleKeys: ["contact_name", "name"], detailKeys: ["company_name", "role", "phone", "email"], dateKeys: ["updated_at", "created_at"] },
-    { dataset: "subcontractorActivity", category: "Subcontractor Activity", tab: "summary", keywords: "subcontractor activity portal company user", titleKeys: ["company_name", "subcontractor_name", "display_name"], detailKeys: ["activity_type", "page_name", "email"], dateKeys: ["created_at"] },
     { dataset: "tasks", category: "Task", tab: "tasks", keywords: "task assignment employee worker job follow up", titleKeys: ["title"], detailKeys: ["job_number", "job_name", "assigned_to_name", "status"], dateKeys: ["due_date", "completed_at", "created_at"] }
   ];
 

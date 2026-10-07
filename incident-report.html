@@ -128,7 +128,7 @@
 </main>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-<script src="common.js?v=75"></script>
+<script src="common.js?v=76"></script>
 <script src="job-board-context.js?v=2"></script>
 <script>
 const INCIDENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
@@ -337,14 +337,14 @@ async function emailIncidentReport(record) {
         method: "POST",
         mode: "no-cors",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(withJgcSubcontractorEmailCopy({
+        body: JSON.stringify({
             subject,
             body,
             text: body,
             pdfHtml: buildPdfHtml(record),
             pdfFileName: makeSafeFileName(subject) + ".pdf",
             source: "incident_report"
-        }))
+        })
     });
 }
 

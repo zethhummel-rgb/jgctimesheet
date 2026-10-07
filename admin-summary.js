@@ -236,7 +236,6 @@ function buildAdminGlobalSearchIndex() {
         { category: "Contact", records: contacts, tab: "contacts", keywords: "contact company phone email", titleKeys: ["name", "company_name"], detailKeys: ["company", "role", "phone", "email"], dateKeys: ["updated_at", "created_at"] },
         { category: "Subcontractor / Supplier", records: subcontractorSuppliers, tab: "subcontractorsSuppliers", keywords: "subcontractor supplier rental service company contact", titleKeys: ["company_name", "name"], detailKeys: ["category", "phone", "email", "address"], dateKeys: ["updated_at", "created_at"] },
         { category: "Supplier Contact", records: subcontractorSupplierContacts, tab: "subcontractorsSuppliers", keywords: "subcontractor supplier contact company phone email", titleKeys: ["contact_name", "name"], detailKeys: ["company_name", "role", "phone", "email"], dateKeys: ["updated_at", "created_at"] },
-        { category: "Subcontractor Activity", records: subcontractorActivity, tab: "summary", keywords: "subcontractor activity portal company user", titleKeys: ["company_name", "subcontractor_name", "display_name"], detailKeys: ["activity_type", "page_name", "email"], dateKeys: ["created_at"] },
         { category: "Task", records: adminGlobalSearchTasks, tab: "tasks", keywords: "task assignment employee worker job follow up", titleKeys: ["title"], detailKeys: ["job_number", "job_name", "assigned_to_name", "status"], dateKeys: ["due_date", "completed_at", "created_at"] }
     ];
 

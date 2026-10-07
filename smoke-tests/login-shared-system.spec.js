@@ -11,7 +11,7 @@ test("Login uses one token-only visual source", async () => {
 
   expect(html).not.toContain("styles.css");
   expect(html).toContain('jgc-design-system.css?v=14');
-  expect(html).toContain('login-design-system.css?v=11');
+  expect(html).toContain('login-design-system.css?v=12');
   expect(html).toMatch(/<body\b[^>]*\bjgc-page\b/i);
   expect(screenMarkup).not.toMatch(/<style\b/i);
   expect(screenMarkup).not.toMatch(/\sstyle\s*=/i);
@@ -23,7 +23,7 @@ test("Login uses one token-only visual source", async () => {
 
   const worker = fs.readFileSync(path.join(portalRoot, "service-worker.js"), "utf8");
   expect(worker).toMatch(/const JGC_RELEASE_ID = "\d+"/);
-  expect(worker).toContain('"./login-design-system.css?v=11"');
+  expect(worker).toContain('"./login-design-system.css?v=12"');
 });
 
 test("iPhone PWA uses an opaque status bar above the app controls", () => {
@@ -119,40 +119,10 @@ for (const viewport of [
     await page.goto("/index.html", { waitUntil: "domcontentloaded" });
 
     await expect(page.locator("html")).toHaveAttribute("data-jgc-theme", "light");
-    for (const selector of [".public-tool-button-top", ".subcontractor-access-button"]) {
-      await expect(page.locator(selector)).toBeVisible();
-      expect(await contrastRatio(page, selector), `${selector} must meet normal-text contrast`).toBeGreaterThanOrEqual(4.5);
-    }
+    const selector = ".public-tool-button-top";
+    await expect(page.locator(selector)).toBeVisible();
+    expect(await contrastRatio(page, selector), `${selector} must meet normal-text contrast`).toBeGreaterThanOrEqual(4.5);
 
-    await context.close();
-  });
-}
-
-for (const overlayId of ["subcontractorAccessOverlay"]) {
-  test(`${overlayId} remains contained and scrollable on phones`, async ({ browser }) => {
-    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, javaScriptEnabled: false });
-    const page = await context.newPage();
-    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
-    await page.locator(`#${overlayId}`).evaluate((overlay) => overlay.removeAttribute("hidden"));
-
-    const layout = await page.locator(`#${overlayId} .jgc-modal__dialog`).evaluate((dialog) => {
-      const overlay = dialog.closest(".jgc-modal");
-      const rect = dialog.getBoundingClientRect();
-      const dialogStyle = getComputedStyle(dialog);
-      return {
-        viewport: document.documentElement.clientWidth,
-        left: rect.left,
-        right: rect.right,
-        bottom: rect.bottom,
-        viewportHeight: window.innerHeight,
-        dialogOverflowY: dialogStyle.overflowY
-      };
-    });
-
-    expect(layout.left).toBeGreaterThanOrEqual(0);
-    expect(layout.right).toBeLessThanOrEqual(layout.viewport + 1);
-    expect(["auto", "scroll"]).toContain(layout.dialogOverflowY);
-    expect(layout.bottom).toBeLessThanOrEqual(layout.viewportHeight + 1);
     await context.close();
   });
 }

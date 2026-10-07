@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json?v=7" />
   <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=4" />
   <link rel="stylesheet" href="jgc-design-system.css?v=14" data-jgc-design-system="14" />
-  <link rel="stylesheet" href="login-design-system.css?v=11" />
+  <link rel="stylesheet" href="login-design-system.css?v=12" />
 </head>
 
 <body class="login-page jgc-page">
@@ -68,7 +68,6 @@
       <div id="loginStatus" class="status jgc-notice" role="status" aria-live="polite">Restoring your session…</div>
       <button id="loginRetry" type="button" class="jgc-button jgc-button--secondary" onclick="checkExistingSession()" hidden>Try again</button>
       <fieldset id="loginControls" class="login-controls" hidden disabled>
-      <button type="button" class="secondary subcontractor-access-button jgc-button jgc-button--secondary" onclick="openSubcontractorAccess()">Subcontractor Access</button>
       <h3>Welcome Back</h3>
       <p class="login-subtitle">Sign in to access your employee portal</p>
 
@@ -110,6 +109,8 @@
           <div class="small jgc-help-text">Use your real full name. This connects your account to your timesheets, certificates, and inspections.</div>
         </div>
       </div>
+
+      <p class="site-access-note jgc-help-text">Subcontractors and visitors: scan the Job Board QR code posted at your site to sign in.</p>
       </fieldset>
 
       <div class="portal-share-qr jgc-card" aria-label="JGC Portal QR code">
@@ -121,33 +122,8 @@
   </section>
 </main>
 
-<div id="subcontractorAccessOverlay" class="subcontractor-overlay jgc-modal" hidden onclick="closeSubcontractorAccess()">
-  <section class="subcontractor-panel jgc-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="subcontractorAccessTitle" onclick="event.stopPropagation()">
-    <div class="subcontractor-panel-inner">
-      <h3 id="subcontractorAccessTitle">Subcontractor Access</h3>
-      <p class="small login-signup-help">Enter your details so JGC can track portal use and include your email on submitted paperwork.</p>
-
-      <label class="jgc-label" for="subcontractorCompany">Company Name</label>
-      <input id="subcontractorCompany" class="jgc-input" maxlength="120" placeholder="Example: ABC Electrical" />
-
-      <label class="jgc-label" for="subcontractorName">Your Name</label>
-      <input id="subcontractorName" class="jgc-input" maxlength="80" placeholder="Example: Pat Smith" />
-
-      <label class="jgc-label" for="subcontractorEmail">Email</label>
-      <input id="subcontractorEmail" class="jgc-input" type="email" maxlength="254" placeholder="name@company.com" />
-
-      <label class="jgc-label" for="subcontractorPhone">Phone <span class="small">(optional)</span></label>
-      <input id="subcontractorPhone" class="jgc-input" maxlength="40" placeholder="Phone number" />
-
-      <button type="button" class="jgc-button" onclick="enterSubcontractorPortal()">Continue</button>
-      <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="closeSubcontractorAccess()">Cancel</button>
-      <p id="subcontractorAccessStatus" class="subcontractor-status jgc-notice" role="status" aria-live="polite"></p>
-    </div>
-  </section>
-</div>
-
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-<script src="common.js?v=75"></script>
+<script src="common.js?v=76"></script>
 <script src="auth.js?v=9"></script>
 <script src="employee-contacts.js?v=1"></script>
 <script>
@@ -184,66 +160,6 @@ function toggleCreateAccount() {
 
   panel.hidden = !isOpening;
   button.textContent = isOpening ? "Hide Create Account" : "Create Account";
-}
-
-function setSubcontractorAccessStatus(message) {
-  const status = document.getElementById("subcontractorAccessStatus");
-  if (status) {
-    status.textContent = message || "";
-  }
-}
-
-function openSubcontractorAccess() {
-  const overlay = document.getElementById("subcontractorAccessOverlay");
-  if (overlay) {
-    overlay.hidden = false;
-  }
-  setSubcontractorAccessStatus("");
-  setTimeout(() => {
-    const company = document.getElementById("subcontractorCompany");
-    if (company) {
-      company.focus();
-    }
-  }, 50);
-}
-
-function closeSubcontractorAccess() {
-  const overlay = document.getElementById("subcontractorAccessOverlay");
-  if (overlay) {
-    overlay.hidden = true;
-  }
-}
-
-async function enterSubcontractorPortal() {
-  const companyName = cleanDisplayName(document.getElementById("subcontractorCompany").value);
-  const contactName = cleanDisplayName(document.getElementById("subcontractorName").value);
-  const email = cleanLoginEmail(document.getElementById("subcontractorEmail").value);
-  const phone = cleanDisplayName(document.getElementById("subcontractorPhone").value);
-
-  if (!companyName || !contactName || !email) {
-    alert("Enter your company name, your name, and your email address.");
-    return;
-  }
-
-  if (!isValidDisplayName(contactName) || companyName.length < 2 || companyName.length > 120) {
-    alert("Enter a valid company and contact name.");
-    return;
-  }
-
-  if (!isValidLoginEmail(email)) {
-    alert("Enter a valid email address.");
-    return;
-  }
-
-  setSubcontractorAccessStatus("Opening subcontractor portal...");
-
-  if (supabaseClient) {
-    await supabaseClient.auth.signOut();
-  }
-  clearJgcSession();
-  setJgcSubcontractorSession({ companyName, contactName, email, phone });
-  await recordJgcSubcontractorActivity("login");
-  window.location.href = "subcontractor.html";
 }
 
 async function clearSession() {

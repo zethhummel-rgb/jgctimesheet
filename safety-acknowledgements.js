@@ -60,17 +60,6 @@ function safetyAckCreateToken() {
     return "ack-" + Date.now().toString(36) + "-" + Math.random().toString(16).slice(2);
 }
 
-function safetyAckCreateUuid() {
-    if (window.crypto && typeof window.crypto.randomUUID === "function") {
-        return window.crypto.randomUUID();
-    }
-
-    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
-        const random = Math.random() * 16 | 0;
-        return (character === "x" ? random : (random & 3 | 8)).toString(16);
-    });
-}
-
 function safetyAckFormatDateTime(value) {
     if (!value) {
         return "";
@@ -245,23 +234,6 @@ async function safetyAckSaveRows(client, rows, options) {
 
     const settings = options || {};
 
-    const isPublicCreator = typeof isJgcSubcontractorSession === "function" && isJgcSubcontractorSession();
-
-    if (isPublicCreator) {
-        const publicRows = rows.map((row) => ({
-            ...row,
-            id: row.id || safetyAckCreateUuid()
-        }));
-        const publicResult = await client
-            .from(SAFETY_ACK_TABLE)
-            .insert(publicRows);
-
-        return {
-            data: publicResult.error ? [] : publicRows,
-            error: publicResult.error
-        };
-    }
-
     const result = await client
         .from(SAFETY_ACK_TABLE)
         .upsert(rows, { onConflict: "record_type,record_id,attendee_key" })
@@ -399,8 +371,7 @@ function safetyAckGetCurrentWorker() {
         key,
         display: localStorage.getItem("currentWorkerDisplay") || key,
         email: localStorage.getItem("currentUserEmail") || "",
-        role: localStorage.getItem("currentUserRole") || "worker",
-        company: localStorage.getItem("jgcSubcontractorCompany") || ""
+        role: localStorage.getItem("currentUserRole") || "worker"
     };
 }
 
@@ -605,8 +576,8 @@ async function safetyAckSubmitCurrentWorker(client, config) {
         return { ok: true, message: "Acknowledgement saved.", row: data };
     }
 
-    const attendeeType = worker.role === "subcontractor" ? "external" : "employee";
-    const company = worker.company || (attendeeType === "employee" ? SAFETY_ACK_COMPANY_JGC : "");
+    const attendeeType = "employee";
+    const company = SAFETY_ACK_COMPANY_JGC;
     const attendeeName = worker.display || worker.key;
     const attendeeKey = safetyAckAttendeeKey(worker.email || worker.key || attendeeName, company);
     const rows = safetyAckBuildRowsForRecord({

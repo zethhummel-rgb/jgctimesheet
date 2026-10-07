@@ -36,12 +36,12 @@ test("Reports forms and embedded Admin Reports use centralized token-only stylin
   const reportsAdminCss = fs.readFileSync(path.join(portalRoot, "reports-admin.css"), "utf8");
   expect(adminSource).toContain('report-design-system.css?v=2');
   expect(adminSource).toContain('reports-admin.css?v=3');
-  expect(adminSource).toContain('admin.css?v=18');
+  expect(adminSource).toContain('admin.css?v=19');
   expect(adminCss).not.toMatch(/\.admin-report|\.admin-jsa-report/);
   expect(reportsAdminCss).not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
 
   const serviceWorker = fs.readFileSync(path.join(portalRoot, "service-worker.js"), "utf8");
-  for (const asset of ["report-design-system.css?v=2", ...reportForms.map((report) => `${report.css}?v=${({ "jsa.html": 4, "accident-report.html": 2, "employee-injury-report.html": 3 })[report.file] || 1}`), "reports-admin.css?v=3", "admin.css?v=18"]) {
+  for (const asset of ["report-design-system.css?v=2", ...reportForms.map((report) => `${report.css}?v=${({ "jsa.html": 4, "accident-report.html": 2, "employee-injury-report.html": 3 })[report.file] || 1}`), "reports-admin.css?v=3", "admin.css?v=19"]) {
     expect(serviceWorker).toContain(`"./${asset}"`);
   }
 });

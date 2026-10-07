@@ -9,7 +9,7 @@ const adminCorePath = path.join(portalRoot, "admin-core.js");
 function loadRetryHelpers() {
   const source = fs.readFileSync(adminCorePath, "utf8");
   const start = source.indexOf("const ADMIN_QUERY_RETRY_DELAYS_MS");
-  const end = source.indexOf("\nfunction renderSubcontractorActivity", start);
+  const end = source.indexOf("\nasync function loadAdminData", start);
   expect(start).toBeGreaterThan(-1);
   expect(end).toBeGreaterThan(start);
 

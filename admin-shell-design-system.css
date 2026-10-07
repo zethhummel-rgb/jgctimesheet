@@ -372,31 +372,6 @@
   background: var(--jgc-color-badge-success);
 }
 
-.jgc-admin-shell-page .subcontractor-activity-panel {
-  color: var(--jgc-color-text);
-  background: var(--jgc-color-surface-raised);
-  border-color: var(--jgc-color-border);
-}
-
-.jgc-admin-shell-page .subcontractor-activity-panel > summary,
-.jgc-admin-shell-page .subcontractor-company-name {
-  color: var(--jgc-color-brand-400);
-}
-
-.jgc-admin-shell-page .subcontractor-activity-count,
-.jgc-admin-shell-page .subcontractor-company-meta {
-  color: var(--jgc-color-text-muted);
-}
-
-.jgc-admin-shell-page .subcontractor-company-panel {
-  background: var(--jgc-color-surface-soft);
-  border-color: var(--jgc-color-border-soft);
-}
-
-.jgc-admin-shell-page .subcontractor-activity-table th {
-  background: var(--jgc-color-table-header);
-}
-
 /* Admin Tools. */
 .jgc-admin-shell-page .admin-tools-grid {
   gap: var(--jgc-space-3);

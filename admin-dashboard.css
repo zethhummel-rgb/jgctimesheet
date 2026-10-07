@@ -81,8 +81,6 @@ body:has(#summarySection:not([hidden]))>.logo-wrap, body:has(#summarySection:not
 #summarySection .dashboard-widget .admin-schedule-item { font-size:9px; padding:3px; overflow-wrap:anywhere; }
 #summarySection .dashboard-widget .admin-schedule-day-number { font-size:11px; }
 #summarySection .dashboard-widget .admin-schedule-day.today .admin-schedule-day-number { min-width:20px; min-height:20px; padding:2px; }
-#summarySection .dashboard-widget .subcontractor-activity-panel { margin:10px 0 0; border:0; background:transparent; }
-#summarySection .dashboard-widget .subcontractor-activity-panel>summary { font-size:.75rem; padding:0; }
 #summarySection .dashboard-recent-tabs { display:flex; gap:6px; margin:0 0 8px; }
 #summarySection .dashboard-recent-tabs button { padding:5px 12px; min-height:30px; font-size:.75rem; color:var(--jgc-color-text); background:var(--jgc-color-surface-soft); border:0; border-radius:18px; }
 #summarySection .dashboard-recent-tabs button[aria-pressed="true"] { color:var(--jgc-color-on-brand); background:var(--jgc-color-brand-600); }
@@ -163,7 +161,7 @@ body:has(#summarySection:not([hidden]))>.tabs { background:transparent !importan
 }
 
 #summarySection { color:var(--jgc-color-text); -webkit-font-smoothing:antialiased; }
-#summarySection .dashboard-widget-body>p, #summarySection .dashboard-sub-recent>p, #summarySection .small { color:var(--jgc-color-text-muted); }
+#summarySection .dashboard-widget-body>p, #summarySection .small { color:var(--jgc-color-text-muted); }
 #summarySection #adminGlobalSearchInput::placeholder { color:var(--jgc-color-text-muted); opacity:1; }
 #summarySection .dashboard-heading>.jgc-actions { display:flex; }
 #summarySection .dashboard-heading>.jgc-actions button { width:auto; border:1px solid var(--jgc-color-border-soft); border-radius:7px; }

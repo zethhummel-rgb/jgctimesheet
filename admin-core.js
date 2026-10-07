@@ -42,7 +42,6 @@ let activeEquipmentDocumentsId = "";
 let contacts = [];
 let subcontractorSuppliers = [];
 let subcontractorSupplierContacts = [];
-let subcontractorActivity = [];
 let announcementAcknowledgements = [];
 let vacationCalendarMonth = new Date();
 let scheduleEvents = [];
@@ -743,8 +742,7 @@ function renderAdminSectionsSafely() {
         ["employee profile options", renderEmployeeProfileOptions],
         ["employee profile", renderEmployeeProfile],
         ["schedule calendar", renderAdminScheduleCalendar],
-        ["portal summary", renderPortalSummary],
-        ["subcontractor activity", renderSubcontractorActivity]
+        ["portal summary", renderPortalSummary]
     ].forEach(([label, renderer]) => {
         try {
             renderer();
@@ -758,7 +756,6 @@ function renderImmediateAdminSectionsSafely() {
     [
         ["schedule calendar", renderAdminScheduleCalendar],
         ["portal summary", renderPortalSummary],
-        ["subcontractor activity", renderSubcontractorActivity],
         ["vacation", renderVacationRequests]
     ].forEach(([label, renderer]) => {
         try {
@@ -865,131 +862,6 @@ async function runAdminQueries(definitions, options = {}) {
     return results;
 }
 
-function renderSubcontractorActivity() {
-    const list = document.getElementById("subcontractorActivityList");
-    const count = document.getElementById("subcontractorActivityCount");
-
-    if (!list) {
-        return;
-    }
-
-    if (!subcontractorActivity.length) {
-        list.textContent = "No subcontractor portal activity yet.";
-        if (count) {
-            count.textContent = "0 companies";
-        }
-        return;
-    }
-
-    const companyGroups = new Map();
-
-    subcontractorActivity.forEach((item) => {
-        const companyName = String(item.company_name || "").trim() || "Unknown Company";
-        const key = companyName.toLowerCase();
-
-        if (!companyGroups.has(key)) {
-            companyGroups.set(key, {
-                companyName,
-                rows: []
-            });
-        }
-
-        companyGroups.get(key).rows.push(item);
-    });
-
-    const groups = Array.from(companyGroups.values()).sort((a, b) => {
-        const aTime = new Date(a.rows[0] && a.rows[0].created_at || 0).getTime();
-        const bTime = new Date(b.rows[0] && b.rows[0].created_at || 0).getTime();
-        return bTime - aTime;
-    });
-
-    if (count) {
-        count.textContent = groups.length + " compan" + (groups.length === 1 ? "y" : "ies");
-    }
-
-    list.innerHTML = groups.map((group) => {
-        const latest = group.rows[0] || {};
-        const contacts = Array.from(new Set(group.rows.map((row) => row.contact_name || row.email || "").filter(Boolean))).slice(0, 3);
-
-        return `
-            <details class="subcontractor-company-panel">
-                <summary class="subcontractor-company-summary">
-                    <span class="subcontractor-company-name">${escapeHtml(group.companyName)}</span>
-                    <span class="subcontractor-company-meta">${escapeHtml(group.rows.length + " visit" + (group.rows.length === 1 ? "" : "s") + " | " + (latest.created_at ? formatDate(latest.created_at) : ""))}</span>
-                </summary>
-                <div class="subcontractor-company-body">
-                    <div class="small" style="margin-bottom:8px;">${escapeHtml(contacts.length ? "Contacts: " + contacts.join(", ") : "No contact names recorded.")}</div>
-                    <div class="table-wrap">
-                        <table class="subcontractor-activity-table">
-                            <thead>
-                                <tr>
-                                    <th>Time</th>
-                                    <th>Contact</th>
-                                    <th>Email</th>
-                                    <th>Activity</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${group.rows.slice(0, 20).map((item) => `
-                        <tr>
-                            <td>${escapeHtml(item.created_at ? formatDate(item.created_at) : "")}</td>
-                            <td>${escapeHtml(item.contact_name || "")}</td>
-                            <td>${escapeHtml(item.email || "")}</td>
-                            <td>${escapeHtml([item.action, item.page].filter(Boolean).join(" - "))}</td>
-                        </tr>
-                                `).join("")}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </details>
-        `;
-    }).join("");
-}
-
-async function loadSubcontractorActivity() {
-    const list = document.getElementById("subcontractorActivityList");
-    const count = document.getElementById("subcontractorActivityCount");
-
-    if (list) {
-        list.textContent = "Loading subcontractor activity...";
-    }
-    if (count) {
-        count.textContent = "Loading...";
-    }
-
-    if (!supabaseClient) {
-        if (list) {
-            list.textContent = "Subcontractor activity could not be loaded.";
-        }
-        if (count) {
-            count.textContent = "Unavailable";
-        }
-        return;
-    }
-
-    const { data, error } = await supabaseClient
-        .from("subcontractor_portal_activity")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(80);
-
-    if (error) {
-        subcontractorActivity = [];
-        if (list) {
-            list.textContent = "Subcontractor activity is not set up yet.";
-        }
-        if (count) {
-            count.textContent = "Unavailable";
-        }
-        logAdminLoadError("subcontractor activity", error);
-        return;
-    }
-
-    subcontractorActivity = data || [];
-    renderSubcontractorActivity();
-}
-
 async function loadAdminData(options = {}) {
     if (!supabaseClient) {
         document.getElementById("timesheetsList").textContent = "Supabase is not available.";
@@ -1014,13 +886,12 @@ async function loadAdminData(options = {}) {
                 { label: "profiles", query: () => supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status,created_at,approved_at,deactivated_at,phone,emergency_contact,address,position,department,hire_date,employment_type,supervisor,employee_id,avatar_path,last_login_at,last_portal_activity").order("display_name", { ascending: true }) },
                 { label: "jobs", query: () => supabaseClient.from("jobs").select("*").order("job_number", { ascending: true }) },
                 { label: "approved work order workers", query: () => supabaseClient.from("work_order_labour_workers").select("*").order("display_name", { ascending: true }) },
-                { label: "employee page access", query: () => supabaseClient.from("employee_feature_access").select("worker_id,feature_key,enabled") },
-                { label: "subcontractor activity", query: () => supabaseClient.from("subcontractor_portal_activity").select("*").order("created_at", { ascending: false }).limit(80) }
+                { label: "employee page access", query: () => supabaseClient.from("employee_feature_access").select("worker_id,feature_key,enabled") }
             ], { allowPartial: true });
 
             adminInitialDataLoadFailed = adminDataResults.adminFailures.length > 0;
 
-            const [liveTimesheetResult, vacationResult, scheduleResult, accountResult, jobsResult, workOrderWorkerResult, employeeFeatureAccessResult, subcontractorActivityResult] = adminDataResults;
+            const [liveTimesheetResult, vacationResult, scheduleResult, accountResult, jobsResult, workOrderWorkerResult, employeeFeatureAccessResult] = adminDataResults;
 
             liveTimesheetEntries = liveTimesheetResult.data || [];
             vacationRequests = vacationResult.data || [];
@@ -1029,7 +900,6 @@ async function loadAdminData(options = {}) {
             jobs = jobsResult.data || [];
             workOrderLabourWorkers = workOrderWorkerResult.data || [];
             employeeFeatureAccessRows = employeeFeatureAccessResult.data || [];
-            subcontractorActivity = subcontractorActivityResult.data || [];
 
             if ((!accounts.length && accountResult.error) || (accountResult.error && String(accountResult.error.message || "").toLowerCase().includes("column"))) {
                 const { data: fallbackAccounts, error: fallbackAccountError } = await supabaseClient
@@ -1094,8 +964,7 @@ async function loadAdminData(options = {}) {
         supabaseClient.from("contacts").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("name", { ascending: true }),
         supabaseClient.from("subcontractors_suppliers").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("company_name", { ascending: true }),
         supabaseClient.from("subcontractor_supplier_contacts").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("contact_name", { ascending: true }),
-        supabaseClient.from("safety_acknowledgements").select("*").order("created_at", { ascending: false }),
-        supabaseClient.from("subcontractor_portal_activity").select("*").order("created_at", { ascending: false }).limit(80)
+        supabaseClient.from("safety_acknowledgements").select("*").order("created_at", { ascending: false })
     ].map((query, index) => Promise.resolve(query).then((result) => {
         if (result && result.error) {
             logAdminLoadError("query " + index, result.error);
@@ -1107,7 +976,7 @@ async function loadAdminData(options = {}) {
         return { data: [], error };
     })));
 
-        const [timesheetResult, liveTimesheetResult, inspectionResult, vehicleInspectionResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, digitalPurchaseOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, employeeFeatureAccessResult, equipmentResult, equipmentNotificationResult, equipmentMaintenanceResult, contactResult, subcontractorSupplierResult, subcontractorSupplierContactResult, safetyAcknowledgementResult, subcontractorActivityResult] = adminDataResults;
+        const [timesheetResult, liveTimesheetResult, inspectionResult, vehicleInspectionResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, digitalPurchaseOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, employeeFeatureAccessResult, equipmentResult, equipmentNotificationResult, equipmentMaintenanceResult, contactResult, subcontractorSupplierResult, subcontractorSupplierContactResult, safetyAcknowledgementResult] = adminDataResults;
 
         timesheets = timesheetResult.data || [];
     liveTimesheetEntries = liveTimesheetResult.data || [];
@@ -1158,7 +1027,6 @@ async function loadAdminData(options = {}) {
         subcontractorSuppliers = subcontractorSupplierResult.data || [];
         subcontractorSupplierContacts = subcontractorSupplierContactResult.data || [];
         safetyAcknowledgements = safetyAcknowledgementResult.data || [];
-        subcontractorActivity = subcontractorActivityResult.data || [];
         await safeAdminSetupStep("certificate expiry notifications", processCertificateExpiryNotifications);
         await safeAdminSetupStep("equipment expiry notifications", processEquipmentExpiryNotifications);
         await safeAdminSetupStep("prepare announcement URLs", prepareAnnouncementUrls);
