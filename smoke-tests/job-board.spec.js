@@ -188,6 +188,25 @@ test('activity starts collapsed, shows names and Toronto times, and pages with t
   await expect(page.locator('#activityMore')).toBeHidden(); await page.locator('#boardSiteActivity summary').click(); await expect(page.locator('#siteActivityList .board-activity-row')).toHaveCount(1); await expect(page.locator('#siteActivityList')).toContainText('Synthetic Visitor'); await expect(page.locator('#siteActivityMore')).toBeHidden(); await expect(page.locator('#activityList .board-activity-row')).toHaveCount(50); expect(store.calls.filter((c) => c.name === 'get_job_board_signins')[1].args).toEqual({ p_board_id: BOARD_ID, p_kind:'site', p_before: null, p_limit: 50 });
 });
 
+for (const width of [390, 1280]) test(`sign-in screen tells visitors to report in and lists the required PPE at ${width}`, async ({ page }, testInfo) => {
+  await page.setViewportSize({ width, height: 1000 }); await open(page, 'guest');
+  const options = page.locator('#loginOptions'), rules = options.locator('.board-site-rules');
+  await expect(rules).toBeVisible();
+  // Below the sign-in buttons.
+  const [buttons, notice] = await Promise.all([options.locator('.board-login-options').boundingBox(), page.locator('#boardVisitorNotice').boundingBox()]);
+  expect(notice.y).toBeGreaterThan(buttons.y + buttons.height);
+  await expect(page.locator('#boardVisitorNotice')).toHaveText('All Visitors should report to Site Supervisor or Project Manager.');
+  await expect(page.locator('#boardPpeTitle')).toHaveText('ALL PPE to be Worn At All Times');
+  const items = page.locator('.board-ppe-list li');
+  await expect(items).toHaveCount(6);
+  expect(await items.evaluateAll(list => list.map(li => li.innerText.replace(/\s+/g, ' ').trim()))).toEqual(['Hardhats', 'Safety Shoes', 'Safety Glasses', 'Hearing Protection when required', 'Proper Gloves when required', 'Safety Vest when required']);
+  expect(await page.locator('.board-ppe-icon svg').count()).toBe(6);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await options.screenshot({ path: receipt(testInfo, `sign-in-ppe-${width}.png`) });
+  // Once signed in, the board itself is shown instead.
+  await visitorSignIn(page); await expect(rules).toBeHidden();
+});
+
 test('unavailable board shows a retry and never claims it loaded', async ({ page }) => {
   const store = fixture('guest'); store.failBoard = true; await install(page, store); await page.goto('/job-board.html?embedded=1#board=' + TOKEN); await expect(page.locator('#boardError')).toBeVisible(); await expect(page.locator('#boardContent')).toBeHidden(); store.failBoard = false; await page.getByRole('button', { name: 'Try again', exact: true }).click(); await expect(page.locator('#loginOptions')).toBeVisible(); await expect(page.locator('#boardError')).toBeHidden();
 });
