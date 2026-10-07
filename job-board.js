@@ -144,7 +144,8 @@
     $('boardContacts').hidden = gated;
     if (gated && $('contactsDialog').open) $('contactsDialog').close();
     $('loginOptions').hidden = !gated; $('visitorGate').hidden = true; $('boardContent').hidden = gated;
-    if (gated) { clearVisit(); return; }
+    if (gated) { clearVisit(); restoreSignInDraft(true); return; }
+    restoreSignInDraft(false);
     const manager = state.manage && board.can_manage;
     $('boardManager').hidden = !manager; $('reviewTab').hidden = !manager;
     $('boardViewersPanel').hidden = !manager; $('boardActivityPanel').hidden = !manager; $('boardSiteActivityPanel').hidden = !manager;
@@ -161,7 +162,7 @@
     if (manager) { renderManager(); renderViewers(); for(const kind of ['portal','site'])if($(kind==='portal'?'boardActivity':'boardSiteActivity').open && !state.logs[kind].loaded)void loadActivity(kind,false); }
     if (board.can_upload) renderCreateForms();
     if (state.highlighted) highlightDocument();
-    if (!state.manage && (state.user || state.visit)) void promptActiveJsa();
+    if (!state.manage && (state.user || state.visit)) { restoreJsaSignOn(); void promptActiveJsa(); }
     if (isStaffBoard()) void loadPreparedJsas(); else state.preparedJsas = [];
   }
   // JSAs the office prepared for today that are not active yet. Staff see them in Todays Reports and can open
@@ -258,8 +259,18 @@
       try { localStorage.setItem(key, today); } catch (_) {} // Nothing left to sign today.
     } catch (_) { /* The prompt is a reminder; the JSA stays available on the board. */ } finally { jsaPromptBusy = false; }
   }
+  // An open JSA sign-on comes back after an unexpected reload (the signature itself is drawn again).
+  const jsaOpenKey = () => 'jgcJobBoardJsaOpen:' + state.token;
+  function rememberJsaOpen(id) { try { if (id) sessionStorage.setItem(jsaOpenKey(), id); else sessionStorage.removeItem(jsaOpenKey()); } catch (_) {} }
+  let jsaRestoreDone = false;
+  function restoreJsaSignOn() {
+    if (jsaRestoreDone) return; jsaRestoreDone = true;
+    let id = ''; try { id = sessionStorage.getItem(jsaOpenKey()) || ''; } catch (_) {}
+    const doc = id && (state.board?.documents || []).find(d => d.id === id && d.category === 'jsa');
+    if (doc && !jsaReview) void openJsaSignOn(doc); else if (id) rememberJsaOpen('');
+  }
   async function openJsaSignOn(doc) {
-    const generation=++jsaReviewGeneration; jsaReview=null; $('boardContent').hidden=true; showJsaPanel(true);
+    const generation=++jsaReviewGeneration; jsaReview=null; $('boardContent').hidden=true; showJsaPanel(true); rememberJsaOpen(doc.id);
     $('jsaSignOnTitle').textContent=doc.title || 'Sign on to JSA';$('jsaSignOnReport').replaceChildren();$('jsaSignOnRoster').replaceChildren();$('jsaSignOnRead').checked=false;$('jsaSignOnSign').disabled=true;$('jsaSignOnPdf').disabled=true;status('jsaSignOnStatus','Loading JSA…');
     $('jsaSignOnPanel').scrollIntoView({block:'start'});
     try {
@@ -285,7 +296,7 @@
       const shown=error instanceof TypeError||error instanceof ReferenceError||error instanceof SyntaxError?'The JSA could not be shown on this device, so signing is paused.':errorMessage(error);
       status('jsaSignOnStatus',shown+' Reopen this JSA to try again.','error');$('jsaSignOnReport').replaceChildren();}}
   }
-  $('jsaSignOnBack').addEventListener('click',()=>{jsaReviewGeneration++;jsaReview=null;showJsaPanel(false);$('boardContent').hidden=false;});
+  $('jsaSignOnBack').addEventListener('click',()=>{jsaReviewGeneration++;jsaReview=null;rememberJsaOpen('');showJsaPanel(false);$('boardContent').hidden=false;});
   $('jsaPromptLater').addEventListener('click',()=>$('jsaPromptDialog').close());
   $('jsaSignOnRead').addEventListener('change',()=>{$('jsaReadContinue').disabled=!jsaReview||jsaReview.model.signed||!$('jsaSignOnRead').checked;});
   $('jsaSignOnPdf').addEventListener('click',e=>{if(jsaReview)void viewDocument(jsaReview.doc,e.currentTarget);});
@@ -300,7 +311,7 @@
       const result=await rpc('sign_job_board_jsa',{p_token:state.token,p_visit_token:state.visit?.token||null,p_document_id:review.doc.id,p_confirm_read:$('jsaSignOnRead').checked,p_reviewed_version:review.model.version,p_signature_strokes:signature.strokes,p_signature_width:signature.width,p_signature_height:signature.height});
       if(!result?.ok)throw new Error('Your signature could not be saved.');
       status('jsaSignOnStatus','Signature saved. Your name and company have been added to this JSA.','success');$('jsaSignOnSign').disabled=true;review.model.signed=true;
-      void openJsaSignOn(review.doc);return {ok:true};
+      void openJsaSignOn(review.doc);rememberJsaOpen('');return {ok:true};
     }});
   });
   function button(label, action, secondary) { const b = text('button', label, 'jgc-button' + (secondary ? ' jgc-button--secondary' : '')); b.type = 'button'; b.addEventListener('click', action); return b; }
@@ -497,6 +508,23 @@
   async function loadSources() { if (!state.board || !state.board.can_manage) return; busy($('importRefresh'), true); status('importStatus', 'Loading available reports…'); try { const data = await rpc('list_job_board_sources', { p_board_id: state.board.id }); const sources = (Array.isArray(data) ? data : data && data.sources || []).filter((source) => !(source.source_type === 'policies' && (state.board.documents || []).some((doc) => doc.automatic && doc.source_type === 'policies' && String(doc.source_id) === String(source.source_id)))); state.sourcesLoaded = true; $('importList').replaceChildren(); if (!sources.length) empty($('importList'), 'No unattached matching reports or company policies are available.'); sources.forEach((source) => { const row = text('div', '', 'jgc-record-row board-viewer'); const desc = document.createElement('div'); desc.append(text('strong', source.title || categoryName(source.category)), text('p', [categoryName(source.category), dateLabel(source.report_date), source.match === 'company-policy' ? 'Company policy' : 'Job number match'].join(' · '), 'board-help')); row.append(desc, button(source.source_type === 'policies' ? 'Attach for review' : 'Attach report', async (e) => { const b = e.currentTarget; busy(b, true); try { await rpc('attach_job_board_report', { p_token: state.token, p_visit_token: state.visit && state.visit.token || null, p_source_type: source.source_type, p_source_id: source.source_id }); notice(source.source_type === 'policies' ? 'Company policy attached for office review.' : 'Report attached and published on this Job Board.'); invalidateLogs(); await loadBoard(); await loadSources(); } catch (error) { notice(errorMessage(error), 'error'); } finally { busy(b, false); } }, true)); $('importList').append(row); }); status('importStatus', sources.length + ' available items.'); } catch (e) { status('importStatus', errorMessage(e), 'error'); } finally { busy($('importRefresh'), false); } }
   function selectTab(id) { document.querySelectorAll('.board-tabs [role="tab"]').forEach((tab) => { const chosen = tab.dataset.panel === id; tab.classList.toggle('active', chosen); tab.setAttribute('aria-selected', String(chosen)); tab.tabIndex = chosen ? 0 : -1; $(tab.dataset.panel).hidden = !chosen; }); }
   function chooseLogin(id) { ['loginOptions','visitorGate','staffGate','siteGate'].forEach(key => $(key).hidden = key !== id); }
+  // Typed sign-in details survive an unexpected reload (the phone dropping the tab, a weak connection): kept in
+  // this tab only, per board, and cleared once the person is signed in. Passwords are never kept.
+  const SIGN_IN_FIELDS = { visitorGate: ['visitorName', 'visitorCompany', 'visitorEmail', 'visitorSiteSignIn'], staffGate: ['staffEmail', 'staffSiteSignIn'], siteGate: ['siteName', 'siteCompany', 'siteReason'] };
+  const signInDraftKey = () => 'jgcJobBoardSignInDraft:' + (state.token || state.job);
+  function readSignInDraft() { try { return JSON.parse(sessionStorage.getItem(signInDraftKey()) || '{}') || {}; } catch (_) { return {}; } }
+  function writeSignInDraft(draft) { try { if (Object.keys(draft).length) sessionStorage.setItem(signInDraftKey(), JSON.stringify(draft)); else sessionStorage.removeItem(signInDraftKey()); } catch (_) {} }
+  function saveSignInDraft(gate) { const draft = readSignInDraft(); draft[gate] = Object.fromEntries(SIGN_IN_FIELDS[gate].map(id => [id, $(id).type === 'checkbox' ? $(id).checked : $(id).value])); draft.open = gate; writeSignInDraft(draft); }
+  function clearSignInDraft(gate) { const draft = readSignInDraft(); if (gate) delete draft[gate]; if (!gate || draft.open === gate) delete draft.open; writeSignInDraft(draft); }
+  let signInDraftRestored = false;
+  function restoreSignInDraft(gated) {
+    if (signInDraftRestored) return; signInDraftRestored = true;
+    const draft = readSignInDraft();
+    Object.entries(SIGN_IN_FIELDS).forEach(([gate, ids]) => ids.forEach(id => { const values = draft[gate]; if (!values || !(id in values)) return; if ($(id).type === 'checkbox') $(id).checked = !!values[id]; else if (!$(id).value) $(id).value = values[id]; }));
+    const open = draft.open;
+    if (open === 'siteGate' || (open === 'visitorGate' && gated) || (open === 'staffGate' && !state.user)) chooseLogin(open);
+  }
+  Object.entries(SIGN_IN_FIELDS).forEach(([gate, ids]) => ids.forEach(id => $(id).addEventListener($(id).type === 'checkbox' ? 'change' : 'input', () => saveSignInDraft(gate))));
   function openStaff() { chooseLogin('staffGate'); $('staffEmail').focus(); $('staffGate').scrollIntoView({ block: 'center' }); }
   // Logging in also records a site sign-in (name, company, date and time) unless the person unticks the box.
   async function recordLoginSiteSignIn(name, company) {
@@ -505,7 +533,7 @@
       notice('Signed in on site at ' + timeLabel(result.recorded_at)); invalidateLogs();
     } catch (error) { notice('You are logged in, but your site sign-in was not saved: ' + errorMessage(error) + ' Use Site Sign in to try again.', 'error'); }
   }
-  async function visitorSignIn(e) { e.preventDefault(); busy($('visitorSubmit'), true); status('visitorStatus', 'Signing in…'); const name = $('visitorName').value.trim(), company = $('visitorCompany').value.trim(), onSite = $('visitorSiteSignIn').checked; try { await registerVisit({ p_name: name, p_company: company, p_email: $('visitorEmail').value.trim() }); await loadBoard(); if ($('visitorGate').hidden) status('visitorStatus', ''); else status('visitorStatus', 'Site sign-in expired. Please sign in again.', 'error'); if (onSite && !$('boardContent').hidden) await recordLoginSiteSignIn(name, company); } catch (error) { status('visitorStatus', errorMessage(error), 'error'); } finally { busy($('visitorSubmit'), false); } }
+  async function visitorSignIn(e) { e.preventDefault(); busy($('visitorSubmit'), true); status('visitorStatus', 'Signing in…'); const name = $('visitorName').value.trim(), company = $('visitorCompany').value.trim(), onSite = $('visitorSiteSignIn').checked; try { await registerVisit({ p_name: name, p_company: company, p_email: $('visitorEmail').value.trim() }); await loadBoard(); if ($('visitorGate').hidden) { status('visitorStatus', ''); clearSignInDraft('visitorGate'); } else status('visitorStatus', 'Site sign-in expired. Please sign in again.', 'error'); if (onSite && !$('boardContent').hidden) await recordLoginSiteSignIn(name, company); } catch (error) { status('visitorStatus', errorMessage(error), 'error'); } finally { busy($('visitorSubmit'), false); } }
   async function staffSignIn(e) {
     e.preventDefault(); busy($('staffSubmit'), true); status('staffStatus', 'Signing in…'); const onSite = $('staffSiteSignIn').checked;
     try {
@@ -521,7 +549,7 @@
       localStorage.setItem('currentWorker', profile.worker_key || ''); localStorage.setItem('currentWorkerDisplay', profile.display_name || '');
       localStorage.setItem('currentUserEmail', profile.email || verified.data.user.email || ''); localStorage.setItem('currentUserRole', profile.role || 'worker');
       localStorage.setItem('currentAccountStatus', profile.account_status); localStorage.setItem('jgcStayLoggedIn', 'false'); sessionStorage.setItem('jgcActiveSession', 'true');
-      state.user = verified.data.user; clearVisit(); $('staffPassword').value = ''; $('staffGate').hidden = true; status('staffStatus', ''); await loadBoard();
+      state.user = verified.data.user; clearVisit(); clearSignInDraft('staffGate'); $('staffPassword').value = ''; $('staffGate').hidden = true; status('staffStatus', ''); await loadBoard();
       if (onSite && !state.manage && !$('boardContent').hidden) await recordLoginSiteSignIn(profile.display_name || verified.data.user.email, 'John Gordon Construction');
     } catch (error) { status('staffStatus', errorMessage(error), 'error'); }
     finally { busy($('staffSubmit'), false); }
@@ -575,19 +603,19 @@
   $('onsiteDialog').addEventListener('close', () => { onsiteGeneration++; $('onsiteList').replaceChildren(); });
   $('boardLogout').addEventListener('click',async()=>{
     const control=$('boardLogout');busy(control,true);
-    try{if(state.user){const result=await state.client.auth.signOut({scope:'local'});if(result.error)throw result.error;}clearVisit();state.user=null;state.board=null;state.loggedBoardVisit='';state.generation++;state.previewGeneration++;jsaReviewGeneration++;jsaReview=null;$('jsaSignOnPanel').hidden=true;['documentPreview','contactsDialog','emailPdfDialog','jsaReadDialog'].forEach(id=>{if($(id).open)$(id).close();});['documentSections','activityList','siteActivityList','viewerList','contactsList','jsaSignOnReport','jsaSignOnRoster'].forEach(id=>$(id).replaceChildren());Object.values(state.logs).forEach(log=>{log.events=[];log.loaded=false;log.before=null;});$('boardLogout').hidden=true;syncBoardTheme();await loadBoard();notice('You have logged out of this Job Board.');}catch(error){notice(errorMessage(error),'error');}finally{busy(control,false);}
+    try{if(state.user){const result=await state.client.auth.signOut({scope:'local'});if(result.error)throw result.error;}clearVisit();writeSignInDraft({});rememberJsaOpen('');state.user=null;state.board=null;state.loggedBoardVisit='';state.generation++;state.previewGeneration++;jsaReviewGeneration++;jsaReview=null;$('jsaSignOnPanel').hidden=true;['documentPreview','contactsDialog','emailPdfDialog','jsaReadDialog'].forEach(id=>{if($(id).open)$(id).close();});['documentSections','activityList','siteActivityList','viewerList','contactsList','jsaSignOnReport','jsaSignOnRoster'].forEach(id=>$(id).replaceChildren());Object.values(state.logs).forEach(log=>{log.events=[];log.loaded=false;log.before=null;});$('boardLogout').hidden=true;syncBoardTheme();await loadBoard();notice('You have logged out of this Job Board.');}catch(error){notice(errorMessage(error),'error');}finally{busy(control,false);}
   });
   $('boardRefresh').addEventListener('click', loadBoard); $('boardRetry').addEventListener('click', loadBoard);
-  $('boardSignIn').addEventListener('click', openStaff); $('uploadSignInButton').addEventListener('click', openStaff); $('staffCancel').addEventListener('click', () => chooseLogin(state.board?.requires_visitor_signin ? 'loginOptions' : ''));
+  $('boardSignIn').addEventListener('click', openStaff); $('uploadSignInButton').addEventListener('click', openStaff); $('staffCancel').addEventListener('click', () => { clearSignInDraft(); chooseLogin(state.board?.requires_visitor_signin ? 'loginOptions' : ''); });
   $('visitorLogin').addEventListener('click',()=>chooseLogin('visitorGate')); $('staffLogin').addEventListener('click',openStaff); $('siteLogin').addEventListener('click',()=>chooseLogin('siteGate')); $('boardSiteSignIn').addEventListener('click',()=>{chooseLogin('siteGate'); $('siteName').focus(); $('siteGate').scrollIntoView({block:'center'});});
-  ['visitorCancel','siteCancel'].forEach(id => $(id).addEventListener('click',()=>chooseLogin(state.board?.requires_visitor_signin ? 'loginOptions' : '')));
+  ['visitorCancel','siteCancel'].forEach(id => $(id).addEventListener('click',()=>{ clearSignInDraft(); chooseLogin(state.board?.requires_visitor_signin ? 'loginOptions' : ''); }));
   let siteSubmission = null;
   $('siteForm').addEventListener('input',()=>siteSubmission = null);
   $('siteForm').addEventListener('submit',async e => {
     e.preventDefault(); if ($('siteSubmit').disabled) return; busy($('siteSubmit'),true); status('siteStatus','Recording sign-in…');
     siteSubmission ||= crypto.randomUUID();
     try { const result = await rpc('record_job_board_site_signin',{p_token:state.token,p_name:$('siteName').value.trim(),p_company:$('siteCompany').value.trim(),p_reason:$('siteReason').value.trim(),p_submission_id:siteSubmission});
-      status('siteStatus','Site sign-in recorded: '+timeLabel(result.recorded_at),'success'); $('siteForm').reset(); siteSubmission = null; invalidateLogs();
+      status('siteStatus','Site sign-in recorded: '+timeLabel(result.recorded_at),'success'); $('siteForm').reset(); clearSignInDraft('siteGate'); siteSubmission = null; invalidateLogs();
     } catch(error) { status('siteStatus',errorMessage(error),'error'); } finally { busy($('siteSubmit'),false); }
   });
   $('visitorForm').addEventListener('submit', visitorSignIn); $('staffForm').addEventListener('submit', staffSignIn);

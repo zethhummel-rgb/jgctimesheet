@@ -173,7 +173,7 @@
       <footer class="board-footer">John Gordon Construction · Job Board</footer>
     </div>
   </main>
-  <section id="jsaSignOnPanel" class="jgc-panel board-jsa-sign-on" aria-labelledby="jsaSignOnTitle" hidden>
+  <section id="jsaSignOnPanel" class="jgc-panel board-jsa-sign-on" aria-labelledby="jsaSignOnTitle" data-jgc-keep-open hidden>
     <h2 id="jsaSignOnTitle" class="jgc-section-title">Sign on to JSA</h2>
     <p id="jsaSignOnStatus" class="board-form-status" role="status" aria-live="polite"></p><div id="jsaSignOnReport"></div>
     <div class="board-actions"><button id="jsaSignOnPdf" class="jgc-button jgc-button--secondary" type="button">Open JSA PDF</button></div>
@@ -219,12 +219,12 @@
   <script>if (new URLSearchParams(location.search).get('embedded') !== '1') { const u = new URL(location.href); u.searchParams.set('embedded', '1'); history.replaceState(null, '', u); }</script>
   <script src="vendor/supabase-js.min.js?v=1"></script>
   <script src="vendor/lucide.min.js"></script>
-  <script src="common.js?v=77"></script>
+  <script src="common.js?v=78"></script>
   <script src="job-board-context.js?v=2"></script>
   <script src="vendor/qrcode.min.js?v=1"></script>
   <script src="job-board-report-pdf.js?v=5"></script>
   <script src="job-board-email.js?v=1"></script>
   <script src="safety-signature-pad.js?v=3"></script>
-  <script src="job-board.js?v=14"></script>
+  <script src="job-board.js?v=15"></script>
 </body>
 </html>
