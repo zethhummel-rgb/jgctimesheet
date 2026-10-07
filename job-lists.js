@@ -349,7 +349,7 @@
   function renderJobOptions() {
     const terms = String(elements.jobSearch.value || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
     const matches = state.jobs.filter(function (job) {
-      const label = getJgcEmployeeJobLabel(job).toLowerCase();
+      const label = getJgcJobSearchText(job);
       return terms.every(function (term) { return label.includes(term); });
     }).slice(0, 40);
     elements.jobOptions.innerHTML = matches.length
@@ -1311,7 +1311,7 @@
         .eq("id", state.user.id)
         .single(),
       state.client.from("jobs")
-        .select("id,customer,job_number,job_name,job_type,document_link,document_link_label,active")
+        .select("id,customer,job_number,job_name,job_type,site_name,address,document_link,document_link_label,active")
         .eq("active", true)
         .order("job_number"),
       window.JGCEmployeeFeatureAccess.loadWorkersForFeature(state.client, "job_notes")

@@ -345,7 +345,7 @@
     state.jobNotesError = "";
     renderJobNotesPanel();
     const results = await Promise.all([
-      state.client.from("jobs").select("id,customer,job_number,job_name,job_type,document_link,document_link_label,active").eq("active", true).order("job_number"),
+      state.client.from("jobs").select("id,customer,job_number,job_name,job_type,site_name,address,document_link,document_link_label,active").eq("active", true).order("job_number"),
       state.client.from("work_order_labour_workers").select("id,profile_id,display_name,worker_key,approved").eq("approved", true).order("display_name"),
       state.client.from("job_lists")
         .select("id,job_id,job_number,job_name,title,status,updated_at")
@@ -677,7 +677,7 @@
     }
 
     return state.jobs.filter((job) => {
-      const haystack = getJgcEmployeeJobLabel(job).toLowerCase();
+      const haystack = getJgcJobSearchText(job);
       return terms.every((term) => haystack.includes(term));
     }).slice(0, 80);
   }

@@ -48,7 +48,7 @@ const JGC_SUBCONTRACTOR_NAV_LINKS = [
   { label: "Policies", href: "policies-announcements.html" },
   { label: "Contacts", href: "contacts.html" }
 ];
-const JGC_DESIGN_SYSTEM_VERSION = "13";
+const JGC_DESIGN_SYSTEM_VERSION = "14";
 const JGC_UPLOAD_SYSTEM_VERSION = "3";
 const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "10";
 const JGC_THEME_PREFERENCE_TABLE = "portal_user_preferences";
@@ -1015,6 +1015,18 @@ function getJgcEmployeeJobLabel(job) {
     .map((value) => String(value || "").trim()).filter(Boolean).join(" - ");
 }
 
+// Where the work is. One client can have many sites (BGIS has a generator roof at each Port of Entry), so the
+// job pickers show the site name and address and can be searched by them.
+function getJgcJobSiteLabel(job) {
+  const site = String(job && job.site_name || "").trim();
+  const address = String(job && job.address || "").trim();
+  return site && address ? site + " · " + address : site || address;
+}
+
+function getJgcJobSearchText(job) {
+  return [getJgcEmployeeJobLabel(job), job && job.site_name, job && job.address].filter(Boolean).join(" ").toLowerCase();
+}
+
 function getJgcJobTypeTag(job) {
   const type = String(job && job.job_type || "").trim().toLowerCase();
   if (type.includes("contract")) return "Contract";
@@ -1023,14 +1035,16 @@ function getJgcJobTypeTag(job) {
 }
 
 // One row of the shared job dropdown (.jgc-job-dropdown in jgc-design-system.css), the Timesheet look:
-// green job number, Contract/T&M tag, job name, client. `attributes` carries the page's select handler.
+// green job number, Contract/T&M tag, job name, client, site. `attributes` carries the page's select handler.
 function getJgcJobOptionHtml(job, attributes) {
   const tag = getJgcJobTypeTag(job);
+  const site = getJgcJobSiteLabel(job);
   return '<button type="button" class="jgc-job-option" role="option" ' + (attributes || '') + '>'
     + '<span class="jgc-job-option__meta"><span class="jgc-job-option__number">' + escapeHtml(String(job && job.job_number || '').trim() || 'No Job #') + '</span>'
     + (tag ? '<span class="jgc-job-option__type' + (tag === 'Contract' ? ' is-contract' : '') + '">' + tag + '</span>' : '')
     + '</span><span class="jgc-job-option__name">' + escapeHtml(cleanJgcRepeatedJobName(job && job.job_name)) + '</span>'
-    + '<span class="jgc-job-option__client">' + escapeHtml(job && job.customer || 'Client not provided') + '</span></button>';
+    + '<span class="jgc-job-option__client">' + escapeHtml(job && job.customer || 'Client not provided') + '</span>'
+    + (site ? '<span class="jgc-job-option__site">Site: ' + escapeHtml(site) + '</span>' : '') + '</button>';
 }
 
 function getJgcEmployeeJobDetailsHtml(job) {
@@ -1038,7 +1052,7 @@ function getJgcEmployeeJobDetailsHtml(job) {
   const documents = /^https?:\/\//i.test(href)
     ? '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(job.document_link_label || "Open documents") + '</a>'
     : 'No link';
-  const rows = [["Client", job.customer || "Not provided"], ["Job name", job.job_name || "Not provided"], ["Job number", job.job_number || "Not provided"], ["Contract / T&M", job.job_type || "Not provided"]];
+  const rows = [["Client", job.customer || "Not provided"], ["Job name", job.job_name || "Not provided"], ["Site", job.site_name || "Not provided"], ["Address", job.address || "Not provided"], ["Job number", job.job_number || "Not provided"], ["Contract / T&M", job.job_type || "Not provided"]];
   return '<dl style="display:grid;grid-template-columns:minmax(90px,35%) minmax(0,1fr);gap:8px;margin:0;overflow-wrap:anywhere">'
     + rows.map(([label, value]) => '<dt style="font-weight:700">' + escapeHtml(label) + '</dt><dd style="margin:0">' + escapeHtml(value) + '</dd>').join("")
     + '<dt style="font-weight:700">Documents</dt><dd style="margin:0">' + documents + '</dd></dl>';
@@ -1065,7 +1079,11 @@ function installJgcEmployeeJobDetails() {
       }
       const value = String(field.value || '').trim().toLowerCase();
       // Work Orders shows the full label (number - client - job - type) in its job box.
-      const matches = value ? rows.filter(job => [job.id, job.job_number, job.job_name, getJgcProjectJobDisplay(job), getJgcEmployeeJobLabel(job)].some(candidate => String(candidate || '').trim().toLowerCase() === value)) : [];
+      let matches = value ? rows.filter(job => [job.id, job.job_number, job.job_name, getJgcProjectJobDisplay(job), getJgcEmployeeJobLabel(job)].some(candidate => String(candidate || '').trim().toLowerCase() === value)) : [];
+      // The Timesheet box shows only the job name, and one client can have the same job at several sites;
+      // its job number field tells them apart.
+      const numberField = matches.length > 1 && field.id === 'jobName' ? document.getElementById('jobNumber') : null;
+      if (numberField && String(numberField.value || '').trim()) matches = matches.filter(job => String(job.job_number || '').trim() === String(numberField.value).trim());
       const card = cards.get(field);
       const html = matches.length === 1 ? getJgcEmployeeJobDetailsHtml(matches[0]) : '';
       if (card.innerHTML !== html) card.innerHTML = html;
@@ -1131,7 +1149,7 @@ async function getJgcProjectJobOptions() {
 
   const { data, error } = await client
     .from("jobs")
-    .select("id, customer, job_number, job_name, job_type, document_link, document_link_label, active")
+    .select("id, customer, job_number, job_name, job_type, site_name, address, document_link, document_link_label, active")
     .eq("active", true)
     .order("job_number", { ascending: true });
 
@@ -1185,7 +1203,8 @@ function enhanceJgcProjectJobInputs() {
         '<option value="">Select project / job</option>',
         ...jobs.map((job) => {
           const display = getJgcProjectJobDisplay(job);
-          return '<option value="' + escapeHtml(display) + '">' + escapeHtml(getJgcEmployeeJobLabel(job)) + '</option>';
+          const site = String(job.site_name || "").trim() || String(job.address || "").trim();
+          return '<option value="' + escapeHtml(display) + '">' + escapeHtml(getJgcEmployeeJobLabel(job) + (site ? " · " + site : "")) + '</option>';
         }),
         '<option value="__manual__">Enter a job manually...</option>'
       ].join("");
