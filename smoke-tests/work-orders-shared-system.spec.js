@@ -199,7 +199,7 @@ test("Work Orders family uses one token-only shared visual source", async () => 
   expect(pageHead).not.toMatch(/<style\b/i);
   expect(pageSource).not.toMatch(/\sstyle\s*=/i);
   expect(pageSource).not.toContain('href="styles.css');
-  expect(pageSource).toContain('jgc-design-system.css?v=13');
+  expect(pageSource).toContain('jgc-design-system.css?v=14');
   expect(pageSource).toContain('work-orders-design-system.css?v=4');
   expect(pageSource).toContain('jgc-button--secondary wo-top-action--primary" onclick="resetWorkOrderForm()"');
   expect(pageSource).toContain('jgc-button--secondary wo-top-action--primary" onclick="refreshWorkOrders()"');

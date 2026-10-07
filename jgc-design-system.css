@@ -1224,6 +1224,17 @@ input::-webkit-date-and-time-value {
   overflow-wrap: anywhere;
 }
 
+/* Site name and address, so one client's jobs at different sites can be told apart. The dropdown keeps a
+   light background in both themes, so this stays on the dark text colour. */
+.jgc-job-option .jgc-job-option__site {
+  display: block;
+  margin-top: 2px;
+  color: var(--jgc-color-text-dark);
+  font-size: 14px;
+  opacity: 0.82;
+  overflow-wrap: anywhere;
+}
+
 .jgc-job-dropdown .jgc-job-dropdown__empty {
   padding: 11px 12px;
   color: var(--jgc-color-text-dark);

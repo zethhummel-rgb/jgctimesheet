@@ -8,7 +8,7 @@
 <title>JGC Portal - Work Orders</title>
 <meta name="theme-color" content="#0b5e3b">
 <link rel="manifest" href="manifest.json?v=7">
-<link rel="stylesheet" href="jgc-design-system.css?v=13" data-jgc-design-system="13">
+<link rel="stylesheet" href="jgc-design-system.css?v=14" data-jgc-design-system="14">
 <link rel="stylesheet" href="work-orders-design-system.css?v=4">
 </head>
 <body class="work-orders-page jgc-page jgc-system-page">
@@ -249,7 +249,7 @@
 </main>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-<script src="common.js?v=74"></script>
+<script src="common.js?v=75"></script>
 <script src="job-list-sync.js?v=1"></script>
 <script src="employee-feature-access.js?v=3"></script>
 <script>
@@ -683,7 +683,7 @@ function getFilteredJobSuggestions(value) {
   }
 
   return jobs.filter((job) => {
-    const haystack = normalizeText([getJobOptionLabel(job), job.job_number, job.customer, job.job_name, job.job_type, job.address].filter(Boolean).join(" "));
+    const haystack = normalizeText([getJobOptionLabel(job), job.job_number, job.customer, job.job_name, job.job_type, job.site_name, job.address].filter(Boolean).join(" "));
     return haystack.includes(normalizedValue) || normalizeJobNumber(job.job_number).includes(normalizeJobNumber(value));
   }).slice(0, 20);
 }
@@ -2840,7 +2840,7 @@ window.JGCJobListSync.watch(() => loadJobs(true));
 async function loadJobs(background = false) {
   const { data, error } = await supabaseClient
     .from("jobs")
-    .select("id,customer,job_number,job_name,job_type,document_link,document_link_label,active")
+    .select("id,customer,job_number,job_name,job_type,site_name,address,document_link,document_link_label,active")
     .eq("active", true)
     .order("job_number", { ascending: true });
 

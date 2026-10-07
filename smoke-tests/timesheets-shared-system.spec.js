@@ -175,7 +175,7 @@ test("Timesheets family has one token-only visual source", async () => {
 
   expect(employeeHead).not.toMatch(/<style\b/i);
   expect(employeeHead).not.toContain("styles.css");
-  expect(employeeHead).toContain('jgc-design-system.css?v=13');
+  expect(employeeHead).toContain('jgc-design-system.css?v=14');
   expect(employeeHead).toContain('timesheet-design-system.css?v=7');
   expect(employee).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(employee.match(/<style\b/gi) || [], "Only the generated PDF template keeps its print style block").toHaveLength(1);

@@ -11,7 +11,7 @@ const USER_ID = "00000000-0000-4000-8000-000000000946";
 const PHONE = { width: 393, height: 852 };
 const JOB = { id: "job-26132", customer: "McKay Mechanical", job_number: "26132", job_name: "Ingleside Development", job_type: "contract", active: true };
 
-async function signIn(page, { homeScreenApp = false, theme = "light" } = {}) {
+async function signIn(page, { homeScreenApp = false, theme = "light", jobs = null } = {}) {
   const b64 = v => Buffer.from(JSON.stringify(v)).toString("base64url");
   const now = Math.floor(Date.now() / 1000);
   const user = { id: USER_ID, aud: "authenticated", role: "authenticated", email: "phone-fields@johngordonconstruction.com", user_metadata: { display_name: "Phone Fields" } };
@@ -41,7 +41,7 @@ async function signIn(page, { homeScreenApp = false, theme = "light" } = {}) {
     const rows = {
       profiles: [profile],
       accounts: [profile],
-      jobs: [JOB, { id: "job-26140", customer: "Trans Northern Pipeline", job_number: "26140", job_name: "Gate Replacement", job_type: "T&M", active: true }],
+      jobs: jobs || [JOB, { id: "job-26140", customer: "Trans Northern Pipeline", job_number: "26140", job_name: "Gate Replacement", job_type: "T&M", active: true }],
       work_order_labour_workers: [{ id: "phone-worker", profile_id: USER_ID, display_name: "Phone Fields", worker_key: "phone fields", approved: true }],
       employee_feature_access: [{ worker_id: "phone-worker", feature_key: "work_orders", enabled: true }]
     }[table] || [];
@@ -295,6 +295,41 @@ test("Work Orders: typing or backspacing to a job number never re-picks the job"
   await expect(search).not.toBeEditable();
   await expect(page.locator("#woJobNumber")).toHaveValue("26140");
 });
+
+// Release 997 (Zeth): one client has the same kind of job at many sites (BGIS generator roofs at each Port of
+// Entry), so every job picker shows the site, can be searched by it, and the picked job's card shows it.
+const SITE_JOBS = [
+  { id: "job-26147", customer: "BGIS Federal", job_number: "26147", job_name: "Generator Room Roof Leak", job_type: "T&M", site_name: "Prescott POE", address: "1032 Highway 16 (POE), Prescott ON K0E 1T0", active: true },
+  { id: "job-26151", customer: "BGIS Federal", job_number: "26151", job_name: "Generator Room Roof Leak", job_type: "T&M", site_name: "Lansdowne POE", address: "860 Highway 137, Lansdowne ON", active: true }
+];
+for (const theme of ["light", "dark"]) for (const [name, url, selectors] of [
+  ["Work Orders", "/work-orders.html", { search: "#woJobSearch", list: "#woJobSuggestions" }],
+  ["Timesheet", "/timesheet.html", { search: "#jobName", list: "#jobDropdown" }],
+  ["PO", "/purchase-orders.html", { search: "#poJobSearch", list: "#poJobOptions", form: "#poFormView" }]
+]) {
+  test(`${name}: job choices show the site, can be searched by it, and the picked job's card shows it (${theme})`, async ({ page }, testInfo) => {
+    await page.setViewportSize(PHONE);
+    await signIn(page, { jobs: SITE_JOBS, theme });
+    await page.goto(url, { waitUntil: "load" });
+    if (selectors.form) await page.locator(selectors.form).evaluate(el => { el.hidden = false; });
+    const search = page.locator(selectors.search);
+    await search.click();
+    const options = page.locator(`${selectors.list} .jgc-job-option`);
+    await expect(options).toHaveCount(2);
+    await expect(options.first().locator(".jgc-job-option__site")).toHaveText("Site: Prescott POE · 1032 Highway 16 (POE), Prescott ON K0E 1T0");
+    await expect(options.nth(1).locator(".jgc-job-option__site")).toHaveText("Site: Lansdowne POE · 860 Highway 137, Lansdowne ON");
+    await page.locator(selectors.list).screenshot({ path: testInfo.outputPath(`${name.replace(/\s/g, "-").toLowerCase()}-site-${theme}.png`) });
+    await search.fill("Prescott");
+    await expect(options).toHaveCount(1);
+    await expect(options.first()).toContainText("26147");
+    await options.first().click();
+    const card = page.locator(".jgc-employee-job-details").filter({ hasText: "Prescott POE" });
+    await expect(card).toBeVisible();
+    await expect(card).toContainText("1032 Highway 16 (POE), Prescott ON K0E 1T0");
+    await expect(card).not.toContainText("Lansdowne");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  });
+}
 
 // Release 948: Timesheet and PO use the same job dropdown and the same lock + X as Work Orders.
 for (const [name, url, selectors] of [
