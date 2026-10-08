@@ -2676,13 +2676,15 @@ async function deleteInspection(id) {
         return;
     }
 
-    const { error } = await inspectionSupabaseClient
+    const { data, error } = await inspectionSupabaseClient
         .from("inspection_records")
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .select("id");
 
-    if (error) {
-        alert("This inspection could not be deleted.");
+    // A delete the database refuses returns no rows rather than an error.
+    if (error || !data || !data.length) {
+        alert(error ? "This inspection could not be deleted." : "Only the creator or an admin can delete this inspection.");
         return;
     }
 
