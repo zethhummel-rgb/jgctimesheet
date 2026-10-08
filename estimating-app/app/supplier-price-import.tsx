@@ -5,7 +5,7 @@ import { ClearableNumberInput } from "./clearable-number-input";
 import type { Vendor } from "../lib/estimator-data";
 import type { SupplierCatalogItemRecord, SupplierCatalogSearchResponse, SupplierImportApplyMetadata } from "../lib/supplier-catalog-types";
 import { normalizeMaterialName, parseMaterialPriceWorkbook } from "../lib/material-price-workbook";
-import { finishEmardOcr, normalizeSupplierSku, parseBmrPdfTokens, parseEmardOcrTsv, type PdfTextToken, type SupplierParsedRow, type SupplierParseResult } from "../lib/supplier-price-parser";
+import { finishEmardOcr, normalizeSupplierSku, ocrScale, parseBmrPdfTokens, parseEmardOcrTsv, supplierPdfPageProblem, type PdfTextToken, type SupplierParsedRow, type SupplierParseResult } from "../lib/supplier-price-parser";
 
 type ReviewStatus = "new" | "changed" | "unchanged" | "review";
 type ImportPhase = "choose" | "reading" | "review" | "applying" | "complete";
@@ -78,6 +78,11 @@ async function readSupplierPdf(file: File, onProgress: (value: number, message: 
   pdfjs.GlobalWorkerOptions.workerSrc = "./supplier-import/pdf.worker.min.mjs";
   const loadingTask = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
   const pdf = await loadingTask.promise;
+  const tooMany = supplierPdfPageProblem(pdf.numPages, false);
+  if (tooMany) {
+    await loadingTask.destroy();
+    throw new Error(tooMany);
+  }
   const textPages: PdfTextToken[][] = [];
   let embeddedCharacters = 0;
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
@@ -100,6 +105,11 @@ async function readSupplierPdf(file: File, onProgress: (value: number, message: 
     return result;
   }
 
+  const tooManyScanned = supplierPdfPageProblem(pdf.numPages, true);
+  if (tooManyScanned) {
+    await loadingTask.destroy();
+    throw new Error(tooManyScanned);
+  }
   const tesseract = await import("tesseract.js");
   let currentPage = 1;
   const worker = await tesseract.createWorker("eng", tesseract.OEM.LSTM_ONLY, {
@@ -120,7 +130,8 @@ async function readSupplierPdf(file: File, onProgress: (value: number, message: 
     for (currentPage = 1; currentPage <= pdf.numPages; currentPage += 1) {
       if (cancelled.current) throw new Error("Import cancelled.");
       const page = await pdf.getPage(currentPage);
-      const viewport = page.getViewport({ scale: 3 });
+      const base = page.getViewport({ scale: 1 });
+      const viewport = page.getViewport({ scale: ocrScale(base.width, base.height) });
       const canvas = document.createElement("canvas");
       canvas.width = Math.ceil(viewport.width);
       canvas.height = Math.ceil(viewport.height);

@@ -1,4 +1,4 @@
-import { unzipSync } from "fflate";
+import { Inflate } from "fflate";
 import { suggestSupplierDivision, type SupplierParseResult } from "./supplier-price-parser";
 
 export interface MaterialWorkbookParseSummary {
@@ -103,14 +103,75 @@ function findWorksheetWithHeaders(files: Record<string, Uint8Array>, strings: st
   return null;
 }
 
-export function parseMaterialPriceWorkbook(bytes: Uint8Array): MaterialWorkbookParseSummary {
-  let files: Record<string, Uint8Array>;
-  try {
-    files = unzipSync(bytes);
-  } catch {
-    throw new Error("This file is not a readable Excel .xlsx workbook.");
+// An .xlsx file is a compressed bundle, and a tiny bundle can be built to unpack to gigabytes. Only the parts
+// the price import reads are unpacked, and reading stops once they pass a size no real price sheet reaches.
+export const WORKBOOK_MAX_UNPACKED_BYTES = 40 * 1024 * 1024;
+const WORKBOOK_MAX_ENTRIES = 5000;
+const WORKBOOK_PART = /^(\[Content_Types\]\.xml|xl\/sharedStrings\.xml|xl\/worksheets\/sheet\d+\.xml)$/i;
+const NOT_A_WORKBOOK = "This file is not a readable Excel .xlsx workbook.";
+const WORKBOOK_TOO_LARGE = "This workbook is too large to import. Save the price sheet on its own and try again.";
+class WorkbookTooLarge extends Error {}
+
+function inflateWithin(data: Uint8Array, limit: number) {
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const inflater = new Inflate((chunk) => {
+    total += chunk.length;
+    if (total > limit) throw new WorkbookTooLarge(WORKBOOK_TOO_LARGE);
+    chunks.push(chunk);
+  });
+  const step = 16 * 1024;
+  for (let offset = 0; offset < data.length; offset += step) inflater.push(data.subarray(offset, offset + step), offset + step >= data.length);
+  const output = new Uint8Array(total);
+  let position = 0;
+  for (const chunk of chunks) { output.set(chunk, position); position += chunk.length; }
+  return output;
+}
+
+function readWorkbookParts(bytes: Uint8Array) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let end = -1;
+  for (let index = bytes.length - 22; index >= Math.max(0, bytes.length - 22 - 65535); index -= 1) {
+    if (view.getUint32(index, true) === 0x06054b50) { end = index; break; }
   }
-  if (!files["[Content_Types].xml"] || !Object.keys(files).some((name) => name.startsWith("xl/worksheets/"))) {
+  if (end < 0) throw new Error(NOT_A_WORKBOOK);
+  const count = view.getUint16(end + 10, true), directoryOffset = view.getUint32(end + 16, true);
+  if (count > WORKBOOK_MAX_ENTRIES) throw new WorkbookTooLarge(WORKBOOK_TOO_LARGE);
+  const files: Record<string, Uint8Array> = {}, names: string[] = [];
+  let unpacked = 0;
+  for (let index = 0, entry = directoryOffset; index < count; index += 1) {
+    if (entry + 46 > end || view.getUint32(entry, true) !== 0x02014b50) throw new Error(NOT_A_WORKBOOK);
+    const method = view.getUint16(entry + 10, true), compressedSize = view.getUint32(entry + 20, true);
+    const nameLength = view.getUint16(entry + 28, true), extraLength = view.getUint16(entry + 30, true), commentLength = view.getUint16(entry + 32, true);
+    const localHeader = view.getUint32(entry + 42, true);
+    const name = new TextDecoder().decode(bytes.subarray(entry + 46, entry + 46 + nameLength));
+    entry += 46 + nameLength + extraLength + commentLength;
+    names.push(name);
+    if (!WORKBOOK_PART.test(name)) continue;
+    if (localHeader + 30 > bytes.length || view.getUint32(localHeader, true) !== 0x04034b50) throw new Error(NOT_A_WORKBOOK);
+    const start = localHeader + 30 + view.getUint16(localHeader + 26, true) + view.getUint16(localHeader + 28, true);
+    if (start + compressedSize > bytes.length) throw new Error(NOT_A_WORKBOOK);
+    const data = bytes.subarray(start, start + compressedSize);
+    if (method === 0) {
+      if (unpacked + data.length > WORKBOOK_MAX_UNPACKED_BYTES) throw new WorkbookTooLarge(WORKBOOK_TOO_LARGE);
+      files[name] = data.slice();
+    } else if (method === 8) {
+      files[name] = data.length ? inflateWithin(data, WORKBOOK_MAX_UNPACKED_BYTES - unpacked) : new Uint8Array(0);
+    } else throw new Error(NOT_A_WORKBOOK);
+    unpacked += files[name].length;
+  }
+  return { files, names };
+}
+
+export function parseMaterialPriceWorkbook(bytes: Uint8Array): MaterialWorkbookParseSummary {
+  let files: Record<string, Uint8Array>, names: string[];
+  try {
+    ({ files, names } = readWorkbookParts(bytes));
+  } catch (error) {
+    if (error instanceof WorkbookTooLarge) throw new Error(WORKBOOK_TOO_LARGE);
+    throw new Error(NOT_A_WORKBOOK);
+  }
+  if (!files["[Content_Types].xml"] || !names.some((name) => name.startsWith("xl/worksheets/"))) {
     throw new Error("This file is not a valid Excel .xlsx workbook.");
   }
   const strings = sharedStrings(xmlText(files["xl/sharedStrings.xml"]));

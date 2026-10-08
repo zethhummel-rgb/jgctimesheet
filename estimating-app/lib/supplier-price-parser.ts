@@ -7,6 +7,23 @@ export interface PdfTextToken {
 
 export type SupplierParserKind = "bmr-text" | "emard-ocr" | "material-xlsx";
 
+// Real supplier price lists are a few pages. A file built with thousands of pages, or pages far larger than
+// paper, would freeze the browser, because scanned pages are drawn as pictures for text recognition.
+export const SUPPLIER_PDF_MAX_PAGES = 100;
+export const SUPPLIER_OCR_MAX_PAGES = 25;
+const OCR_MAX_PIXELS = 12_000_000, OCR_MAX_SIDE = 8192;
+
+export function supplierPdfPageProblem(pages: number, scanned: boolean) {
+  if (pages > SUPPLIER_PDF_MAX_PAGES) return `This PDF has ${pages.toLocaleString("en-CA")} pages. Supplier price lists are limited to ${SUPPLIER_PDF_MAX_PAGES} pages.`;
+  if (scanned && pages > SUPPLIER_OCR_MAX_PAGES) return `This scanned PDF has ${pages} pages. Scanned price lists are limited to ${SUPPLIER_OCR_MAX_PAGES} pages.`;
+  return "";
+}
+
+// Scanned pages are read at 3x their size; a page too big for that is read at the largest safe size instead.
+export function ocrScale(width: number, height: number) {
+  return Math.min(3, Math.sqrt(OCR_MAX_PIXELS / (width * height)), OCR_MAX_SIDE / width, OCR_MAX_SIDE / height);
+}
+
 export interface SupplierParsedRow {
   sku: string;
   productName: string;
