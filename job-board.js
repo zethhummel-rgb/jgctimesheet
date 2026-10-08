@@ -142,6 +142,10 @@
     $('boardSiteSignIn').hidden = state.manage || gated;
     $('boardOnsite').hidden = gated || !isStaffBoard(); if ($('boardOnsite').hidden && $('onsiteDialog').open) $('onsiteDialog').close();
     $('boardContacts').hidden = gated;
+    // The job's drawings/documents folder, the same link as on the Portal Jobs page, for anyone signed in to the board.
+    const folder = board.document_link && /^https:\/\/\S+$/i.test(board.document_link.url || '') ? board.document_link : null;
+    $('boardDocuments').hidden = gated || !folder;
+    if (folder) { $('boardDocuments').href = folder.url; $('boardDocuments').textContent = folder.label || 'Drawings & documents'; } else $('boardDocuments').removeAttribute('href');
     if (gated && $('contactsDialog').open) $('contactsDialog').close();
     $('loginOptions').hidden = !gated; $('visitorGate').hidden = true; $('boardContent').hidden = gated;
     if (gated) { clearVisit(); restoreSignInDraft(true); return; }

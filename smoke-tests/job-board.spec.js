@@ -67,7 +67,7 @@ async function install(page, store, options = {}) {
     store.calls.push({ name, args });
     const role = store.identity, manager = role === 'admin', canUpload = role === 'staff' || manager, restricted = role === 'client' || canUpload;
     const validVisit=!!store.visit && args.p_visit_token===store.visit;
-    const board = () => ({ id: BOARD_ID, job_id: 'existing-estimator-job', job_number: '26132', job_name: '14815 County Road 2 – Site safety', address: 'South Stormont, Ontario', token: TOKEN, enabled: true, can_manage: manager, can_upload: canUpload, can_register_as_staff: canUpload, can_read_restricted: restricted, requires_visitor_signin: !validVisit && !manager, documents: manager ? store.documentRows : !validVisit ? [] : store.documentRows.filter((d) => d.status === 'published' && (d.visibility === 'public' || restricted)), viewers: manager ? [{ id: 'viewer-id', email: 'client@example.test' }] : [] });
+    const board = () => ({ id: BOARD_ID, job_id: 'existing-estimator-job', job_number: '26132', job_name: '14815 County Road 2 – Site safety', address: 'South Stormont, Ontario', token: TOKEN, enabled: true, can_manage: manager, can_upload: canUpload, can_register_as_staff: canUpload, can_read_restricted: restricted, requires_visitor_signin: !validVisit && !manager, documents: manager ? store.documentRows : !validVisit ? [] : store.documentRows.filter((d) => d.status === 'published' && (d.visibility === 'public' || restricted)), viewers: manager ? [{ id: 'viewer-id', email: 'client@example.test' }] : [], document_link: (manager || validVisit) && store.documentLink ? store.documentLink : null });
     if (name === 'get_job_board' || name === 'get_or_create_job_board') return store.failBoard ? route.fulfill({ status: 403, json: { message: 'Board unavailable for this test' } }) : route.fulfill({ json: board() });
     if (name === 'register_job_board_visit') { if (!canUpload && (!args.p_name || !args.p_company || !args.p_email)) return route.fulfill({ status: 403, json: { message: 'Visitor name, company and email are required' } }); store.visit = VISIT; store.events.push({ id: 'visit-event', actor_name: canUpload ? 'Synthetic Site Staff' : args.p_name, actor_company: args.p_company, actor_email: canUpload ? store.auth.user.email : args.p_email, identity_type: canUpload ? 'staff' : 'visitor', action: 'visit', created_at: new Date().toISOString() }); return route.fulfill({ json: { visit_token: VISIT } }); }
     if (name === 'list_today_prepared_jsas') return canUpload ? route.fulfill({ json: store.preparedJsas || [] }) : route.fulfill({ status: 403, json: { message: 'Sign in with your JGC account to see prepared JSAs' } });
@@ -698,4 +698,26 @@ test('a reload reopens the JSA a visitor was signing on to; Back forgets it', as
   await page.locator('#jsaSignOnBack').click(); await expect(page.locator('#boardContent')).toBeVisible();
   await page.reload();
   await expect(page.locator('#boardContent')).toBeVisible(); await expect(page.locator('#jsaSignOnPanel')).toBeHidden();
+});
+
+// Release 1010: the job's drawings/documents folder link, as on the Portal Jobs page, for anyone signed in to the board.
+for (const [identity, width] of [['guest', 390], ['staff', 1280]]) test(`signed-in ${identity} sees the job's drawings link; it is never shown before sign-in`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 900 });
+  const store = await open(page, identity);
+  store.documentLink = { url: 'https://johngordonconst-my.sharepoint.com/:f:/g/personal/synthetic/Drawings', label: 'Employee Drawings/Shop Drawings' };
+  const link = page.locator('#boardDocuments');
+  if (identity === 'guest') { await expect(link).toBeHidden(); await visitorSignIn(page); } else await page.locator('#boardRefresh').click();
+  await expect(link).toBeVisible(); await expect(link).toHaveText('Employee Drawings/Shop Drawings');
+  await expect(link).toHaveAttribute('href', store.documentLink.url); await expect(link).toHaveAttribute('target', '_blank'); await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  await page.locator('.board-header').screenshot({ path: info.outputPath(`board-drawings-link-${identity}-${width}.png`) });
+  await page.locator('#boardLogout').click(); await expect(page.locator('#loginOptions')).toBeVisible(); await expect(link).toBeHidden();
+});
+test('the drawings link stays hidden when the job has none, or when it is not an https link', async ({ page }) => {
+  const store = await open(page, 'staff'); const link = page.locator('#boardDocuments');
+  await expect(link).toBeHidden();
+  store.documentLink = { url: 'javascript:alert(1)', label: 'Bad link' }; await page.locator('#boardRefresh').click(); await page.waitForTimeout(300);
+  await expect(link).toBeHidden(); expect(await link.getAttribute('href')).toBeNull();
+  store.documentLink = { url: 'https://example.sharepoint.com/folder', label: '' }; await page.locator('#boardRefresh').click();
+  await expect(link).toBeVisible(); await expect(link).toHaveText('Drawings & documents');
 });
