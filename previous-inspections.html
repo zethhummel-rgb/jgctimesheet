@@ -251,7 +251,16 @@ function renderPreviousEmailCell(record) {
     return `<button class="email-button jgc-button" onclick="emailSavedInspection('${escapeHtml(record.id)}')">Email</button>`;
 }
 
+// The database lets an inspection's creator or an admin delete it; vehicle inspections are admin-only.
+function currentWorkerCanDeleteInspection(record) {
+    const current = getCurrentWorkerRecord();
+    if (isAdminWorker(current.key, current.role)) return true;
+    return Boolean(record && !isVehicleInspectionRecord(record) && current.key
+        && normalizeWorkerName(record.worker_name) === normalizeWorkerName(current.key));
+}
+
 function renderPreviousDeleteCell(record) {
+    if (!currentWorkerCanDeleteInspection(record)) return "-";
     if (isToolboxTalkReportRecord(record)) return "-";
     if (record.report_source && !record.supports_inspection_actions) return "-";
     return `<button class="delete-button jgc-button jgc-button--danger" onclick="deleteInspection('${escapeHtml(record.id)}')">Delete</button>`;
@@ -1919,20 +1928,27 @@ function emailSavedInspection(id) {
 }
 
 async function deleteInspection(id) {
+    const record = inspectionRecords.find((item) => item.id === id);
+
+    if (!record || !currentWorkerCanDeleteInspection(record)) {
+        alert("Only the creator or an admin can delete this inspection.");
+        return;
+    }
+
     if (!confirm("Delete this inspection?")) {
         return;
     }
 
-    const record = inspectionRecords.find((item) => item.id === id);
     const tableName = isVehicleInspectionRecord(record) ? "vehicle_inspection_records" : "inspection_records";
 
-    const { error } = await inspectionSupabaseClient
+    const { data, error } = await inspectionSupabaseClient
         .from(tableName)
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .select("id");
 
-    if (error) {
-        alert("This inspection could not be deleted.");
+    if (error || !data || !data.length) {
+        alert(error ? "This inspection could not be deleted." : "Only the creator or an admin can delete this inspection.");
         return;
     }
 
