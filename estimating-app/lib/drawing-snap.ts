@@ -4,11 +4,17 @@ export type Segment = { a: Point; b: Point };
 type Matrix = number[];
 const multiply = (a: Matrix, b: Matrix): Matrix => [a[0]*b[0]+a[2]*b[1],a[1]*b[0]+a[3]*b[1],a[0]*b[2]+a[2]*b[3],a[1]*b[2]+a[3]*b[3],a[0]*b[4]+a[2]*b[5]+a[4],a[1]*b[4]+a[3]*b[5]+a[5]];
 const transform = (m: Matrix, x: number, y: number): Point => ({ x:m[0]*x+m[2]*y+m[4], y:m[1]*x+m[3]*y+m[5] });
+// Real sheets have tens of thousands of lines. A page built with millions would exhaust memory, so snapping
+// keeps the first DRAWING_SNAP_MAX_SEGMENTS and pauses regularly so the page stays responsive while reading.
+export const DRAWING_SNAP_MAX_SEGMENTS = 600000;
+const PAUSE_EVERY = 50000;
+const pause = () => new Promise<void>(resolve => setTimeout(resolve, 0));
 // PDF.js 6 packed paths must be read before canvas rendering turns them into Path2D.
-export async function drawingSegments(page: PDFPageProxy, ops: Record<string, number>): Promise<Segment[]> {
+export async function drawingSegments(page: PDFPageProxy, ops: Record<string, number>, limit = DRAWING_SNAP_MAX_SEGMENTS): Promise<Segment[]> {
   const list = await page.getOperatorList(), segments: Segment[] = [], stack: Matrix[] = [];
-  let matrix: Matrix = [1,0,0,1,0,0];
-  for (let i = 0; i < list.fnArray.length; i++) {
+  let matrix: Matrix = [1,0,0,1,0,0], work = 0;
+  read: for (let i = 0; i < list.fnArray.length; i++) {
+    if (++work % PAUSE_EVERY === 0) await pause();
     const fn = list.fnArray[i], args = list.argsArray[i];
     if (fn === ops.save || fn === ops.paintFormXObjectBegin) { stack.push([...matrix]); if (fn === ops.paintFormXObjectBegin && args[0]) matrix = multiply(matrix,args[0]); }
     else if (fn === ops.restore || fn === ops.paintFormXObjectEnd) matrix = stack.pop() ?? [1,0,0,1,0,0];
@@ -19,6 +25,8 @@ export async function drawingSegments(page: PDFPageProxy, ops: Record<string, nu
       const data = path as unknown as number[];
       let start: Point | undefined, previous: Point | undefined;
       for (let k = 0; k < data.length;) {
+        if (segments.length >= limit) break read;
+        if (++work % PAUSE_EVERY === 0) await pause();
         const command = data[k++];
         if (command === 0 || command === 1) {
           const next = transform(matrix,data[k++],data[k++]);

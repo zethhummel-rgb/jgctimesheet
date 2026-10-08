@@ -359,3 +359,41 @@ test.describe('organizer phone scrolling',()=>{test.use({hasTouch:true,viewport:
 for(const width of [390,1440])test(`page jump field accepts clearing and multi-digit typing ${width}`,async({page})=>{
  await page.setViewportSize({width,height:1000});const s=await store();s.bytes=await sample(24);await setup(page,s);if(width===390){await page.getByRole('button',{name:'Full screen',exact:true}).click();await expect(page.locator('.drawing-viewer')).toHaveClass(/is-fullscreen/);}const input=page.getByLabel('Page number',{exact:true});await input.fill('');await expect(input).toHaveValue('');await input.pressSequentially('12');await expect(input).toHaveValue('12');await input.press('Enter');await expect(input).toHaveValue('12');if(width===390)await page.getByRole('button',{name:'Pages',exact:true}).click();await expect(page.getByRole('button',{name:'Page 12',exact:true})).toHaveAttribute('aria-current','page');await input.fill('');await input.pressSequentially('8');await input.blur();await expect(page.getByRole('button',{name:'Page 8',exact:true})).toHaveAttribute('aria-current','page');await input.fill('999');await input.blur();await expect(input).toHaveValue('8');await input.fill('');await input.blur();await expect(input).toHaveValue('8');if(width===1440){await input.fill('3');await input.press('Escape');await expect(input).toHaveValue('8');}expect(s.saves).toBe(0);
 });
+
+// Release 1008: booby-trapped drawing PDFs (scan finding "Structurally extreme drawing PDFs can persistently
+// exhaust administrator browsers").
+test('drawing size limits allow real sheets and refuse extreme page counts and sizes',()=>{
+ const m=load('drawing-model');
+ expect(m.drawingPageCountProblem(1000)).toBe('');expect(m.drawingPageCountProblem(1001)).toBe('This PDF has 1,001 pages. Drawings are limited to 1,000 pages.');
+ expect(m.drawingPageSizeProblem(3024,2160,1)).toBe('');expect(m.drawingPageSizeProblem(14400,2592,1)).toBe('');
+ expect(m.drawingPageSizeProblem(14401,800,4)).toBe("Page 4 is larger than 200 inches, so it can't be shown safely.");expect(m.drawingPageSizeProblem(0,800,1)).not.toBe('');
+ expect(m.thumbnailScale(612,792)*612).toBeCloseTo(110);expect(m.thumbnailScale(20,14000)*14000).toBeCloseTo(440);
+});
+test('snapping stops at its line limit on extreme pages',async()=>{
+ const snap=load('drawing-snap'),OPS={save:1,restore:2,transform:3,constructPath:4},fnArray=[],argsArray=[];
+ for(let i=0;i<5000;i++){fnArray.push(OPS.constructPath);argsArray.push([0,[new Float32Array([0,0,i,1,10,i])]]);}
+ expect(await snap.drawingSegments({getOperatorList:async()=>({fnArray,argsArray})},OPS,1200)).toHaveLength(1200);
+ expect(snap.DRAWING_SNAP_MAX_SEGMENTS).toBeGreaterThanOrEqual(500000);
+});
+test('oversized pages and too many pages are refused before upload',async({page})=>{
+ const s=await store();await setup(page,s);const input=page.locator('.drawing-heading input[type=file]');
+ const huge=await PDFDocument.create();huge.addPage([612,792]);huge.addPage([15000,800]);
+ await input.setInputFiles({name:'Huge sheet.pdf',mimeType:'application/pdf',buffer:Buffer.from(await huge.save())});
+ await expect(page.getByRole('alert')).toContainText('Page 2 is larger than 200 inches');expect(s.uploaded).toBeUndefined();
+ const many=await PDFDocument.create();for(let i=0;i<1001;i++)many.addPage([612,792]);
+ await input.setInputFiles({name:'Many pages.pdf',mimeType:'application/pdf',buffer:Buffer.from(await many.save())});
+ await expect(page.getByRole('alert')).toContainText('Drawings are limited to 1,000 pages.');expect(s.uploaded).toBeUndefined();
+});
+for(const theme of ['light','dark'])for(const width of [390,1440])test(`a saved drawing with an oversized page shows a notice instead of drawing it, and thin pages keep small thumbnails ${theme} ${width}`,async({page},info)=>{
+ await page.setViewportSize({width,height:1000});await page.addInitScript(t=>localStorage.setItem('jgcPortalTheme',t),theme);
+ const pdf=await PDFDocument.create(),font=await pdf.embedFont(StandardFonts.Helvetica),first=pdf.addPage([612,792]);
+ first.drawText('NORMAL PAGE',{x:70,y:700,size:18,font});first.drawLine({start:{x:70,y:600},end:{x:370,y:600},thickness:2,color:rgb(0,0,0)});
+ pdf.addPage([16000,800]);pdf.addPage([20,14000]);
+ const s=await store();s.bytes=Buffer.from(await pdf.save());await setup(page,s);const pageNumber=page.getByLabel('Page number',{exact:true}),sheet=page.locator('.drawing-sheet canvas');
+ await pageNumber.fill('2');await pageNumber.press('Enter');
+ await expect(page.locator('.drawing-page-problem')).toHaveText("Page 2 is larger than 200 inches, so it can't be shown safely.");
+ await expect.poll(()=>sheet.evaluate(c=>c.width)).toBe(0);expect(await sheet.evaluate(c=>c.getBoundingClientRect().height)).toBeLessThan(5);await page.locator('.drawing-workspace').screenshot({path:info.outputPath(`oversized-page-${theme}-${width}.png`)});
+ await pageNumber.fill('3');await pageNumber.press('Enter');await expect(page.locator('.drawing-page-problem')).toHaveCount(0);await expect.poll(()=>sheet.evaluate(c=>c.width)).toBeGreaterThan(0);
+ if(width>900)for(const label of ['Page 2','Page 3'])expect(await page.getByRole('button',{name:label,exact:true}).locator('canvas').evaluate(c=>c.height)).toBeLessThanOrEqual(440);
+ await pageNumber.fill('1');await pageNumber.press('Enter');await expect(page.locator('.drawing-page-problem')).toHaveCount(0);await expect.poll(()=>sheet.evaluate(c=>c.width)).toBeGreaterThan(0);
+});

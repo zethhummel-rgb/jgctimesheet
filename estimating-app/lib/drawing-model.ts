@@ -1,6 +1,22 @@
 export type Point = { x: number; y: number };
 export const DRAWING_MAX_MB = 50;
 export const DRAWING_MAX_BYTES = DRAWING_MAX_MB * 1024 * 1024;
+// A small PDF can still be built to freeze a browser: thousands of pages, or a page far bigger than any
+// plotter sheet. Real drawing sets are far inside these limits (200 inches is the PDF page-size maximum).
+export const DRAWING_MAX_PAGES = 1000;
+export const DRAWING_MAX_PAGE_POINTS = 14400;
+const THUMBNAIL_WIDTH = 110, THUMBNAIL_MAX_HEIGHT = 440;
+export function drawingPageCountProblem(pages: number) {
+  return pages > DRAWING_MAX_PAGES ? `This PDF has ${pages.toLocaleString('en-CA')} pages. Drawings are limited to ${DRAWING_MAX_PAGES.toLocaleString('en-CA')} pages.` : '';
+}
+export function drawingPageSizeProblem(width: number, height: number, page: number) {
+  return !(width > 0 && height > 0) || width > DRAWING_MAX_PAGE_POINTS || height > DRAWING_MAX_PAGE_POINTS
+    ? `Page ${page} is larger than 200 inches, so it can't be shown safely.` : '';
+}
+// Thumbnails are 110 px wide; a very tall, thin page is shrunk to fit 440 px instead of growing without limit.
+export function thumbnailScale(width: number, height: number) {
+  return Math.min(THUMBNAIL_WIDTH / width, THUMBNAIL_MAX_HEIGHT / height);
+}
 export const SCALE_UNITS = ['ft', 'in', 'ft-in', 'm', 'cm', 'mm'] as const;
 export const MEASUREMENT_UNITS = [...SCALE_UNITS, 'yd'] as const;
 export type MeasurementUnit = typeof MEASUREMENT_UNITS[number];
