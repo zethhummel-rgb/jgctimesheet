@@ -320,7 +320,7 @@ async function syncJgcScheduleEventToGoogle(supabaseClient, event, action) {
       headers: {
         "Content-Type": "text/plain;charset=utf-8"
       },
-      body: JSON.stringify({ticket: ticket.ticket})
+      body: JSON.stringify({...ticket.legacy_payload,ticket: ticket.ticket})
     });
 
 
@@ -347,7 +347,7 @@ async function pullJgcGoogleCalendarUpdates(client) {
       headers: {
         "Content-Type": "text/plain;charset=utf-8"
       },
-      body: JSON.stringify({ticket: ticket.ticket})
+      body: JSON.stringify({...ticket.legacy_payload,ticket: ticket.ticket})
     });
 
     return { ok: true };
@@ -1102,7 +1102,7 @@ function getJgcEmployeeJobLabel(job) {
 function getJgcJobSiteLabel(job) {
   const site = String(job && job.site_name || "").trim();
   const address = String(job && job.address || "").trim();
-  return site && address ? site + " Â· " + address : site || address;
+  return site && address ? site + " · " + address : site || address;
 }
 
 function getJgcJobSearchText(job) {
@@ -1286,7 +1286,7 @@ function enhanceJgcProjectJobInputs() {
         ...jobs.map((job) => {
           const display = getJgcProjectJobDisplay(job);
           const site = String(job.site_name || "").trim() || String(job.address || "").trim();
-          return '<option value="' + escapeHtml(display) + '">' + escapeHtml(getJgcEmployeeJobLabel(job) + (site ? " Â· " + site : "")) + '</option>';
+          return '<option value="' + escapeHtml(display) + '">' + escapeHtml(getJgcEmployeeJobLabel(job) + (site ? " · " + site : "")) + '</option>';
         }),
         '<option value="__manual__">Enter a job manually...</option>'
       ].join("");
@@ -3645,12 +3645,12 @@ function activateJgcAppearanceSettings() {
           <button type="button" data-jgc-theme-choice="dark" aria-pressed="false">
             <span class="jgc-theme-preview jgc-theme-preview--dark" aria-hidden="true"><i></i><i></i><i></i></span>
             <span><strong>Dark</strong><small>Current deep green theme</small></span>
-            <b aria-hidden="true">âœ“</b>
+            <b aria-hidden="true">✓</b>
           </button>
           <button type="button" data-jgc-theme-choice="light" aria-pressed="false">
             <span class="jgc-theme-preview jgc-theme-preview--light" aria-hidden="true"><i></i><i></i><i></i></span>
             <span><strong>Light</strong><small>Clean green and grey theme</small></span>
-            <b aria-hidden="true">âœ“</b>
+            <b aria-hidden="true">✓</b>
           </button>
         </div>
         <div id="jgcAppearanceSettingsStatus" class="jgc-appearance-settings__status" data-state="idle" aria-live="polite">Loading your account preference...</div>
@@ -6450,7 +6450,7 @@ const JGC_PAGE_BAR_PAGES = {
   "diagnostics-admin.html": { title: "Portal Diagnostics", subtitle: "Sync, email and backup health", icon: "pulse", tone: "slate" },
   "job-lists-admin.html": { title: "Job Notes", subtitle: "Manage job note lists", icon: "notes", tone: "lime" },
   "jsa-library-admin.html": { title: "JSA Library", subtitle: "Custom tasks for every JSA's library search", icon: "book", tone: "red" },
-  "employee-writeups-admin.html": { title: "Employee Write-Ups", subtitle: "Confidential Â· visible only to administrators and the employee involved", icon: "warning", tone: "slate" },
+  "employee-writeups-admin.html": { title: "Employee Write-Ups", subtitle: "Confidential · visible only to administrators and the employee involved", icon: "warning", tone: "slate" },
   "policies-admin.html": { title: "Manage Policies", subtitle: "Publish policies and announcements", icon: "megaphone", tone: "rose" },
   "accounts.html": { title: "Accounts", subtitle: "Approve accounts and set access", icon: "users", tone: "blue" },
   "notification-settings.html": { title: "Notification Settings", subtitle: "Who receives each notification", icon: "bell", tone: "amber" },
@@ -6476,7 +6476,7 @@ const JGC_PAGE_BAR_PAGES = {
   "contacts.html": { title: "Contacts", subtitle: "Company and crew contacts", icon: "contacts", tone: "cyan", hide: ["main > .logo-wrap", "main > h1", "main > #currentUser"] },
   "subcontractors-suppliers.html": { title: "Subcontractors / Suppliers", subtitle: "Trade partners and suppliers", icon: "building", tone: "indigo", hide: ["main > .logo-wrap", "main > h1", "main > #currentUser"] },
   "policies-announcements.html": { title: "Policies & Announcements", subtitle: "Company policies and previous announcements", icon: "megaphone", tone: "rose", hide: ["main > .top-actions", "main > .hero-card"] },
-  "employee-writeups.html": { title: "My Write-Ups", subtitle: "Private Â· only you and JGC administrators can see these", icon: "warning", tone: "slate", hide: ["main > header.jgc-page-header"] },
+  "employee-writeups.html": { title: "My Write-Ups", subtitle: "Private · only you and JGC administrators can see these", icon: "warning", tone: "slate", hide: ["main > header.jgc-page-header"] },
   "jsa.html": { title: "Job Safety Analysis", subtitle: "Plan the work, review the hazards, confirm the controls", icon: "shield", tone: "red", hide: ["main > .logo-wrap", "main > #currentUser", "main > .container > h1", "main > .container > h1 + .subtitle"] },
   "prepared-jsas.html": { title: "Prepared JSAs", subtitle: "Prepare and export a JSA ahead of the work", icon: "shield", tone: "red", hide: ["main > .logo-wrap", ".jsa-section-heading > h1"] },
   "toolbox-talks.html": { title: "Tool Box Talks", subtitle: "Pick a talk, complete the report, record the crew", icon: "users", tone: "violet", hide: ["main > .logo-wrap", "main > #currentUser", "main > .container > h1", "main > .container > h1 + .subtitle"] },
@@ -7462,14 +7462,14 @@ async function loadJgcEstimatorSearchRecords(client) {
   const clientName = (id) => (clients.find((item) => item.id === id) || {}).name || "";
   const records = jobs.map((job) => ({
     id:job.id, title:[job.jobNumber,job.portalJobName || job.project].filter(Boolean).join(" - "),
-    detail:[job.portalCustomer || clientName(job.clientId),job.portalSiteName,job.clientReference,job.projectManager].filter(Boolean).join(" Â· "),
+    detail:[job.portalCustomer || clientName(job.clientId),job.portalSiteName,job.clientReference,job.projectManager].filter(Boolean).join(" · "),
     href:getJgcEstimatorUrl() + "?view=jobs&job=" + encodeURIComponent(job.jobNumber),
     updated_at:job.portalLastSyncedAt || job.acceptedAt || ""
   }));
   quotes.forEach((quote) => {
     const job = jobs.find((item) => item.quoteId === quote.id || item.id === quote.jobId);
     records.push({ id:quote.id, title:[quote.number,quote.project].filter(Boolean).join(" - "),
-      detail:[clientName(quote.clientId),quote.site,quote.reference,quote.customerPo,job && job.jobNumber].filter(Boolean).join(" Â· "),
+      detail:[clientName(quote.clientId),quote.site,quote.reference,quote.customerPo,job && job.jobNumber].filter(Boolean).join(" · "),
       href:getJgcEstimatorUrl() + (job ? "?view=jobs&job=" + encodeURIComponent(job.jobNumber) : "?quote=" + encodeURIComponent(quote.id)),
       updated_at:quote.updatedAt || "" });
   });

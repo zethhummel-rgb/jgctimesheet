@@ -95,13 +95,37 @@ CREATE POLICY notifications_insert_approved_admin ON public.notifications FOR IN
 REVOKE ALL ON public.notifications FROM PUBLIC,anon;
 REVOKE UPDATE ON public.notifications FROM authenticated;
 GRANT UPDATE(clicked_at,cleared_at,updated_at) ON public.notifications TO authenticated;
+CREATE FUNCTION private.jgc1014_notification_recipient(n public.notifications) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $function$
+ SELECT private.jgc_has_full_portal_access() AND EXISTS(SELECT 1 FROM public.profiles p WHERE p.id=auth.uid() AND p.account_status='approved' AND
+  (p.role='admin' OR n.target_profile_id=p.id OR (n.target_profile_id IS NULL AND
+   ((nullif(btrim(n.target_worker_key),'') IS NOT NULL AND lower(btrim(n.target_worker_key))=lower(btrim(p.worker_key))) OR
+    (nullif(btrim(n.target_worker_email),'') IS NOT NULL AND lower(btrim(n.target_worker_email))=lower(auth.jwt()->>'email')) OR
+    (coalesce(n.target_worker_key,'')='' AND coalesce(n.target_worker_email,'')='' AND lower(n.target_role)=lower(p.role))))));
+$function$;
+REVOKE ALL ON FUNCTION private.jgc1014_notification_recipient(public.notifications) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION private.jgc1014_notification_recipient(public.notifications) TO authenticated;
+DROP POLICY notifications_select_own_role_or_admin ON public.notifications;
+CREATE POLICY notifications_select_own_role_or_admin ON public.notifications FOR SELECT TO authenticated USING(private.jgc1014_notification_recipient(notifications));
+DROP POLICY notifications_update_own_role_or_admin ON public.notifications;
+CREATE POLICY notifications_update_own_role_or_admin ON public.notifications FOR UPDATE TO authenticated USING(private.jgc1014_notification_recipient(notifications)) WITH CHECK(private.jgc1014_notification_recipient(notifications));
 
 CREATE FUNCTION public.publish_portal_workflow_notification(p_notification_type text,p_source_table text,p_source_id text) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $function$
-DECLARE actor public.profiles;source jsonb;target public.profiles;title_value text;message_value text;link_value text;version_value text;recipients uuid[];notice_id uuid;notice_ids uuid[]:='{}';setting public.notification_settings;recipient_meta jsonb;
+DECLARE actor public.profiles;source jsonb;target public.profiles;title_value text;message_value text;link_value text;version_value text;recipients uuid[];notice_id uuid;notice_ids uuid[]:='{}';setting public.notification_settings;recipient_meta jsonb;ack_id uuid;group_result jsonb;group_ids jsonb:='[]'::jsonb;source_uuid uuid;
 BEGIN
   IF NOT private.jgc_has_full_portal_access() THEN RAISE EXCEPTION 'Approved account required.' USING ERRCODE='42501';END IF;
   SELECT * INTO actor FROM public.profiles WHERE id=auth.uid() AND account_status='approved';
   IF p_source_table NOT IN ('vacation_requests','employee_writeups','work_orders','schedule_events','inspection_records','safety_acknowledgements') THEN RETURN jsonb_build_object('ok',true,'skipped',true,'reason','Notifications for this source are managed by the server.','notificationIds','[]'::jsonb);END IF;
+  -- Existing safety callers group pending acknowledgements as type:record UUID.
+  -- Resolve that group from the saved record; recipients never come from the browser.
+  IF p_source_table='safety_acknowledgements' AND p_notification_type='jsa_acknowledgement' AND p_source_id ~* '^(jsa|toolbox|toolbox_talk):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+    source_uuid:=split_part(p_source_id,':',2)::uuid;
+    IF actor.role IS DISTINCT FROM 'admin' AND NOT EXISTS(SELECT 1 FROM public.inspection_records r WHERE r.id=source_uuid AND nullif(actor.worker_key,'') IS NOT NULL AND lower(r.worker_name)=lower(actor.worker_key)) THEN RAISE EXCEPTION 'Only the report creator can request these acknowledgements.' USING ERRCODE='42501';END IF;
+    FOR ack_id IN SELECT a.id FROM public.safety_acknowledgements a WHERE a.record_id=source_uuid AND a.record_type IN ('jsa','toolbox','toolbox_talk') AND a.acknowledgement_status='pending' AND a.acknowledged_at IS NULL AND a.matched_employee_id IS NOT NULL AND a.attendee_key !~ '^jsa-(worker|external):' LOOP
+      group_result:=public.publish_portal_workflow_notification(p_notification_type,p_source_table,ack_id::text);
+      group_ids:=group_ids||coalesce(group_result->'notificationIds','[]'::jsonb);
+    END LOOP;
+    RETURN jsonb_build_object('ok',true,'inserted',jsonb_array_length(group_ids),'notificationIds',group_ids);
+  END IF;
   IF p_source_id !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN RAISE EXCEPTION 'Notification source unavailable.' USING ERRCODE='22023';END IF;
   EXECUTE format('select to_jsonb(s) from public.%I s where id=$1',p_source_table) INTO source USING p_source_id::uuid;
   IF source IS NULL THEN RAISE EXCEPTION 'Notification source unavailable.' USING ERRCODE='42501';END IF;
@@ -121,11 +145,11 @@ BEGIN
   ELSIF p_source_table='schedule_events' AND p_notification_type='schedule_update' THEN
     IF source->>'created_by' IS DISTINCT FROM auth.uid()::text AND actor.role IS DISTINCT FROM 'admin' THEN RAISE EXCEPTION 'Only the schedule creator can publish this update.' USING ERRCODE='42501';END IF;
     title_value:='Schedule updated';message_value:=left(concat_ws(' · ',source->>'event_date',source->>'start_time',source->>'title',source->>'job_name'),400);link_value:='schedule.html';
-    SELECT array_agg(p.id) INTO recipients FROM public.profiles p WHERE p.account_status='approved' AND EXISTS(SELECT 1 FROM jsonb_array_elements_text(coalesce(source->'employee_keys','[]'::jsonb)) k WHERE lower(k)=lower(p.worker_key));
+    SELECT array_agg(p.id) INTO recipients FROM public.profiles p WHERE p.account_status='approved' AND EXISTS(SELECT 1 FROM jsonb_array_elements_text(case when jsonb_typeof(source->'employee_keys')='array' then source->'employee_keys' else '[]'::jsonb end) k WHERE lower(k)=lower(p.worker_key));
   ELSIF p_source_table='safety_acknowledgements' AND p_notification_type='jsa_acknowledgement' THEN
-    IF source->>'matched_employee_id' IS DISTINCT FROM auth.uid()::text THEN RAISE EXCEPTION 'This acknowledgement is not assigned to you.' USING ERRCODE='42501';END IF;
+    IF source->>'matched_employee_id' IS DISTINCT FROM auth.uid()::text AND actor.role IS DISTINCT FROM 'admin' AND NOT EXISTS(SELECT 1 FROM public.inspection_records r WHERE r.id=(source->>'record_id')::uuid AND nullif(actor.worker_key,'') IS NOT NULL AND lower(r.worker_name)=lower(actor.worker_key)) THEN RAISE EXCEPTION 'This acknowledgement is not assigned to you.' USING ERRCODE='42501';END IF;
     IF coalesce(source->>'acknowledgement_status','')<>'pending' OR coalesce(source->>'record_date','')<>(now() AT TIME ZONE 'America/Toronto')::date::text THEN RETURN jsonb_build_object('ok',true,'skipped',true,'reason','No current pending sign-off.','notificationIds','[]'::jsonb);END IF;
-    title_value:='Safety report to acknowledge';message_value:='Review your assigned safety report for today.';link_value:='todays-inspections.html';recipients:=ARRAY[auth.uid()];
+    title_value:='Safety report to acknowledge';message_value:='Review your assigned safety report for today.';link_value:='todays-inspections.html';recipients:=ARRAY[(source->>'matched_employee_id')::uuid];
   ELSIF p_source_table='inspection_records' AND p_notification_type='inspection_issue' THEN
     IF (nullif(actor.worker_key,'') IS NULL OR lower(source->>'worker_name') IS DISTINCT FROM lower(actor.worker_key)) AND actor.role IS DISTINCT FROM 'admin' THEN RAISE EXCEPTION 'This is not your inspection.' USING ERRCODE='42501';END IF;
     IF coalesce((source->'summary'->>'failed_count')::integer,0)<1 THEN RETURN jsonb_build_object('ok',true,'skipped',true,'reason','No inspection issue.','notificationIds','[]'::jsonb);END IF;
@@ -230,7 +254,7 @@ declare
   v_actor public.profiles; v_items jsonb; v_count integer; v_invalid integer;
   v_toronto_today date := (now() at time zone 'America/Toronto')::date;
 begin
-  if octet_length(p_record::text)>65536 or jsonb_typeof(p_record)<>'object' then raise exception 'Inspection content is too large or invalid.' using errcode='22023';end if;
+  if octet_length(p_record::text)>65536 or jsonb_typeof(p_record) IS DISTINCT FROM 'object' then raise exception 'Inspection content is too large or invalid.' using errcode='22023';end if;
   select * into v_vehicle from public.equipment_vehicles where id=p_vehicle_id and vehicle_qr_token=clean_token and coalesce(is_active,true) for update;
   if v_vehicle.id is null then return query select false,'This vehicle QR code is not active.'::text,null::jsonb;return;end if;
   if auth.uid() is not null and not private.jgc_has_full_portal_access() then raise exception 'An approved JGC account is required.' using errcode='42501';end if;
@@ -394,7 +418,7 @@ declare
   clean_company text := nullif(trim(coalesce(p_inspector_company, '')), '');
   v_equipment public.equipment_vehicles%rowtype;
   v_inspection_type text;
-  v_date date := coalesce(p_inspection_date, current_date);
+  v_date date := coalesce(p_inspection_date, (clock_timestamp() at time zone 'America/Toronto')::date);
   v_worker_name text;
   v_existing_id uuid;
   v_record_id uuid;
@@ -407,6 +431,7 @@ begin
   elsif clean_employee_key is not null then raise exception 'Sign in with your JGC account to record an employee inspection.' using errcode='42501';
   elsif coalesce(length(clean_name),0) not between 2 and 150 or coalesce(length(clean_company),0) not between 1 and 150 then raise exception 'Enter your name and company.' using errcode='22023';end if;
   if v_date<>(clock_timestamp() at time zone 'America/Toronto')::date then raise exception 'QR inspections must use today.' using errcode='22023';end if;
+  if jsonb_typeof(p_form_data) is distinct from 'object' or (p_summary is not null and jsonb_typeof(p_summary) is distinct from 'object') or coalesce(octet_length(p_summary::text),0)>65536 then raise exception 'Inspection summary is too large or invalid.' using errcode='22023';end if;
   v_rows:=p_form_data->'rows';
   if jsonb_typeof(v_rows) is distinct from 'array' or jsonb_array_length(v_rows) not between 1 and 250 then raise exception 'Complete the inspection checklist.' using errcode='22023';end if;
   if exists(select 1 from jsonb_array_elements(v_rows) item where coalesce(item->'cells'->>2,'') not in ('P','F','N/A')) then raise exception 'Complete each checklist item with Pass, Fail or N/A.' using errcode='22023';end if;

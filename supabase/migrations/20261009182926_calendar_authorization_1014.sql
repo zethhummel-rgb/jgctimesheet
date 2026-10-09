@@ -35,7 +35,9 @@ BEGIN
  END IF;
  PERFORM private.jgc1014_limit('calendar:'||auth.uid(),120,interval '1 hour');
  INSERT INTO private.jgc_calendar_sync_tickets(token_hash,profile_id,action,source_table,source_id,source_version,payload) VALUES(private.jgc_job_board_token_hash(token),auth.uid(),p_action,CASE WHEN p_action='pull_google_updates' THEN NULL ELSE p_source_table END,CASE WHEN p_action='pull_google_updates' THEN NULL ELSE p_source_id END,stamp,payload);
- RETURN jsonb_build_object('ticket',token,'expires_at',clock_timestamp()+interval '90 seconds');
+ -- The stored payload lets existing Google deployments keep syncing during the staged update.
+ -- The updated script ignores these compatibility fields and accepts only a claimed ticket.
+ RETURN jsonb_build_object('ticket',token,'expires_at',clock_timestamp()+interval '90 seconds','legacy_payload',payload);
 END $function$;
 REVOKE ALL ON FUNCTION public.prepare_calendar_sync(text,text,uuid) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.prepare_calendar_sync(text,text,uuid) TO authenticated;

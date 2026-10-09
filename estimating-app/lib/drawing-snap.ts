@@ -53,13 +53,15 @@ function segmentIndex(segments: Segment[]): SegmentIndex {
   const cached = indexes.get(segments);
   if (cached) return cached;
   const index: SegmentIndex = { cells: new Map(), long: [] };
+  let entries=0;
   segments.forEach(({ a, b }, id) => {
     if (![a.x, a.y, b.x, b.y].every(Number.isFinite)) return;
     const left = Math.floor(Math.min(a.x, b.x) / cellSize), right = Math.floor(Math.max(a.x, b.x) / cellSize);
     const top = Math.floor(Math.min(a.y, b.y) / cellSize), bottom = Math.floor(Math.max(a.y, b.y) / cellSize);
-    if ((right-left+1)*(bottom-top+1) > 256) { index.long.push(id); return; }
+    if ((right-left+1)*(bottom-top+1) > 256 || entries+(right-left+1)*(bottom-top+1)>2_000_000 || index.cells.size>150_000) { if(index.long.length<5000)index.long.push(id);return; }
     for (let x = left; x <= right; x++) for (let y = top; y <= bottom; y++) {
       const key = `${x},${y}`, bucket = index.cells.get(key);
+      entries++;
       if (bucket) bucket.push(id); else index.cells.set(key, [id]);
     }
   });
@@ -71,6 +73,7 @@ export function snapPoint(point: Point, segments: Segment[], tolerance: number):
   const index = segmentIndex(segments), candidates = new Set(index.long);
   const left = Math.floor((point.x-tolerance)/cellSize), right = Math.floor((point.x+tolerance)/cellSize);
   const top = Math.floor((point.y-tolerance)/cellSize), bottom = Math.floor((point.y+tolerance)/cellSize);
+  if((right-left+1)*(bottom-top+1)>4096)return {point,snapped:false};
   for (let x = left; x <= right; x++) for (let y = top; y <= bottom; y++) {
     for (const id of index.cells.get(`${x},${y}`) ?? []) candidates.add(id);
   }

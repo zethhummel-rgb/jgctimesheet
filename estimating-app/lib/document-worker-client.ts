@@ -25,7 +25,7 @@ async function run<T>(operation:string,payload:object,milliseconds:number,progre
             if(complete)return;inputBytes+=blob.size;
             if(blob.size>20*1024*1024||inputBytes>DOCUMENT_LIMITS.inputBytes)throw new Error('Supporting documents exceed the 80 MB combined limit or 20 MB per-file limit.');
             const buffer=await blob.arrayBuffer();if(!complete)worker!.postMessage({kind:'attachment',id:data.id,buffer,type:blob.type},[buffer]);
-          }).catch(error=>finish(error));return;
+          }).catch(error=>finish(operation==='site-specific'?new Error((error instanceof Error?error.message:'Supporting document unavailable.')+' No incomplete PDF was exported.'):error));return;
         }
         if(data.kind==='error')finish(new Error(String(data.message).slice(0,500)));
         if(data.kind==='result')finish(null,data.value as T);

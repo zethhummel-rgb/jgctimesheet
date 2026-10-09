@@ -72,7 +72,7 @@ function normalizedHeader(value: string) {
 }
 
 export function normalizeMaterialName(value: string) {
-  let normalized = value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().replace(/Ã—/g, "x");
+  let normalized = value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().replace(/×/g, "x");
   for (let index = 0; index < 3; index += 1) normalized = normalized.replace(/(\d)\s*x\s*(?=\d)/g, "$1x");
   return normalized.replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 }

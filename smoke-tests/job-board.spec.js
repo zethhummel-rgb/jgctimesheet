@@ -304,7 +304,7 @@ for (const theme of ['light', 'dark']) for (const width of [390, 1440]) test(`na
   await expect(board.locator('#jgcAppearanceSettings,#jgcAdminGlobalSearch,#jgcNotificationBell,#jgcGlobalTopNav,#jgcMobileBottomNav,#jgcPageBar,#jgcPwaPullIndicator')).toHaveCount(0);
   await expect(board.locator('#boardToolbar')).toBeVisible(); await expect(board.getByRole('button', { name: 'Refresh', exact: true })).toHaveCount(1);
   const layout = await board.locator('body').evaluate(() => { const shell = document.getElementById('jobBoardPage').getBoundingClientRect(); return { minHeight: getComputedStyle(document.body).minHeight, background: getComputedStyle(document.body).backgroundColor, shellLeft: shell.left, shellWidth: shell.width, width: innerWidth, scrollWidth: document.documentElement.scrollWidth, text: document.body.innerText }; });
-  expect(layout.minHeight).toBe('0px'); expect(layout.background).toBe('rgba(0, 0, 0, 0)'); expect(layout.shellLeft).toBe(0); expect(layout.shellWidth).toBeCloseTo(layout.width, 0); expect(layout.scrollWidth).toBeLessThanOrEqual(layout.width + 1); expect(layout.text).not.toMatch(/â€™|…|·|\uFFFD/);
+  expect(layout.minHeight).toBe('0px'); expect(layout.background).toBe('rgba(0, 0, 0, 0)'); expect(layout.shellLeft).toBe(0); expect(layout.shellWidth).toBeCloseTo(layout.width, 0); expect(layout.scrollWidth).toBeLessThanOrEqual(layout.width + 1); expect(layout.text).not.toMatch(/\u00e2\u20ac\u2122|\u00e2\u20ac\u00a6|\u00c2\u00b7|\uFFFD/);
   // Compare resolved colours on real controls/cards to the native Desk tokens.
   const desk = await page.evaluate(() => {
     const native = getComputedStyle(document.documentElement), probe = document.createElement('div');
@@ -486,6 +486,11 @@ test('job report, inspection and permit history includes today and previous grou
     const todayRows=page.locator('#'+id+' [data-period="today"] article'),previousRows=page.locator('#'+id+' [data-period="previous"] article');expect(await todayRows.count()).toBeGreaterThan(0);expect(await previousRows.count()).toBeGreaterThan(0);await expect(todayRows.first()).not.toContainText('Previous');await expect(previousRows.first()).toContainText('Previous');
   }
 });
+test('admin confirms a self-reported visitor once and confirmation survives refresh',async({page})=>{
+  const store=await open(page,'admin');store.events=[{id:'external-attendance',action:'site-signin',actor_name:'External Visitor',actor_company:'External Company',verified:false,created_at:new Date().toISOString()}];
+  await page.locator('#boardSiteActivity summary').click();const list=page.locator('#siteActivityList');await expect(list).toContainText('self-reported');await list.getByRole('button',{name:'Confirm on site',exact:true}).click();await expect(list).toContainText('confirmed');await expect(list.getByRole('button',{name:'Confirm on site',exact:true})).toHaveCount(0);await page.locator('#siteActivityRefresh').click();await expect(list).toContainText('confirmed');expect(store.calls.filter(c=>c.name==='confirm_job_board_site_signin')).toHaveLength(1);
+});
+
 test('Portal and Site admin sign-in tabs page independently and poster carries both headings',async({page})=>{
   const store=await open(page,'admin');store.activityPages=Array.from({length:52},(_,i)=>({id:'portal-'+i,action:'visit',actor_name:'Portal person '+i,actor_company:'Company',identity_type:'visitor',created_at:new Date(Date.now()-i*1000).toISOString()})).concat(Array.from({length:52},(_,i)=>({id:'site-'+i,action:'site-signin',actor_name:'Site person '+i,actor_company:'Company',created_at:new Date(Date.now()-i*1000).toISOString()})));
   await page.locator('#boardActivity summary').click();await expect(page.locator('#activityList')).toContainText('Portal person');await expect(page.locator('#activityList')).not.toContainText('Site person');await page.locator('#activityMore').click();await expect(page.locator('#activityList .board-activity-row')).toHaveCount(52);
