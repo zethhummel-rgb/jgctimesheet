@@ -2,10 +2,12 @@
   "use strict";
 
   const DB_NAME = "jgc-digital-purchase-orders";
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   const META_STORE = "meta";
-  const DRAFT_STORE = "drafts";
-  const RECEIPT_STORE = "receipts";
+  const LEGACY_DRAFT_STORE = "drafts";
+  const LEGACY_RECEIPT_STORE = "receipts";
+  const DRAFT_STORE = "drafts_by_account";
+  const RECEIPT_STORE = "receipts_by_account";
   const TEMP_BUCKET = "digital-po-temp";
   const EDITABLE_STATUSES = new Set(["draft", "assigned", "opened", "ready_to_submit"]);
   // Weak signal: a PO is saved on this phone before anything is sent, so a slow or dropped connection never
@@ -19,6 +21,7 @@
     client: null,
     worker: null,
     user: null,
+    storageAccountId: "",
     profile: null,
     deviceToken: "",
     deviceContext: null,
@@ -249,11 +252,39 @@
           db.createObjectStore(META_STORE, { keyPath: "key" });
         }
         if (!db.objectStoreNames.contains(DRAFT_STORE)) {
-          const drafts = db.createObjectStore(DRAFT_STORE, { keyPath: "id" });
+          const drafts = db.createObjectStore(DRAFT_STORE, { keyPath: ["owner_profile_id", "id"] });
           drafts.createIndex("updated_local_at", "updated_local_at");
+          drafts.createIndex("owner_profile_id", "owner_profile_id");
         }
         if (!db.objectStoreNames.contains(RECEIPT_STORE)) {
-          db.createObjectStore(RECEIPT_STORE, { keyPath: "po_id" });
+          db.createObjectStore(RECEIPT_STORE, { keyPath: ["owner_profile_id", "po_id"] }).createIndex("owner_profile_id", "owner_profile_id");
+        }
+        // Copy only records with a known creator. Retain the old stores, including orphaned
+        // receipts, so an upgrade never discards another employee's unsent work.
+        if (db.objectStoreNames.contains(LEGACY_DRAFT_STORE)) {
+          const legacy = request.transaction.objectStore(LEGACY_DRAFT_STORE);
+          const cursor = legacy.openCursor();
+          cursor.onsuccess = () => {
+            const entry = cursor.result;
+            if (!entry) return;
+            const owner = entry.value.po && entry.value.po.creator_profile_id;
+            if (owner) request.transaction.objectStore(DRAFT_STORE).put(Object.assign({}, entry.value, { owner_profile_id: owner }));
+            entry.continue();
+          };
+          if (db.objectStoreNames.contains(LEGACY_RECEIPT_STORE)) {
+            const receipts = request.transaction.objectStore(LEGACY_RECEIPT_STORE).openCursor();
+            receipts.onsuccess = () => {
+              const entry = receipts.result;
+              if (!entry) return;
+              const receipt = entry.value;
+              const draft = legacy.get(receipt.po_id);
+              draft.onsuccess = () => {
+                const owner = draft.result && draft.result.po && draft.result.po.creator_profile_id;
+                if (owner) request.transaction.objectStore(RECEIPT_STORE).put(Object.assign({}, receipt, { owner_profile_id: owner }));
+              };
+              entry.continue();
+            };
+          }
         }
       };
       request.onsuccess = () => resolve(request.result);
@@ -261,17 +292,51 @@
     });
   }
 
+  function offlineAccountId() {
+    if (!state.user || !state.storageAccountId || state.user.id !== state.storageAccountId) {
+      throw new Error("Your account changed. Reopen Purchase Orders before continuing.");
+    }
+    return state.storageAccountId;
+  }
+
+  function isAccountStore(storeName) {
+    return storeName === DRAFT_STORE || storeName === RECEIPT_STORE;
+  }
+
   async function idbGet(storeName, key) {
+    const owner = offlineAccountId();
     const transaction = state.db.transaction(storeName, "readonly");
-    return requestToPromise(transaction.objectStore(storeName).get(key));
+    let value = await requestToPromise(transaction.objectStore(storeName).get(isAccountStore(storeName) ? [owner, key] : key));
+    if (owner !== offlineAccountId()) throw new Error("Account changed while reading offline work.");
+    if (storeName === RECEIPT_STORE && !value && state.db.objectStoreNames.contains(LEGACY_RECEIPT_STORE)) {
+      // A receipt without a legacy draft is recovered only after its own PO was loaded
+      // for this account. Another employee's exact-number handoff never reads their receipt.
+      const record = getServerRecord(key);
+      if (record && record.creator_profile_id === owner) {
+        value = await requestToPromise(state.db.transaction(LEGACY_RECEIPT_STORE, "readonly").objectStore(LEGACY_RECEIPT_STORE).get(key));
+        if (value) await idbPut(RECEIPT_STORE, Object.assign({}, value, { owner_profile_id: owner }));
+      }
+    }
+    if (owner !== offlineAccountId()) throw new Error("Account changed while reading offline work.");
+    return value;
   }
 
   async function idbGetAll(storeName) {
+    const owner = offlineAccountId();
     const transaction = state.db.transaction(storeName, "readonly");
-    return requestToPromise(transaction.objectStore(storeName).getAll());
+    const store = transaction.objectStore(storeName);
+    const values = await requestToPromise(isAccountStore(storeName) ? store.index("owner_profile_id").getAll(owner) : store.getAll());
+    if (owner !== offlineAccountId()) throw new Error("Account changed while reading offline work.");
+    return values;
   }
 
   async function idbPut(storeName, value) {
+    const owner = offlineAccountId();
+    if (isAccountStore(storeName)) {
+      if (value.owner_profile_id && value.owner_profile_id !== owner) throw new Error("This offline record belongs to another account.");
+      if (storeName === DRAFT_STORE && value.po && value.po.creator_profile_id !== owner && !isAdmin()) throw new Error("This draft belongs to another employee.");
+      value.owner_profile_id = owner;
+    }
     const transaction = state.db.transaction(storeName, "readwrite");
     transaction.objectStore(storeName).put(value);
     await transactionToPromise(transaction);
@@ -279,8 +344,9 @@
   }
 
   async function idbDelete(storeName, key) {
+    const owner = offlineAccountId();
     const transaction = state.db.transaction(storeName, "readwrite");
-    transaction.objectStore(storeName).delete(key);
+    transaction.objectStore(storeName).delete(isAccountStore(storeName) ? [owner, key] : key);
     await transactionToPromise(transaction);
   }
 
@@ -554,7 +620,8 @@
   }
 
   function getDraft(id) {
-    return state.drafts.find((draft) => draft.id === id) || null;
+    const owner = offlineAccountId();
+    return state.drafts.find((draft) => draft.id === id && draft.owner_profile_id === owner) || null;
   }
 
   function getServerRecord(id) {
@@ -572,7 +639,7 @@
       pending_cancel: false,
       source: "server"
     }));
-    state.drafts.forEach((draft) => {
+    state.drafts.filter((draft) => draft.owner_profile_id === offlineAccountId()).forEach((draft) => {
       const server = records.get(draft.id);
       if (draft.dirty || draft.pending_submit || draft.pending_cancel || !server) {
         records.set(draft.id, Object.assign({}, draft, { source: "local" }));
@@ -1670,21 +1737,24 @@
 
   // One send at a time per PO: a retry joins the send already under way instead of starting a second one.
   function syncDraft(id) {
-    if (sendsInFlight.has(id)) {
-      return sendsInFlight.get(id);
+    const key = offlineAccountId() + ":" + id;
+    if (sendsInFlight.has(key)) {
+      return sendsInFlight.get(key);
     }
-    const sending = syncDraftNow(id).finally(() => sendsInFlight.delete(id));
-    sendsInFlight.set(id, sending);
+    const sending = syncDraftNow(id).finally(() => sendsInFlight.delete(key));
+    sendsInFlight.set(key, sending);
     return sending;
   }
 
   async function syncDraftNow(id) {
+    const owner = offlineAccountId();
     let draft = getDraft(id);
     if (!draft || !navigator.onLine) {
       return draft;
     }
 
     await refreshDraftDeviceAuthorization(draft);
+    if (owner !== offlineAccountId()) throw new Error("Account changed while syncing offline work.");
 
     if (draft.dirty) {
       const saveResult = await state.client.rpc(draft.po.job_id ? "digital_po_save" : "digital_po_save_manual", {
@@ -2296,13 +2366,29 @@
     }
 
     try {
-      state.db = await openDatabase();
       const sessionResult = await state.client.auth.getSession();
       state.user = sessionResult.data && sessionResult.data.session ? sessionResult.data.session.user : null;
       if (!state.user) {
         window.location.href = "index.html";
         return;
       }
+      state.storageAccountId = state.user.id;
+      state.client.auth.onAuthStateChange((_event, session) => {
+        if (!session || session.user.id !== state.storageAccountId) {
+          state.user = null;
+          state.drafts = [];
+          state.serverRecords = [];
+          state.pendingReceipt = null;
+          state.handoffRecordIds.clear();
+          state.initialized = false;
+          if (state.db) state.db.close();
+          clearReceiptPreview();
+          elements.formView.hidden = true;
+          elements.list.textContent = "";
+          showNotice("Your account changed. Reopen Purchase Orders to continue.", "warning");
+        }
+      });
+      state.db = await openDatabase();
       state.deviceToken = await getOrCreateDeviceToken();
       await loadOfflineState();
       renderIdentity();

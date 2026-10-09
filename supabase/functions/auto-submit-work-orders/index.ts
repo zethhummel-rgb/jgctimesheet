@@ -1,4 +1,5 @@
 import "../../../work-order-pdf-branding.js";
+import {isJgcWorkerRequest,approvedJgcCaller} from '../_shared/worker-auth.ts';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 
 const TZ = "America/Toronto";
@@ -695,6 +696,12 @@ Deno.serve(async (req) => {
   const runStartedAt = Date.now();
   const requestBody = await req.json().catch(() => ({}));
   const targetWorkOrderId = String(requestBody?.work_order_id || "").trim();
+
+  if(requestBody?.action && requestBody.action!=='submit_early')return Response.json({success:false,error:'Unknown action.'},{status:400});
+  if(targetWorkOrderId){
+    const caller=await approvedJgcCaller(req,db);
+    if(caller?.role!=='admin')return Response.json({success:false,error:'Approved admin authorization required.'},{status:403});
+  }else if(!await isJgcWorkerRequest(req,db))return Response.json({success:false,error:'Worker authorization required.'},{status:403});
 
   if (targetWorkOrderId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(targetWorkOrderId)) {
     return Response.json({ success: false, error: "work_order_id must be a valid UUID." }, { status: 400 });

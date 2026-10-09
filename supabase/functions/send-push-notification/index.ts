@@ -1,5 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
+import {isJgcWorkerRequest,approvedJgcCaller} from '../_shared/worker-auth.ts';
+import {isTrustedPushEndpoint} from '../_shared/push-endpoint.ts';
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -29,6 +31,10 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
 function cleanIdList(value: unknown) {
   const values = Array.isArray(value) ? value : [];
   return Array.from(new Set(values.map((item) => String(item || "").trim()).filter(Boolean))).slice(0, 50);
+}
+
+function cleanText(value: unknown) {
+  return String(value || "").trim();
 }
 
 function notificationUrl(row: NotificationRow) {
@@ -100,6 +106,11 @@ async function sendToSubscription(
   notification: NotificationRow,
   subscription: PushSubscriptionRow,
 ) {
+  if(!isTrustedPushEndpoint(subscription.endpoint)){
+    await supabase.from('push_subscriptions').update({enabled:false,last_error:'Unsupported push provider.'}).eq('id',subscription.id);
+    await logDelivery(supabase,notification.id,subscription.id,'failed','Unsupported push provider.');
+    return {ok:false,error:'Unsupported push provider.'};
+  }
   const pushSubscription = {
     endpoint: subscription.endpoint,
     keys: {
@@ -122,7 +133,7 @@ async function sendToSubscription(
     return { ok: true };
   } catch (error) {
     const statusCode = Number((error as any)?.statusCode || 0);
-    const message = String((error as any)?.body || (error as any)?.message || error || "Push send failed.");
+    const message = statusCode>=100&&statusCode<=599 ? `Push provider returned HTTP ${statusCode}.` : 'Push delivery could not be completed.';
     const disable = statusCode === 404 || statusCode === 410;
 
     await supabase
@@ -178,21 +189,37 @@ Deno.serve(async (request) => {
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const worker=await isJgcWorkerRequest(request,supabase);
+  const caller=worker?null:await approvedJgcCaller(request,supabase);
+  if(!worker&&!caller)return jsonResponse({success:false,error:'Authorization required.'},403);
 
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
   const body = await request.json().catch(() => ({}));
   const notificationIds = cleanIdList(body.notification_ids);
+  const notificationType = cleanText(body.notification_type);
+  const sourceTable = cleanText(body.source_table);
+  const sourceId = cleanText(body.source_id);
 
-  if (!notificationIds.length) {
+  if (!notificationIds.length && (!notificationType || !sourceTable || !sourceId)) {
     return jsonResponse({ success: true, checked: 0, sent: 0, failures: [] });
   }
 
-  const { data: notifications, error } = await supabase
+  let query = supabase
     .from("notifications")
-    .select("id,notification_type,title,message,link_url,target_profile_id,target_worker_key,target_worker_email,target_role,dedupe_key,created_at,cleared_at")
-    .in("id", notificationIds)
+    .select("id,notification_type,title,message,link_url,target_profile_id,target_worker_key,target_worker_email,target_role,dedupe_key,created_at,cleared_at,created_by")
     .is("cleared_at", null);
+
+  if (notificationIds.length) {
+    query = query.in("id", notificationIds);
+  } else {
+    query = query
+      .eq("notification_type", notificationType)
+      .eq("source_table", sourceTable)
+      .eq("source_id", sourceId);
+  }
+
+  const { data: notifications, error } = await query.limit(50);
 
   if (error) {
     return jsonResponse({ success: false, error: error.message }, 500);
@@ -202,6 +229,7 @@ Deno.serve(async (request) => {
   const failures: Record<string, unknown>[] = [];
 
   for (const notification of notifications || []) {
+    if(!worker&&caller?.role!=='admin'&&notification.created_by!==caller?.id&&notification.target_profile_id!==caller?.id)continue;
     const subscriptions = await loadSubscriptionsForNotification(supabase, notification);
 
     for (const subscription of subscriptions) {

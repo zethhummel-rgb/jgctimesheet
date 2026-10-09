@@ -4549,14 +4549,14 @@ test("purchase order sync reconciles a stale local draft with a submitted server
   await expect(page.locator("#poList")).toContainText("PO-31000");
   await expect(page.locator("#poList")).toContainText("Emailed");
   await expect.poll(() => saveAttempts).toBe(0);
-  await expect.poll(() => page.evaluate(async (id) => {
+  await expect.poll(() => page.evaluate(async ({id, owner}) => {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open("jgc-digital-purchase-orders", 1);
+      const request = indexedDB.open("jgc-digital-purchase-orders");
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         const db = request.result;
-        const transaction = db.transaction("drafts", "readonly");
-        const getRequest = transaction.objectStore("drafts").get(id);
+        const transaction = db.transaction("drafts_by_account", "readonly");
+        const getRequest = transaction.objectStore("drafts_by_account").get([owner, id]);
         getRequest.onsuccess = () => {
           db.close();
           resolve(Boolean(getRequest.result));
@@ -4564,7 +4564,7 @@ test("purchase order sync reconciles a stale local draft with a submitted server
         getRequest.onerror = () => reject(getRequest.error);
       };
     });
-  }, poId)).toBe(false);
+  }, {id: poId, owner: fakeUser.id})).toBe(false);
   await expectNoRuntimeErrors(errors, "purchase order stale draft reconciliation");
 });
 

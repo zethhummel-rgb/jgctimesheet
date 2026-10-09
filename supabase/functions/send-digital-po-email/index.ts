@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import {isJgcWorkerRequest,approvedJgcCaller} from '../_shared/worker-auth.ts';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 
 const corsHeaders = {
@@ -271,7 +272,8 @@ async function sendCancellationNotification(db: any, req: Request, poId: string,
     throw new Error(poResult.error?.message || "PO was not found.");
   }
 
-  const profileResult = await db.from("profiles").select("role,display_name").eq("id", user.id).single();
+  const profileResult = await db.from("profiles").select("role,display_name,account_status").eq("id", user.id).single();
+  if(profileResult.error||profileResult.data?.account_status!=='approved')throw new Error('Only an approved account can send a cancellation notification.');
   const isAdmin = String(profileResult.data?.role || "").toLowerCase() === "admin";
   if (poResult.data.creator_profile_id !== user.id && !isAdmin) {
     throw new Error("Only the PO creator or an admin can send its cancellation notification.");
@@ -282,8 +284,13 @@ async function sendCancellationNotification(db: any, req: Request, poId: string,
 
   const number = formatPoNumber(poResult.data.po_number);
   const cancelledBy = safeText(profileResult.data?.display_name) || safeText(user.email) || "Portal user";
+  const claim=await db.rpc('jgc_claim_po_cancellation',{p_po_id:poResult.data.id,p_actor_id:user.id});
+  if(claim.error)throw new Error('Cancellation delivery could not be authorized.');
+  if(!claim.data)return {po_id:poResult.data.id,po_number:number,status:'already_notified_or_sending'};
+  try{
   const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
     method: "POST",
+    signal:AbortSignal.timeout(60000),
     headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify({
       to: toEmail,
@@ -298,7 +305,13 @@ async function sendCancellationNotification(db: any, req: Request, poId: string,
   if (!response.ok) {
     throw new Error(`Google Apps Script returned ${response.status} while sending the cancellation notification.`);
   }
+  const completed=await db.rpc('jgc_finish_po_cancellation',{p_po_id:poResult.data.id,p_lock_token:claim.data,p_success:true});
+  if(completed.error||completed.data!==true)throw new Error('Cancellation delivery confirmation could not be saved.');
   return { po_id: poResult.data.id, po_number: number, status: "cancelled_notified" };
+  }catch(error){
+    await db.rpc('jgc_finish_po_cancellation',{p_po_id:poResult.data.id,p_lock_token:claim.data,p_success:false});
+    throw error;
+  }
 }
 
 async function deleteTestPurchaseOrder(db: any, req: Request, poId: string, confirmation: string) {
@@ -380,6 +393,10 @@ Deno.serve(async (req: Request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const requestBody = await req.json().catch(() => ({}));
+  const action=String(requestBody?.action||'');
+  if(!['','worker','admin_delete_test_po','cancellation_notification'].includes(action))return jsonResponse({success:false,error:'Unknown action.'},400);
+  if(['','worker'].includes(action)&&!await isJgcWorkerRequest(req,db))return jsonResponse({success:false,error:'Worker authorization required.'},403);
+  if(action==='cancellation_notification'&&!await approvedJgcCaller(req,db))return jsonResponse({success:false,error:'Approved account authorization required.'},403);
   if (requestBody?.action === "admin_delete_test_po") {
     try {
       const result = await deleteTestPurchaseOrder(
