@@ -4568,7 +4568,8 @@ function formatMobileHours(value) {
     return "0";
   }
 
-  return hours.toFixed(2).replace(/\.00$/, "").replace(/0$/, "");
+  // Round to two decimals and drop trailing zeros after the point only (8.50 -> 8.5); 10, 20 and 30 stay whole.
+  return String(Number(hours.toFixed(2)));
 }
 
 function formatMobileTime(value) {
