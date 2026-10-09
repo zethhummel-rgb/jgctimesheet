@@ -3,12 +3,13 @@ const path=require('path');
 const {test,expect}=require('@playwright/test');
 const root=path.resolve(__dirname,'..');
 const po=fs.readFileSync(path.join(root,'purchase-orders.js'),'utf8');
+const common=fs.readFileSync(path.join(root,'common.js'),'utf8');
 const ts=require('../estimating-app/node_modules/typescript');
 const {PDFDocument,PDFName,PDFDict,PDFHexString,StandardFonts,degrees}=require('../estimating-app/node_modules/pdf-lib');
 const loaded={};
 function lib(name){if(loaded[name])return loaded[name];const module={exports:{}};const code=ts.transpileModule(fs.readFileSync(path.join(root,'estimating-app/lib',name+'.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;Function('exports','module','require',code)(module.exports,module,x=>x.startsWith('.')?lib(x.slice(2)):require('../estimating-app/node_modules/'+x));return loaded[name]=module.exports;}
 
-async function offlinePoHarness(page){
+async function offlinePoHarness(page,upgrade=true){
  await page.route('https://offline-po.invalid/**',r=>r.fulfill({contentType:'text/html',body:'<!doctype html><title>Isolated offline PO test</title>'}));
  await page.goto('https://offline-po.invalid/');
  await page.evaluate(async()=>{
@@ -26,8 +27,19 @@ async function offlinePoHarness(page){
  });
  const source=po.slice(0,po.lastIndexOf('  if (document.readyState'))+`window.__po={state,openDatabase,idbGet,idbGetAll,idbPut,idbDelete,getDraft,getRecord,syncDraftNow,DRAFT_STORE,RECEIPT_STORE,getOrCreateDeviceToken};})();`;
  await page.evaluate(source);
- await page.evaluate(async()=>{const h=window.__po;h.state.user={id:'alice'};h.state.storageAccountId='alice';h.state.profile={role:'worker'};h.state.db=await h.openDatabase();h.state.drafts=await h.idbGetAll(h.DRAFT_STORE);});
+ if(upgrade)await page.evaluate(async()=>{const h=window.__po;h.state.user={id:'alice'};h.state.storageAccountId='alice';h.state.profile={role:'worker'};h.state.db=await h.openDatabase();h.state.drafts=await h.idbGetAll(h.DRAFT_STORE);});
 }
+
+for(const upgraded of [false,true])test(`other-page PO reminders count only the signed-in account in ${upgraded?'upgraded':'legacy'} storage`,async({page})=>{
+ await offlinePoHarness(page,upgraded);
+ const counter=common.slice(common.indexOf('async function countJgcWaitingPurchaseOrders()'),common.indexOf('async function remindJgcWaitingPurchaseOrders()'));
+ const sessionHelper=common.slice(common.indexOf('async function getJgcNotificationCurrentUserId('),common.indexOf('function isJgcPushConfigured()'));
+ await page.evaluate(`window.__reminderUser='alice';window.__sessionReads=0;window.__switchDuringRead=false;function createJgcSupabaseClient(){return {auth:{getSession:async()=>{window.__sessionReads++;const id=window.__switchDuringRead&&window.__sessionReads>1?'bob':window.__reminderUser;return {data:{session:id?{user:{id}}:null}};}}};}${sessionHelper}${counter}`);
+ expect(await page.evaluate(()=>countJgcWaitingPurchaseOrders())).toBe(1);
+ expect(await page.evaluate(()=>{window.__reminderUser='bob';return countJgcWaitingPurchaseOrders();})).toBe(1);
+ expect(await page.evaluate(()=>{window.__reminderUser=null;return countJgcWaitingPurchaseOrders();})).toBe(0);
+ expect(await page.evaluate(()=>{window.__reminderUser='alice';window.__sessionReads=0;window.__switchDuringRead=true;return countJgcWaitingPurchaseOrders();})).toBe(0);
+});
 
 test('offline PO upgrade preserves drafts, receipt photos and allocated numbers while isolating accounts',async({page})=>{
  await offlinePoHarness(page);

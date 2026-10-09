@@ -669,8 +669,11 @@ activateJgcOfflineSupport();
 
 // Purchase orders wait on this phone until the Purchase Orders page sends them (a weak signal, a closed app).
 // Other Portal pages show how many are waiting, with a link that sends them.
-function countJgcWaitingPurchaseOrders() {
-  return new Promise(function(resolve) {
+async function countJgcWaitingPurchaseOrders() {
+  const client = createJgcSupabaseClient();
+  const owner = await getJgcNotificationCurrentUserId(client);
+  if (!owner) return 0;
+  const pending = await new Promise(function(resolve) {
     let request = null;
     try {
       request = window.indexedDB ? window.indexedDB.open("jgc-digital-purchase-orders") : null;
@@ -688,25 +691,42 @@ function countJgcWaitingPurchaseOrders() {
     request.onsuccess = function() {
       const db = request.result;
       try {
-        if (!db.objectStoreNames.contains("drafts")) {
+        const accountStore = db.objectStoreNames.contains("drafts_by_account");
+        const storeName = accountStore ? "drafts_by_account" : "drafts";
+        if (!db.objectStoreNames.contains(storeName)) {
           db.close();
           resolve(0);
           return;
         }
-        const all = db.transaction("drafts", "readonly").objectStore("drafts").getAll();
-        all.onsuccess = function() {
-          db.close();
-          resolve((all.result || []).filter(function(draft) {
-            return draft && (draft.pending_submit || draft.dirty || draft.pending_cancel || draft.assignment_dirty);
-          }).length);
+        const store = db.transaction(storeName, "readonly").objectStore(storeName);
+        const isWaiting = function(draft) {
+          const draftOwner = accountStore ? draft && draft.owner_profile_id : draft && draft.po && draft.po.creator_profile_id;
+          return draftOwner === owner && (draft.pending_submit || draft.dirty || draft.pending_cancel || draft.assignment_dirty);
         };
-        all.onerror = function() { db.close(); resolve(0); };
+        if (accountStore) {
+          const all = store.index("owner_profile_id").getAll(owner);
+          all.onsuccess = function() { db.close(); resolve((all.result || []).filter(isWaiting).length); };
+          all.onerror = function() { db.close(); resolve(0); };
+        } else {
+          // Read old drafts one at a time until the PO page upgrades this phone's store.
+          let count = 0;
+          const cursor = store.openCursor();
+          cursor.onsuccess = function() {
+            const entry = cursor.result;
+            if (!entry) { db.close(); resolve(count); return; }
+            if (isWaiting(entry.value)) count++;
+            entry.continue();
+          };
+          cursor.onerror = function() { db.close(); resolve(0); };
+        }
       } catch (error) {
         db.close();
         resolve(0);
       }
     };
   });
+  // Do not display the previous account's reminder if sign-in changed during the read.
+  return await getJgcNotificationCurrentUserId(client) === owner ? pending : 0;
 }
 
 async function remindJgcWaitingPurchaseOrders() {
