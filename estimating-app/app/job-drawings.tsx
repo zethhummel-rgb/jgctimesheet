@@ -4,7 +4,8 @@ import type { PDFDocumentProxy, PageViewport } from 'pdfjs-dist';
 import type { Job } from '../lib/estimator-data';
 import { calibrate, commentLines, dimensionGeometry, drawingPageCountProblem, drawingPageOrder, drawingPageSizeProblem, reorderDrawingPages, thumbnailScale, DRAWING_MAX_BYTES, DRAWING_MAX_MB, emptyDrawing, isMeasurement, measurement, replacePageScale, scaleReferenceLabel, validateContent, type DrawingContent, type Mark, type MeasurementUnit, type Point, type Scale, type ReviewStamp } from '../lib/drawing-model';
 import { addDrawing, listDrawings, loadDrawing, saveDrawing, type DrawingRecord } from '../src/drawings-api';
-import { drawingSegments, snapPoint, type Segment } from '../lib/drawing-snap';
+import { snapPoint, type Segment } from '../lib/drawing-snap';
+import { drawingSegmentsIsolated } from '../lib/document-worker-client';
 import { DrawingIcon, ReviewStampGraphic, StampFields } from './drawing-controls';
 import './job-drawings.css';
 const phoneQuery='(max-width: 600px), (max-width: 1000px) and (max-height: 500px)';
@@ -21,9 +22,10 @@ async function checkDrawingPdf(bytes: Uint8Array) {
 }
 function download(bytes: Uint8Array | string, filename: string, type: string) { const url=URL.createObjectURL(new Blob([typeof bytes === 'string' ? bytes : bytes.slice().buffer as ArrayBuffer],{type})); const a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000); }
 const lineCache=new WeakMap<PDFDocumentProxy,Map<number,Promise<Segment[]>>>();
+const lineBytes=new WeakMap<PDFDocumentProxy,Promise<Uint8Array>>();
 async function pageLines(pdf:PDFDocumentProxy,number:number):Promise<Segment[]> {
   let pages=lineCache.get(pdf);if(!pages){pages=new Map();lineCache.set(pdf,pages);}
-  if(!pages.has(number))pages.set(number,(async()=>{engine??=importEngine();const lib=await engine;return drawingSegments(await pdf.getPage(number),lib.OPS);})().catch(()=>[]));
+  if(!pages.has(number)){if(!lineBytes.has(pdf))lineBytes.set(pdf,pdf.getData());pages.set(number,drawingSegmentsIsolated(await lineBytes.get(pdf)!,number).catch(()=>[]));while(pages.size>3)pages.delete(pages.keys().next().value!);}
   return pages.get(number)!;
 }
 function Thumb({ pdf, number, label, onClick, selected, selection }: { pdf: PDFDocumentProxy; number: number; label: number; onClick: (event: ReactMouseEvent<HTMLButtonElement>) => void; selected: boolean; selection?: boolean }) {

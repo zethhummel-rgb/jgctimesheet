@@ -1,5 +1,5 @@
 /*
-  JGC Portal Google Calendar Sync
+  JGC Portal Google Calendar Sync - release 1014 authorization
 
   Paste this into a Google Apps Script web app owned by the JGC Portal Google account.
 
@@ -9,70 +9,62 @@
   - SUPABASE_URL: https://xnrljkkszoimegfivlya.supabase.co
   - SUPABASE_SERVICE_ROLE_KEY: your Supabase service role key.
 
+  Update the existing Web App deployment to this version (keep its URL).
+  Public requests must include a fresh one-use ticket issued by the signed-in Portal.
+  Existing Script Properties and scheduled pull triggers remain in place.
+
   Deploy as Web App:
   - Execute as: Me
   - Who has access: Anyone
 */
 
+function doGet() {
+  return jsonResponse_({version: "1014-calendar-ticket", requires_ticket: true});
+}
+
+function claimCalendarTicket_(ticket) {
+  var props = PropertiesService.getScriptProperties();
+  var base = props.getProperty("SUPABASE_URL"), key = props.getProperty("SUPABASE_SERVICE_ROLE_KEY");
+  if (!base || !key) throw new Error("Calendar service configuration unavailable.");
+  var response = UrlFetchApp.fetch(base.replace(/\/$/, "") + "/rest/v1/rpc/claim_calendar_sync_ticket", {
+    method: "post", contentType: "application/json", headers: {apikey: key, Authorization: "Bearer " + key},
+    payload: JSON.stringify({p_ticket: ticket}), muteHttpExceptions: true
+  });
+  if (response.getResponseCode() !== 200) throw new Error("Calendar authorization unavailable.");
+  var claimed = JSON.parse(response.getContentText());
+  if (!claimed || ["upsert", "delete", "pull_google_updates"].indexOf(claimed.action) === -1) throw new Error("Invalid authorization response.");
+  if (claimed.action !== "pull_google_updates" && (!claimed.event || ["schedule_events", "vacation_requests"].indexOf(claimed.event.sync_table) === -1 || !/^[0-9a-f-]{36}$/i.test(claimed.event.id))) throw new Error("Invalid Calendar source.");
+  return claimed;
+}
+
 function doPost(e) {
+  var claimed = null, lock = null;
   try {
-    if (!e || !e.postData || !e.postData.contents) {
-      throw new Error("Missing POST body.");
-    }
-
-    var payload = JSON.parse(e.postData.contents);
-    var action = String(payload.action || "upsert").toLowerCase();
-    var event = payload.event || {};
-
-    if (action === "pull_google_updates") {
-      return jsonResponse_(pullGoogleCalendarUpdates_());
-    }
-
-    if (!event.id) {
-      throw new Error("Missing portal event ID.");
-    }
-
-    if (action === "delete") {
+    var body = e && e.postData && e.postData.contents;
+    if (!body || body.length > 65536) throw new Error("Missing authorization.");
+    var payload = JSON.parse(body);
+    if (!payload || typeof payload.ticket !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(payload.ticket)) throw new Error("Missing authorization.");
+    lock = LockService.getScriptLock();
+    if (!lock.tryLock(10000)) throw new Error("Calendar is busy.");
+    claimed = claimCalendarTicket_(payload.ticket);
+    if (claimed.action === "pull_google_updates") return jsonResponse_(pullGoogleCalendarUpdates_());
+    var event = claimed.event;
+    if (claimed.action === "delete") {
       deleteGoogleCalendarEvent_(event);
-      updateSupabaseScheduleSync_(event, {
-        google_event_id: null,
-        google_sync_status: "not_synced",
-        google_synced_at: null,
-        google_sync_error: null
-      });
-      return jsonResponse_({ success: true, action: "delete" });
+      updateSupabaseScheduleSync_(event, {google_event_id: null, google_sync_status: "not_synced", google_synced_at: null, google_sync_error: null});
+      return jsonResponse_({success: true, action: "delete"});
     }
-
     var googleEvent = upsertGoogleCalendarEvent_(event);
-    updateSupabaseScheduleSync_(event, {
-      google_event_id: googleEvent.getId(),
-      google_sync_status: "synced",
-      google_synced_at: new Date().toISOString(),
-      google_sync_error: null
-    });
-
-    return jsonResponse_({
-      success: true,
-      action: event.google_event_id ? "update" : "create",
-      google_event_id: googleEvent.getId()
-    });
+    updateSupabaseScheduleSync_(event, {google_event_id: googleEvent.getId(), google_sync_status: "synced", google_synced_at: new Date().toISOString(), google_sync_error: null});
+    return jsonResponse_({success: true, action: event.google_event_id ? "update" : "create"});
   } catch (err) {
-    var message = err && err.message ? err.message : String(err);
-    try {
-      var failedPayload = e && e.postData && e.postData.contents ? JSON.parse(e.postData.contents) : {};
-      var failedEvent = failedPayload.event || {};
-
-      if (failedEvent.id) {
-        updateSupabaseScheduleSync_(failedEvent, {
-          google_sync_status: "sync_failed",
-          google_sync_error: message
-        });
-      }
-    } catch (updateErr) {
-      // Keep the original sync error as the response.
+    // A rejected/replayed public request never supplies a database patch target.
+    if (claimed && claimed.event) {
+      try { updateSupabaseScheduleSync_(claimed.event, {google_sync_status: "sync_failed", google_sync_error: "Calendar sync failed. Queue a fresh request from the Portal."}); } catch (_) {}
     }
-
-    return jsonResponse_({ success: false, error: message });
+    return jsonResponse_({success: false, error: "Calendar sync was rejected or failed. Retry from the Portal."});
+  } finally {
+    if (lock) lock.releaseLock();
   }
 }
 
@@ -109,6 +101,7 @@ function upsertGoogleCalendarEvent_(event) {
     location: event.location || ""
   };
   var googleEvent = event.google_event_id ? calendar.getEventById(event.google_event_id) : null;
+  if (googleEvent && !calendarEventBelongsToPortal_(googleEvent, event.id)) throw new Error("Calendar source ownership does not match.");
 
   if (event.all_day) {
     var allDayStart = buildAllDayDate_(event.event_date);
@@ -148,6 +141,11 @@ function upsertGoogleCalendarEvent_(event) {
   return calendar.createEvent(title, start, end, options);
 }
 
+function calendarEventBelongsToPortal_(googleEvent, portalId) {
+  var marker = "Portal Event ID: " + portalId;
+  return String(googleEvent.getDescription() || "").split(/\r?\n/).some(function(line) { return line.trim() === marker; });
+}
+
 function findExistingGoogleCalendarEvent_(calendar, title, start, end, portalId) {
   var searchStart = new Date(start.getTime());
   var searchEnd = new Date(end.getTime());
@@ -161,7 +159,7 @@ function findExistingGoogleCalendarEvent_(calendar, title, start, end, portalId)
     var candidate = candidates[i];
     var description = candidate.getDescription() || "";
 
-    if ((portalId && description.indexOf(portalId) !== -1) || candidate.getTitle() === title) {
+    if (portalId && calendarEventBelongsToPortal_(candidate, portalId)) {
       return candidate;
     }
   }
@@ -178,6 +176,7 @@ function deleteGoogleCalendarEvent_(event) {
   var googleEvent = calendar.getEventById(event.google_event_id);
 
   if (googleEvent) {
+    if (!calendarEventBelongsToPortal_(googleEvent,event.id)) throw new Error("Calendar source ownership does not match.");
     googleEvent.deleteEvent();
   }
 }
@@ -204,6 +203,7 @@ function pullGoogleCalendarUpdates_() {
         continue;
       }
 
+      if (!calendarEventBelongsToPortal_(googleEvent,portalEvent.id)) throw new Error("Calendar source ownership does not match.");
       patchSupabaseScheduleEvent_(portalEvent.id, buildPortalUpdateFromGoogleEvent_(googleEvent));
       updated++;
     } catch (err) {

@@ -30,9 +30,12 @@ function xmlText(file: Uint8Array | undefined) {
 }
 
 function sharedStrings(xml: string) {
-  return [...xml.matchAll(/<si(?:\s[^>]*)?>([\s\S]*?)<\/si>/g)].map((match) =>
-    [...match[1].matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)].map((part) => stripXml(part[1])).join(""),
-  );
+  const strings:string[]=[];let characters=0;
+  for(const match of xml.matchAll(/<si(?:\s[^>]*)?>([\s\S]*?)<\/si>/g)){
+    let value='';for(const part of match[1].matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g))value+=stripXml(part[1]);
+    characters+=value.length;if(strings.length>=50_000||characters>4_000_000||value.length>20_000)throw new WorkbookTooLarge(WORKBOOK_TOO_LARGE);
+    strings.push(value);
+  }return strings;
 }
 
 function columnFromReference(reference: string) {
@@ -49,19 +52,19 @@ function cellValue(cellXml: string, type: string, strings: string[]) {
   return value.trim();
 }
 
-function worksheetRows(xml: string, strings: string[]) {
-  return [...xml.matchAll(/<row\b([^>]*)>([\s\S]*?)<\/row>/g)].map((rowMatch, index) => {
-    const rowNumber = Number(rowMatch[1].match(/\br="(\d+)"/)?.[1] ?? index + 1);
-    const cells = new Map<string, string>();
-    for (const cellMatch of rowMatch[2].matchAll(/<c\b([^>]*)>([\s\S]*?)<\/c>/g)) {
-      const reference = cellMatch[1].match(/\br="([A-Z]+\d+)"/i)?.[1] ?? "";
-      const column = columnFromReference(reference);
-      if (!column) continue;
-      const type = cellMatch[1].match(/\bt="([^"]+)"/)?.[1] ?? "n";
-      cells.set(column, cellValue(cellMatch[2], type, strings));
-    }
-    return { rowNumber, cells };
-  });
+function worksheetRows(xml: string, strings: string[],budget:{rows:number;cells:number;characters:number}) {
+  const rows:{rowNumber:number;cells:Map<string,string>}[]=[];
+  for(const rowMatch of xml.matchAll(/<row\b([^>]*)>([\s\S]*?)<\/row>/g)){
+    if(++budget.rows>25_000)throw new WorkbookTooLarge(WORKBOOK_TOO_LARGE);
+    const rowNumber=Number(rowMatch[1].match(/\br="(\d+)"/)?.[1]??rows.length+1),cells=new Map<string,string>();
+    for(const match of rowMatch[2].matchAll(/<c\b([^>]*)>([\s\S]*?)<\/c>/g)){
+      if(++budget.cells>150_000)throw new WorkbookTooLarge(WORKBOOK_TOO_LARGE);
+      const column=columnFromReference(match[1].match(/\br="([A-Z]+\d+)"/i)?.[1]??'');if(!column)continue;
+      const value=cellValue(match[2],match[1].match(/\bt="([^"]+)"/)?.[1]??'n',strings);
+      budget.characters+=value.length;if(value.length>20_000||budget.characters>4_000_000||cells.size>=500)throw new WorkbookTooLarge(WORKBOOK_TOO_LARGE);
+      cells.set(column,value);
+    }rows.push({rowNumber,cells});
+  }return rows;
 }
 
 function normalizedHeader(value: string) {
@@ -69,7 +72,7 @@ function normalizedHeader(value: string) {
 }
 
 export function normalizeMaterialName(value: string) {
-  let normalized = value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().replace(/×/g, "x");
+  let normalized = value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().replace(/Ã—/g, "x");
   for (let index = 0; index < 3; index += 1) normalized = normalized.replace(/(\d)\s*x\s*(?=\d)/g, "$1x");
   return normalized.replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -87,8 +90,9 @@ function numberFromCell(value: string) {
 
 function findWorksheetWithHeaders(files: Record<string, Uint8Array>, strings: string[]) {
   const sheetNames = Object.keys(files).filter((name) => /^xl\/worksheets\/sheet\d+\.xml$/i.test(name)).sort();
+  const budget={rows:0,cells:0,characters:0};
   for (const sheetName of sheetNames) {
-    const rows = worksheetRows(xmlText(files[sheetName]), strings);
+    const rows = worksheetRows(xmlText(files[sheetName]), strings,budget);
     for (const row of rows.slice(0, 80)) {
       let materialColumn = "";
       let priceColumn = "";

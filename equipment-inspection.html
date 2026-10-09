@@ -24,6 +24,7 @@
     <section id="equipmentCard" class="card" hidden>
         <h2 id="equipmentHeading">Equipment</h2>
         <div class="equipment-grid" id="equipmentFacts"></div>
+        <p id="qrIdentity" class="small jgc-user-line"></p>
         <div class="actions jgc-actions">
             <button type="button" onclick="showTodayView()">Today's Inspection</button>
             <button type="button" onclick="showFormView()">Start Inspection</button>
@@ -510,9 +511,15 @@ function showFormView() {
     document.getElementById("formCard").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+function renderQrIdentity() {
+    const identity=document.getElementById('qrIdentity');identity.replaceChildren();
+    if(state.employees?.length)identity.textContent='Signed in as: '+(state.employees[0].display_name||state.employees[0].worker_key);else{identity.textContent='External inspections are recorded as unverified. ';const login=document.createElement('a');login.textContent='JGC staff sign in';login.href='index.html?inspectionReturn='+encodeURIComponent(location.pathname+location.search);identity.append(login);}
+}
+
 function showTodayView() {
     document.getElementById("formCard").hidden = true;
     document.getElementById("todayCard").hidden = false;
+    renderQrIdentity();
     renderTodayInspection();
     document.getElementById("todayCard").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -547,6 +554,14 @@ function renderTodayInspection() {
         return;
     }
 
+    if (record.public_summary) {
+        container.replaceChildren();
+        const message = document.createElement('p');
+        message.textContent = 'An inspection was recorded for today. Sign in with an approved JGC account to view its details.';
+        const button = document.createElement('button');
+        button.type = 'button'; button.textContent = 'Start another inspection'; button.onclick = showFormView;
+        container.append(message, button); return;
+    }
     const rows = getInspectionRows(record);
     const fields = getInspectionFields(record);
     const completedBy = record.worker_display_name || record.worker_name || "";
@@ -794,6 +809,7 @@ async function loadEquipmentInspection(options) {
         state.documents = documentResult.error ? [] : (documentResult.data || []);
         state.documentsError = documentResult.error ? (documentResult.error.message || "Lift documents could not be loaded.") : "";
 
+        renderQrIdentity();
         renderEquipmentCard();
         renderQrEquipmentDocuments();
         setStatus("");

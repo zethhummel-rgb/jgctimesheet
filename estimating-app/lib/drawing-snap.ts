@@ -12,11 +12,12 @@ const pause = () => new Promise<void>(resolve => setTimeout(resolve, 0));
 // PDF.js 6 packed paths must be read before canvas rendering turns them into Path2D.
 export async function drawingSegments(page: PDFPageProxy, ops: Record<string, number>, limit = DRAWING_SNAP_MAX_SEGMENTS): Promise<Segment[]> {
   const list = await page.getOperatorList(), segments: Segment[] = [], stack: Matrix[] = [];
+  if(list.fnArray.length>1_000_000)throw new Error('This drawing is too complex for line snapping.');
   let matrix: Matrix = [1,0,0,1,0,0], work = 0;
   read: for (let i = 0; i < list.fnArray.length; i++) {
     if (++work % PAUSE_EVERY === 0) await pause();
     const fn = list.fnArray[i], args = list.argsArray[i];
-    if (fn === ops.save || fn === ops.paintFormXObjectBegin) { stack.push([...matrix]); if (fn === ops.paintFormXObjectBegin && args[0]) matrix = multiply(matrix,args[0]); }
+    if (fn === ops.save || fn === ops.paintFormXObjectBegin) { if(stack.length>=512)throw new Error('This drawing is too complex for line snapping.');stack.push([...matrix]); if (fn === ops.paintFormXObjectBegin && args[0]) matrix = multiply(matrix,args[0]); }
     else if (fn === ops.restore || fn === ops.paintFormXObjectEnd) matrix = stack.pop() ?? [1,0,0,1,0,0];
     else if (fn === ops.transform) matrix = multiply(matrix,args);
     else if (fn === ops.constructPath) {

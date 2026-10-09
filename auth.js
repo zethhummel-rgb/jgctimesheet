@@ -104,6 +104,12 @@ async function loadJgcProfileAndEnter(supabaseClient, user, setStatus, options) 
   localStorage.setItem("jgcStayLoggedIn", stayLoggedIn ? "true" : "false");
   sessionStorage.setItem("jgcActiveSession", "true");
 
+  const inspectionReturn=new URL(window.location.href).searchParams.get('inspectionReturn');
+  if(!hasLimitedAccess&&inspectionReturn){
+    try { const target=new URL(inspectionReturn,window.location.href);
+      if(target.origin===window.location.origin&&/\/(?:vehicle|equipment)-inspection\.html$/.test(target.pathname)&&target.searchParams.get('token')){window.location.href=target.href;return true;}
+    }catch{}
+  }
   window.location.href = hasLimitedAccess
     ? "limited-access.html"
     : (isAdminWorker(profile.worker_key, profile.role, profile.email) ? "admin.html" : "home.html");

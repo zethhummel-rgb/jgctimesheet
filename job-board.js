@@ -107,7 +107,7 @@
       state.visit = loadVisit();
       let board;
       if (state.manage) {
-        if (!state.user) { $('staffGate').hidden = false; throw new Error('Sign in to manage this job’s board.'); }
+        if (!state.user) { $('staffGate').hidden = false; throw new Error('Sign in to manage this jobâ€™s board.'); }
         board = await rpc('get_or_create_job_board', { p_job_id: state.job });
       } else {
         board = await rpc('get_job_board', { p_token: state.token, p_visit_token: state.visit && state.visit.token || null });
@@ -185,7 +185,7 @@
     const detail = document.createElement('div'); detail.append(text('h3', 'Prepared JSA for today', 'board-document-title'));
     const meta = text('div', '', 'board-document-meta'); [item.project, item.location].filter(Boolean).forEach(value => meta.append(text('span', value)));
     meta.append(text('span', 'Not active yet', 'jgc-badge jgc-badge--warning')); detail.append(meta);
-    detail.append(text('p', 'Prepared by ' + (item.prepared_by || 'the office') + '. Open it in the Portal, choose today’s Workers Onsite, then Complete and Worker Sign Off.', 'board-document-notes'));
+    detail.append(text('p', 'Prepared by ' + (item.prepared_by || 'the office') + '. Open it in the Portal, choose todayâ€™s Workers Onsite, then Complete and Worker Sign Off.', 'board-document-notes'));
     const actions = text('div', '', 'board-document-actions'), open = document.createElement('a');
     open.className = 'jgc-button'; open.textContent = 'Activate JSA'; open.href = 'jsa.html?prepared=' + encodeURIComponent(item.id); if (hosted) open.target = '_top';
     actions.append(open); card.append(icon, detail, actions); return card;
@@ -205,7 +205,7 @@
     ['dailyReportsList', 'Daily Reports', ['daily-report','jsa','toolbox-talk','accident-incident','other'], 'Daily site updates, job safety analyses (JSAs), toolbox talks and report photos. Restricted reports require authorized staff or client access.'],
     ['inspectionList', 'Daily Inspections', ['inspection'], 'Equipment and safety inspections completed for this job, including inspections submitted through equipment QR codes.'],
     ['permitList', 'Daily Permits', ['permit'], 'Work permits for this job, such as hot work, excavation and confined-space entry.'],
-    ['policyList', 'JGC Policy', ['jgc-policy'], 'John Gordon Construction’s current company health and safety policy.']
+    ['policyList', 'JGC Policy', ['jgc-policy'], 'John Gordon Constructionâ€™s current company health and safety policy.']
   ];
   function renderLibrary() {
     const all = (state.board?.documents || []).filter(d => d.status === 'published');
@@ -286,14 +286,14 @@
   }
   async function openJsaSignOn(doc) {
     const generation=++jsaReviewGeneration; jsaReview=null; $('boardContent').hidden=true; showJsaPanel(true); rememberJsaOpen(doc.id);
-    $('jsaSignOnTitle').textContent=doc.title || 'Sign on to JSA';$('jsaSignOnReport').replaceChildren();$('jsaSignOnRoster').replaceChildren();$('jsaSignOnRead').checked=false;setJsaSignButtons(true);$('jsaSignOnPdf').disabled=true;status('jsaSignOnStatus','Loading JSA…');
+    $('jsaSignOnTitle').textContent=doc.title || 'Sign on to JSA';$('jsaSignOnReport').replaceChildren();$('jsaSignOnRoster').replaceChildren();$('jsaSignOnRead').checked=false;setJsaSignButtons(true);$('jsaSignOnPdf').disabled=true;status('jsaSignOnStatus','Loading JSAâ€¦');
     $('jsaSignOnPanel').scrollIntoView({block:'start'});
     try {
       const model=await rpc('get_job_board_jsa',{p_token:state.token,p_visit_token:state.visit?.token||null,p_document_id:doc.id});
       if(generation!==jsaReviewGeneration)return;jsaReview={doc,model};$('jsaSignOnPdf').disabled=false;$('jsaSignOnPdf').textContent=String(doc.mime_type||'').startsWith('image/')?'Open JSA image':'Open JSA PDF';status('jsaSignOnStatus',model.signed?'You signed this JSA on '+timeLabel(model.signed_at):'Read the JSA below before signing.');
       $('jsaSignOnIdentity').textContent='Signing as '+model.identity.name+' · '+model.identity.company;
       const report=$('jsaSignOnReport');
-      status('jsaSignOnStatus','Preparing JSA PDF…');
+      status('jsaSignOnStatus','Preparing JSA PDFâ€¦');
       const file = model.record ? {blob:await window.JGCJobBoardPdf.create({source_type:'inspection_records',record:model.record,acknowledgements:model.acknowledgements}),mimeType:'application/pdf'} : await documentFile(doc);
       if(generation!==jsaReviewGeneration)return;
       if(!window.JGCJsaPreview)await loadJgcScriptOnce('job-board-jsa-preview.js?v=3');
@@ -303,12 +303,12 @@
       const signed=(model.acknowledgements||[]).filter(a=>model.workflow?.version===2 || a.signature_signed_at);
       if(model.workflow?.version===2)status('jsaSignOnStatus',model.workflow.status+' · '+model.workflow.signed+'/'+model.workflow.required+' workers signed. '+(!jsaCollecting(model)?(model.signed?'You signed this JSA on '+timeLabel(model.signed_at)+'.':'Arrived late? Read the JSA, then sign on below.'):model.workflow.prepared_in_advance?'Staff with this prepared JSA can collect the signatures on their phone.':'All worker signatures are collected on the JSA creator phone.'));
       if(!signed.length)empty($('jsaSignOnRoster'),'No signatures recorded yet.');
-      signed.forEach(ack=>{const row=text('div','','jgc-record-row');row.append(text('strong',ack.attendee_name),text('span',ack.attendee_company || ''),text('time',ack.signature_signed_at?'Signed · '+timeLabel(ack.signature_signed_at):model.workflow?.status==='Prepared'?'Planned — sign on work date':'Outstanding','board-help'));$('jsaSignOnRoster').append(row);});
+      signed.forEach(ack=>{const row=text('div','','jgc-record-row');row.append(text('strong',ack.attendee_name),text('span',ack.attendee_company || ''),text('time',ack.signature_signed_at?'Signed · '+timeLabel(ack.signature_signed_at):model.workflow?.status==='Prepared'?'Planned â€” sign on work date':'Outstanding','board-help'));$('jsaSignOnRoster').append(row);});
       setJsaSignButtons(jsaCollecting(model)?!model.can_collect || !model.workflow.active:!!model.signed,
         jsaCollecting(model)?(model.can_collect?'Collect worker signatures':model.workflow.prepared_in_advance?'Sign on staff phone':'Sign on creator phone'):model.signed?'Already signed':'Sign onto JSA');
       $('jsaSignOnRead').disabled=!!model.signed;
     }catch(error){if(generation===jsaReviewGeneration){
-      // Signing stays off until the JSA itself is shown. Browser errors ("undefined is not a function…") mean nothing to the person signing.
+      // Signing stays off until the JSA itself is shown. Browser errors ("undefined is not a functionâ€¦") mean nothing to the person signing.
       const shown=error instanceof TypeError||error instanceof ReferenceError||error instanceof SyntaxError?'The JSA could not be shown on this device, so signing is paused.':errorMessage(error);
       status('jsaSignOnStatus',shown+' Reopen this JSA to try again.','error');$('jsaSignOnReport').replaceChildren();}}
   }
@@ -368,7 +368,7 @@
     let running = false;
     async function perform(action) {
       if (running || !form.reportValidity()) return;
-      running = true; controls.querySelectorAll('button').forEach((b) => b.disabled = true); feedback.textContent = 'Saving…';
+      running = true; controls.querySelectorAll('button').forEach((b) => b.disabled = true); feedback.textContent = 'Savingâ€¦';
       try {
         await rpc('update_job_board_document', { p_document_id: doc.id, p_title: fields.title.value.trim(), p_report_date: fields.date.value, p_category: fields.category.value, p_notes: fields.notes.value.trim() });
         if (action !== 'save') await rpc('review_job_board_document', { p_document_id: doc.id, p_status: action, p_visibility: fields.category.value === 'accident-incident' ? 'restricted' : fields.visibility.value });
@@ -421,7 +421,7 @@
       viewer.opener = null;
       viewer.document.title = doc.title || 'Opening document';
       const loading = viewer.document.createElement('p');
-      loading.textContent = 'Opening document…';
+      loading.textContent = 'Opening documentâ€¦';
       viewer.document.body.append(loading);
       busy(control, true);
       try {
@@ -437,7 +437,7 @@
       } finally { busy(control, false); }
       return;
     }
-    busy(control, true); const version = ++state.previewGeneration; $('previewTitle').textContent = doc.title || 'Document'; $('previewBody').replaceChildren(); status('previewStatus', 'Opening document…'); fitDesktopPreview(); if (!$('documentPreview').open) $('documentPreview').showModal();
+    busy(control, true); const version = ++state.previewGeneration; $('previewTitle').textContent = doc.title || 'Document'; $('previewBody').replaceChildren(); status('previewStatus', 'Opening documentâ€¦'); fitDesktopPreview(); if (!$('documentPreview').open) $('documentPreview').showModal();
     try { const file=await documentFile(doc);if(version!==state.previewGeneration)return;if(!window.JGCJsaPreview)await loadJgcScriptOnce('job-board-jsa-preview.js?v=3');await JGCJsaPreview.render($('previewBody'),file,()=>version===state.previewGeneration&&$('documentPreview').open);if(version===state.previewGeneration){fitDesktopPreview();status('previewStatus','');} }
     catch (e) { if (version === state.previewGeneration) status('previewStatus', errorMessage(e), 'error'); } finally { busy(control, false); }
   }
@@ -445,7 +445,7 @@
   async function emailDocument(doc, control) {
     const version = ++emailVersion; emailFile = null;
     $('emailPdfTitle').textContent = doc.title || 'Email PDF'; $('emailPdfReady').hidden = true;
-    status('emailPdfStatus', 'Preparing PDF…'); $('emailPdfDialog').showModal(); busy(control,true);
+    status('emailPdfStatus', 'Preparing PDFâ€¦'); $('emailPdfDialog').showModal(); busy(control,true);
     try {
       const source = await documentFile(doc);
       const file = await JGCJobBoardEmail.pdf(source.blob,source.fileName,source.mimeType);
@@ -461,8 +461,8 @@
     const board = state.board, token = state.token;
     $('boardEnabled').checked = !!board.enabled; $('boardEnabledBadge').textContent = board.enabled ? 'Access enabled' : 'Access disabled'; $('boardEnabledBadge').className = 'jgc-badge ' + (board.enabled ? 'jgc-badge--success' : 'jgc-badge--warning');
     $('boardOpenLink').href = boardLink(); $('posterJob').textContent = [board.job_number && 'Job ' + board.job_number, board.job_name].filter(Boolean).join(' · '); $('posterAddress').textContent = board.address || '';
-    $('boardQr').removeAttribute('src'); $('posterQr').removeAttribute('src'); status('boardQrStatus', 'Generating QR code…'); ['boardPrint', 'boardQrDownload'].forEach((id) => $(id).disabled = true);
-    try { if (!window.QRCode || !window.QRCode.toDataURL) throw new Error('QR generator unavailable. Refresh and try again.'); const url = await window.QRCode.toDataURL(boardLink(), { width: 640, margin: 4, errorCorrectionLevel: 'M' }); if (token !== state.token) return; $('boardQr').src = url; $('posterQr').src = url; status('boardQrStatus', 'Scan to open this job’s board.'); ['boardPrint', 'boardQrDownload'].forEach((id) => $(id).disabled = false); }
+    $('boardQr').removeAttribute('src'); $('posterQr').removeAttribute('src'); status('boardQrStatus', 'Generating QR codeâ€¦'); ['boardPrint', 'boardQrDownload'].forEach((id) => $(id).disabled = true);
+    try { if (!window.QRCode || !window.QRCode.toDataURL) throw new Error('QR generator unavailable. Refresh and try again.'); const url = await window.QRCode.toDataURL(boardLink(), { width: 640, margin: 4, errorCorrectionLevel: 'M' }); if (token !== state.token) return; $('boardQr').src = url; $('posterQr').src = url; status('boardQrStatus', 'Scan to open this jobâ€™s board.'); ['boardPrint', 'boardQrDownload'].forEach((id) => $(id).disabled = false); }
     catch (e) { status('boardQrStatus', errorMessage(e), 'error'); }
   }
   async function configureBoard(rotate) { const control = rotate ? $('boardRotateYes') : $('boardSaveEnabled'); busy(control, true); try { const updated = await rpc('configure_job_board', { p_board_id: state.board.id, p_enabled: $('boardEnabled').checked, p_rotate_token: !!rotate }); if (updated && updated.token) state.token = updated.token; $('boardRotateConfirm').hidden = true; notice(rotate ? 'QR link replaced. Print a new poster for the site.' : 'Board access updated.'); invalidateLogs(); await loadBoard(); } catch (e) { notice(errorMessage(e), 'error'); } finally { busy(control, false); } }
@@ -477,7 +477,7 @@
     event.preventDefault(); if (state.uploadBusy || !state.board || !state.board.can_upload || !$('uploadForm').reportValidity()) return;
     const files = Array.from($('uploadFiles').files || []); if (!files.length) return;
     const invalid = files.find((file) => !mime(file) || !file.size || file.size > 20 * 1024 * 1024); if (invalid) return status('uploadStatus', invalid.name + ': choose a PDF, JPG, PNG or WebP file up to 20 MB.', 'error');
-    state.uploadBusy = true; busy($('uploadSubmit'), true, 'Uploading…'); $('uploadProgress').hidden = false;
+    state.uploadBusy = true; busy($('uploadSubmit'), true, 'Uploadingâ€¦'); $('uploadProgress').hidden = false;
     Array.from($('uploadForm').elements).forEach((e) => { if (e.id !== 'uploadSubmit') e.disabled = true; });
     let completed = 0;
     try {
@@ -504,7 +504,7 @@
   function activityElement(kind,suffix){return $(kind==='site'?'siteActivity'+suffix:'activity'+suffix);}
   async function loadActivity(kind,append) {
     const log=state.logs[kind];if(log.busy||!state.board?.can_manage)return;
-    const boardId=state.board.id,generation=state.generation;log.busy=true;busy(activityElement(kind,'Refresh'),true);busy(activityElement(kind,'More'),true);status(activityElement(kind,'Status').id,'Loading sign-ins…');
+    const boardId=state.board.id,generation=state.generation;log.busy=true;busy(activityElement(kind,'Refresh'),true);busy(activityElement(kind,'More'),true);status(activityElement(kind,'Status').id,'Loading sign-insâ€¦');
     try {
       const result=await rpc('get_job_board_signins',{p_board_id:boardId,p_kind:kind,p_before:append?log.before:null,p_limit:50});
       if(state.board?.id!==boardId||state.generation!==generation)return;
@@ -512,17 +512,17 @@
       log.events=append?log.events.concat(events):events;log.before=result&&Object.prototype.hasOwnProperty.call(result,'next_before')?result.next_before:null;log.loaded=true;activityElement(kind,'More').hidden=!log.before;renderActivity(kind);status(activityElement(kind,'Status').id,log.events.length+' sign-ins shown. Times are in Toronto.');
     }catch(e){status(activityElement(kind,'Status').id,errorMessage(e),'error');}finally{log.busy=false;busy(activityElement(kind,'Refresh'),false);busy(activityElement(kind,'More'),false);}
   }
-  function renderActivity(kind){const list=activityElement(kind,'List');list.replaceChildren();const events=state.logs[kind].events;if(!events.length)return empty(list,'No sign-ins have been recorded yet.');events.forEach(event=>{const row=text('div','','jgc-record-row board-activity-row'),detail=text('div','');detail.append(text('strong',event.actor_name||event.actor_email||'Portal account'),text('p',[event.actor_company,event.actor_email].filter(Boolean).join(' · '),'board-activity-details'));detail.append(text('p',kind==='site'?'Site Sign in (self-reported)':event.identity_type==='visitor'?'Visitor Login (self-reported)':'Staff Login','board-activity-details'));if(event.reason)detail.append(text('p','Reason: '+event.reason,'board-activity-details'));row.append(text('time',timeLabel(event.created_at),'board-help'),detail);list.append(row);});}
+  function renderActivity(kind){const list=activityElement(kind,'List');list.replaceChildren();const events=state.logs[kind].events;if(!events.length)return empty(list,'No sign-ins have been recorded yet.');events.forEach(event=>{const row=text('div','','jgc-record-row board-activity-row'),detail=text('div','');detail.append(text('strong',event.actor_name||event.actor_email||'Portal account'),text('p',[event.actor_company,event.actor_email].filter(Boolean).join(' · '),'board-activity-details'));detail.append(text('p',kind==='site'?(event.verified?'Site Sign in (confirmed)':'Site Sign in (self-reported)'):event.identity_type==='visitor'?'Visitor Login (self-reported)':'Staff Login','board-activity-details'));if(event.reason)detail.append(text('p','Reason: '+event.reason,'board-activity-details'));row.append(text('time',timeLabel(event.created_at),'board-help'),detail);if(kind==='site'&&state.manage&&!event.verified){const confirm=text('button','Confirm on site','jgc-button jgc-button--secondary');confirm.type='button';confirm.addEventListener('click',async()=>{busy(confirm,true);try{await rpc('confirm_job_board_site_signin',{p_event_id:event.id});event.verified=true;renderActivity(kind);notice('This person is confirmed for the on-site roster.');}catch(error){notice(errorMessage(error),'error');busy(confirm,false);}});row.append(confirm);}list.append(row);});}
   let sitePdfBusy=false;
   async function downloadSiteSignins(){
-    if(sitePdfBusy||!state.board?.can_manage)return;sitePdfBusy=true;const control=$('siteActivityPdf'),board=state.board,generation=state.generation;busy(control,true);status('siteActivityStatus','Preparing all site sign-ins…');
+    if(sitePdfBusy||!state.board?.can_manage)return;sitePdfBusy=true;const control=$('siteActivityPdf'),board=state.board,generation=state.generation;busy(control,true);status('siteActivityStatus','Preparing all site sign-insâ€¦');
     try {
       const events=[],cursors=new Set();let before=null;
       do{const result=await rpc('get_job_board_signins',{p_board_id:board.id,p_kind:'site',p_before:before,p_limit:100});if(state.generation!==generation||state.board?.id!==board.id)throw new Error('The job changed. Open the site sign-ins again.');events.push(...(result?.events||[]).filter(e=>e.action==='site-signin'));before=result?.next_before||null;if(before){if(cursors.has(before))throw new Error('The sign-in list could not be completed. Please try again.');cursors.add(before);}}while(before);
       await loadJgcScriptOnce('job-board-site-signins-pdf.js?v=1','JGCSiteSigninsPdf');const blob=await JGCSiteSigninsPdf.create(board,events);if(state.generation!==generation||state.board?.id!==board.id)throw new Error('The job changed. Open the site sign-ins again.');saveBlob(blob,'JGC-Job-'+(board.job_number||'Board')+'-Site-Sign-ins.pdf');status('siteActivityStatus','PDF downloaded with '+events.length+' site sign-ins.');
     }catch(e){status('siteActivityStatus',errorMessage(e),'error');}finally{sitePdfBusy=false;busy(control,false);}
   }
-  async function loadSources() { if (!state.board || !state.board.can_manage) return; busy($('importRefresh'), true); status('importStatus', 'Loading available reports…'); try { const data = await rpc('list_job_board_sources', { p_board_id: state.board.id }); const sources = (Array.isArray(data) ? data : data && data.sources || []).filter((source) => !(source.source_type === 'policies' && (state.board.documents || []).some((doc) => doc.automatic && doc.source_type === 'policies' && String(doc.source_id) === String(source.source_id)))); state.sourcesLoaded = true; $('importList').replaceChildren(); if (!sources.length) empty($('importList'), 'No unattached matching reports or company policies are available.'); sources.forEach((source) => { const row = text('div', '', 'jgc-record-row board-viewer'); const desc = document.createElement('div'); desc.append(text('strong', source.title || categoryName(source.category)), text('p', [categoryName(source.category), dateLabel(source.report_date), source.match === 'company-policy' ? 'Company policy' : 'Job number match'].join(' · '), 'board-help')); row.append(desc, button(source.source_type === 'policies' ? 'Attach for review' : 'Attach report', async (e) => { const b = e.currentTarget; busy(b, true); try { await rpc('attach_job_board_report', { p_token: state.token, p_visit_token: state.visit && state.visit.token || null, p_source_type: source.source_type, p_source_id: source.source_id }); notice(source.source_type === 'policies' ? 'Company policy attached for office review.' : 'Report attached and published on this Job Board.'); invalidateLogs(); await loadBoard(); await loadSources(); } catch (error) { notice(errorMessage(error), 'error'); } finally { busy(b, false); } }, true)); $('importList').append(row); }); status('importStatus', sources.length + ' available items.'); } catch (e) { status('importStatus', errorMessage(e), 'error'); } finally { busy($('importRefresh'), false); } }
+  async function loadSources() { if (!state.board || !state.board.can_manage) return; busy($('importRefresh'), true); status('importStatus', 'Loading available reportsâ€¦'); try { const data = await rpc('list_job_board_sources', { p_board_id: state.board.id }); const sources = (Array.isArray(data) ? data : data && data.sources || []).filter((source) => !(source.source_type === 'policies' && (state.board.documents || []).some((doc) => doc.automatic && doc.source_type === 'policies' && String(doc.source_id) === String(source.source_id)))); state.sourcesLoaded = true; $('importList').replaceChildren(); if (!sources.length) empty($('importList'), 'No unattached matching reports or company policies are available.'); sources.forEach((source) => { const row = text('div', '', 'jgc-record-row board-viewer'); const desc = document.createElement('div'); desc.append(text('strong', source.title || categoryName(source.category)), text('p', [categoryName(source.category), dateLabel(source.report_date), source.match === 'company-policy' ? 'Company policy' : 'Job number match'].join(' · '), 'board-help')); row.append(desc, button(source.source_type === 'policies' ? 'Attach for review' : 'Attach report', async (e) => { const b = e.currentTarget; busy(b, true); try { await rpc('attach_job_board_report', { p_token: state.token, p_visit_token: state.visit && state.visit.token || null, p_source_type: source.source_type, p_source_id: source.source_id }); notice(source.source_type === 'policies' ? 'Company policy attached for office review.' : 'Report attached and published on this Job Board.'); invalidateLogs(); await loadBoard(); await loadSources(); } catch (error) { notice(errorMessage(error), 'error'); } finally { busy(b, false); } }, true)); $('importList').append(row); }); status('importStatus', sources.length + ' available items.'); } catch (e) { status('importStatus', errorMessage(e), 'error'); } finally { busy($('importRefresh'), false); } }
   function selectTab(id) { document.querySelectorAll('.board-tabs [role="tab"]').forEach((tab) => { const chosen = tab.dataset.panel === id; tab.classList.toggle('active', chosen); tab.setAttribute('aria-selected', String(chosen)); tab.tabIndex = chosen ? 0 : -1; $(tab.dataset.panel).hidden = !chosen; }); }
   function chooseLogin(id) { ['loginOptions','visitorGate','staffGate','siteGate'].forEach(key => $(key).hidden = key !== id); }
   // Typed sign-in details survive an unexpected reload (the phone dropping the tab, a weak connection): kept in
@@ -546,13 +546,14 @@
   // Logging in also records a site sign-in (name, company, date and time) unless the person unticks the box.
   async function recordLoginSiteSignIn(name, company) {
     try {
-      const result = await rpc('record_job_board_site_signin', { p_token: state.token, p_name: String(name || '').trim().slice(0, 150), p_company: String(company || '').trim().slice(0, 150), p_reason: '', p_submission_id: crypto.randomUUID() });
+      const ticket = await rpc('begin_job_board_site_signin', { p_token: state.token, p_visit_token: state.visit?.token || null, p_name: String(name || '').trim().slice(0, 150), p_company: String(company || '').trim().slice(0, 150) });
+      const result = await rpc('record_job_board_site_signin', { p_token: state.token, p_visit_token: ticket.visit_token, p_reason: '', p_submission_id: ticket.nonce });
       notice('Signed in on site at ' + timeLabel(result.recorded_at)); invalidateLogs();
     } catch (error) { notice('You are logged in, but your site sign-in was not saved: ' + errorMessage(error) + ' Use Site Sign in to try again.', 'error'); }
   }
-  async function visitorSignIn(e) { e.preventDefault(); busy($('visitorSubmit'), true); status('visitorStatus', 'Signing in…'); const name = $('visitorName').value.trim(), company = $('visitorCompany').value.trim(), onSite = $('visitorSiteSignIn').checked; try { await registerVisit({ p_name: name, p_company: company, p_email: $('visitorEmail').value.trim() }); if (onSite) markOnSiteToday(); await loadBoard(); if ($('visitorGate').hidden) { status('visitorStatus', ''); clearSignInDraft('visitorGate'); } else status('visitorStatus', 'Site sign-in expired. Please sign in again.', 'error'); if (onSite && !$('boardContent').hidden) await recordLoginSiteSignIn(name, company); } catch (error) { status('visitorStatus', errorMessage(error), 'error'); } finally { busy($('visitorSubmit'), false); } }
+  async function visitorSignIn(e) { e.preventDefault(); busy($('visitorSubmit'), true); status('visitorStatus', 'Signing inâ€¦'); const name = $('visitorName').value.trim(), company = $('visitorCompany').value.trim(), onSite = $('visitorSiteSignIn').checked; try { await registerVisit({ p_name: name, p_company: company, p_email: $('visitorEmail').value.trim() }); if (onSite) markOnSiteToday(); await loadBoard(); if ($('visitorGate').hidden) { status('visitorStatus', ''); clearSignInDraft('visitorGate'); } else status('visitorStatus', 'Site sign-in expired. Please sign in again.', 'error'); if (onSite && !$('boardContent').hidden) await recordLoginSiteSignIn(name, company); } catch (error) { status('visitorStatus', errorMessage(error), 'error'); } finally { busy($('visitorSubmit'), false); } }
   async function staffSignIn(e) {
-    e.preventDefault(); busy($('staffSubmit'), true); status('staffStatus', 'Signing in…'); const onSite = $('staffSiteSignIn').checked;
+    e.preventDefault(); busy($('staffSubmit'), true); status('staffStatus', 'Signing inâ€¦'); const onSite = $('staffSiteSignIn').checked;
     try {
       if (!state.client) throw new Error('The Portal is unavailable. Refresh and try again.');
       if (typeof setJgcAuthPersistencePreference === 'function') setJgcAuthPersistencePreference(false);
@@ -578,7 +579,7 @@
   async function showContacts() {
     const generation = ++contactsGeneration;
     if (!$('contactsDialog').open) $('contactsDialog').showModal();
-    $('contactsList').replaceChildren(); $('contactsRetry').hidden = true; status('contactsStatus','Loading contacts…');
+    $('contactsList').replaceChildren(); $('contactsRetry').hidden = true; status('contactsStatus','Loading contactsâ€¦');
     try {
       const contacts = await rpc('get_job_board_contacts',{p_token:state.token,p_visit_token:state.visit?.token || null});
       if (generation !== contactsGeneration || !$('contactsDialog').open) return;
@@ -603,7 +604,7 @@
   async function showOnsite() {
     const generation = ++onsiteGeneration;
     if (!$('onsiteDialog').open) $('onsiteDialog').showModal();
-    $('onsiteList').replaceChildren(); status('onsiteStatus', 'Loading today’s site sign-ins…');
+    $('onsiteList').replaceChildren(); status('onsiteStatus', 'Loading todayâ€™s site sign-insâ€¦');
     try {
       const result = await rpc('get_job_board_onsite_today', { p_token: state.token });
       if (generation !== onsiteGeneration || !$('onsiteDialog').open) return;
@@ -631,10 +632,10 @@
   let siteSubmission = null;
   $('siteForm').addEventListener('input',()=>siteSubmission = null);
   $('siteForm').addEventListener('submit',async e => {
-    e.preventDefault(); if ($('siteSubmit').disabled) return; busy($('siteSubmit'),true); status('siteStatus','Recording sign-in…');
-    siteSubmission ||= crypto.randomUUID();
-    try { const result = await rpc('record_job_board_site_signin',{p_token:state.token,p_name:$('siteName').value.trim(),p_company:$('siteCompany').value.trim(),p_reason:$('siteReason').value.trim(),p_submission_id:siteSubmission});
-      status('siteStatus','Site sign-in recorded: '+timeLabel(result.recorded_at),'success'); $('siteForm').reset(); clearSignInDraft('siteGate'); siteSubmission = null; invalidateLogs();
+    e.preventDefault(); if ($('siteSubmit').disabled) return; busy($('siteSubmit'),true); status('siteStatus','Recording sign-inâ€¦');
+    try { if(siteSubmission && new Date(siteSubmission.expires_at).getTime()<=Date.now())siteSubmission=null;siteSubmission ||= await rpc('begin_job_board_site_signin',{p_token:state.token,p_visit_token:state.visit?.token||null,p_name:$('siteName').value.trim(),p_company:$('siteCompany').value.trim()});
+      const result = await rpc('record_job_board_site_signin',{p_token:state.token,p_visit_token:siteSubmission.visit_token,p_reason:$('siteReason').value.trim(),p_submission_id:siteSubmission.nonce});
+      status('siteStatus','Site sign-in recorded: '+timeLabel(result.recorded_at)+(result.verified?'':' · Awaiting staff confirmation for the on-site roster.'),'success'); $('siteForm').reset(); clearSignInDraft('siteGate'); siteSubmission = null; invalidateLogs();
       if (state.user || state.visit) { chooseLogin(''); notice('Signed in on site at ' + timeLabel(result.recorded_at)); markOnSiteToday(); void promptActiveJsa(); }
     } catch(error) { status('siteStatus',errorMessage(error),'error'); } finally { busy($('siteSubmit'),false); }
   });
