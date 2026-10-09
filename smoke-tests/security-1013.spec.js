@@ -127,7 +127,11 @@ test('service worker installs the current release with at most four concurrent d
 test('offline cache includes exactly current estimator assets within the release budget',()=>{
  const worker=fs.readFileSync(path.join(root,'service-worker.js'),'utf8'),list=JSON.parse('['+worker.match(/const JGC_APP_SHELL = \[([\s\S]*?)\];/)[1]+']');
  const manifest=JSON.parse(fs.readFileSync(path.join(root,'estimating/.vite/manifest.json'),'utf8'));
- const current=[...new Set(Object.values(manifest).flatMap(entry=>[entry.file,...entry.css||[],...entry.assets||[]]).filter(file=>file.startsWith('assets/')).map(file=>'./estimating/'+file))].sort();
+ const reachable=new Set(Object.values(manifest).flatMap(entry=>[entry.file,...entry.css||[],...entry.assets||[]]).filter(file=>file.startsWith('assets/')));
+ // Vite emits worker bundles separately from the application manifest. Follow only
+ // worker URLs and dynamic imports reachable from this build's current bundles.
+ for(const file of reachable){if(!file.endsWith('.js'))continue;const source=fs.readFileSync(path.join(root,'estimating',file),'utf8');for(const match of source.matchAll(/(?:new URL\(|import\()\s*['"`]((?:\.\/)?[\w-]+\.js)['"`]/g)){const dependency='assets/'+match[1].replace(/^\.\//,'');if(fs.existsSync(path.join(root,'estimating',dependency)))reachable.add(dependency);}}
+ const current=[...reachable].map(file=>'./estimating/'+file).sort();
  expect(list.filter(file=>file.startsWith('./estimating/assets/')).sort()).toEqual(current);
  expect(list.length).toBeLessThanOrEqual(300);expect(list.reduce((bytes,file)=>bytes+fs.statSync(path.join(root,file.split('?')[0])).size,0)).toBeLessThanOrEqual(32*1024*1024);
 });

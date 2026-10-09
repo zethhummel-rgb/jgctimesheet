@@ -128,7 +128,7 @@ begin
         'equipment_identification', coalesce(r.equipment_identification, e.identification_number, '')
       )
       from public.inspection_records r
-      where r.inspection_date = current_date
+      where r.inspection_date = (clock_timestamp() at time zone 'America/Toronto')::date
         and (
           r.equipment_id = e.id
           or r.inspection_qr_token = clean_token

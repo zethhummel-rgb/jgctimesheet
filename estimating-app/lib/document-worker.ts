@@ -16,7 +16,7 @@ scope.onmessage=async event=>{
     else if(data.operation==='workbook')value=parseMaterialPriceWorkbook(data.payload.bytes);
     else if(data.operation==='validate-pdf')value=preflightPdf(data.payload.bytes);
     else if(data.operation==='drawing-lines'){
-      preflightPdf(data.payload.bytes);
+      preflightPdf(data.payload.bytes,{decodedBytes:0,objects:0},600_000);
       const pdfjs=await import('pdfjs-dist/legacy/build/pdf.mjs');pdfjs.GlobalWorkerOptions.workerSrc=new URL('../supplier-import/pdf.worker.min.mjs',scope.location.href).href;
       const task=pdfjs.getDocument({data:data.payload.bytes,maxImageSize:16_000_000});
       try{const pdf=await task.promise;const page=await pdf.getPage(data.payload.pageNumber);value=await drawingSegments(page,pdfjs.OPS);page.cleanup();}finally{await task.destroy();}

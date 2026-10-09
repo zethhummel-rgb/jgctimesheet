@@ -562,7 +562,7 @@ end;
 $function$;
 CREATE OR REPLACE FUNCTION public.sync_equipment_current_km_from_vehicle_inspection() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $function$
 BEGIN
-  IF private.jgc_has_full_portal_access() AND lower(coalesce(new.status,''))='submitted' AND new.vehicle_id IS NOT NULL AND new.odometer IS NOT NULL THEN
+  IF (private.jgc_has_full_portal_access() OR auth.jwt()->>'role'='service_role') AND lower(coalesce(new.status,''))='submitted' AND new.vehicle_id IS NOT NULL AND new.odometer IS NOT NULL THEN
     UPDATE public.equipment_vehicles SET current_km=new.odometer,updated_at=now() WHERE id=new.vehicle_id AND (current_km IS NULL OR (new.odometer>=current_km AND current_km IS DISTINCT FROM new.odometer));
   END IF;RETURN new;
 END $function$;

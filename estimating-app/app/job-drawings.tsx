@@ -5,13 +5,13 @@ import type { Job } from '../lib/estimator-data';
 import { calibrate, commentLines, dimensionGeometry, drawingPageCountProblem, drawingPageOrder, drawingPageSizeProblem, reorderDrawingPages, thumbnailScale, DRAWING_MAX_BYTES, DRAWING_MAX_MB, emptyDrawing, isMeasurement, measurement, replacePageScale, scaleReferenceLabel, validateContent, type DrawingContent, type Mark, type MeasurementUnit, type Point, type Scale, type ReviewStamp } from '../lib/drawing-model';
 import { addDrawing, listDrawings, loadDrawing, saveDrawing, type DrawingRecord } from '../src/drawings-api';
 import { snapPoint, type Segment } from '../lib/drawing-snap';
-import { drawingSegmentsIsolated } from '../lib/document-worker-client';
+import { drawingSegmentsIsolated, validatePdfIsolated } from '../lib/document-worker-client';
 import { DrawingIcon, ReviewStampGraphic, StampFields } from './drawing-controls';
 import './job-drawings.css';
 const phoneQuery='(max-width: 600px), (max-width: 1000px) and (max-height: 500px)';
 let engine: ReturnType<typeof importEngine> | undefined;
 async function importEngine() { const pdf = await import('pdfjs-dist/legacy/build/pdf.mjs'); pdf.GlobalWorkerOptions.workerSrc = './supplier-import/pdf.worker.min.mjs'; return pdf; }
-async function openPdf(bytes: Uint8Array) { engine ??= importEngine(); const pdf = await engine; return pdf.getDocument({ data: bytes.slice() }).promise; }
+async function openPdf(bytes: Uint8Array) { await validatePdfIsolated(bytes);engine ??= importEngine(); const pdf = await engine; return pdf.getDocument({ data: bytes.slice() }).promise; }
 // Checked before a PDF is stored, so a booby-trapped file never reaches the shared drawing list.
 async function checkDrawingPdf(bytes: Uint8Array) {
   const pdf = await openPdf(bytes);
