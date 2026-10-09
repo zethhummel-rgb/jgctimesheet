@@ -17,8 +17,8 @@
   <meta name="theme-color" content="#0b5e3b">
   <title>Job Board · JGC Portal</title>
   <link rel="stylesheet" href="jgc-design-system.css?v=14" data-jgc-design-system="14">
-  <link rel="stylesheet" href="job-board.css?v=10">
-  <link rel="stylesheet" href="safety-signature-pad.css?v=3">
+  <link rel="stylesheet" href="job-board.css?v=11">
+  <link rel="stylesheet" href="safety-signature-pad.css?v=4">
 </head>
 <body class="job-board-page jgc-page jgc-system-page">
   <main class="jgc-page-shell" id="jobBoardPage">
@@ -176,6 +176,8 @@
   </main>
   <section id="jsaSignOnPanel" class="jgc-panel board-jsa-sign-on" aria-labelledby="jsaSignOnTitle" data-jgc-keep-open hidden>
     <h2 id="jsaSignOnTitle" class="jgc-section-title">Sign on to JSA</h2>
+    <button id="jsaSignOnSignTop" class="jgc-button board-jsa-sign-top" type="button" disabled>Click here to sign onto JSA</button>
+    <ol class="board-jsa-steps"><li>Read the JSA below.</li><li>Tap the green button and confirm you read it.</li><li>Sign with your finger in the white box.</li></ol>
     <p id="jsaSignOnStatus" class="board-form-status" role="status" aria-live="polite"></p><div id="jsaSignOnReport"></div>
     <div class="board-actions"><button id="jsaSignOnPdf" class="jgc-button jgc-button--secondary" type="button">Open JSA PDF</button></div>
     <p id="jsaSignOnIdentity" class="jgc-notice"></p>
@@ -225,7 +227,7 @@
   <script src="vendor/qrcode.min.js?v=1"></script>
   <script src="job-board-report-pdf.js?v=5"></script>
   <script src="job-board-email.js?v=1"></script>
-  <script src="safety-signature-pad.js?v=3"></script>
-  <script src="job-board.js?v=16"></script>
+  <script src="safety-signature-pad.js?v=4"></script>
+  <script src="job-board.js?v=17"></script>
 </body>
 </html>

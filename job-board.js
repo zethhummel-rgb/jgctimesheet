@@ -239,12 +239,23 @@
   const jsaCollecting = model => model.workflow?.version===2 && !model.workflow.completed_at;
   // The JSA page replaces the board; its Back button sits with the header buttons (or the embedded toolbar).
   function showJsaPanel(open) { $('jsaSignOnPanel').hidden = !open; $('jsaSignOnBack').hidden = !open; }
+  // The big button at the top and the one under the JSA do the same thing and always agree.
+  function setJsaSignButtons(disabled, label) {
+    $('jsaSignOnSign').disabled = disabled; $('jsaSignOnSignTop').disabled = disabled;
+    $('jsaSignOnSign').textContent = label || 'Sign onto JSA'; $('jsaSignOnSignTop').textContent = label && label !== 'Sign onto JSA' ? label : 'Click here to sign onto JSA';
+  }
   // After signing on, point people at today's JSA they still need to read and sign. Once a day per person on
   // this device, however many times they sign on.
   let jsaPromptBusy = false;
-  function jsaPromptKey() { return 'jgcJobBoardJsaPrompt:' + state.token + ':' + (state.user ? state.user.id : 'visitor:' + String(state.visit?.label || '').trim().toLowerCase()); }
+  const signedInIdentity = () => state.token + ':' + (state.user ? state.user.id : 'visitor:' + String(state.visit?.label || '').trim().toLowerCase());
+  function jsaPromptKey() { return 'jgcJobBoardJsaPrompt:' + signedInIdentity(); }
+  // Only people who signed in on site today (the login box left ticked, or Site Sign in) are asked to sign the
+  // active JSA; someone just viewing the board is not on site.
+  function markOnSiteToday() { try { localStorage.setItem('jgcJobBoardOnSite:' + signedInIdentity(), dateToday()); } catch (_) {} }
+  function onSiteToday() { try { return localStorage.getItem('jgcJobBoardOnSite:' + signedInIdentity()) === dateToday(); } catch (_) { return false; } }
   async function promptActiveJsa() {
     const today = dateToday(), key = jsaPromptKey();
+    if (!onSiteToday()) return;
     try { if (jsaPromptBusy || localStorage.getItem(key) === today) return; } catch (_) { return; }
     const docs = (state.board?.documents || []).filter(d => d.status === 'published' && d.category === 'jsa' && String(d.report_date || '').slice(0, 10) === today)
       .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
@@ -275,7 +286,7 @@
   }
   async function openJsaSignOn(doc) {
     const generation=++jsaReviewGeneration; jsaReview=null; $('boardContent').hidden=true; showJsaPanel(true); rememberJsaOpen(doc.id);
-    $('jsaSignOnTitle').textContent=doc.title || 'Sign on to JSA';$('jsaSignOnReport').replaceChildren();$('jsaSignOnRoster').replaceChildren();$('jsaSignOnRead').checked=false;$('jsaSignOnSign').disabled=true;$('jsaSignOnPdf').disabled=true;status('jsaSignOnStatus','Loading JSA…');
+    $('jsaSignOnTitle').textContent=doc.title || 'Sign on to JSA';$('jsaSignOnReport').replaceChildren();$('jsaSignOnRoster').replaceChildren();$('jsaSignOnRead').checked=false;setJsaSignButtons(true);$('jsaSignOnPdf').disabled=true;status('jsaSignOnStatus','Loading JSA…');
     $('jsaSignOnPanel').scrollIntoView({block:'start'});
     try {
       const model=await rpc('get_job_board_jsa',{p_token:state.token,p_visit_token:state.visit?.token||null,p_document_id:doc.id});
@@ -293,8 +304,9 @@
       if(model.workflow?.version===2)status('jsaSignOnStatus',model.workflow.status+' · '+model.workflow.signed+'/'+model.workflow.required+' workers signed. '+(!jsaCollecting(model)?(model.signed?'You signed this JSA on '+timeLabel(model.signed_at)+'.':'Arrived late? Read the JSA, then sign on below.'):model.workflow.prepared_in_advance?'Staff with this prepared JSA can collect the signatures on their phone.':'All worker signatures are collected on the JSA creator phone.'));
       if(!signed.length)empty($('jsaSignOnRoster'),'No signatures recorded yet.');
       signed.forEach(ack=>{const row=text('div','','jgc-record-row');row.append(text('strong',ack.attendee_name),text('span',ack.attendee_company || ''),text('time',ack.signature_signed_at?'Signed · '+timeLabel(ack.signature_signed_at):model.workflow?.status==='Prepared'?'Planned — sign on work date':'Outstanding','board-help'));$('jsaSignOnRoster').append(row);});
-      $('jsaSignOnSign').disabled=jsaCollecting(model)?!model.can_collect || !model.workflow.active:!!model.signed;$('jsaSignOnRead').disabled=!!model.signed;
-      $('jsaSignOnSign').textContent=jsaCollecting(model)?(model.can_collect?'Collect worker signatures':model.workflow.prepared_in_advance?'Sign on staff phone':'Sign on creator phone'):model.signed?'Already signed':'Sign onto JSA';
+      setJsaSignButtons(jsaCollecting(model)?!model.can_collect || !model.workflow.active:!!model.signed,
+        jsaCollecting(model)?(model.can_collect?'Collect worker signatures':model.workflow.prepared_in_advance?'Sign on staff phone':'Sign on creator phone'):model.signed?'Already signed':'Sign onto JSA');
+      $('jsaSignOnRead').disabled=!!model.signed;
     }catch(error){if(generation===jsaReviewGeneration){
       // Signing stays off until the JSA itself is shown. Browser errors ("undefined is not a function…") mean nothing to the person signing.
       const shown=error instanceof TypeError||error instanceof ReferenceError||error instanceof SyntaxError?'The JSA could not be shown on this device, so signing is paused.':errorMessage(error);
@@ -304,7 +316,8 @@
   $('jsaPromptLater').addEventListener('click',()=>$('jsaPromptDialog').close());
   $('jsaSignOnRead').addEventListener('change',()=>{$('jsaReadContinue').disabled=!jsaReview||jsaReview.model.signed||!$('jsaSignOnRead').checked;});
   $('jsaSignOnPdf').addEventListener('click',e=>{if(jsaReview)void viewDocument(jsaReview.doc,e.currentTarget);});
-  $('jsaSignOnSign').addEventListener('click',()=>{if(!jsaReview)return;if(jsaCollecting(jsaReview.model)){if(jsaReview.model.can_collect && jsaReview.model.workflow.active)window.location.href='jsa.html?record='+encodeURIComponent(jsaReview.model.record.id);return;}if(jsaReview.model.signed)return;$('jsaSignOnRead').checked=false;$('jsaReadContinue').disabled=true;$('jsaReadDialog').showModal();});
+  const startJsaSignOn=()=>{if(!jsaReview)return;if(jsaCollecting(jsaReview.model)){if(jsaReview.model.can_collect && jsaReview.model.workflow.active)window.location.href='jsa.html?record='+encodeURIComponent(jsaReview.model.record.id);return;}if(jsaReview.model.signed)return;$('jsaSignOnRead').checked=false;$('jsaReadContinue').disabled=true;$('jsaReadDialog').showModal();};
+  $('jsaSignOnSign').addEventListener('click',startJsaSignOn); $('jsaSignOnSignTop').addEventListener('click',startJsaSignOn);
   $('jsaReadCancel').addEventListener('click',()=>$('jsaReadDialog').close());
   $('jsaReadContinue').addEventListener('click',()=>{
     if(!jsaReview||!$('jsaSignOnRead').checked||jsaReview.model.signed)return;
@@ -314,7 +327,7 @@
       if(generation!==jsaReviewGeneration)throw new Error('Open the JSA again before signing.');
       const result=await rpc('sign_job_board_jsa',{p_token:state.token,p_visit_token:state.visit?.token||null,p_document_id:review.doc.id,p_confirm_read:$('jsaSignOnRead').checked,p_reviewed_version:review.model.version,p_signature_strokes:signature.strokes,p_signature_width:signature.width,p_signature_height:signature.height});
       if(!result?.ok)throw new Error('Your signature could not be saved.');
-      status('jsaSignOnStatus','Signature saved. Your name and company have been added to this JSA.','success');$('jsaSignOnSign').disabled=true;review.model.signed=true;
+      status('jsaSignOnStatus','Signature saved. Your name and company have been added to this JSA.','success');setJsaSignButtons(true,'Already signed');review.model.signed=true;
       void openJsaSignOn(review.doc);rememberJsaOpen('');return {ok:true};
     }});
   });
@@ -537,7 +550,7 @@
       notice('Signed in on site at ' + timeLabel(result.recorded_at)); invalidateLogs();
     } catch (error) { notice('You are logged in, but your site sign-in was not saved: ' + errorMessage(error) + ' Use Site Sign in to try again.', 'error'); }
   }
-  async function visitorSignIn(e) { e.preventDefault(); busy($('visitorSubmit'), true); status('visitorStatus', 'Signing in…'); const name = $('visitorName').value.trim(), company = $('visitorCompany').value.trim(), onSite = $('visitorSiteSignIn').checked; try { await registerVisit({ p_name: name, p_company: company, p_email: $('visitorEmail').value.trim() }); await loadBoard(); if ($('visitorGate').hidden) { status('visitorStatus', ''); clearSignInDraft('visitorGate'); } else status('visitorStatus', 'Site sign-in expired. Please sign in again.', 'error'); if (onSite && !$('boardContent').hidden) await recordLoginSiteSignIn(name, company); } catch (error) { status('visitorStatus', errorMessage(error), 'error'); } finally { busy($('visitorSubmit'), false); } }
+  async function visitorSignIn(e) { e.preventDefault(); busy($('visitorSubmit'), true); status('visitorStatus', 'Signing in…'); const name = $('visitorName').value.trim(), company = $('visitorCompany').value.trim(), onSite = $('visitorSiteSignIn').checked; try { await registerVisit({ p_name: name, p_company: company, p_email: $('visitorEmail').value.trim() }); if (onSite) markOnSiteToday(); await loadBoard(); if ($('visitorGate').hidden) { status('visitorStatus', ''); clearSignInDraft('visitorGate'); } else status('visitorStatus', 'Site sign-in expired. Please sign in again.', 'error'); if (onSite && !$('boardContent').hidden) await recordLoginSiteSignIn(name, company); } catch (error) { status('visitorStatus', errorMessage(error), 'error'); } finally { busy($('visitorSubmit'), false); } }
   async function staffSignIn(e) {
     e.preventDefault(); busy($('staffSubmit'), true); status('staffStatus', 'Signing in…'); const onSite = $('staffSiteSignIn').checked;
     try {
@@ -553,7 +566,9 @@
       localStorage.setItem('currentWorker', profile.worker_key || ''); localStorage.setItem('currentWorkerDisplay', profile.display_name || '');
       localStorage.setItem('currentUserEmail', profile.email || verified.data.user.email || ''); localStorage.setItem('currentUserRole', profile.role || 'worker');
       localStorage.setItem('currentAccountStatus', profile.account_status); localStorage.setItem('jgcStayLoggedIn', 'false'); sessionStorage.setItem('jgcActiveSession', 'true');
-      state.user = verified.data.user; clearVisit(); clearSignInDraft('staffGate'); $('staffPassword').value = ''; $('staffGate').hidden = true; status('staffStatus', ''); await loadBoard();
+      state.user = verified.data.user; clearVisit(); clearSignInDraft('staffGate'); $('staffPassword').value = ''; $('staffGate').hidden = true; status('staffStatus', '');
+      if (onSite && !state.manage) markOnSiteToday();
+      await loadBoard();
       if (onSite && !state.manage && !$('boardContent').hidden) await recordLoginSiteSignIn(profile.display_name || verified.data.user.email, 'John Gordon Construction');
     } catch (error) { status('staffStatus', errorMessage(error), 'error'); }
     finally { busy($('staffSubmit'), false); }
@@ -620,6 +635,7 @@
     siteSubmission ||= crypto.randomUUID();
     try { const result = await rpc('record_job_board_site_signin',{p_token:state.token,p_name:$('siteName').value.trim(),p_company:$('siteCompany').value.trim(),p_reason:$('siteReason').value.trim(),p_submission_id:siteSubmission});
       status('siteStatus','Site sign-in recorded: '+timeLabel(result.recorded_at),'success'); $('siteForm').reset(); clearSignInDraft('siteGate'); siteSubmission = null; invalidateLogs();
+      if (state.user || state.visit) { chooseLogin(''); notice('Signed in on site at ' + timeLabel(result.recorded_at)); markOnSiteToday(); void promptActiveJsa(); }
     } catch(error) { status('siteStatus',errorMessage(error),'error'); } finally { busy($('siteSubmit'),false); }
   });
   $('visitorForm').addEventListener('submit', visitorSignIn); $('staffForm').addEventListener('submit', staffSignIn);

@@ -467,7 +467,8 @@ for(const identity of ['guest','staff'])test(`late ${identity} reads JSA then si
   await expect(page.locator('#jsaSignOnPanel')).toBeVisible();await expect(page.locator('#jsaSignOnReport')).toContainText('Install roof curb');await expect(page.locator('#jsaSignOnReport')).toContainText('Guardrails and fall protection');
   await page.getByRole('button',{name:'Sign onto JSA',exact:true}).click();await expect(page.locator('#jsaReadDialog')).toBeVisible();await expect(page.locator('#jsaReadContinue')).toBeDisabled();expect(store.calls.some(c=>c.name==='sign_job_board_jsa')).toBe(false);
   await page.locator('#jsaSignOnRead').check();await page.locator('#jsaReadContinue').click();await expect(page.locator('.safety-signature-dialog')).toBeVisible();await expect(page.locator('#safetySignaturePrintedName')).toHaveAttribute('readonly','');
-  await page.locator('.safety-signature-submit').click();await expect(page.locator('.safety-signature-error')).toContainText('Add a signature');
+  // Release 1011: Confirm stays off until there is a real signature, with plain directions.
+  await expect(page.locator('.safety-signature-instruction')).toHaveText('Sign with your finger in the white box below');await expect(page.locator('.safety-signature-submit')).toBeDisabled();await expect(page.locator('.safety-signature-needed')).toBeVisible();
   const canvas=page.locator('.safety-signature-pad'),box=await canvas.boundingBox(),touch=await context.newCDPSession(page);for(const [type,x,y]of[['touchStart',30,60],['touchMove',110,100],['touchMove',210,40],['touchEnd',0,0]])await touch.send('Input.dispatchTouchEvent',{type,touchPoints:type==='touchEnd'?[]:[{x:box.x+x,y:box.y+y,id:1,radiusX:2,radiusY:2,force:1}]});await page.locator('#safetySignaturePrintedName').evaluate(e=>{e.value='Forged client name'});
   store.failJsaSign=true;await page.locator('.safety-signature-submit').click();await expect(page.locator('.safety-signature-error')).toContainText('Try again');store.failJsaSign=false;await page.locator('.safety-signature-submit').click();await expect(page.locator('.safety-signature-dialog')).toHaveCount(0);await expect(page.locator('#jsaSignOnSign')).toHaveText('Already signed');
   const call=store.calls.filter(c=>c.name==='sign_job_board_jsa').at(-1);expect(call.args).toMatchObject({p_token:TOKEN,p_visit_token:VISIT,p_document_id:DOCUMENT_ID,p_confirm_read:true,p_reviewed_version:'2026-10-05T12:00:00Z'});expect(Object.keys(call.args).some(k=>/name|company|email/.test(k))).toBe(false);expect(call.args.p_signature_strokes[0].length).toBeGreaterThan(2);
@@ -541,6 +542,8 @@ test('signing on asks once a day to review the active JSA; Back to Job Board sit
 for(const reason of ['already signed','creator phone still collecting'])test(`no JSA reminder when ${reason}`,async({page})=>{
  const store=fixture('staff');if(reason==='already signed')store.jsaSigned=true;else store.workerWorkflow={version:2,active:true,status:'Draft — Awaiting Worker Sign-Offs',required:2,signed:0,outstanding:2,valid_date:today(),today:today()};
  await install(page,store,{jsaPrompt:true});await page.goto('/job-board.html?embedded=1#board='+TOKEN);await expect(page.locator('#boardContent')).toBeVisible();
+ // Release 1011: only people signed in on site are asked about the JSA.
+ await page.locator('#boardSiteSignIn').click();await page.locator('#siteName').fill('Synthetic Site Staff');await page.locator('#siteCompany').fill('John Gordon Construction');await page.locator('#siteSubmit').click();
  await expect.poll(()=>store.calls.filter(c=>c.name==='get_job_board_jsa').length).toBeGreaterThan(0);await page.waitForTimeout(300);await expect(page.locator('#jsaPromptDialog')).toBeHidden();
 });
 test('signed-in staff can see who is on site today; visitors cannot',async({page,browser})=>{
@@ -720,4 +723,44 @@ test('the drawings link stays hidden when the job has none, or when it is not an
   await expect(link).toBeHidden(); expect(await link.getAttribute('href')).toBeNull();
   store.documentLink = { url: 'https://example.sharepoint.com/folder', label: '' }; await page.locator('#boardRefresh').click();
   await expect(link).toBeVisible(); await expect(link).toHaveText('Drawings & documents');
+});
+// Release 1011 (Zeth): only people signing in on site are asked to sign the JSA, the JSA page starts with one big
+// button, and the signature can't be skipped.
+test('a visitor who unticks "sign me in on site" is not asked about the JSA; signing in on site later asks',async({page})=>{
+ const store=await open(page,'guest',{jsaPrompt:true});await page.locator('#visitorLogin').click();await page.locator('#visitorSiteSignIn').uncheck();await fillVisitor(page);
+ await page.getByRole('button',{name:'Continue to Job Board',exact:true}).click();await expect(page.locator('#boardContent')).toBeVisible();
+ await page.waitForTimeout(400);await expect(page.locator('#jsaPromptDialog')).toBeHidden();expect(store.calls.some(c=>c.name==='get_job_board_jsa')).toBe(false);
+ await page.locator('#boardSiteSignIn').click();await page.locator('#siteName').fill('Synthetic Visitor');await page.locator('#siteCompany').fill('Synthetic Client Company');await page.locator('#siteSubmit').click();
+ await expect(page.locator('#jsaPromptDialog')).toBeVisible();await expect(page.locator('#siteGate')).toBeHidden();await expect(page.locator('#boardNotice')).toContainText('Signed in on site at');
+});
+test('staff who untick "sign me in on site" are not asked about the JSA',async({page})=>{
+ const store=await open(page,'guest',{jsaPrompt:true});await page.locator('#staffLogin').click();await page.locator('#staffSiteSignIn').uncheck();
+ await page.locator('#staffEmail').fill('staff@example.test');await page.locator('#staffPassword').fill('fixture-password');await page.locator('#staffSubmit').click();await expect(page.locator('#boardContent')).toBeVisible();
+ await page.waitForTimeout(400);await expect(page.locator('#jsaPromptDialog')).toBeHidden();expect(store.calls.some(c=>c.name==='get_job_board_jsa')).toBe(false);
+});
+test('the JSA page starts with a big "Click here to sign onto JSA" button and the steps',async({page},info)=>{
+ await page.setViewportSize({width:390,height:844});
+ await open(page,'guest',{jsaPrompt:true});await visitorSignIn(page);await page.locator('#jsaPromptDialog').getByRole('button',{name:'Review JSA',exact:true}).click();
+ const top=page.locator('#jsaSignOnSignTop');await expect(top).toBeVisible();await expect(top).toHaveText('Click here to sign onto JSA');await expect(top).toBeEnabled({timeout:15000});
+ await expect(page.locator('.board-jsa-steps li')).toHaveText(['Read the JSA below.','Tap the green button and confirm you read it.','Sign with your finger in the white box.']);
+ expect(await top.evaluate(b=>parseFloat(getComputedStyle(b).fontWeight))).toBeGreaterThanOrEqual(700);expect((await top.boundingBox()).height).toBeGreaterThanOrEqual(60);
+ expect((await top.boundingBox()).y).toBeLessThan((await page.locator('#jsaSignOnReport').boundingBox()).y);
+ await page.screenshot({path:info.outputPath('jsa-sign-top-390.png')});
+ await top.click();await expect(page.locator('#jsaReadDialog')).toBeVisible();await page.locator('#jsaSignOnRead').check();await page.locator('#jsaReadContinue').click();
+ const submit=page.locator('.safety-signature-submit');await expect(page.locator('.safety-signature-dialog')).toBeVisible();await expect(submit).toBeDisabled();
+ await page.screenshot({path:info.outputPath('jsa-signature-empty-390.png')});
+});
+test('the signature box ignores taps and only allows Confirm after a real signature',async({page},info)=>{
+ await page.setViewportSize({width:390,height:844});await open(page,'guest');
+ await page.evaluate(()=>{window.__signed=null;window.JGCSafetySignature.open({attendeeName:'Synthetic Visitor',readOnlyName:true,recordLabel:'Morning JSA',onSubmit:async s=>{window.__signed=s.strokes.length;return {ok:true};}});});
+ const submit=page.locator('.safety-signature-submit'),needed=page.locator('.safety-signature-needed'),hint=page.locator('.safety-signature-placeholder');
+ await expect(submit).toBeDisabled();await expect(needed).toBeVisible();await expect(hint).toBeVisible();await expect(page.locator('#safetySignaturePrintedName')).not.toBeFocused();
+ const box=await page.locator('.safety-signature-pad').boundingBox();
+ await page.mouse.move(box.x+60,box.y+60);await page.mouse.down();await page.mouse.move(box.x+64,box.y+62,{steps:2});await page.mouse.up();
+ await expect(submit).toBeDisabled();await expect(hint).toBeHidden();
+ await page.mouse.move(box.x+40,box.y+90);await page.mouse.down();await page.mouse.move(box.x+120,box.y+60,{steps:6});await page.mouse.move(box.x+200,box.y+110,{steps:6});await page.mouse.up();
+ await expect(submit).toBeEnabled();await expect(needed).toBeHidden();await page.screenshot({path:info.outputPath('signature-signed-390.png')});
+ await page.locator('.safety-signature-clear').click();await expect(submit).toBeDisabled();await expect(needed).toBeVisible();await expect(hint).toBeVisible();
+ await page.mouse.move(box.x+40,box.y+90);await page.mouse.down();await page.mouse.move(box.x+180,box.y+70,{steps:8});await page.mouse.up();
+ await submit.click();await expect(page.locator('.safety-signature-dialog')).toHaveCount(0);expect(await page.evaluate(()=>window.__signed)).toBeGreaterThan(0);
 });
