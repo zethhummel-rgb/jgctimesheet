@@ -168,3 +168,8 @@ html[data-job-board-host="job"] .jgc-tab[aria-selected="true"] { background: var
 
 /* Keep the close control above a separately scrolling desktop document. */
 #previewBody{max-height:min(72dvh,850px);overflow:auto;overscroll-behavior:contain}
+
+/* Release 1011: one big, obvious way to start signing on, and the three steps spelled out. */
+.board-jsa-sign-top { display: block; width: 100%; min-height: 64px; margin: var(--jgc-space-3) 0 var(--jgc-space-2); font-size: 1.35rem; font-weight: 800; letter-spacing: 0.01em; }
+.board-jsa-sign-top:disabled { opacity: 0.6; }
+.board-jsa-steps { margin: 0 0 var(--jgc-space-3); padding-left: 1.4em; font-weight: 600; line-height: 1.5; }

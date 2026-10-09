@@ -35,17 +35,19 @@
                     <input id="safetySignaturePrintedName" type="text" autocomplete="name" value="${escapeHtml(settings.attendeeName || "")}" placeholder="Full name" />
                     ${settings.company?'<p class="safety-signature-company">'+escapeHtml(settings.company)+'</p>':''}
                     ${settings.requireReadConfirmation?'<label class="safety-signature-confirm"><input type="checkbox" id="safetySignatureRead"> I confirm I have read and understood this JSA.</label>':''}
-                    <label>Signature</label>
+                    <p class="safety-signature-instruction" id="safetySignatureInstruction">Sign with your finger in the white box below</p>
                     <div class="safety-signature-pad-wrap">
-                        <canvas class="safety-signature-pad" aria-label="Sign here with your finger or pointer"></canvas>
+                        <canvas class="safety-signature-pad" aria-label="Sign here with your finger or pointer" aria-describedby="safetySignatureInstruction"></canvas>
+                        <span class="safety-signature-placeholder" aria-hidden="true">Sign here</span>
                     </div>
-                    <p class="safety-signature-help">Sign inside the white box with your finger, mouse, or stylus.</p>
+                    <p class="safety-signature-help">Use your finger, mouse or stylus. Tap Clear to start again.</p>
                     <p class="safety-signature-error" role="alert" hidden></p>
                 </div>
                 <footer class="safety-signature-actions">
+                    <p class="safety-signature-needed" aria-live="polite">Sign in the white box above to continue.</p>
                     <button type="button" class="secondary safety-signature-clear">Clear</button>
                     <button type="button" class="secondary safety-signature-cancel">Cancel</button>
-                    <button type="button" class="primary-action safety-signature-submit">Confirm signature</button>
+                    <button type="button" class="primary-action safety-signature-submit" disabled>Confirm signature</button>
                 </footer>
             </section>
         `;
@@ -61,9 +63,33 @@
         const errorBox = backdrop.querySelector(".safety-signature-error");
         const submitButton = backdrop.querySelector(".safety-signature-submit");
 
+        const placeholder = backdrop.querySelector(".safety-signature-placeholder");
+        const needed = backdrop.querySelector(".safety-signature-needed");
+
         function showError(message) {
             errorBox.textContent = message || "";
             errorBox.hidden = !message;
+        }
+
+        // A real signature, not a tap or a dot: enough drawn line in total.
+        const MINIMUM_INK_PX = 40;
+        function hasSignature() {
+            const rect = canvas.getBoundingClientRect();
+            let ink = 0;
+            strokes.forEach((stroke) => {
+                for (let index = 1; index < stroke.length; index += 1) {
+                    ink += Math.hypot((stroke[index][0] - stroke[index - 1][0]) * rect.width, (stroke[index][1] - stroke[index - 1][1]) * rect.height);
+                }
+            });
+            return ink >= MINIMUM_INK_PX;
+        }
+
+        // Confirm stays off until the person has actually signed, so the signature can't be skipped.
+        function updateSignatureState() {
+            const signed = hasSignature();
+            placeholder.hidden = strokes.length > 0;
+            needed.hidden = signed;
+            if (!submitting) submitButton.disabled = !signed;
         }
 
         function resizeCanvas() {
@@ -134,6 +160,7 @@
             }
             currentStroke.push(nextPoint);
             redraw();
+            updateSignatureState();
         }
 
         function stopDrawing(event) {
@@ -143,6 +170,7 @@
             drawing = false;
             activePointerId = null;
             currentStroke = null;
+            updateSignatureState();
         }
 
         function close(result) {
@@ -169,6 +197,7 @@
             strokes = [];
             redraw();
             showError("");
+            updateSignatureState();
         });
         backdrop.querySelector(".safety-signature-cancel").addEventListener("click", () => close(null));
         backdrop.querySelector(".safety-signature-close").addEventListener("click", () => close(null));
@@ -189,8 +218,9 @@
                 return;
             }
 
-            if (!usableStrokes.length) {
-                showError("Add a signature inside the white box.");
+            if (!usableStrokes.length || !hasSignature()) {
+                showError("Sign with your finger in the white box first.");
+                updateSignatureState();
                 return;
             }
 
@@ -217,8 +247,8 @@
                 close(result);
             } catch (error) {
                 submitting = false;
-                submitButton.disabled = false;
                 submitButton.textContent = "Confirm signature";
+                updateSignatureState();
                 showError(error && error.message ? error.message : "Signature could not be saved.");
             }
         });
@@ -227,8 +257,12 @@
         document.addEventListener("keydown", onKeyDown);
         requestAnimationFrame(() => {
             resizeCanvas();
-            printedName.focus();
-            printedName.select();
+            updateSignatureState();
+            // A name that is already filled in needs no keyboard; opening it would cover the signature box on a phone.
+            if (!printedName.value.trim() && !printedName.readOnly) {
+                printedName.focus();
+                printedName.select();
+            }
         });
         dialog.scrollTop = 0;
     }
