@@ -4442,12 +4442,16 @@ async function sendJgcPushForNotifications(client, notificationIds, lookup) {
       status.textContent = "Push sending " + ids.length + " notification check" + (ids.length === 1 ? "" : "s") + "...";
     }
 
+    const sessionResult=await pushClient.auth.getSession();
+    const accessToken=sessionResult.data && sessionResult.data.session && sessionResult.data.session.access_token;
+    if(sessionResult.error || !accessToken) return;
+
     const response = await fetch(JGC_SUPABASE_URL + "/functions/v1/" + JGC_PUSH_FUNCTION_NAME, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "apikey": JGC_SUPABASE_KEY,
-        "Authorization": "Bearer " + JGC_SUPABASE_KEY
+        "Authorization": "Bearer " + accessToken
       },
       body: JSON.stringify(Object.assign({ notification_ids: ids }, hasLookup ? {
         notification_type: lookupPayload.notification_type,

@@ -1,24 +1,11 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import {readFileSync,statSync,writeFileSync} from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const configDirectory = dirname(fileURLToPath(import.meta.url));
 const portalRoot = resolve(configDirectory, "..");
-const estimatorOutput = resolve(portalRoot, "estimating");
-const previousReleaseAssets = new Map<string, Uint8Array>();
-
-try {
-  const serviceWorker = readFileSync(resolve(portalRoot, "service-worker.js"), "utf8");
-  for (const match of serviceWorker.matchAll(/"\.\/estimating\/assets\/([^"]+)"/g)) {
-    const assetName = match[1];
-    const assetPath = resolve(estimatorOutput, "assets", assetName);
-    if (existsSync(assetPath)) previousReleaseAssets.set(assetName, readFileSync(assetPath));
-  }
-} catch {
-  // A first build has no prior release assets to retain.
-}
 
 export default defineConfig({
   base: "./",
@@ -37,18 +24,27 @@ export default defineConfig({
       }
     },
     {
-      name: "jgc-retain-previous-release-assets",
-      closeBundle() {
-        for (const [assetName, contents] of previousReleaseAssets) {
-          const assetPath = resolve(estimatorOutput, "assets", assetName);
-          if (!existsSync(assetPath)) writeFileSync(assetPath, contents);
-        }
+      name: "jgc-current-offline-assets",
+      writeBundle(_options, bundle) {
+        const workerPath=resolve(portalRoot,"service-worker.js"),worker=readFileSync(workerPath,"utf8");
+        const match=worker.match(/const JGC_APP_SHELL = \[([\s\S]*?)\];/);
+        if(!match)throw new Error("The Portal offline asset list is missing.");
+        const previous=JSON.parse("["+match[1]+"]") as string[];
+        const current=Object.keys(bundle).filter(file=>file.startsWith("assets/")).sort().map(file=>"./estimating/"+file);
+        const shell=[...previous.filter(file=>!file.startsWith("./estimating/assets/")),...current];
+        const bytes=shell.reduce((sum,file)=>sum+statSync(resolve(portalRoot,file.split("?")[0])).size,0);
+        if(shell.length>300||bytes>32*1024*1024)throw new Error("The current offline release exceeds its 300-file / 32 MB cache budget.");
+        writeFileSync(workerPath,worker.replace(match[0],"const JGC_APP_SHELL = "+JSON.stringify(shell,null,2)+";"));
+        console.info(`JGC current offline shell: ${shell.length} files, ${(bytes/1024/1024).toFixed(2)} MB.`);
       }
     }
   ],
   build: {
     outDir: "../estimating",
-    emptyOutDir: true,
+    // Keep old published URLs available for already-open clients. Cache generation uses
+    // this build's manifest; historical bundles are never copied into memory or precached.
+    emptyOutDir: false,
+    manifest: true,
     sourcemap: false,
   },
 });

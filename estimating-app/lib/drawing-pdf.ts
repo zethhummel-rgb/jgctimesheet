@@ -1,5 +1,6 @@
 import { PDFDocument, PDFHexString, StandardFonts, degrees, rgb } from 'pdf-lib';
 import { commentLines, dimensionGeometry, drawingPageOrder, DRAWING_MAX_BYTES, DRAWING_MAX_MB, isMeasurement, measurement, scaleReferenceLabel, REVIEW_STATUSES, type DrawingContent, type ReviewStamp } from './drawing-model';
+import {sanitizeDrawingPdf} from './drawing-pdf-safety';
 
 async function stampPdf(stamp: ReviewStamp): Promise<Uint8Array> {
   const pdf=await PDFDocument.create(),page=pdf.addPage([350,222]),font=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold),red=rgb(.7,.1,.12),white=rgb(1,1,1);
@@ -17,6 +18,7 @@ async function stampPdf(stamp: ReviewStamp): Promise<Uint8Array> {
 
 export async function markedDrawingPdf(source: Uint8Array, content: DrawingContent, pages?: number[]): Promise<Uint8Array> {
   const pdf = await PDFDocument.load(source.slice()), font = await pdf.embedFont(StandardFonts.Helvetica),allOrder=drawingPageOrder(content,pdf.getPageCount());
+  sanitizeDrawingPdf(pdf);
   if (pages && (!pages.length || new Set(pages).size !== pages.length || pages.some(n => !allOrder.includes(n)))) throw new Error('Choose valid drawing pages to download.');
   const selected = new Set(pages ?? allOrder), order = allOrder.filter(n => selected.has(n));
   const supported = (text: string) => { try { font.encodeText(text); return text; } catch { throw new Error('PDF export supports Latin text. Please replace unsupported characters in the markup text before exporting.'); } };
@@ -71,8 +73,9 @@ export async function markedDrawingPdf(source: Uint8Array, content: DrawingConte
 
 export async function combinedDrawingPdf(source:Uint8Array,content:DrawingContent,additional:Uint8Array[]):Promise<{bytes:Uint8Array;content:DrawingContent}> {
   const pdf=await PDFDocument.create(),original=await PDFDocument.load(source.slice()),order=drawingPageOrder(content,original.getPageCount());
+  sanitizeDrawingPdf(original);
   for(const page of await pdf.copyPages(original,order.map(n=>n-1)))pdf.addPage(page);
-  for(const bytes of additional){const next=await PDFDocument.load(bytes);for(const page of await pdf.copyPages(next,next.getPageIndices()))pdf.addPage(page);}
+  for(const bytes of additional){const next=await PDFDocument.load(bytes);sanitizeDrawingPdf(next);for(const page of await pdf.copyPages(next,next.getPageIndices()))pdf.addPage(page);}
   const bytes=await pdf.save();if(bytes.length>DRAWING_MAX_BYTES)throw new Error(`The combined PDF exceeds the ${DRAWING_MAX_MB} MB drawing limit. Combine fewer files.`);
   const remap=(n:number)=>order.indexOf(n)+1,scales:DrawingContent['scales']={};
   for(const [page,scale] of Object.entries(content.scales))scales[String(remap(Number(page)))]=scale;

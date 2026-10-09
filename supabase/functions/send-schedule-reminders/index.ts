@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {isJgcWorkerRequest} from '../_shared/worker-auth.ts';
 
 const ADMIN_EMAILS = ["zeth@johngordonconstruction.com", "jeff@johngordonconstruction.com"];
 const GOOGLE_SCRIPT_URL = Deno.env.get("SCHEDULE_EMAIL_SCRIPT_URL") ||
@@ -237,7 +238,8 @@ async function claimAndSend(supabase: any, event: ScheduleEvent, column: "one_da
   }
 }
 
-Deno.serve(async () => {
+Deno.serve(async (request) => {
+  if(request.method!=='POST')return Response.json({success:false,error:'Use POST.'},{status:405});
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -246,6 +248,7 @@ Deno.serve(async () => {
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
+  if(!await isJgcWorkerRequest(request,supabase))return Response.json({success:false,error:'Worker authorization required.'},{status:403});
   const now = new Date();
   const today = dateValue(now);
   const queryEndDate = dateValue(new Date(now.getTime() + ONE_DAY_MS + REMINDER_WINDOW_MS));
