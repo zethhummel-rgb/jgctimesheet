@@ -1,10 +1,12 @@
+import {DOCUMENT_LIMITS, documentDeadline, imageBudget} from '../lib/document-budget';
+import {parseMaterialWorkbookIsolated,validatePdfIsolated} from '../lib/document-worker-client';
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { ClearableNumberInput } from "./clearable-number-input";
 import type { Vendor } from "../lib/estimator-data";
 import type { SupplierCatalogItemRecord, SupplierCatalogSearchResponse, SupplierImportApplyMetadata } from "../lib/supplier-catalog-types";
-import { normalizeMaterialName, parseMaterialPriceWorkbook } from "../lib/material-price-workbook";
+import { normalizeMaterialName } from "../lib/material-price-workbook";
 import { finishEmardOcr, normalizeSupplierSku, ocrScale, parseBmrPdfTokens, parseEmardOcrTsv, supplierPdfPageProblem, type PdfTextToken, type SupplierParsedRow, type SupplierParseResult } from "../lib/supplier-price-parser";
 
 type ReviewStatus = "new" | "changed" | "unchanged" | "review";
@@ -76,21 +78,24 @@ async function sha256(file: File) {
 async function readSupplierPdf(file: File, onProgress: (value: number, message: string) => void, cancelled: { current: boolean }) {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   pdfjs.GlobalWorkerOptions.workerSrc = "./supplier-import/pdf.worker.min.mjs";
-  const loadingTask = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
-  const pdf = await loadingTask.promise;
+  const bytes=new Uint8Array(await file.arrayBuffer());await validatePdfIsolated(bytes);
+  const loadingTask = pdfjs.getDocument({ data: bytes, maxImageSize:16_000_000 });
+  const entireDeadline=setTimeout(()=>{cancelled.current=true;void loadingTask.destroy();},180_000);
+  try {
+  const pdf = await documentDeadline(loadingTask.promise,30000,()=>loadingTask.destroy());
   const tooMany = supplierPdfPageProblem(pdf.numPages, false);
   if (tooMany) {
     await loadingTask.destroy();
     throw new Error(tooMany);
   }
   const textPages: PdfTextToken[][] = [];
-  let embeddedCharacters = 0;
+  let embeddedCharacters = 0,totalItems=0,totalPixels=0;
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
     if (cancelled.current) throw new Error("Import cancelled.");
-    const page = await pdf.getPage(pageNumber);
-    const content = await page.getTextContent();
-    const tokens = content.items.filter((item): item is typeof item & { str: string; transform: number[]; width: number } => "str" in item).map((item) => ({ text: item.str, x: item.transform[4], y: item.transform[5], width: item.width }));
-    embeddedCharacters += tokens.reduce((sum, token) => sum + token.text.length, 0);
+    const page = await documentDeadline(pdf.getPage(pageNumber),20000,()=>loadingTask.destroy());
+    const reader=page.streamTextContent().getReader(),tokens:PdfTextToken[]=[];
+    try{while(true){const chunk=await documentDeadline(reader.read(),20000,()=>loadingTask.destroy());if(chunk.done)break;for(const item of chunk.value.items){if(!('str' in item))continue;embeddedCharacters+=item.str.length;if(embeddedCharacters>DOCUMENT_LIMITS.textCharacters||++totalItems>DOCUMENT_LIMITS.textItems)throw new Error('This price list contains too much text. Save the price pages separately.');tokens.push({text:item.str,x:item.transform[4],y:item.transform[5],width:item.width});}}}catch(error){await reader.cancel().catch(()=>{});await loadingTask.destroy();throw error;}finally{reader.releaseLock();}
+    page.cleanup();
     textPages.push(tokens);
     onProgress((pageNumber / pdf.numPages) * 0.25, `Checking page ${pageNumber} of ${pdf.numPages}`);
   }
@@ -112,7 +117,8 @@ async function readSupplierPdf(file: File, onProgress: (value: number, message: 
   }
   const tesseract = await import("tesseract.js");
   let currentPage = 1;
-  const worker = await tesseract.createWorker("eng", tesseract.OEM.LSTM_ONLY, {
+  let startupExpired = false;
+  const workerPromise = tesseract.createWorker("eng", tesseract.OEM.LSTM_ONLY, {
     workerPath: "./supplier-import/worker.min.js",
     corePath: "./supplier-import/core",
     langPath: "./supplier-import/lang",
@@ -123,32 +129,38 @@ async function readSupplierPdf(file: File, onProgress: (value: number, message: 
       }
     },
   });
-  await worker.setParameters({ tessedit_pageseg_mode: tesseract.PSM.SPARSE_TEXT, preserve_interword_spaces: "1", user_defined_dpi: "216" });
+  void workerPromise.then(lateWorker => { if (startupExpired) void lateWorker.terminate(); }, () => {});
+  const worker = await documentDeadline(workerPromise, 30000, () => { startupExpired = true; });
   const rows: SupplierParsedRow[] = [];
   let emardMetadata = { detectedDate: "", validUntil: "", sourceSubtotal: null as number | null };
   try {
+    await documentDeadline(worker.setParameters({ tessedit_pageseg_mode: tesseract.PSM.SPARSE_TEXT, preserve_interword_spaces: "1", user_defined_dpi: "216" }), 20000, () => worker.terminate());
     for (currentPage = 1; currentPage <= pdf.numPages; currentPage += 1) {
       if (cancelled.current) throw new Error("Import cancelled.");
-      const page = await pdf.getPage(currentPage);
+      const page = await documentDeadline(pdf.getPage(currentPage),20000,()=>loadingTask.destroy());
       const base = page.getViewport({ scale: 1 });
       const viewport = page.getViewport({ scale: ocrScale(base.width, base.height) });
       const canvas = document.createElement("canvas");
+      try {
+      imageBudget(Math.ceil(viewport.width),Math.ceil(viewport.height));
+      totalPixels+=Math.ceil(viewport.width)*Math.ceil(viewport.height);if(totalPixels>DOCUMENT_LIMITS.totalImagePixels)throw new Error('The scanned pages exceed the image processing limit. Split this price list.');
       canvas.width = Math.ceil(viewport.width);
       canvas.height = Math.ceil(viewport.height);
       const context = canvas.getContext("2d", { alpha: false });
       if (!context) throw new Error("This browser cannot prepare scanned PDF pages.");
-      await page.render({ canvasContext: context, viewport, canvas }).promise;
-      const output = await worker.recognize(canvas, {
+      const render=page.render({ canvasContext: context, viewport, canvas });
+      await documentDeadline(render.promise,20000,()=>render.cancel());
+      const output = await documentDeadline(worker.recognize(canvas, {
         rotateAuto: true,
         rectangle: { left: 0, top: Math.round(canvas.height * 0.23), width: canvas.width, height: Math.round(canvas.height * 0.58) },
-      }, { text: true, tsv: true });
+      }, { text: true, tsv: true }),45000,()=>worker.terminate());
       if (output.data.tsv) rows.push(...parseEmardOcrTsv(output.data.tsv, currentPage, canvas.width));
       if (currentPage === 1) {
-        const header = await worker.recognize(canvas, { rectangle: { left: 0, top: 0, width: canvas.width, height: Math.round(canvas.height * 0.24) } }, { text: true });
+        const header = await documentDeadline(worker.recognize(canvas, { rectangle: { left: 0, top: 0, width: canvas.width, height: Math.round(canvas.height * 0.24) } }, { text: true }),45000,()=>worker.terminate());
         emardMetadata = { ...emardMetadata, ...readEmardDocumentMetadata(header.data.text || "") };
       }
       if (currentPage === pdf.numPages) {
-        const footer = await worker.recognize(canvas, { rectangle: { left: 0, top: Math.round(canvas.height * 0.70), width: canvas.width, height: Math.round(canvas.height * 0.30) } }, { text: true });
+        const footer = await documentDeadline(worker.recognize(canvas, { rectangle: { left: 0, top: Math.round(canvas.height * 0.70), width: canvas.width, height: Math.round(canvas.height * 0.30) } }, { text: true }),45000,()=>worker.terminate());
         const footerMetadata = readEmardDocumentMetadata(footer.data.text || "");
         emardMetadata = {
           detectedDate: emardMetadata.detectedDate || footerMetadata.detectedDate,
@@ -159,9 +171,11 @@ async function readSupplierPdf(file: File, onProgress: (value: number, message: 
           emardMetadata.validUntil = addDays(emardMetadata.detectedDate, 14);
         }
       }
-      page.cleanup();
-      canvas.width = 0;
-      canvas.height = 0;
+      } finally {
+        page.cleanup();
+        canvas.width = 0;
+        canvas.height = 0;
+      }
     }
   } finally {
     await worker.terminate();
@@ -171,6 +185,7 @@ async function readSupplierPdf(file: File, onProgress: (value: number, message: 
   if (!result.rows.length) throw new Error("The scanned products could not be read. Try a clearer Emard PDF.");
   onProgress(1, `${result.rows.length} scanned products ready to review`);
   return result;
+  }finally{clearTimeout(entireDeadline);await loadingTask.destroy().catch(()=>{});}
 }
 
 function compareRows(parsed: SupplierParseResult, existing: SupplierCatalogItemRecord[]) {
@@ -251,7 +266,7 @@ export function SupplierPriceImportModal({ vendors, divisions, onClose, onApplie
           ? file.arrayBuffer().then((buffer) => {
               setProgress(0.7);
               setProgressMessage("Matching material names to their prices");
-              return parseMaterialPriceWorkbook(new Uint8Array(buffer)).result;
+              return parseMaterialWorkbookIsolated(new Uint8Array(buffer)).then(value=>value.result);
             })
           : readSupplierPdf(file, (value, message) => { setProgress(value); setProgressMessage(message); }, cancelled),
       ]);

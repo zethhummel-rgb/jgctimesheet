@@ -312,18 +312,17 @@ async function syncJgcScheduleEventToGoogle(supabaseClient, event, action) {
       await markJgcScheduleGoogleSyncStatus(supabaseClient, event.id, "not_synced", null, syncTable);
     }
 
+    const {data: ticket,error: ticketError} = await supabaseClient.rpc('prepare_calendar_sync', {p_action: action || 'upsert',p_source_table: syncTable,p_source_id: event.id});
+    if (ticketError || !ticket?.ticket) throw new Error(ticketError?.message || 'Calendar authorization unavailable.');
     await fetch(JGC_GOOGLE_CALENDAR_SCRIPT_URL, {
       method: "POST",
       mode: "no-cors",
       headers: {
         "Content-Type": "text/plain;charset=utf-8"
       },
-      body: JSON.stringify(buildJgcGoogleCalendarPayload(event, action || "upsert"))
+      body: JSON.stringify({...ticket.legacy_payload,ticket: ticket.ticket})
     });
 
-    if (syncTable === "vacation_requests" && action !== "delete") {
-      await markJgcScheduleGoogleSyncStatus(supabaseClient, event.id, "synced", null, syncTable);
-    }
 
     return { ok: true };
   } catch (error) {
@@ -333,19 +332,22 @@ async function syncJgcScheduleEventToGoogle(supabaseClient, event, action) {
   }
 }
 
-async function pullJgcGoogleCalendarUpdates() {
+async function pullJgcGoogleCalendarUpdates(client) {
   if (!JGC_GOOGLE_CALENDAR_SCRIPT_URL) {
     return { ok: false, error: "Google Calendar script URL is not configured." };
   }
 
   try {
+    const calendarClient=client || createJgcSupabaseClient();
+    const {data: ticket,error: ticketError}=await calendarClient.rpc('prepare_calendar_sync',{p_action:'pull_google_updates',p_source_table:null,p_source_id:null});
+    if(ticketError || !ticket?.ticket)throw new Error(ticketError?.message || 'Calendar authorization unavailable.');
     await fetch(JGC_GOOGLE_CALENDAR_SCRIPT_URL, {
       method: "POST",
       mode: "no-cors",
       headers: {
         "Content-Type": "text/plain;charset=utf-8"
       },
-      body: JSON.stringify({ action: "pull_google_updates" })
+      body: JSON.stringify({...ticket.legacy_payload,ticket: ticket.ticket})
     });
 
     return { ok: true };
@@ -5222,6 +5224,20 @@ async function createJgcPortalNotifications(client, notificationType, recipients
 
   if (!notificationClient || !cleanType) {
     return { ok: false, skipped: true, inserted: 0 };
+  }
+
+  // Employees request a source-owned notification. Targets and content are derived by the server.
+  // The admin composer retains its existing controls; the database independently checks admin access.
+  if (String(getCurrentWorkerRecord()?.role || '').toLowerCase() !== 'admin') {
+    try {
+      const { data, error } = await notificationClient.rpc('publish_portal_workflow_notification', {
+        p_notification_type: cleanType,
+        p_source_table: String(settings.source_table || ''),
+        p_source_id: String(settings.source_id || '')
+      });
+      if (error) return { ok: false, error, inserted: 0, notificationIds: [] };
+      return data || { ok: true, skipped: true, inserted: 0, notificationIds: [] };
+    } catch (error) { return { ok: false, error, inserted: 0, notificationIds: [] }; }
   }
 
   const recipientRows = (Array.isArray(recipients) ? recipients : [recipients])

@@ -1,0 +1,22 @@
+// Apps Script request-routing regression. All Google/HTTP/database effects are synthetic.
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
+const source=fs.readFileSync(path.join(__dirname,'../google-calendar-apps-script.js'),'utf8'),effects=[];
+const approved={action:'upsert',event:{id:'10000000-0000-4000-8000-000000000001',sync_table:'schedule_events',title:'Stored event'}};
+let claimed=false,rejectClaim=false;
+const context={JSON,Date,PropertiesService:{getScriptProperties:()=>({getProperty:name=>name==='SUPABASE_URL'?'https://example.invalid':'synthetic-service-credential'})},LockService:{getScriptLock:()=>({tryLock:()=>true,releaseLock:()=>{}})},UrlFetchApp:{fetch:(url,options)=>{effects.push({kind:'claim',url,payload:JSON.parse(options.payload)});if(rejectClaim||claimed)return {getResponseCode:()=>403,getContentText:()=>''};claimed=true;return {getResponseCode:()=>200,getContentText:()=>JSON.stringify(approved)};}},ContentService:{MimeType:{JSON:'json'},createTextOutput:text=>({setMimeType:()=>JSON.parse(text)})}};
+vm.createContext(context);vm.runInContext(source,context);
+context.upsertGoogleCalendarEvent_=event=>{effects.push({kind:'calendar',event});return {getId:()=> 'stored-google-id'};};
+context.updateSupabaseScheduleSync_=(event,fields)=>effects.push({kind:'patch',event,fields});
+const call=body=>context.doPost({postData:{contents:JSON.stringify(body)}});
+for(const body of [{action:'pull_google_updates'},{action:'delete',event:{id:'victim',google_event_id:'victim-calendar'}},{event:{id:'victim'},ticket:'invalid'}])assert.equal(call(body).success,false);
+assert.equal(effects.length,0,'Legacy public calls must cause no HTTP, Calendar or database effects');
+rejectClaim=true;call({ticket:'20000000-0000-4000-8000-000000000002',event:{id:'victim'}});assert(effects.every(e=>e.kind==='claim'),'Rejected authorization must not patch caller supplied target');
+rejectClaim=false;effects.length=0;
+assert.equal(call({ticket:'20000000-0000-4000-8000-000000000002',action:'delete',event:{id:'victim',sync_table:'profiles'}}).success,true);
+assert(effects.find(e=>e.kind==='calendar').event.id===approved.event.id,'Caller action and target must not override service-owned claim');
+assert(effects.find(e=>e.kind==='patch').event.sync_table==='schedule_events');
+effects.length=0;assert.equal(call({ticket:'20000000-0000-4000-8000-000000000002'}).success,false);assert(effects.every(e=>e.kind==='claim'),'Replay must have no Calendar/database side effects');
+assert.equal(context.calendarEventBelongsToPortal_({getDescription:()=> 'Portal Event ID: victim'},approved.event.id),false);
+assert.equal(context.calendarEventBelongsToPortal_({getDescription:()=> 'Notes: '+approved.event.id},approved.event.id),false);
+assert.equal(context.calendarEventBelongsToPortal_({getDescription:()=> 'Portal Event ID: '+approved.event.id},approved.event.id),true);
+console.log('PASS: legacy public writes/pull, rejected claims, forged targets, replay and Calendar event ownership');

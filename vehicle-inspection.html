@@ -139,7 +139,7 @@
 </main>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-<script src="common.js?v=81"></script>
+<script src="common.js?v=82"></script>
 <script>
 const SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
 const SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
@@ -720,7 +720,7 @@ function showInspectionForm() {
 
 function showTodayView(record) {
     const row = record || state.lastRecord || state.history[0];
-    if (!row) {
+    if (!row || row.public_summary) {
         showInspectionForm();
         return;
     }
@@ -748,6 +748,11 @@ function renderHistory() {
         return;
     }
 
+    if (state.history[0]?.public_summary) {
+        const latest = state.history[0];
+        list.textContent = 'Latest inspection: ' + (latest.inspection_date || '') + ' · ' + (latest.status || 'Recorded') + '. Sign in with an approved JGC account to view inspection details.';
+        return;
+    }
     list.innerHTML = state.history.slice(0, 12).map((row) => `
         <div class="history-item">
             <strong>${pageEscape(row.inspection_date || "")} - ${pageEscape(row.inspection_type || "Vehicle Inspection")}</strong><br>
@@ -775,7 +780,7 @@ async function loadHistory() {
 
     if (!error && row) {
         state.history = Array.isArray(row.history) ? row.history : [];
-        state.lastRecord = state.history.find((row) => row.inspection_date === todayString()) || state.lastRecord;
+        state.lastRecord = state.history.find((row) => row.inspection_date === todayString() && !row.public_summary) || state.lastRecord;
         renderHistory();
     }
 }
@@ -786,7 +791,7 @@ function printInspectionById(id) {
 }
 
 function printCurrentInspection() {
-    printInspection(state.lastRecord || state.history[0] || null);
+    const record=state.lastRecord || state.history[0] || null;if(record?.public_summary){setStatus("Sign in with your JGC account to print inspection details.",true);return;}printInspection(record);
 }
 
 function printInspection(row) {
@@ -936,9 +941,12 @@ async function loadVehicleInspection() {
     state.trailers = Array.isArray(row.trailers) ? row.trailers : [];
     state.employees = Array.isArray(row.employees) ? row.employees : [];
     state.history = Array.isArray(row.history) ? row.history : [];
-    state.lastRecord = state.history.find((record) => record.inspection_date === todayString()) || null;
+    state.lastRecord = state.history.find((record) => record.inspection_date === todayString() && !record.public_summary) || null;
 
-    document.getElementById("signedInAs").textContent = "Employee login not required for QR inspection.";
+    const identityLine=document.getElementById("signedInAs");
+    identityLine.textContent=state.employees.length ? "Signed in as: "+(state.employees[0].display_name||state.employees[0].worker_key) : "External inspections are recorded as unverified. JGC staff should sign in.";
+    if(!state.employees.length){const login=document.createElement('a');login.className='jgc-button jgc-button--secondary';login.textContent='JGC staff sign in';login.href='index.html?inspectionReturn='+encodeURIComponent(location.pathname+location.search);identityLine.append(document.createElement('br'),login);}
+
     document.getElementById("inspectionDate").value = todayString();
     document.getElementById("inspectionTime").value = currentTimeString();
     document.getElementById("vehicleLicense").value = getAssetLicense(state.vehicle);

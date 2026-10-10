@@ -19,7 +19,7 @@ function session(person) {
 
 // In-memory stand-in for the migration: same visibility and versioning rules as the SQL functions.
 function createBackend() {
-  return { writeups: [], versions: [], acks: [], notifications: [] };
+  return { writeups: [], versions: [], acks: [], notifications: [], notificationRequests: [] };
 }
 
 async function signIn(page, backend, person, theme = "light") {
@@ -95,6 +95,13 @@ async function signIn(page, backend, person, theme = "light") {
       Object.assign(w, { status: "voided", voided_at: new Date().toISOString(), void_reason: a.p_reason });
       return json(w);
     }
+    if (path.endsWith("/rpc/publish_portal_workflow_notification")) {
+      const a=request.postDataJSON();backend.notificationRequests.push(a);
+      const w=backend.writeups.find(x=>x.id===a.p_source_id);
+      if(a.p_notification_type!=="employee_writeup"||a.p_source_table!=="employee_writeups"||!w||w.employee_profile_id!==person.id||!backend.acks.some(x=>x.writeup_id===w.id&&x.employee_profile_id===person.id&&x.version===w.current_version))return fail(route,"A personal acknowledgement is required","42501");
+      const row={id:"workflow-"+backend.notifications.length,notification_type:"employee_writeup",title:"Write-up acknowledged",target_profile_id:ADMIN.id,source_table:"employee_writeups",source_id:w.id};backend.notifications.push(row);
+      return json({ok:true,inserted:1,notificationIds:[row.id]});
+    }
     if (path.includes("/rpc/")) return json(null);
     if (path.endsWith("/employee_writeups")) {
       let rows = backend.writeups.filter(visible);
@@ -111,6 +118,7 @@ async function signIn(page, backend, person, theme = "light") {
       return json(backend.acks.filter(a => a.writeup_id === eq("writeup_id") && (isAdmin || a.employee_profile_id === person.id)));
     }
     if (path.endsWith("/notifications") && request.method() === "POST") {
+      if(!isAdmin)return fail(route,"Admin access required","42501");
       const rows = [].concat(request.postDataJSON()).map((row, i) => ({ ...row, id: "n-" + backend.notifications.length + "-" + i }));
       backend.notifications.push(...rows);
       return json(rows, 201);
@@ -218,6 +226,7 @@ test("drafts stay private to admins, and the employee acknowledges with a signat
   expect(backend.acks[0]).toMatchObject({ version: 1, printed_name: EMPLOYEE.display_name, employee_comment: "I had the harness in the truck." });
   expect(backend.acks[0].signature.length).toBeGreaterThan(0);
   expect(backend.notifications.some(n => n.target_profile_id === ADMIN.id && n.title === "Write-up acknowledged")).toBe(true);
+  expect(backend.notificationRequests).toContainEqual({p_notification_type:"employee_writeup",p_source_table:"employee_writeups",p_source_id:id});
 
   await adminPage.reload({ waitUntil: "domcontentloaded" });
   await adminPage.getByRole("button", { name: "Correct & resend", exact: true }).click();

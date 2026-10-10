@@ -198,7 +198,7 @@
   </dialog>
   <dialog id="onsiteDialog" class="board-preview" aria-labelledby="onsiteTitle">
     <div class="board-section-heading"><h2 class="jgc-section-title" id="onsiteTitle">On site today</h2><button class="jgc-button jgc-button--secondary" id="onsiteClose" type="button">Close</button></div>
-    <p class="board-help">Everyone who signed in on site today, from Site Sign in or the login box. Use this list to account for everyone in an emergency.</p>
+    <p class="board-help">Confirmed staff and visitors for today. An administrator confirms visitor sign-ins in the Site Sign-ins log before they appear on this roster. Check this list against the people actually on site during an emergency.</p>
     <p id="onsiteStatus" class="board-form-status" role="status" aria-live="polite"></p><div id="onsiteList" class="jgc-record-list"></div>
     <div class="board-actions"><button class="jgc-button jgc-button--secondary" id="onsiteRefresh" type="button">Refresh list</button></div>
   </dialog>
@@ -222,12 +222,12 @@
   <script>if (new URLSearchParams(location.search).get('embedded') !== '1') { const u = new URL(location.href); u.searchParams.set('embedded', '1'); history.replaceState(null, '', u); }</script>
   <script src="vendor/supabase-js.min.js?v=1"></script>
   <script src="vendor/lucide.min.js"></script>
-  <script src="common.js?v=81"></script>
+  <script src="common.js?v=82"></script>
   <script src="job-board-context.js?v=2"></script>
   <script src="vendor/qrcode.min.js?v=1"></script>
   <script src="job-board-report-pdf.js?v=5"></script>
   <script src="job-board-email.js?v=1"></script>
   <script src="safety-signature-pad.js?v=4"></script>
-  <script src="job-board.js?v=17"></script>
+  <script src="job-board.js?v=18"></script>
 </body>
 </html>

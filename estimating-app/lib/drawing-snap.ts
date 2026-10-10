@@ -12,11 +12,12 @@ const pause = () => new Promise<void>(resolve => setTimeout(resolve, 0));
 // PDF.js 6 packed paths must be read before canvas rendering turns them into Path2D.
 export async function drawingSegments(page: PDFPageProxy, ops: Record<string, number>, limit = DRAWING_SNAP_MAX_SEGMENTS): Promise<Segment[]> {
   const list = await page.getOperatorList(), segments: Segment[] = [], stack: Matrix[] = [];
+  if(list.fnArray.length>1_000_000)throw new Error('This drawing is too complex for line snapping.');
   let matrix: Matrix = [1,0,0,1,0,0], work = 0;
   read: for (let i = 0; i < list.fnArray.length; i++) {
     if (++work % PAUSE_EVERY === 0) await pause();
     const fn = list.fnArray[i], args = list.argsArray[i];
-    if (fn === ops.save || fn === ops.paintFormXObjectBegin) { stack.push([...matrix]); if (fn === ops.paintFormXObjectBegin && args[0]) matrix = multiply(matrix,args[0]); }
+    if (fn === ops.save || fn === ops.paintFormXObjectBegin) { if(stack.length>=512)throw new Error('This drawing is too complex for line snapping.');stack.push([...matrix]); if (fn === ops.paintFormXObjectBegin && args[0]) matrix = multiply(matrix,args[0]); }
     else if (fn === ops.restore || fn === ops.paintFormXObjectEnd) matrix = stack.pop() ?? [1,0,0,1,0,0];
     else if (fn === ops.transform) matrix = multiply(matrix,args);
     else if (fn === ops.constructPath) {
@@ -52,13 +53,15 @@ function segmentIndex(segments: Segment[]): SegmentIndex {
   const cached = indexes.get(segments);
   if (cached) return cached;
   const index: SegmentIndex = { cells: new Map(), long: [] };
+  let entries=0;
   segments.forEach(({ a, b }, id) => {
     if (![a.x, a.y, b.x, b.y].every(Number.isFinite)) return;
     const left = Math.floor(Math.min(a.x, b.x) / cellSize), right = Math.floor(Math.max(a.x, b.x) / cellSize);
     const top = Math.floor(Math.min(a.y, b.y) / cellSize), bottom = Math.floor(Math.max(a.y, b.y) / cellSize);
-    if ((right-left+1)*(bottom-top+1) > 256) { index.long.push(id); return; }
+    if ((right-left+1)*(bottom-top+1) > 256 || entries+(right-left+1)*(bottom-top+1)>2_000_000 || index.cells.size>150_000) { if(index.long.length<5000)index.long.push(id);return; }
     for (let x = left; x <= right; x++) for (let y = top; y <= bottom; y++) {
       const key = `${x},${y}`, bucket = index.cells.get(key);
+      entries++;
       if (bucket) bucket.push(id); else index.cells.set(key, [id]);
     }
   });
@@ -70,6 +73,7 @@ export function snapPoint(point: Point, segments: Segment[], tolerance: number):
   const index = segmentIndex(segments), candidates = new Set(index.long);
   const left = Math.floor((point.x-tolerance)/cellSize), right = Math.floor((point.x+tolerance)/cellSize);
   const top = Math.floor((point.y-tolerance)/cellSize), bottom = Math.floor((point.y+tolerance)/cellSize);
+  if((right-left+1)*(bottom-top+1)>4096)return {point,snapped:false};
   for (let x = left; x <= right; x++) for (let y = top; y <= bottom; y++) {
     for (const id of index.cells.get(`${x},${y}`) ?? []) candidates.add(id);
   }
