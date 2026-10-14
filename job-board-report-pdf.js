@@ -16,7 +16,7 @@
     await loadJgcScriptOnce(asset('vendor/jspdf.umd.min.js'), 'jspdf');
     if (type === 'inspection_records' && /^JSA$/i.test(record.inspection_type)) {
       await loadJgcScriptOnce(asset('jsa-workers.js?v=3'),'JGCJsaWorkers');
-      await loadJgcScriptOnce(asset('jsa-pdf.js?v=5'), 'JgcJsaPdf');
+      await loadJgcScriptOnce(asset('jsa-pdf.js?v=6'), 'JgcJsaPdf');
       return (await JgcJsaPdf.create(record,{acknowledgements:payload.acknowledgements || [], ...(options.baseUrl ? {logoUrl:asset('logo.webp')} : {})})).output('blob');
     }
     if (type === 'accident_reports' || type === 'employee_injury_reports') {

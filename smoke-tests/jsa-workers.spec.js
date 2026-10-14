@@ -4,7 +4,27 @@ const creator={id:'00000000-0000-4000-8000-000000000001',worker_key:'synthetic c
 const worker={id:'00000000-0000-4000-8000-000000000002',profile_id:'00000000-0000-4000-8000-000000000002',worker_key:'synthetic worker',display_name:'Synthetic Worker',email:'worker@example.com',role:'worker',account_status:'approved',approved:true};
 const date=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const future=()=>{const now=new Date();now.setDate(now.getDate()+14);return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);};
-async function fixture(page){
+async function pdfWords(bytes){
+ const path=require('node:path'),url=require('node:url');
+ const library=await import(url.pathToFileURL(require.resolve('pdfjs-dist/legacy/build/pdf.mjs',{paths:[path.join(__dirname,'../estimating-app')]})).href);
+ const task=library.getDocument({data:new Uint8Array(bytes),disableWorker:true}),pdf=await task.promise,words=[];
+ try{for(let page=1;page<=pdf.numPages;page++)words.push((await (await pdf.getPage(page)).getTextContent()).items.map(item=>item.str).join(' '));return words.join(' ');}finally{await task.destroy();}
+}
+for(const width of [390,1440])test(`job address autofills separately from on-site location ${width}`,async({page})=>{
+ await page.setViewportSize({width,height:900});
+ const jobs=[{id:'job1',job_number:'26999',customer:'Synthetic Client',job_name:'Synthetic Job',site_name:'Main Office',address:'100 Synthetic Street, Test City',active:true},{id:'job2',job_number:'26998',customer:'Synthetic Client',job_name:'Other Job',address:'200 Other Street, Test City',active:true}];
+ await fixture(page,jobs);await page.goto('/jsa.html');await expect(page.locator('#approvedCrewStatus')).toContainText('1 approved employees loaded');
+ const values=await page.evaluate(jobs=>jobs.map(job=>getJgcProjectJobDisplay(job)),jobs);
+ await page.locator('#jsaField1Select').selectOption(values[0]);await expect(page.getByLabel('Address',{exact:true})).toHaveValue(jobs[0].address);
+ await page.getByLabel('General location on site',{exact:true}).fill('Northwest corner, second floor');
+ await page.locator('#jsaField1Select').selectOption(values[1]);await expect(page.getByLabel('Address',{exact:true})).toHaveValue(jobs[1].address);await expect(page.getByLabel('General location on site',{exact:true})).toHaveValue('Northwest corner, second floor');
+ const bytes=await page.evaluate(async()=>Array.from(new Uint8Array((await JgcJsaPdf.create({inspection_date:'2099-10-15',form_data:{fields:collectFields(),rows:[]}}, {prepared:true})).output('arraybuffer'))));
+ const words=await pdfWords(bytes);expect(words).toContain('200 Other Street, Test City');expect(words).toContain('Northwest corner, second floor');
+ await page.evaluate(()=>JgcPreparedJsa.restore({record:{inspection_date:'2099-10-15',form_data:{fields:[{label:'Location',value:'Saved legacy location'}],rows:[]}},crew:[],manual:[]}));await expect(page.getByLabel('Address',{exact:true})).toHaveValue('Saved legacy location');
+ const oldBytes=await page.evaluate(async()=>Array.from(new Uint8Array((await JgcJsaPdf.create({inspection_date:'2020-10-10',form_data:{fields:[{label:'Location',value:'Saved legacy location'}],rows:[]}}, {prepared:true})).output('arraybuffer'))));
+ const oldWords=await pdfWords(oldBytes);expect(oldWords).toContain('Saved legacy location');expect(oldWords).not.toContain('GENERAL LOCATION ON SITE');
+});
+async function fixture(page,jobs=[]){
  const store={model:null,calls:[],savedDraft:null};
  const jwt=Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url')+'.'+Buffer.from(JSON.stringify({sub:creator.id,exp:Math.floor(Date.now()/1000)+3600,role:'authenticated'})).toString('base64url')+'.fixture';
  const session={access_token:jwt,refresh_token:'synthetic-refresh',token_type:'bearer',expires_at:Math.floor(Date.now()/1000)+3600,expires_in:3600,user:creator};
@@ -37,6 +57,7 @@ async function fixture(page){
    }
    return route.fulfill({json:[]});
   }
+  if(url.pathname.endsWith('/jobs'))return route.fulfill({json:jobs});
   if(url.pathname.endsWith('/profiles'))return route.fulfill({json:single?creator:[creator,worker]});
   if(url.pathname.endsWith('/work_order_labour_workers'))return route.fulfill({json:[worker]});
   if(url.pathname.endsWith('/employee_feature_access'))return route.fulfill({json:[{worker_id:worker.id,feature_key:'jsa',enabled:true}]});

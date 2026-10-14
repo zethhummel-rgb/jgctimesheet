@@ -168,7 +168,10 @@
             }); y += 6;
         }
         header();
-        cards([["Project / Job", findFieldValue(record, /Project/i)], ["Location", findFieldValue(record, /Location/i)], ["Work date", findFieldValue(record, /^Date$/i) || record.inspection_date]]);
+        const hasAddress = (record.form_data?.fields || []).some(field => /^Address$/i.test(field.label || ""));
+        cards([["Project / Job", findFieldValue(record, /Project/i)], [hasAddress ? "Address" : "Location", findFieldValue(record, /^Address$/i) || findFieldValue(record, /^Location$/i)], ["Work date", findFieldValue(record, /^Date$/i) || record.inspection_date]]);
+        const siteLocation = findFieldValue(record, /^General location on site$/i);
+        if (String(siteLocation || "").trim()) cards([["General location on site", siteLocation]]);
         cards([["Contractor", findFieldValue(record, /^Contractor$/i) || "John Gordon Construction"], ["Supervisor", findFieldValue(record, /Contractor Supervisor/i)], ["Reviewed by", findFieldValue(record, /Reviewed By/i)]]);
         const checked = findCheckedLabels(record, ["Lockout / Tag Out", "Hot Work", "Confined Space", "Elevated Work", "Excavation", "Crane / Hoisting / Rigging", "Other"]).filter(i => i.checked).map(i => i.label);
         if (checked.length) { section("WORK CONDITIONS / PERMITS IDENTIFIED"); paragraph(checked.join("  |  ")); }
