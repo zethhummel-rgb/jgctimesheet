@@ -71,13 +71,14 @@
     const record = value.record;
     if(!$("jsaField3").value)$("jsaField3").value=record.inspection_date || "";
     const fields = record.form_data.fields || [];
-    document.querySelectorAll(".grid input, .grid select, .checklist input").forEach(input => {
+    window.JgcJsaAddress?.setRestoring(true);
+    try { document.querySelectorAll(".grid input, .grid select, .checklist input").forEach(input => {
       if (input.dataset.inspectionSkip === "true") return;
-      const found = fields.find(f => f.label === getFieldLabel(input));
+      const found = fields.find(f => f.label === getFieldLabel(input)) || (input.id === "jsaField2" ? fields.find(f => f.label === "Location") : null);
       if (!found) return;
       if (input.type === "checkbox") input.checked = found.value === "Yes";
       else { input.value = found.value || ""; input.dispatchEvent(new Event("change", { bubbles: true })); }
-    });
+    }); } finally { window.JgcJsaAddress?.setRestoring(false); }
     selectedCrewMembers.clear(); manualCrewMembers.clear();
     (value.crew || []).forEach(worker => selectedCrewMembers.set(getCrewWorkerKey(worker), worker));
     (value.manual || []).forEach(name => manualCrewMembers.set(getManualCrewKey(name), manualWorker(name)));
