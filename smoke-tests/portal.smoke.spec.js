@@ -5789,6 +5789,7 @@ async function mockDashboard(page, options={}) {
   await installAuthenticatedPortalState(page);
   await mockPortalServices(page,fakeProfile,{themePreferenceState:{theme:options.theme||'light'}});
   const state={layout:options.layout||null,writes:[],failSave:false};
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/get_tm_work_order_reminders`,route=>route.fulfill({json:{week_start:'2026-10-04',week_end:'2026-10-10',generated_at:'2026-10-12T11:00:00Z',items:[]}}));
   await page.route(`${supabaseOrigin}/rest/v1/rpc/is_admin`,route=>route.fulfill({json:options.admin!==false}));
   await page.route(`${supabaseOrigin}/rest/v1/portal_dashboard_layouts*`,async route=>{
     if(route.request().method()==='POST'){
@@ -5862,7 +5863,7 @@ test('Dashboard saves layout, hides/restores widgets, resets, and preserves the 
 
 test('Dashboard approved default layout applies to new accounts and Reset while preserving personal layouts',async({page})=>{
  const state=await mockDashboard(page);await page.setViewportSize({width:1440,height:1100});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();
- const expected=[['jobs-stat',3,44,0,0],['quotes',3,44,3,0],['work-orders',3,44,6,0],['purchase-orders',3,44,9,0],['vacation',2,44,0,0],['equipment-expiry',2,44,2,0],['missing-timesheets',2,44,4,0],['calendar',6,574,0,64],['recent',6,310,6,0],['active-jobs',6,310,6,328],['job-board-signins',4,280,0,652],['tasks',4,280,4,652],['announcements',4,280,8,652]];
+ const expected=[['jobs-stat',3,44,0,0],['quotes',3,44,3,0],['work-orders',3,44,6,0],['purchase-orders',3,44,9,0],['vacation',2,44,0,0],['equipment-expiry',2,44,2,0],['missing-timesheets',2,44,4,0],['tm-work-orders',2,44,0,58],['calendar',6,522,0,116],['recent',6,310,6,0],['active-jobs',6,310,6,328],['job-board-signins',4,280,0,652],['tasks',4,280,4,652],['announcements',4,280,8,652]];
  const read=()=>page.locator('.dashboard-widget').evaluateAll(els=>els.map(e=>[e.dataset.widget,Number(e.style.getPropertyValue('--widget-width')),parseInt(e.style.getPropertyValue('--widget-height')),Number(e.style.getPropertyValue('--widget-x'))-1,Number(e.style.getPropertyValue('--widget-y'))-1]));
  expect(await read()).toEqual(expected);expect(state.writes).toHaveLength(0);
  for(const id of ['jobs-stat','quotes','work-orders','purchase-orders'])await expect(page.locator(`[data-widget="${id}"]`)).toBeHidden();
@@ -6040,7 +6041,7 @@ test('Dashboard Job Board Sign-ins lists recent board sign-ins and recovers afte
 test('Dashboard counts active jobs across pages and normalizes invalid layout',async({page})=>{
  await mockDashboard(page,{layout:{widgets:[{id:'tasks',width:999,height:0},{id:'tasks'},{id:'unknown'}]}});
  await page.route(`${supabaseOrigin}/rest/v1/jobs*`,r=>{const offset=Number(new URL(r.request().url()).searchParams.get('offset')||0);return r.fulfill({json:Array.from({length:offset?1:500},(_,i)=>({id:'j'+(i+offset),job_number:String(26999-i-offset),customer:'Synthetic Client',job_name:'Project',active:true}))});});
- await page.goto('/admin.html?tab=summary');await expect(page.locator('[data-widget="jobs-stat"] .dashboard-metric strong')).toHaveText('501');await expect(page.locator('.dashboard-widget')).toHaveCount(13);
+ await page.goto('/admin.html?tab=summary');await expect(page.locator('[data-widget="jobs-stat"] .dashboard-metric strong')).toHaveText('501');await expect(page.locator('.dashboard-widget')).toHaveCount(14);
  await expect(page.locator('.dashboard-widget').first()).toHaveAttribute('data-widget','tasks');
  await page.locator('[data-widget="tasks"] .dashboard-widget-options').click();await expect(page.getByLabel('Tasks / Follow-Ups width',{exact:true})).toHaveValue('4');
 });
@@ -6128,4 +6129,33 @@ for(const theme of ['light','dark'])for(const width of [390,1440])test(`Dashboar
 for(const width of [390,1440])test(`Dashboard screenshot default fits and preserves saved personal visibility ${width}`,async({page},testInfo)=>{
  await page.setViewportSize({width,height:1100});const state=await mockDashboard(page);await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();await expect(page.locator('[data-widget="vacation"]')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.screenshot({path:testInfo.outputPath('new-default.png'),fullPage:true});
  await openDashboardWidgetMenu(page);await page.locator('#dashboardWidgetChoices input[value="jobs-stat"]').check();await expect(page.locator('[data-widget="jobs-stat"]')).toBeVisible();await expect.poll(()=>state.layout?.widgets.find(w=>w.id==='jobs-stat').visible).toBe(true);await page.reload();await expect(page.locator('#dashboardEdit')).toBeEnabled();await expect(page.locator('[data-widget="jobs-stat"]')).toBeVisible();
+});
+
+for(const theme of ['light','dark'])for(const width of [390,1440])test(`T&M reminder compact card and full detail ${theme} ${width}`,async({page},testInfo)=>{
+ await mockDashboard(page,{theme});await page.setViewportSize({width,height:1000});
+ let items=Array.from({length:10},(_,i)=>({job_id:'00000000-0000-4000-8000-000000000010',job_number:String(26900+i),job_name:'Synthetic job <unsafe>',work_date:'2026-10-05',hours:12,workers:[{name:'Synthetic Worker',hours:8},{name:'Second Worker',hours:4}],work_order_id:i===0?'00000000-0000-4000-8000-000000000040':null}));
+ await page.route(`${supabaseOrigin}/rest/v1/rpc/get_tm_work_order_reminders`,route=>route.fulfill({json:{week_start:'2026-10-04',week_end:'2026-10-10',generated_at:'2026-10-12T11:00:00Z',items}}));
+ await page.goto('/admin.html?tab=summary');
+ const card=page.locator('[data-widget="tm-work-orders"]');await expect(card.locator('.dashboard-metric strong')).toHaveText('10');
+ expect((await card.boundingBox()).height).toBeLessThan(100);
+ await card.getByRole('link',{name:'T&M Work Orders',exact:true}).click();const modal=page.locator('#tmWorkOrdersDialog');await expect(modal).toBeVisible();
+ await expect(modal.locator('.dashboard-tm-item')).toHaveCount(10);await expect(modal).toContainText('Second Worker');await expect(modal).toContainText('12 hours');await expect(modal).toContainText('needs completion');
+ await expect(modal.getByRole('link',{name:'Open WO'})).toHaveAttribute('href','work-orders.html?wo=00000000-0000-4000-8000-000000000040');
+ await expect(modal.getByRole('link',{name:'Create WO'}).first()).toHaveAttribute('href','work-orders.html?tmJob=00000000-0000-4000-8000-000000000010&tmDate=2026-10-05');
+ expect(await modal.locator('unsafe').count()).toBe(0);expect(await modal.evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);
+ await page.screenshot({path:testInfo.outputPath('tm-reminder.png')});
+ items=[];await modal.getByRole('button',{name:'Refresh',exact:true}).click();await expect(modal).toContainText('All caught up');await expect(card.locator('a.dashboard-metric')).toHaveAttribute('aria-label','0 All caught up');
+ await page.route(`${supabaseOrigin}/rest/v1/rpc/get_tm_work_order_reminders`,route=>route.fulfill({status:403,json:{message:'Synthetic access denied'}}));
+ await modal.getByRole('button',{name:'Refresh',exact:true}).click();await expect(modal).toContainText('Could not check');await expect(card.locator('a.dashboard-metric')).toHaveAttribute('aria-label','— Unavailable');
+ await modal.getByRole('button',{name:'Close',exact:true}).click();await expect(modal).toBeHidden();
+});
+
+test('T&M reminder creates WO with job/date and preserves a declined saved draft',async({page})=>{
+ await installAuthenticatedPortalState(page);await mockPortalServices(page);
+ const job={id:'00000000-0000-4000-8000-000000000010',job_number:'26999',job_name:'Synthetic reminder job',customer:'Synthetic Client',address:'Synthetic address',job_type:'T&M',active:true};
+ await page.route(`${supabaseOrigin}/rest/v1/jobs*`,route=>route.fulfill({json:[job]}));
+ await page.goto('/work-orders.html?tmJob='+job.id+'&tmDate=2026-10-05');
+ await expect(page.locator('#woDate')).toHaveValue('2026-10-05');await expect(page.locator('#woJob')).toHaveValue(job.id);await expect(page.locator('#woJobAddress')).toHaveValue(job.address);await expect(page.locator('#woCustomer')).toHaveValue(job.customer);
+ await page.evaluate(async()=>{document.getElementById('woDescription').value='Keep my saved draft';await applyTmReminderPrefill(false);document.getElementById('woDescription').value='Keep my saved draft';});
+ page.once('dialog',d=>d.dismiss());await page.evaluate(()=>applyTmReminderPrefill(true));await expect(page.locator('#woDescription')).toHaveValue('Keep my saved draft');
 });
