@@ -84,7 +84,7 @@
   function dateLabel(value) { if (!value) return 'No report date'; const date = new Date(String(value).slice(0, 10) + 'T12:00:00Z'); return Number.isNaN(date.getTime()) ? String(value).slice(0, 10) : date.toLocaleDateString('en-CA', { timeZone: 'America/Toronto', month: 'short', day: 'numeric', year: 'numeric' }); }
   function timeLabel(value) { const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : d.toLocaleString('en-CA', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' }); }
   function bytes(value) { const n = Number(value || 0); return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n ? Math.ceil(n / 1024) + ' KB' : ''; }
-  async function rpc(name, args) { if (!state.client) throw new Error('The Portal connection is unavailable. Refresh and try again.'); const result = await state.client.rpc(name, args); if (result.error) throw result.error; const data = result.data; return Array.isArray(data) && data.length === 1 && name !== 'get_job_board_activity' && name !== 'list_job_board_sources' && name !== 'get_job_board_contacts' && name !== 'list_today_prepared_jsas' ? data[0] : data; }
+  async function rpc(name, args) { if (!state.client) throw new Error('The Portal connection is unavailable. Refresh and try again.'); const result = await state.client.rpc(name, args); if (result.error) throw result.error; const data = result.data; return Array.isArray(data) && data.length === 1 && name !== 'get_job_board_activity' && name !== 'list_job_board_sources' && name !== 'get_job_board_contacts' && name !== 'list_today_prepared_jsas' && name !== 'list_job_board_prepared_jsas' ? data[0] : data; }
   function storageKey() { return 'jgcJobBoardVisit:' + state.token; }
   function loadVisit() { try { const saved = JSON.parse(sessionStorage.getItem(storageKey()) || 'null'); return saved && saved.token && saved.userId === (state.user && state.user.id || '') ? saved : null; } catch (_) { return null; } }
   function saveVisit(data, label) { state.visit = { token: data.visit_token, userId: state.user && state.user.id || '', label: label || state.user && state.user.email || 'Visitor' }; try { sessionStorage.setItem(storageKey(), JSON.stringify(state.visit)); } catch (_) {} }
@@ -166,28 +166,30 @@
     if (manager) { renderManager(); renderViewers(); for(const kind of ['portal','site'])if($(kind==='portal'?'boardActivity':'boardSiteActivity').open && !state.logs[kind].loaded)void loadActivity(kind,false); }
     if (board.can_upload) renderCreateForms();
     if (state.highlighted) highlightDocument();
-    if (!state.manage && (state.user || state.visit)) { restoreJsaSignOn(); void promptActiveJsa(); }
-    if (isStaffBoard()) void loadPreparedJsas(); else state.preparedJsas = [];
+    if (state.user || state.visit) void loadPreparedJsas(); else state.preparedJsas = [];
   }
-  // JSAs the office prepared for today that are not active yet. Staff see them in Todays Reports and can open
-  // one in the Portal to choose today's Workers Onsite and activate it. Visitors never see drafts.
+  // Signed-in people see only this job's JSA on its work date; the first saved signature activates it.
   let preparedGeneration = 0;
   async function loadPreparedJsas() {
-    const generation = ++preparedGeneration;
-    let items = [];
-    try { const data = await rpc('list_today_prepared_jsas', { p_token: state.token }); items = Array.isArray(data) ? data : []; } catch (_) { items = []; }
-    if (generation !== preparedGeneration) return;
+    const generation = ++preparedGeneration, boardGeneration=state.generation;
+    let items = [], failed=false;
+    try { const data = await rpc('list_job_board_prepared_jsas', { p_token: state.token, p_visit_token: state.visit?.token || null }); items = Array.isArray(data) ? data : []; }
+    catch (_) { items = []; failed=true; }
+    if (generation !== preparedGeneration || boardGeneration !== state.generation) return;
+    if(failed)notice('Could not check today’s prepared JSAs. Use Refresh to try again.','error');
     state.preparedJsas = items; renderPreparedJsas();
+    if (!state.manage) { restoreJsaSignOn(); void promptActiveJsa(); }
   }
+  const preparedJsaDoc = item => ({...item,id:item.id,prepared:true,category:'jsa',title:'JSA - '+item.work_date,report_date:item.work_date,mime_type:'application/pdf',file_name:'JGC-JSA-'+item.work_date+'.pdf'});
+  const jsaContext = doc => doc.prepared ? rpc('get_job_board_prepared_jsa',{p_token:state.token,p_visit_token:state.visit?.token||null,p_prepared_id:doc.id}) : rpc('get_job_board_jsa',{p_token:state.token,p_visit_token:state.visit?.token||null,p_document_id:doc.id});
   function preparedJsaCard(item) {
     const card = document.createElement('article'); card.className = 'jgc-record-row board-document board-prepared-jsa'; card.dataset.preparedId = item.id;
     const icon = text('span', '', 'board-document-icon'); icon.setAttribute('aria-hidden', 'true'); const i = document.createElement('i'); i.dataset.lucide = 'clipboard-list'; icon.append(i);
     const detail = document.createElement('div'); detail.append(text('h3', 'Prepared JSA for today', 'board-document-title'));
     const meta = text('div', '', 'board-document-meta'); [item.project, item.location].filter(Boolean).forEach(value => meta.append(text('span', value)));
-    meta.append(text('span', 'Not active yet', 'jgc-badge jgc-badge--warning')); detail.append(meta);
-    detail.append(text('p', 'Prepared by ' + (item.prepared_by || 'the office') + '. Open it in the Portal, choose today’s Workers Onsite, then Complete and Worker Sign Off.', 'board-document-notes'));
-    const actions = text('div', '', 'board-document-actions'), open = document.createElement('a');
-    open.className = 'jgc-button'; open.textContent = 'Activate JSA'; open.href = 'jsa.html?prepared=' + encodeURIComponent(item.id); if (hosted) open.target = '_top';
+    meta.append(text('span', 'First signature activates', 'jgc-badge jgc-badge--warning')); detail.append(meta);
+    detail.append(text('p', 'Prepared by ' + (item.prepared_by || 'the office') + '. Review today’s JSA and sign with your name and company. The first signature activates it.', 'board-document-notes'));
+    const actions = text('div', '', 'board-document-actions'), open = button('Sign on to JSA',()=>void openJsaSignOn(preparedJsaDoc(item)));
     actions.append(open); card.append(icon, detail, actions); return card;
   }
   function renderPreparedJsas() {
@@ -236,7 +238,7 @@
   }
   let jsaReview = null, jsaReviewGeneration = 0;
   // Workers Onsite JSAs collect their listed workers' signatures on the creator phone; once Completed, anyone arriving late signs on here.
-  const jsaCollecting = model => model.workflow?.version===2 && !model.workflow.completed_at;
+  const jsaCollecting = model => model.workflow?.version===2 && !model.workflow.completed_at && !model.board_self_sign;
   // The JSA page replaces the board; its Back button sits with the header buttons (or the embedded toolbar).
   function showJsaPanel(open) { $('jsaSignOnPanel').hidden = !open; $('jsaSignOnBack').hidden = !open; }
   // The big button at the top and the one under the JSA do the same thing and always agree.
@@ -244,35 +246,36 @@
     $('jsaSignOnSign').disabled = disabled; $('jsaSignOnSignTop').disabled = disabled;
     $('jsaSignOnSign').textContent = label || 'Sign onto JSA'; $('jsaSignOnSignTop').textContent = label && label !== 'Sign onto JSA' ? label : 'Click here to sign onto JSA';
   }
-  // After signing on, point people at today's JSA they still need to read and sign. Once a day per person on
-  // this device, however many times they sign on.
-  let jsaPromptBusy = false;
+  // Remind every unsigned person on each login/reload; Not now only dismisses this visit's prompt.
+  let jsaPromptRun = null;
+  const promptedJsas = new Set();
   const signedInIdentity = () => state.token + ':' + (state.user ? state.user.id : 'visitor:' + String(state.visit?.label || '').trim().toLowerCase());
-  function jsaPromptKey() { return 'jgcJobBoardJsaPrompt:' + signedInIdentity(); }
-  // Only people who signed in on site today (the login box left ticked, or Site Sign in) are asked to sign the
-  // active JSA; someone just viewing the board is not on site.
+  // Attendance remains separate from JSA prompts; unticking site sign-in does not suppress review.
   function markOnSiteToday() { try { localStorage.setItem('jgcJobBoardOnSite:' + signedInIdentity(), dateToday()); } catch (_) {} }
-  function onSiteToday() { try { return localStorage.getItem('jgcJobBoardOnSite:' + signedInIdentity()) === dateToday(); } catch (_) { return false; } }
   async function promptActiveJsa() {
-    const today = dateToday(), key = jsaPromptKey();
-    if (!onSiteToday()) return;
-    try { if (jsaPromptBusy || localStorage.getItem(key) === today) return; } catch (_) { return; }
-    const docs = (state.board?.documents || []).filter(d => d.status === 'published' && d.category === 'jsa' && String(d.report_date || '').slice(0, 10) === today)
+    const today = dateToday(), generation=state.generation;
+    if (jsaPromptRun?.generation===generation || state.manage || !(state.user || state.visit)) return;
+    const docs = (state.preparedJsas || []).map(preparedJsaDoc).concat((state.board?.documents || []).filter(d => d.status === 'published' && d.category === 'jsa' && String(d.report_date || '').slice(0, 10) === today))
       .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
     if (!docs.length) return;
-    jsaPromptBusy = true;
+    const run={generation};jsaPromptRun=run;
     try {
       for (const doc of docs) {
-        const model = await rpc('get_job_board_jsa', { p_token: state.token, p_visit_token: state.visit?.token || null, p_document_id: doc.id });
+        let model;
+        try { model = await jsaContext(doc); }
+        catch(_){if(generation===state.generation)notice('Could not check a JSA sign-off. Use Refresh to try again.','error');continue;}
+        if(generation!==state.generation)return;
         if (model.signed || jsaCollecting(model)) continue;
+        const key=signedInIdentity()+':'+doc.id+':'+(model.review_key||model.version||'');
+        if(promptedJsas.has(key))continue;
         if (jsaReview || $('boardContent').hidden) return; // They already opened a JSA or left the board.
-        try { localStorage.setItem(key, today); } catch (_) {}
+        promptedJsas.add(key);
         $('jsaPromptName').textContent = doc.title || 'JSA'; $('jsaPromptReview').onclick = () => { $('jsaPromptDialog').close(); void openJsaSignOn(doc); };
         if (!$('jsaPromptDialog').open) $('jsaPromptDialog').showModal();
         return;
       }
-      try { localStorage.setItem(key, today); } catch (_) {} // Nothing left to sign today.
-    } catch (_) { /* The prompt is a reminder; the JSA stays available on the board. */ } finally { jsaPromptBusy = false; }
+    } catch (_) { if(generation===state.generation)notice('Could not check JSA sign-offs. Use Refresh to try again.','error'); }
+    finally { if(jsaPromptRun===run)jsaPromptRun=null; }
   }
   // An open JSA sign-on comes back after an unexpected reload (the signature itself is drawn again).
   const jsaOpenKey = () => 'jgcJobBoardJsaOpen:' + state.token;
@@ -281,7 +284,7 @@
   function restoreJsaSignOn() {
     if (jsaRestoreDone) return; jsaRestoreDone = true;
     let id = ''; try { id = sessionStorage.getItem(jsaOpenKey()) || ''; } catch (_) {}
-    const doc = id && (state.board?.documents || []).find(d => d.id === id && d.category === 'jsa');
+    const doc = id && ((state.board?.documents || []).find(d => d.id === id && d.category === 'jsa') || (state.preparedJsas || []).map(preparedJsaDoc).find(d=>d.id===id));
     if (doc && !jsaReview) void openJsaSignOn(doc); else if (id) rememberJsaOpen('');
   }
   async function openJsaSignOn(doc) {
@@ -289,7 +292,7 @@
     $('jsaSignOnTitle').textContent=doc.title || 'Sign on to JSA';$('jsaSignOnReport').replaceChildren();$('jsaSignOnRoster').replaceChildren();$('jsaSignOnRead').checked=false;setJsaSignButtons(true);$('jsaSignOnPdf').disabled=true;status('jsaSignOnStatus','Loading JSA…');
     $('jsaSignOnPanel').scrollIntoView({block:'start'});
     try {
-      const model=await rpc('get_job_board_jsa',{p_token:state.token,p_visit_token:state.visit?.token||null,p_document_id:doc.id});
+      const model=await jsaContext(doc);
       if(generation!==jsaReviewGeneration)return;jsaReview={doc,model};$('jsaSignOnPdf').disabled=false;$('jsaSignOnPdf').textContent=String(doc.mime_type||'').startsWith('image/')?'Open JSA image':'Open JSA PDF';status('jsaSignOnStatus',model.signed?'You signed this JSA on '+timeLabel(model.signed_at):'Read the JSA below before signing.');
       $('jsaSignOnIdentity').textContent='Signing as '+model.identity.name+' · '+model.identity.company;
       const report=$('jsaSignOnReport');
@@ -302,6 +305,7 @@
       status('jsaSignOnStatus',model.signed?'You signed this JSA on '+timeLabel(model.signed_at):'Read the JSA below before signing.');
       const signed=(model.acknowledgements||[]).filter(a=>model.workflow?.version===2 || a.signature_signed_at);
       if(model.workflow?.version===2)status('jsaSignOnStatus',model.workflow.status+' · '+model.workflow.signed+'/'+model.workflow.required+' workers signed. '+(!jsaCollecting(model)?(model.signed?'You signed this JSA on '+timeLabel(model.signed_at)+'.':'Arrived late? Read the JSA, then sign on below.'):model.workflow.prepared_in_advance?'Staff with this prepared JSA can collect the signatures on their phone.':'All worker signatures are collected on the JSA creator phone.'));
+      if(model.board_self_sign)status('jsaSignOnStatus',model.signed?'You signed this JSA on '+timeLabel(model.signed_at)+'.':model.prepared?'Review this JSA, then sign below. Your signature activates it for today.':model.workflow.status+' · '+model.workflow.signed+'/'+model.workflow.required+' workers signed. Review the JSA, then sign below.');
       if(!signed.length)empty($('jsaSignOnRoster'),'No signatures recorded yet.');
       signed.forEach(ack=>{const row=text('div','','jgc-record-row');row.append(text('strong',ack.attendee_name),text('span',ack.attendee_company || ''),text('time',ack.signature_signed_at?'Signed · '+timeLabel(ack.signature_signed_at):model.workflow?.status==='Prepared'?'Planned — sign on work date':'Outstanding','board-help'));$('jsaSignOnRoster').append(row);});
       setJsaSignButtons(jsaCollecting(model)?!model.can_collect || !model.workflow.active:!!model.signed,
@@ -312,7 +316,8 @@
       const shown=error instanceof TypeError||error instanceof ReferenceError||error instanceof SyntaxError?'The JSA could not be shown on this device, so signing is paused.':errorMessage(error);
       status('jsaSignOnStatus',shown+' Reopen this JSA to try again.','error');$('jsaSignOnReport').replaceChildren();}}
   }
-  $('jsaSignOnBack').addEventListener('click',()=>{jsaReviewGeneration++;jsaReview=null;rememberJsaOpen('');showJsaPanel(false);$('boardContent').hidden=false;});
+  let jsaBoardChanged=false;
+  $('jsaSignOnBack').addEventListener('click',()=>{jsaReviewGeneration++;jsaReview=null;rememberJsaOpen('');showJsaPanel(false);$('boardContent').hidden=false;if(jsaBoardChanged){jsaBoardChanged=false;void loadBoard();}else void promptActiveJsa();});
   $('jsaPromptLater').addEventListener('click',()=>$('jsaPromptDialog').close());
   $('jsaSignOnRead').addEventListener('change',()=>{$('jsaReadContinue').disabled=!jsaReview||jsaReview.model.signed||!$('jsaSignOnRead').checked;});
   $('jsaSignOnPdf').addEventListener('click',e=>{if(jsaReview)void viewDocument(jsaReview.doc,e.currentTarget);});
@@ -325,8 +330,11 @@
     const review=jsaReview,generation=jsaReviewGeneration;
     JGCSafetySignature.open({attendeeName:review.model.identity.name,readOnlyName:true,recordLabel:review.doc.title+' · '+review.model.identity.company,onSubmit:async signature=>{
       if(generation!==jsaReviewGeneration)throw new Error('Open the JSA again before signing.');
-      const result=await rpc('sign_job_board_jsa',{p_token:state.token,p_visit_token:state.visit?.token||null,p_document_id:review.doc.id,p_confirm_read:$('jsaSignOnRead').checked,p_reviewed_version:review.model.version,p_signature_strokes:signature.strokes,p_signature_width:signature.width,p_signature_height:signature.height});
+      const result=review.model.board_self_sign
+        ? await rpc('sign_today_job_board_jsa',{p_token:state.token,p_visit_token:state.visit?.token||null,p_id:review.doc.id,p_prepared:!!review.doc.prepared,p_reviewed_key:review.model.review_key,p_confirm_read:$('jsaSignOnRead').checked,p_strokes:signature.strokes,p_width:signature.width,p_height:signature.height})
+        : await rpc('sign_job_board_jsa',{p_token:state.token,p_visit_token:state.visit?.token||null,p_document_id:review.doc.id,p_confirm_read:$('jsaSignOnRead').checked,p_reviewed_version:review.model.version,p_signature_strokes:signature.strokes,p_signature_width:signature.width,p_signature_height:signature.height});
       if(!result?.ok)throw new Error('Your signature could not be saved.');
+      jsaBoardChanged=true;
       status('jsaSignOnStatus','Signature saved. Your name and company have been added to this JSA.','success');setJsaSignButtons(true,'Already signed');review.model.signed=true;
       void openJsaSignOn(review.doc);rememberJsaOpen('');return {ok:true};
     }});
@@ -379,6 +387,7 @@
     return details;
   }
   async function documentFile(doc) {
+    if(doc.prepared){const model=await jsaContext(doc);return {blob:await window.JGCJobBoardPdf.create({source_type:'inspection_records',record:model.record,acknowledgements:model.acknowledgements}),fileName:doc.file_name,mimeType:'application/pdf'};}
     const session = await state.client.auth.getSession(); const token = session.data && session.data.session && session.data.session.access_token;
     const base = typeof JGC_SUPABASE_URL !== 'undefined' ? JGC_SUPABASE_URL : state.client.supabaseUrl;
     const key = typeof JGC_SUPABASE_KEY !== 'undefined' ? JGC_SUPABASE_KEY : state.client.supabaseKey;
@@ -551,9 +560,9 @@
       notice('Signed in on site at ' + timeLabel(result.recorded_at)); invalidateLogs();
     } catch (error) { notice('You are logged in, but your site sign-in was not saved: ' + errorMessage(error) + ' Use Site Sign in to try again.', 'error'); }
   }
-  async function visitorSignIn(e) { e.preventDefault(); busy($('visitorSubmit'), true); status('visitorStatus', 'Signing in…'); const name = $('visitorName').value.trim(), company = $('visitorCompany').value.trim(), onSite = $('visitorSiteSignIn').checked; try { await registerVisit({ p_name: name, p_company: company, p_email: $('visitorEmail').value.trim() }); if (onSite) markOnSiteToday(); await loadBoard(); if ($('visitorGate').hidden) { status('visitorStatus', ''); clearSignInDraft('visitorGate'); } else status('visitorStatus', 'Site sign-in expired. Please sign in again.', 'error'); if (onSite && !$('boardContent').hidden) await recordLoginSiteSignIn(name, company); } catch (error) { status('visitorStatus', errorMessage(error), 'error'); } finally { busy($('visitorSubmit'), false); } }
+  async function visitorSignIn(e) { e.preventDefault(); promptedJsas.clear(); busy($('visitorSubmit'), true); status('visitorStatus', 'Signing in…'); const name = $('visitorName').value.trim(), company = $('visitorCompany').value.trim(), onSite = $('visitorSiteSignIn').checked; try { await registerVisit({ p_name: name, p_company: company, p_email: $('visitorEmail').value.trim() }); if (onSite) markOnSiteToday(); await loadBoard(); if ($('visitorGate').hidden) { status('visitorStatus', ''); clearSignInDraft('visitorGate'); } else status('visitorStatus', 'Site sign-in expired. Please sign in again.', 'error'); if (onSite && !$('boardContent').hidden) await recordLoginSiteSignIn(name, company); } catch (error) { status('visitorStatus', errorMessage(error), 'error'); } finally { busy($('visitorSubmit'), false); } }
   async function staffSignIn(e) {
-    e.preventDefault(); busy($('staffSubmit'), true); status('staffStatus', 'Signing in…'); const onSite = $('staffSiteSignIn').checked;
+    e.preventDefault(); promptedJsas.clear(); busy($('staffSubmit'), true); status('staffStatus', 'Signing in…'); const onSite = $('staffSiteSignIn').checked;
     try {
       if (!state.client) throw new Error('The Portal is unavailable. Refresh and try again.');
       if (typeof setJgcAuthPersistencePreference === 'function') setJgcAuthPersistencePreference(false);
@@ -623,7 +632,7 @@
   $('onsiteDialog').addEventListener('close', () => { onsiteGeneration++; $('onsiteList').replaceChildren(); });
   $('boardLogout').addEventListener('click',async()=>{
     const control=$('boardLogout');busy(control,true);
-    try{if(state.user){const result=await state.client.auth.signOut({scope:'local'});if(result.error)throw result.error;}clearVisit();writeSignInDraft({});rememberJsaOpen('');state.user=null;state.board=null;state.loggedBoardVisit='';state.generation++;state.previewGeneration++;jsaReviewGeneration++;jsaReview=null;$('jsaSignOnPanel').hidden=true;['documentPreview','contactsDialog','emailPdfDialog','jsaReadDialog'].forEach(id=>{if($(id).open)$(id).close();});['documentSections','activityList','siteActivityList','viewerList','contactsList','jsaSignOnReport','jsaSignOnRoster'].forEach(id=>$(id).replaceChildren());Object.values(state.logs).forEach(log=>{log.events=[];log.loaded=false;log.before=null;});$('boardLogout').hidden=true;syncBoardTheme();await loadBoard();notice('You have logged out of this Job Board.');}catch(error){notice(errorMessage(error),'error');}finally{busy(control,false);}
+    try{if(state.user){const result=await state.client.auth.signOut({scope:'local'});if(result.error)throw result.error;}clearVisit();promptedJsas.clear();writeSignInDraft({});rememberJsaOpen('');state.user=null;state.board=null;state.loggedBoardVisit='';state.generation++;state.previewGeneration++;jsaReviewGeneration++;jsaReview=null;$('jsaSignOnPanel').hidden=true;['documentPreview','contactsDialog','emailPdfDialog','jsaReadDialog','jsaPromptDialog'].forEach(id=>{if($(id).open)$(id).close();});['documentSections','activityList','siteActivityList','viewerList','contactsList','jsaSignOnReport','jsaSignOnRoster'].forEach(id=>$(id).replaceChildren());Object.values(state.logs).forEach(log=>{log.events=[];log.loaded=false;log.before=null;});$('boardLogout').hidden=true;syncBoardTheme();await loadBoard();notice('You have logged out of this Job Board.');}catch(error){notice(errorMessage(error),'error');}finally{busy(control,false);}
   });
   $('boardRefresh').addEventListener('click', loadBoard); $('boardRetry').addEventListener('click', loadBoard);
   $('boardSignIn').addEventListener('click', openStaff); $('uploadSignInButton').addEventListener('click', openStaff); $('staffCancel').addEventListener('click', () => { clearSignInDraft(); chooseLogin(state.board?.requires_visitor_signin ? 'loginOptions' : ''); });
