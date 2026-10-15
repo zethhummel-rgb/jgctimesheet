@@ -12,6 +12,25 @@
     document.body.append(dialog);body=dialog.querySelector('[data-content]');refreshButton=dialog.querySelector('[data-refresh]');
     dialog.querySelector('[data-close]').onclick=()=>dialog.close();
     refreshButton.onclick=()=>void load(showMetric);
+    body.addEventListener('click',async event=>{
+      const button=event.target.closest('button[data-tm-exception]');
+      if(!button||loading)return;
+      loading=true;refreshButton.disabled=true;
+      body.querySelectorAll('button[data-tm-exception]').forEach(b=>b.disabled=true);
+      body.querySelector('[data-write-error]')?.remove();
+      try {
+        const result=await supabaseClient.rpc('set_tm_work_order_not_required',{
+          p_job_id:button.dataset.job,p_work_date:button.dataset.date,p_not_required:button.dataset.tmException==='dismiss'
+        });
+        if(result.error)throw result.error;
+        await load(showMetric);
+      } catch(_) {
+        button.insertAdjacentHTML('afterend','<p data-write-error role="alert">Could not save this change. Please try again.</p>');
+      } finally {
+        loading=false;refreshButton.disabled=false;
+        body.querySelectorAll('button[data-tm-exception]').forEach(b=>b.disabled=false);
+      }
+    });
     document.addEventListener('click',event=>{
       if(!event.target.closest('a[href="#tm-work-orders"]'))return;
       event.preventDefault();if(!dialog.open)dialog.showModal();void load(showMetric);
@@ -32,8 +51,9 @@
         (items.length?items.map(item=>{
           const started=Boolean(item.work_order_id);
           const href=started?'work-orders.html?wo='+encodeURIComponent(item.work_order_id):'work-orders.html?tmJob='+encodeURIComponent(item.job_id)+'&tmDate='+encodeURIComponent(item.work_date);
-          return '<section class="dashboard-tm-item"><h3>'+esc(item.job_number)+' · '+esc(item.job_name)+'</h3><p><strong>'+esc(day(item.work_date))+' · '+hours(item.hours)+' hours</strong></p><p>'+esc(started?'WO started — needs completion':'No completed work order')+'</p><ul>'+item.workers.map(worker=>'<li>'+esc(worker.name)+' <strong>'+hours(worker.hours)+' h</strong></li>').join('')+'</ul><a class="jgc-button'+(started?' jgc-button--secondary':'')+'" href="'+esc(href)+'">'+(started?'Open WO':'Create WO')+'</a></section>';
-        }).join(''):'<p class="jgc-empty-state">All caught up. Every T&M job and day with hours has a completed work order.</p>')+
+          return '<section class="dashboard-tm-item"><h3>'+esc(item.job_number)+' · '+esc(item.job_name)+'</h3><p><strong>'+esc(day(item.work_date))+' · '+hours(item.hours)+' hours</strong></p><p>'+esc(started?'WO started — needs completion':'No completed work order')+'</p><ul>'+item.workers.map(worker=>'<li>'+esc(worker.name)+' <strong>'+hours(worker.hours)+' h</strong></li>').join('')+'</ul><div class="jgc-actions"><a class="jgc-button'+(started?' jgc-button--secondary':'')+'" href="'+esc(href)+'">'+(started?'Open WO':'Create WO')+'</a><button type="button" class="jgc-button jgc-button--secondary" data-tm-exception="dismiss" data-job="'+esc(item.job_id)+'" data-date="'+esc(item.work_date)+'">No WO needed</button></div></section>';
+        }).join(''):'<p class="jgc-empty-state">All caught up. No outstanding T&M work orders for this week.</p>')+
+        ((data.dismissed||[]).length?'<details><summary>No WO needed ('+data.dismissed.length+')</summary><p>These exceptions apply only to the job and date shown.</p>'+data.dismissed.map(item=>'<section class="dashboard-tm-item"><h3>'+esc(item.job_number)+' · '+esc(item.job_name)+'</h3><p>'+esc(day(item.work_date))+' · '+hours(item.hours)+' hours</p><button type="button" class="jgc-button jgc-button--secondary" data-tm-exception="undo" data-job="'+esc(item.job_id)+'" data-date="'+esc(item.work_date)+'">Undo</button></section>').join('')+'</details>':'')+
         '<p class="small">Hours captured '+esc(new Date(data.generated_at).toLocaleString('en-CA',{timeZone:'America/Toronto'}))+' Toronto time. Work order status updates when this list refreshes.</p>';
     } catch(_) {
       if(current!==sequence)return;
