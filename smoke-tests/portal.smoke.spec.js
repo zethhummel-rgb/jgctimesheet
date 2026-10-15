@@ -6159,3 +6159,38 @@ test('T&M reminder creates WO with job/date and preserves a declined saved draft
  await page.evaluate(async()=>{document.getElementById('woDescription').value='Keep my saved draft';await applyTmReminderPrefill(false);document.getElementById('woDescription').value='Keep my saved draft';});
  page.once('dialog',d=>d.dismiss());await page.evaluate(()=>applyTmReminderPrefill(true));await expect(page.locator('#woDescription')).toHaveValue('Keep my saved draft');
 });
+
+for(const theme of ['light','dark'])test(`Timesheet large text job results fit keyboard viewport and scroll all matches ${theme}`,async({page},testInfo)=>{
+ await installAuthenticatedPortalState(page);await mockPortalServices(page,fakeProfile,{themePreferenceState:{theme}});await page.setViewportSize({width:390,height:844});
+ const jobs=Array.from({length:35},(_,i)=>({id:'keyboard-job-'+i,job_number:String(26900+i),job_name:'Eastern Welding Test '+i,customer:'Eastern Welding',job_type:'T&M',active:true}));
+ await page.route(`${supabaseOrigin}/rest/v1/jobs*`,r=>r.fulfill({json:jobs}));
+ await page.goto('/timesheet.html');await expect.poll(()=>page.evaluate(()=>activeJobs.length)).toBe(35);
+ await page.evaluate(()=>{const style=document.createElement('style');style.textContent='#jobName,#jobDropdown .jgc-job-option,#jobDropdown .jgc-job-option span{font-size:32px!important}';document.head.append(style);const vv=new EventTarget();Object.assign(vv,{height:470,width:390,offsetTop:0,offsetLeft:0,scale:1,pageTop:0,pageLeft:0});Object.defineProperty(window,'visualViewport',{value:vv,configurable:true});window.__keyboardViewport=vv;vv.addEventListener('resize',fitTimesheetJobDropdown);vv.addEventListener('scroll',fitTimesheetJobDropdown);});
+ await page.locator('#jobName').fill('Eastern');
+ await page.evaluate(()=>{const r=document.getElementById('jobName').getBoundingClientRect();window.scrollBy(0,r.top-170);fitTimesheetJobDropdown();});
+ const list=page.locator('#jobDropdown');await expect(list).toBeVisible();await expect(list.getByRole('option')).toHaveCount(35);
+ let rect=await list.boundingBox();expect(rect.y+rect.height).toBeLessThanOrEqual(470);expect(rect.y).toBeGreaterThanOrEqual(0);
+ await expect(page.locator('#jobName')).toBeFocused();
+ const cdp=await page.context().newCDPSession(page);await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});
+ const x=rect.x+rect.width/2,y=rect.y+rect.height-12;
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+ for(let n=1;n<=8;n++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-(rect.height-24)*n/8}]});await page.waitForTimeout(20);}
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ await expect.poll(()=>list.evaluate(e=>e.scrollTop)).toBeGreaterThan(0);await expect(page.locator('#jobName')).toHaveValue('Eastern');await expect(list).toBeVisible();
+ await page.evaluate(()=>{window.__keyboardViewport.height=350;window.__keyboardViewport.offsetTop=40;window.__keyboardViewport.dispatchEvent(new Event('resize'));});
+ rect=await list.boundingBox();expect(rect.y+rect.height).toBeLessThanOrEqual(390);expect(rect.y).toBeGreaterThanOrEqual(40);
+ await list.evaluate(e=>e.scrollTop=e.scrollHeight);const last=list.getByRole('option').last();await expect(last).toContainText('Test 34');
+ await page.screenshot({path:testInfo.outputPath('timesheet-keyboard-large-text.png')});
+ await last.click();await expect(page.locator('#jobName')).toHaveValue('Eastern Welding Test 34');await expect(page.locator('#jobNumber')).toHaveValue('26934');await expect(list).toBeHidden();
+});
+
+test('T&M No WO needed persists, supports Undo and retains the reminder when saving fails',async({page})=>{
+ await mockDashboard(page);let dismissed=false,fail=false,writes=[];
+ const item={job_id:'00000000-0000-4000-8000-000000000010',job_number:'26999',job_name:'Synthetic Shop',work_date:'2026-10-05',hours:8,workers:[{name:'Synthetic Worker',hours:8}]};
+ await page.route(`${supabaseOrigin}/rest/v1/rpc/get_tm_work_order_reminders`,r=>r.fulfill({json:{week_start:'2026-10-04',week_end:'2026-10-10',generated_at:'2026-10-12T11:00:00Z',items:dismissed?[]:[item],dismissed:dismissed?[item]:[]}}));
+ await page.route(`${supabaseOrigin}/rest/v1/rpc/set_tm_work_order_not_required`,r=>{writes.push(r.request().postDataJSON());if(fail)return r.fulfill({status:403,json:{message:'Synthetic failure'}});dismissed=writes.at(-1).p_not_required;return r.fulfill({json:null});});
+ await page.goto('/admin.html?tab=summary');const card=page.locator('[data-widget="tm-work-orders"]');await expect(card.locator('.dashboard-metric strong')).toHaveText('1');await card.getByRole('link',{name:'T&M Work Orders',exact:true}).click();
+ const modal=page.locator('#tmWorkOrdersDialog');await modal.getByRole('button',{name:'No WO needed',exact:true}).click();await expect(card.locator('.dashboard-metric strong')).toHaveText('0');await expect(modal).toContainText('All caught up');await modal.getByText('No WO needed (1)',{exact:true}).click();await expect(modal.getByRole('button',{name:'Undo',exact:true})).toBeVisible();
+ expect(writes[0]).toEqual({p_job_id:item.job_id,p_work_date:item.work_date,p_not_required:true});await modal.getByRole('button',{name:'Close',exact:true}).click();await page.reload();await card.getByRole('link',{name:'T&M Work Orders',exact:true}).click();await modal.getByText('No WO needed (1)',{exact:true}).click();await modal.getByRole('button',{name:'Undo',exact:true}).click();await expect(card.locator('.dashboard-metric strong')).toHaveText('1');expect(writes.at(-1).p_not_required).toBe(false);
+ fail=true;await modal.getByRole('button',{name:'No WO needed',exact:true}).click();await expect(modal.getByRole('alert')).toContainText('Could not save');await expect(card.locator('.dashboard-metric strong')).toHaveText('1');await expect(modal.getByRole('button',{name:'No WO needed',exact:true})).toBeEnabled();
+});

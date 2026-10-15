@@ -1568,3 +1568,6 @@ body.timesheet-page {
 :root[data-jgc-theme="light"] #timesheetsSection .timesheet-worker-count {
     color: var(--jgc-color-on-brand);
 }
+
+/* Keep touch scrolling inside the keyboard-sized job results. */
+.timesheet-page #jobDropdown { overscroll-behavior-y:contain; touch-action:pan-y; }

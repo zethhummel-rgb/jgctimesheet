@@ -6,7 +6,7 @@
   <title>Time Sheet App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <link rel="stylesheet" href="jgc-design-system.css?v=14" />
-  <link rel="stylesheet" href="timesheet-design-system.css?v=7" />
+  <link rel="stylesheet" href="timesheet-design-system.css?v=8" />
 </head>
 
 <body class="timesheet-page jgc-page jgc-system-page">
@@ -1795,8 +1795,7 @@ function getFilteredJobOptions() {
         jobName.includes(searchValue) ||
         jobNumber.includes(searchValue) ||
         getJgcJobSearchText(job).includes(searchValue);
-    })
-    .slice(0, 20);
+    });
 }
 
 function renderJobDropdown() {
@@ -1815,7 +1814,7 @@ function renderJobDropdown() {
 
   // The shared job dropdown rows (jgc-design-system.css), also used by Work Orders and PO.
   dropdown.innerHTML = jobs.map(function(job) {
-    return getJgcJobOptionHtml(job, 'onmousedown="selectJobOption(\'' + escapeHtml(job.id) + '\')"');
+    return getJgcJobOptionHtml(job, 'onmousedown="event.preventDefault()" onclick="selectJobOption(\'' + escapeHtml(job.id) + '\')"');
   }).join("");
 }
 
@@ -1832,6 +1831,31 @@ function openJobDropdown() {
 
   renderJobDropdown();
   dropdown.classList.add("open");
+  fitTimesheetJobDropdown();
+}
+
+// Size against the visible screen: iOS's layout viewport still extends behind its keyboard.
+function fitTimesheetJobDropdown() {
+  const dropdown = document.getElementById('jobDropdown');
+  if (!dropdown || !dropdown.classList.contains('open')) return;
+  const bounds = document.querySelector('#jobPicker .jgc-job-picker__field').getBoundingClientRect();
+  const viewport = window.visualViewport;
+  const viewportTop = viewport ? viewport.offsetTop : 0;
+  const nav = document.querySelector('.jgc-global-top-nav');
+  const top = Math.max(viewportTop, nav ? nav.getBoundingClientRect().bottom : 0);
+  const bottom = viewportTop + (viewport ? viewport.height : window.innerHeight);
+  const below = Math.max(0, bottom - bounds.bottom - 16);
+  const above = Math.max(0, bounds.top - top - 16);
+  const opensAbove = below < 120 && above > below;
+  dropdown.style.top = opensAbove ? 'auto' : 'calc(100% + 4px)';
+  dropdown.style.bottom = opensAbove ? 'calc(100% + 4px)' : 'auto';
+  dropdown.style.maxHeight = Math.min(280, opensAbove ? above : below) + 'px';
+}
+window.addEventListener('resize', fitTimesheetJobDropdown);
+window.addEventListener('scroll', fitTimesheetJobDropdown, {passive:true});
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', fitTimesheetJobDropdown);
+  window.visualViewport.addEventListener('scroll', fitTimesheetJobDropdown);
 }
 
 // A job picked from the list (or typed in full with its number) locks the box, and the X is the only way
