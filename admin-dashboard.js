@@ -6,7 +6,8 @@
     ['jobs-stat','Active Jobs',3,44,0,0], ['quotes','Quotes',3,44,3,0],
     ['work-orders','Work Orders',3,44,6,0], ['purchase-orders','Purchase Orders',3,44,9,0],
     ['vacation','Vacation Requests',2,44,0,0], ['equipment-expiry','Vehicle / Equipment Expiries',2,44,2,0], ['missing-timesheets','Missing Timesheets',2,44,4,0],
-    ['calendar','Schedule Calendar',6,574,0,64],
+    ['tm-work-orders','T&M Work Orders',2,44,0,58],
+    ['calendar','Schedule Calendar',6,522,0,116],
     ['recent','Recent Work',6,310,6,0], ['active-jobs','Active Jobs',6,310,6,328],
     ['job-board-signins','Job Board Sign-ins',4,280,0,652], ['tasks','Tasks / Follow-Ups',4,280,4,652], ['announcements','Announcements',4,280,8,652]
   ];
@@ -14,7 +15,7 @@
   // Saved layouts keep a renamed widget's place: Subcontractor Activity became Job Board Sign-ins (release 1001).
   const renamedWidgets = {subcontractors:'job-board-signins'};
   const widths = [2,3,4,5,6,7,8,9,10,11,12], heights = [44,144,280,313,408,456,640];
-  const geometry=window.JgcDashboardGrid, statIds=["jobs-stat","quotes","work-orders","purchase-orders","vacation","equipment-expiry","missing-timesheets"];
+  const geometry=window.JgcDashboardGrid, statIds=["jobs-stat","quotes","work-orders","purchase-orders","vacation","equipment-expiry","missing-timesheets","tm-work-orders"];
   let selected="recent"; const toolbars=new Map();
   const minimumHeight=id=>statIds.includes(id)?44:id==='calendar'?280:144;
   const defaults = () => ({version:2, widgets:geometry.pack(definitions.map(([id,,width,height,x,y]) => ({id,width,height,x,y,visible:!defaultHidden.has(id)})))});
@@ -43,7 +44,7 @@
     clipboard:'<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 12h6M9 16h4"/>'
   };
   const icon=key=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[key]||iconPaths.briefcase}</svg>`;
-  const widgetIcons={'jobs-stat':'briefcase',quotes:'file','work-orders':'wrench','purchase-orders':'cart','estimate-desk':'calculator',calendar:'calendar',recent:'clock','active-jobs':'briefcase','job-board-signins':'users',tasks:'check',announcements:'notice',vacation:'plane','equipment-expiry':'truck','missing-timesheets':'clipboard'};
+  const widgetIcons={'tm-work-orders':'wrench','jobs-stat':'briefcase',quotes:'file','work-orders':'wrench','purchase-orders':'cart','estimate-desk':'calculator',calendar:'calendar',recent:'clock','active-jobs':'briefcase','job-board-signins':'users',tasks:'check',announcements:'notice',vacation:'plane','equipment-expiry':'truck','missing-timesheets':'clipboard'};
   function normalize(value) {
     const result=defaults(), supplied=Array.isArray(value?.widgets) ? value.widgets : [];
     const seen=new Set(), ordered=[];
@@ -222,6 +223,9 @@
     if(!ready)return;const generation=++loadId;workspacePromise=null;$('dashboardRefresh').disabled=true;
     async function load(ids,action){try{await action(generation);}catch(_){if(generation===loadId)ids.forEach(id=>fill(id,'<p>Could not load this widget. Use Refresh to try again.</p>'));}}
     await Promise.allSettled([
+      load(['tm-work-orders'],()=>window.JgcTmWorkOrders.load((count,label)=>{
+        fill('tm-work-orders',metric(count===null?'—':count,label,'#tm-work-orders'),[['Review T&M work orders','#tm-work-orders']]);
+      })),
       load(['jobs-stat','active-jobs'],async()=>{
         let all=[];
         for(let offset=0;;offset+=500){const result=await rows(supabaseClient.from('jobs').select('id,job_number,job_name,customer,site_name,job_type,start_date').eq('active',true).order('job_number',{ascending:false}).order('id').range(offset,offset+499));all.push(...result.data);if(result.data.length<500)break;}

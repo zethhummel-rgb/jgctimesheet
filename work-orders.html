@@ -3526,9 +3526,31 @@ Promise.all([loadJobs(), loadEquipment(), loadWorkOrders(), loadTimesheetEntries
   }
   openRequestedEmbeddedWorkOrder();
   if (!requestedWorkOrderId) {
-    restoreLocalWorkOrderDraft();
+    const restored = restoreLocalWorkOrderDraft();
+    await applyTmReminderPrefill(restored);
   }
 });
+async function applyTmReminderPrefill(restored) {
+  const jobId = workOrderPageParams.get('tmJob') || '';
+  const dateValue = workOrderPageParams.get('tmDate') || '';
+  if (!isAdmin || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId) ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(dateValue) || !Number.isFinite(Date.parse(dateValue+'T12:00:00Z')) || new Date(dateValue+'T12:00:00Z').toISOString().slice(0,10) !== dateValue) return;
+  // Preserve an existing device draft unless the administrator explicitly replaces it.
+  if (restored && !confirm('Your saved work order draft is open. Replace this device draft with a new work order for the selected T&M job and date? Saved work orders will be kept.')) return;
+  let job = jobs.find(item => item.id === jobId);
+  if (!job) {
+    const result = await supabaseClient.from('jobs').select('id,customer,job_number,job_name,job_type,site_name,address,active').eq('id',jobId).maybeSingle();
+    if (result.error || !result.data) { setFormStatus('Could not load the requested job. Your draft has been kept.'); return; }
+    job = result.data;
+    jobs.push(job);
+  }
+  resetWorkOrderForm();
+  document.getElementById('woDate').value = dateValue;
+  selectJobFromSearch(jobId);
+  document.getElementById('woCustomer').value = job.customer || '';
+  document.getElementById('woJobAddress').value = job.address || '';
+  setFormStatus('Job and work date filled from the T&M reminder. Review the hours and complete this work order.');
+}
 </script>
 <script src="work-order-digital-pos.js?v=3"></script>
 </body>

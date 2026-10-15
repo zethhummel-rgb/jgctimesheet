@@ -296,6 +296,18 @@ body:has(#summarySection:not([hidden]))>.tabs { background:transparent !importan
 #summarySection .dashboard-widget[data-slim="true"] .dashboard-resize { right:32px; bottom:8px; border-radius:5px; }
 
 /* Summary customization lives in the shared gear panel. */
+.dashboard-tm-dialog { box-sizing:border-box; width:min(680px,calc(100% - 24px)); max-height:calc(100dvh - 32px); overflow:auto; padding:20px; border:1px solid var(--jgc-color-border); border-radius:12px; background:var(--jgc-color-surface-raised); color:var(--jgc-color-text); }
+.dashboard-tm-dialog::backdrop { background:rgba(0,0,0,.5); }
+.dashboard-tm-dialog header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.dashboard-tm-dialog header button { flex:none; width:auto; }
+.dashboard-tm-dialog h2 { margin:0; font-size:1.2rem; color:inherit; }
+.dashboard-tm-dialog p { line-height:1.5; color:inherit; }
+.dashboard-tm-item { padding:16px 0; border-top:1px solid var(--jgc-color-border); overflow-wrap:anywhere; }
+.dashboard-tm-item h3 { margin:0; font-size:1rem; color:inherit; }
+.dashboard-tm-item p { margin:6px 0; }
+.dashboard-tm-item ul { padding:0; list-style:none; }
+.dashboard-tm-item li { display:flex; justify-content:space-between; gap:16px; padding:4px 0; }
+.dashboard-tm-item li strong { white-space:nowrap; }
 #dashboardSettings { margin-top:16px; padding-top:16px; border-top:1px solid var(--jgc-color-border); color:var(--jgc-color-text); }
 #dashboardSettings[hidden], #dashboardSettings [hidden] { display:none !important; }
 #dashboardSettings h3 { margin:0 0 10px; font-size:1rem; color:var(--jgc-color-text); }
