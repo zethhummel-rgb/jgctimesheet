@@ -1,5 +1,23 @@
 const { test, expect } = require('@playwright/test');
+const fs = require('node:fs');
+const path = require('node:path');
+const { pathToFileURL } = require('node:url');
+const { PDFDocument } = require('../estimating-app/node_modules/pdf-lib');
 const { directoryState, serveDirectory, openDirectoryJob } = require('./fixtures/job-readability-fixture');
+
+async function checkPdf(download, file, revision, author) {
+  expect(download.suggestedFilename()).toContain(` - Rev ${revision} - `);
+  await download.saveAs(file);
+  const bytes = fs.readFileSync(file);
+  const document = await PDFDocument.load(bytes);
+  expect(document.getTitle()).toBe(download.suggestedFilename().replace(/\.pdf$/i, ''));
+  const pdfjs = await import(pathToFileURL(path.resolve(__dirname, '../estimating-app/node_modules/pdfjs-dist/legacy/build/pdf.mjs')).href);
+  const pdf = await pdfjs.getDocument({ data: new Uint8Array(bytes), disableWorker: true }).promise;
+  const text = [];
+  for (let i = 1; i <= pdf.numPages; i++) text.push((await (await pdf.getPage(i)).getTextContent()).items.map(item => item.str).join(' '));
+  expect(text.join(' ')).toContain(`/ REV ${revision}`);
+  expect(text.join(' ')).toContain(author);
+}
 
 for (const [number, width] of [['26902', 390], ['26901', 1366]]) {
   test(`direct PO with any amount on job ${number} saves, reloads, revises and downloads at ${width}px`, async ({ page }, testInfo) => {
@@ -12,6 +30,7 @@ for (const [number, width] of [['26902', 390], ['26901', 1366]]) {
     let dialog = page.getByRole('dialog', { name: 'Create purchase order' });
     await expect(dialog).toContainText('DIRECT JOB PO');
     await expect(dialog.getByLabel(/JGC PO number/)).toHaveValue(number);
+    await expect(dialog.getByLabel('Authorized by', { exact: true })).toHaveValue('Local QA');
     await dialog.getByRole('button', { name: 'Create final PO', exact: true }).click();
     await expect(dialog.getByLabel(/Subcontractor company/)).toBeFocused();
     await dialog.getByLabel(/Subcontractor company/).fill('Budget Test Supply');
@@ -30,7 +49,7 @@ for (const [number, width] of [['26902', 390], ['26901', 1366]]) {
     await expect.poll(() => captures.writes.some(s => s.jobs.find(j => j.jobNumber === number).purchaseOrders.length === 1)).toBe(true);
     const saved = captures.writes.at(-1);
     const po = saved.jobs.find(j => j.jobNumber === number).purchaseOrders[0];
-    expect(po).toMatchObject({ sourceQuoteId: '', number, status: 'Issued', vendorQuoteNumber: '', revision: 0 });
+    expect(po).toMatchObject({ sourceQuoteId: '', number, status: 'Issued', vendorQuoteNumber: '', revision: 0, authorizedBy: 'Local QA' });
     expect(po.lines[0]).toMatchObject({ quoteLineId: '', amount: 3500, sourceReference: '' });
     expect(saved.jobs[0].acceptedQuoteSnapshot).toBe(state.jobs[0].acceptedQuoteSnapshot);
     expect(saved.jobs.find(j => j.jobNumber === number).costs).toEqual([]);
@@ -46,6 +65,9 @@ for (const [number, width] of [['26902', 390], ['26901', 1366]]) {
     dialog = page.getByRole('dialog');
     await expect(dialog.getByLabel('PO amount (before tax)')).toHaveValue('3500');
     await expect(dialog.getByRole('button', { name: 'No changes to save' })).toBeDisabled();
+    await expect(dialog.getByLabel('Authorized by', { exact: true })).toHaveValue('Local QA');
+    // Reproduce editing the authorizing name, saving Rev 1, then finalizing.
+    await dialog.getByLabel('Authorized by', { exact: true }).fill('Jeff Vandrish');
     await dialog.getByLabel('PO amount (before tax)').fill('3750');
     await dialog.getByRole('button', { name: 'Save as Revision 1', exact: true }).click();
     await expect(table).toContainText('Revision 1 in progress');
@@ -53,13 +75,22 @@ for (const [number, width] of [['26902', 390], ['26901', 1366]]) {
     await table.getByRole('button', { name: 'Download & finalize', exact: true }).click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toContain(number);
-    await download.saveAs(testInfo.outputPath(`direct-po-${number}.pdf`));
+    await checkPdf(download, testInfo.outputPath(`direct-po-${number}.pdf`), 1, 'Jeff Vandrish');
     await expect(table).toContainText('Final');
     await expect.poll(() => { const po = captures.writes.at(-1)?.jobs.find(j => j.jobNumber === number).purchaseOrders[0]; return po ? `${po.revision}:${po.status}` : ''; }).toBe('1:Issued');
     const revised = captures.writes.at(-1).jobs.find(j => j.jobNumber === number).purchaseOrders[0];
-    expect(revised).toMatchObject({ sourceQuoteId: '', revision: 1 });
+    expect(revised).toMatchObject({ sourceQuoteId: '', revision: 1, authorizedBy: 'Jeff Vandrish' });
     expect(revised.lines[0].amount).toBe(3750);
     expect(JSON.parse(revised.revisions[0].snapshot).lines[0].amount).toBe(3500);
+    expect(JSON.parse(revised.revisions[0].snapshot).authorizedBy).toBe('Local QA');
+    // The current download and the historical download must stay distinct.
+    const again = page.waitForEvent('download');
+    await table.getByRole('button', { name: 'Download PDF', exact: true }).click();
+    await checkPdf(await again, testInfo.outputPath(`repeat-po-${number}.pdf`), 1, 'Jeff Vandrish');
+    await table.locator('.po-revision-history summary').click();
+    const history = page.waitForEvent('download');
+    await table.locator('.po-revision-history').getByRole('button', { name: 'Download', exact: true }).click();
+    await checkPdf(await history, testInfo.outputPath(`history-po-${number}.pdf`), 0, 'Local QA');
     expect(captures.jobInfo).toEqual([]);
     expect(captures.unexpectedRequests).toEqual([]);
     await table.screenshot({ path: testInfo.outputPath(`saved-direct-po-${width}.png`) });

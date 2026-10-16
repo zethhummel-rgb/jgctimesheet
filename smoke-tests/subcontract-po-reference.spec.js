@@ -42,6 +42,7 @@ for (const width of [390, 1366]) test(`create and revise PO reference updates th
   await expect(reference).toHaveText('Not entered');
   await table.getByRole('button', { name: 'Create PO' }).click();
   let dialog = page.getByRole('dialog', { name: 'Create purchase order' });
+  await expect(dialog.getByLabel('Authorized by', { exact: true })).toHaveValue('Local QA');
   await dialog.getByLabel('Vendor quote #', { exact: true }).fill('REF-1007');
   await dialog.getByRole('button', { name: 'Create final PO', exact: true }).click();
   await expect(dialog).toHaveCount(0);
@@ -59,6 +60,7 @@ for (const width of [390, 1366]) test(`create and revise PO reference updates th
   await table.getByRole('button', { name: 'Edit PO', exact: true }).click();
   dialog = page.getByRole('dialog');
   await expect(dialog.getByLabel('Vendor quote #', { exact: true })).toHaveValue('REF-1007');
+  await expect(dialog.getByLabel('Authorized by', { exact: true })).toHaveValue('Local QA');
   await dialog.getByLabel('Vendor quote #', { exact: true }).fill('REF-1007-R1');
   await dialog.getByRole('button', { name: 'Save as Revision 1', exact: true }).click();
   await expect(reference).toHaveText('REF-1007-R1');
@@ -82,6 +84,9 @@ for (const status of ['Issued', 'Draft']) test(`existing ${status} combined PO u
   const state = referenceState(['EST-OLD-A', 'EST-OLD-B']);
   addSavedPo(state, 'PO-REF-A, PO-REF-B', status);
   const captures = await openPurchases(page, state);
+  await page.locator('.po-source-table').getByRole('button', { name: /Edit PO|Continue revision/ }).first().click();
+  await expect(page.getByRole('dialog').getByLabel('Authorized by', { exact: true })).toHaveValue('Test Manager');
+  await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).first().click();
   const cells = page.locator('.po-source-table tbody td[data-label="Vendor quote #"]');
   await expect(cells).toHaveText(['PO-REF-A, PO-REF-B', 'PO-REF-A, PO-REF-B']);
   expect(captures.writes.flatMap(s => s.quotes[0].lines).every(line => line.vendorReference.startsWith('EST-OLD-'))).toBe(true);

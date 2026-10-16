@@ -146,7 +146,9 @@ export function purchaseOrderTotals(purchaseOrder: PurchaseOrder) {
 export async function createPurchaseOrderPdf(options: PurchaseOrderPdfOptions) {
   const { state, job, purchaseOrder: po } = options;
   const document = await PDFDocument.create();
-  document.setTitle(`Purchase Order ${po.number} - Revision ${Number.isFinite(po.revision) ? po.revision : 0}`);
+  // PDF viewers can use the document title when suggesting a Save As name.
+  // Keep it identical to the direct download name, including this revision.
+  document.setTitle(purchaseOrderPdfFilename(options).replace(/\.pdf$/i, ""));
   document.setAuthor(state.settings.companyName);
   document.setSubject(`${job.jobNumber} - ${job.project}`);
   document.setCreator("JGC Estimate Desk");
@@ -303,6 +305,9 @@ export async function createPurchaseOrderPdf(options: PurchaseOrderPdfOptions) {
 }
 
 export async function downloadPurchaseOrderPdf(options: PurchaseOrderPdfOptions) {
+  // Freeze the selected current/history revision before awaiting PDF creation.
+  const snapshot = { ...options, purchaseOrder: structuredClone(options.purchaseOrder) };
+  const filename = purchaseOrderPdfFilename(snapshot);
   let logoBytes = options.logoBytes ?? null;
   if (!logoBytes && typeof fetch !== "undefined") {
     try {
@@ -312,12 +317,12 @@ export async function downloadPurchaseOrderPdf(options: PurchaseOrderPdfOptions)
       logoBytes = null;
     }
   }
-  const bytes = await createPurchaseOrderPdf({ ...options, logoBytes });
-  const blob = new Blob([bytes.slice().buffer as ArrayBuffer], { type: "application/pdf" });
+  const bytes = await createPurchaseOrderPdf({ ...snapshot, logoBytes });
+  const blob = new File([bytes.slice().buffer as ArrayBuffer], filename, { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = purchaseOrderPdfFilename(options);
+  anchor.download = filename;
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
