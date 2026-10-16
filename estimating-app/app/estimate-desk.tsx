@@ -2215,6 +2215,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       {purchaseOrderEditor && purchaseOrderJob && (
         <PurchaseOrderModal
           state={state}
+          authorizingName={currentEstimator.name}
           job={purchaseOrderJob}
           quote={purchaseOrderQuote}
           sourceLine={purchaseOrderSourceLine}
@@ -2943,8 +2944,9 @@ function ChangeOrderApprovalModal({ quote, job, existingApprovals, onCancel, onC
   );
 }
 
-function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCancel, onSave }: {
+function PurchaseOrderModal({ state, authorizingName, job, quote, sourceLine, purchaseOrder, onCancel, onSave }: {
   state: AppState;
+  authorizingName: string;
   job: Job;
   quote: Quote | null;
   sourceLine: QuoteLine | null;
@@ -2983,7 +2985,7 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
     shipVia: "Your Means",
     fob: "Job Site",
     shipTo: job.portalSiteName?.trim() || job.portalAddress?.trim() || quote?.site.trim() || "Job Site",
-    authorizedBy: state.settings.signatoryName ?? quote?.preparedBy ?? "Zeth Hummel",
+    authorizedBy: authorizingName.trim(),
     taxRate: quote?.taxRate ?? state.settings.taxRate,
     notes: "The purchase order number must appear on all invoices and documents relating to this order. Complete only the work described and obtain written approval before any extra work.",
     lines: sourceLine ? [purchaseOrderLineFromQuoteLine(sourceLine)] : [{ id: uid("po-line"), quoteLineId: "", description: "", quantity: 1, unit: "LS", unitCost: 0, amount: 0, sourceReference: "" }],

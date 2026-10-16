@@ -1,6 +1,6 @@
 {
   "../../../../../.codex/visualizations/2026/10/02/01a0fe31-b8d8-7003-b81b-c29b2c8255de/security-1013/estimator-deps/node_modules/.pnpm/pdfjs-dist@6.2.108/node_modules/pdfjs-dist/legacy/build/pdf.mjs": {
-    "file": "assets/pdf-CooJnIZL.js",
+    "file": "assets/pdf-BkL7v2rV.js",
     "name": "pdf",
     "src": "../../../../../.codex/visualizations/2026/10/02/01a0fe31-b8d8-7003-b81b-c29b2c8255de/security-1013/estimator-deps/node_modules/.pnpm/pdfjs-dist@6.2.108/node_modules/pdfjs-dist/legacy/build/pdf.mjs",
     "isDynamicEntry": true,
@@ -9,7 +9,7 @@
     ]
   },
   "../../../../../.codex/visualizations/2026/10/02/01a0fe31-b8d8-7003-b81b-c29b2c8255de/security-1013/estimator-deps/node_modules/.pnpm/tesseract.js@7.0.0/node_modules/tesseract.js/src/index.js": {
-    "file": "assets/src-WxZFCocj.js",
+    "file": "assets/src-Bsjwyvur.js",
     "name": "src",
     "src": "../../../../../.codex/visualizations/2026/10/02/01a0fe31-b8d8-7003-b81b-c29b2c8255de/security-1013/estimator-deps/node_modules/.pnpm/tesseract.js@7.0.0/node_modules/tesseract.js/src/index.js",
     "isDynamicEntry": true,
@@ -18,7 +18,7 @@
     ]
   },
   "../../../../../.codex/visualizations/2026/10/02/01a0fe31-b8d8-7003-b81b-c29b2c8255de/security-1013/estimator-deps/node_modules/.pnpm/tus-js-client@4.3.1/node_modules/tus-js-client/lib.esm/browser/index.js": {
-    "file": "assets/browser-B3zIqbpi.js",
+    "file": "assets/browser-Ctp1FDyB.js",
     "name": "browser",
     "src": "../../../../../.codex/visualizations/2026/10/02/01a0fe31-b8d8-7003-b81b-c29b2c8255de/security-1013/estimator-deps/node_modules/.pnpm/tus-js-client@4.3.1/node_modules/tus-js-client/lib.esm/browser/index.js",
     "isDynamicEntry": true,
@@ -26,15 +26,15 @@
       "index.html"
     ]
   },
-  "_es-CL5BNsb9.js": {
-    "file": "assets/es-CL5BNsb9.js",
+  "_es-Cffrktwm.js": {
+    "file": "assets/es-Cffrktwm.js",
     "name": "es",
     "imports": [
       "index.html"
     ]
   },
   "index.html": {
-    "file": "assets/index-D27MA9Jt.js",
+    "file": "assets/index-CNW7sMNb.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
@@ -57,13 +57,13 @@
     ]
   },
   "lib/drawing-pdf.ts": {
-    "file": "assets/drawing-pdf-CMo6Edwm.js",
+    "file": "assets/drawing-pdf-lj1Rzjqw.js",
     "name": "drawing-pdf",
     "src": "lib/drawing-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-CL5BNsb9.js"
+      "_es-Cffrktwm.js"
     ]
   },
   "lib/job-accounting-workbook.ts": {
@@ -73,64 +73,64 @@
     "isDynamicEntry": true
   },
   "lib/job-schedule-pdf.ts": {
-    "file": "assets/job-schedule-pdf-BmqltggF.js",
+    "file": "assets/job-schedule-pdf-D3IXF79y.js",
     "name": "job-schedule-pdf",
     "src": "lib/job-schedule-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-CL5BNsb9.js"
+      "_es-Cffrktwm.js"
     ]
   },
   "lib/job-warranty-pdf.ts": {
-    "file": "assets/job-warranty-pdf-C6Uvoy5T.js",
+    "file": "assets/job-warranty-pdf-Dk7Qn2Fz.js",
     "name": "job-warranty-pdf",
     "src": "lib/job-warranty-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-CL5BNsb9.js"
+      "_es-Cffrktwm.js"
     ]
   },
   "lib/proposal-pdf.ts": {
-    "file": "assets/proposal-pdf-GnrsgaCQ.js",
+    "file": "assets/proposal-pdf-dqoVO_wB.js",
     "name": "proposal-pdf",
     "src": "lib/proposal-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-CL5BNsb9.js"
+      "_es-Cffrktwm.js"
     ]
   },
   "lib/purchase-order-pdf.ts": {
-    "file": "assets/purchase-order-pdf-C-gfASn-.js",
+    "file": "assets/purchase-order-pdf-e_DccqrX.js",
     "name": "purchase-order-pdf",
     "src": "lib/purchase-order-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
-      "_es-CL5BNsb9.js"
+      "_es-Cffrktwm.js"
     ]
   },
   "lib/quote-backup-pdf.ts": {
-    "file": "assets/quote-backup-pdf-zA6qjBhE.js",
+    "file": "assets/quote-backup-pdf-UNjOvxt4.js",
     "name": "quote-backup-pdf",
     "src": "lib/quote-backup-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-CL5BNsb9.js",
+      "_es-Cffrktwm.js",
       "lib/purchase-order-pdf.ts",
       "lib/proposal-pdf.ts"
     ]
   },
   "lib/rfi-pdf.ts": {
-    "file": "assets/rfi-pdf-Ec8SJgX-.js",
+    "file": "assets/rfi-pdf-BBRip3ZT.js",
     "name": "rfi-pdf",
     "src": "lib/rfi-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-CL5BNsb9.js"
+      "_es-Cffrktwm.js"
     ]
   }
 }
