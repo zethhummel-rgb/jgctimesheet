@@ -135,6 +135,7 @@ function renderSubcontractorsSuppliers() {
                 <article class="contact-card">
                     <h2>${escapeHtml(entry.company_name)}</h2>
                     ${entry.category ? '<div class="contact-role">' + escapeHtml(entry.category) + '</div>' : ""}
+                    ${entry.address ? '<div class="contact-line"><strong>Address:</strong> ' + escapeHtml(entry.address).replace(/\n/g, "<br>") + '</div>' : ""}
                     ${entry.service_type ? '<div class="contact-line"><strong>Service:</strong> ' + escapeHtml(entry.service_type) + '</div>' : ""}
                     ${entry.notes ? '<div class="contact-line small">' + escapeHtml(entry.notes) + '</div>' : ""}
                     ${renderSupplierContacts(entry)}

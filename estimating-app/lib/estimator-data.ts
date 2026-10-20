@@ -81,6 +81,7 @@ export interface Client {
 export interface Vendor {
   id: string;
   name: string;
+  address?: string;
   trade: string;
   category?: "Subcontractor" | "Supplier" | "Rental";
   portalRecordId?: string | null;
@@ -316,6 +317,7 @@ export interface PurchaseOrder {
   sourceQuoteId?: string;
   vendorId: string | null;
   vendorName: string;
+  vendorAddress?: string;
   vendorContact: string;
   vendorEmail: string;
   vendorPhone: string;

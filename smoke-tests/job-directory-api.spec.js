@@ -8,6 +8,20 @@ const { test, expect } = require("@playwright/test");
 const root = path.resolve(__dirname, "..");
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
+test('shared vendor company address round-trips and older contact updates preserve it', async () => {
+  const { api, browser } = loadApi();
+  const client = mockClient({ subcontractors_suppliers: [{ id: 'company', company_name: 'Synthetic Electric', address: '123 Test Street', category: 'Subcontractor', is_active: true }], subcontractor_supplier_contacts: [] });
+  api.installEstimatorApiBridge(client);
+  const base = { portalRecordId: 'company', name: 'Synthetic Electric', contact: 'Main Contact', status: 'Active' };
+  const update = async body => (await browser.fetch('http://127.0.0.1/api/vendors', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
+  const saved = await update({ ...base, address: '  456 New Company Road  ' });
+  expect(saved.vendors[0].address).toBe('456 New Company Road');
+  await update(base);
+  expect(client.tables.subcontractors_suppliers[0].address).toBe('456 New Company Road');
+  const cleared = await update({ ...base, address: '' });
+  expect(cleared.vendors[0].address).toBe('');
+});
+
 function transpileModule(relative, dependencies = {}, extra = {}) {
   const module = { exports: {} };
   const source = fs.readFileSync(path.join(root, relative), "utf8");

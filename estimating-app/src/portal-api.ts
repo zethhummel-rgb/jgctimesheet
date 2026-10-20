@@ -160,6 +160,7 @@ function portalVendor(row: Record<string, any>, contactRows: Record<string, any>
     portalActive: Boolean(row.is_active),
     portalLastSyncedAt: new Date().toISOString(),
     name: row.company_name ?? "",
+    address: row.address ?? "",
     trade: row.service_type ?? "",
     category: "Subcontractor",
     contact: row.contact_name ?? firstContact?.name ?? "",
@@ -177,7 +178,7 @@ async function loadPortalVendors(client: any) {
   const [vendorsResult, contactsResult] = await Promise.all([
     client
       .from("subcontractors_suppliers")
-      .select("id,company_name,category,service_type,contact_name,phone,email,notes,is_active")
+      .select("id,company_name,address,category,service_type,contact_name,phone,email,notes,is_active")
       .eq("category", "Subcontractor")
       .order("company_name"),
     client
@@ -341,6 +342,7 @@ async function jobImportResponse(client: any, request: Request) {
 function vendorPayload(body: Record<string, any>) {
   return {
     company_name: String(body.name ?? "").trim(),
+    ...(Object.prototype.hasOwnProperty.call(body, "address") ? { address: String(body.address ?? "").trim().slice(0, 1000) } : {}),
     category: "Subcontractor",
     service_type: String(body.trade ?? "").trim(),
     contact_name: String(body.contact ?? "").trim(),
