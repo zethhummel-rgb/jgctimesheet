@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import type { AppState, Job, PurchaseOrder } from "./estimator-data";
 import { PDF_FIELD_LINE, PDF_FIELD_BORDER_WIDTH } from "./pdf-field-style";
+import { purchaseOrderVendorAddress } from "./purchase-order-vendor";
 
 export interface PurchaseOrderPdfOptions {
   state: AppState;
@@ -191,16 +192,21 @@ export async function createPurchaseOrderPdf(options: PurchaseOrderPdfOptions) {
     ["Project / job name", job.portalJobName || job.project],
     ["PO date", shortDate(po.issueDate)],
   ];
-  const metadataHeight = Math.max(108, 18 + metadata.reduce((height, [, value]) => height + 24 + wrapText(bold, value || "-", 9.5, 242).length * 11, 0));
+  const vendorTextWidth = 230;
+  const vendorLines = wrapText(bold, po.vendorName || "Subcontractor not recorded", 12, vendorTextWidth).slice(0, 2);
+  const address = purchaseOrderVendorAddress(state.vendors ?? [], po).trim();
+  const addressLines = address ? wrapText(regular, address, 8.5, vendorTextWidth) : [];
+  const contactLines = [po.vendorContact, po.vendorEmail, po.vendorPhone].filter(Boolean);
+  const vendorHeight = 66 + Math.max(0, vendorLines.length - 1) * 13 + (addressLines.length + contactLines.length) * 11;
+  const metadataHeight = Math.max(108, vendorHeight, 18 + metadata.reduce((height, [, value]) => height + 24 + wrapText(bold, value || "-", 9.5, 242).length * 11, 0));
   const panelBottom = 608 - metadataHeight;
   page.drawRectangle({ x: MARGIN, y: panelBottom, width: 254, height: metadataHeight, color: colour.light, borderColor: colour.line, borderWidth: PDF_FIELD_BORDER_WIDTH });
   page.drawRectangle({ x: MARGIN + 266, y: panelBottom, width: 266, height: metadataHeight, color: colour.light, borderColor: colour.line, borderWidth: PDF_FIELD_BORDER_WIDTH });
   page.drawText("TO", { x: MARGIN + 12, y: 590, size: 8, font: bold, color: colour.blue });
-  const vendorTextWidth = 230;
-  const vendorLines = wrapText(bold, po.vendorName || "Subcontractor not recorded", 12, vendorTextWidth).slice(0, 2);
   vendorLines.forEach((line, index) => page.drawText(line, { x: MARGIN + 12, y: 571 - index * 13, size: 12, font: bold, color: colour.navy }));
   const vendorContactY = 554 - Math.max(0, vendorLines.length - 1) * 13;
-  [po.vendorContact, po.vendorEmail, po.vendorPhone].filter(Boolean).slice(0, 3).forEach((line, index) => drawFittedText(page, regular, line, 8.5, MARGIN + 12, vendorContactY - index * 11, vendorTextWidth, colour.slate));
+  addressLines.forEach((line, index) => page.drawText(line, { x: MARGIN + 12, y: vendorContactY - index * 11, size: 8.5, font: regular, color: colour.slate }));
+  contactLines.forEach((line, index) => drawFittedText(page, regular, line, 8.5, MARGIN + 12, vendorContactY - (addressLines.length + index) * 11, vendorTextWidth, colour.slate));
 
   let metadataY = 590;
   metadata.forEach(([label, value]) => {

@@ -72,6 +72,7 @@ import {
 } from "../lib/estimator-data";
 import { proposalCostBreakdownLineOptions, proposalCostBreakdownRows, selectedProposalCostBreakdownCategories, selectedProposalCostBreakdownLineIds } from "../lib/proposal-cost-breakdown";
 import { mergeConcurrentEstimatorState } from "../lib/estimator-state-sync";
+import { purchaseOrderVendorAddress } from "../lib/purchase-order-vendor";
 import { DeskHeaderContext, DeskTile, useDeskHeader, useIsPhone, type DeskHeader } from "./desk-shell";
 
 // Start loading the PDF maker with the workspace so a later site update cannot
@@ -2968,7 +2969,7 @@ function PurchaseOrderModal({ state, authorizingName, job, quote, sourceLine, pu
       ))
     : [];
   const now = new Date().toISOString();
-  const initial: PurchaseOrder = purchaseOrder ?? {
+  const initial: PurchaseOrder = purchaseOrder ? { ...purchaseOrder, vendorAddress: purchaseOrderVendorAddress(state.vendors, purchaseOrder) } : {
     id: uid("po"),
     number: job.jobNumber,
     revision: 0,
@@ -2976,9 +2977,10 @@ function PurchaseOrderModal({ state, authorizingName, job, quote, sourceLine, pu
     sourceQuoteId: sourceLine ? quote?.id ?? "" : "",
     vendorId: sourceVendor?.id ?? sourceLine?.vendorId ?? null,
     vendorName: sourceVendor?.name ?? sourceLine?.vendorName?.trim() ?? "",
-    vendorContact: sourceVendor?.contact ?? "",
+    vendorAddress: sourceVendor?.address?.trim() ?? "",
+    vendorContact: "",
     vendorEmail: sourceVendor?.email ?? "",
-    vendorPhone: sourceVendor?.phone ?? "",
+    vendorPhone: "",
     vendorQuoteNumber: sourceLine?.vendorReference.trim() ?? "",
     issueDate: today(),
     shipBy: "Your Means",
@@ -2998,7 +3000,7 @@ function PurchaseOrderModal({ state, authorizingName, job, quote, sourceLine, pu
   const directJobOrder = !draft.sourceQuoteId;
   const [error, setError] = useState("");
   const [invalidField, setInvalidField] = useState("");
-  const hasChanges = !purchaseOrder || purchaseOrderEditableFingerprint(draft) !== purchaseOrderEditableFingerprint(purchaseOrder);
+  const hasChanges = !purchaseOrder || purchaseOrderEditableFingerprint(draft) !== purchaseOrderEditableFingerprint(initial);
   const nextRevision = purchaseOrder ? purchaseOrder.revision + 1 : 0;
   const subtotal = draft.lines.reduce((sum, line) => sum + line.amount, 0);
   const hst = subtotal * draft.taxRate;
@@ -3142,7 +3144,7 @@ function PurchaseOrderModal({ state, authorizingName, job, quote, sourceLine, pu
             )}
             {directJobOrder && <label className="field"><span>Saved supplier / subcontractor <small>Optional</small></span><select value={draft.vendorId ?? ""} onChange={(event) => {
               const vendor = state.vendors.find((item) => item.id === event.target.value);
-              setDraft((current) => ({ ...current, vendorId: vendor?.id ?? null, ...(vendor ? { vendorName: vendor.name, vendorContact: vendor.contact ?? "", vendorEmail: vendor.email ?? "", vendorPhone: vendor.phone ?? "" } : {}) }));
+              setDraft((current) => ({ ...current, vendorId: vendor?.id ?? null, ...(vendor ? { vendorName: vendor.name, vendorAddress: vendor.address?.trim() ?? "", vendorEmail: vendor.email ?? "" } : {}) }));
               setError("");
             }}><option value="">Enter supplier details below</option>{state.vendors.map((vendor) => <option key={vendor.id} value={vendor.id}>{vendor.name}</option>)}</select></label>}
             <div className="form-grid four-column">
@@ -3150,10 +3152,11 @@ function PurchaseOrderModal({ state, authorizingName, job, quote, sourceLine, pu
               <label className="field"><span>PO date</span><input type="date" value={draft.issueDate} onChange={(event) => update("issueDate", event.target.value)} /></label>
               <div className="field po-lifecycle-field"><span>Status</span><strong>{lifecycleStatus}</strong></div>
               <label className="field"><span>Vendor quote #{draft.lines.length > 1 ? "s" : ""}</span><input value={draft.vendorQuoteNumber} onChange={(event) => update("vendorQuoteNumber", event.target.value)} placeholder="e.g. Q25-130" /></label>
-              <label className="field two-wide"><span>Subcontractor company <b>*</b></span><input name="po-vendor" aria-invalid={Boolean(error && invalidField === "po-vendor")} aria-describedby={error && invalidField === "po-vendor" ? "po-validation-error" : undefined} value={draft.vendorName} onChange={(event) => { setDraft((current) => ({ ...current, vendorName: event.target.value, vendorId: null })); setError(""); }} /></label>
-              <label className="field"><span>Contact</span><input value={draft.vendorContact} onChange={(event) => update("vendorContact", event.target.value)} /></label>
+              <label className="field two-wide"><span>Subcontractor company <b>*</b></span><input name="po-vendor" aria-invalid={Boolean(error && invalidField === "po-vendor")} aria-describedby={error && invalidField === "po-vendor" ? "po-validation-error" : undefined} value={draft.vendorName} onChange={(event) => { setDraft((current) => ({ ...current, vendorName: event.target.value, vendorId: null, vendorAddress: purchaseOrderVendorAddress(state.vendors, { vendorName: event.target.value, vendorId: null }) })); setError(""); }} /></label>
+              <label className="field"><span>Contact</span><input autoComplete="off" value={draft.vendorContact} onChange={(event) => update("vendorContact", event.target.value)} /></label>
               <label className="field"><span>Email</span><input name="po-email" type="email" aria-invalid={Boolean(error && invalidField === "po-email")} aria-describedby={error && invalidField === "po-email" ? "po-validation-error" : undefined} value={draft.vendorEmail} onChange={(event) => { update("vendorEmail", event.target.value); setError(""); }} /></label>
-              <label className="field"><span>Phone</span><input value={formatPhoneNumber(draft.vendorPhone)} inputMode="numeric" autoComplete="tel" maxLength={14} onChange={(event) => update("vendorPhone", formatPhoneNumber(event.target.value))} /></label>
+              <label className="field full"><span>Subcontractor address</span><textarea rows={2} maxLength={1000} value={draft.vendorAddress ?? ""} onChange={(event) => update("vendorAddress", event.target.value)} /></label>
+              <label className="field"><span>Phone</span><input value={formatPhoneNumber(draft.vendorPhone)} inputMode="numeric" autoComplete="off" maxLength={14} onChange={(event) => update("vendorPhone", formatPhoneNumber(event.target.value))} /></label>
               <label className="field"><span>Ship by</span><input value={draft.shipBy} onChange={(event) => update("shipBy", event.target.value)} /></label>
               <label className="field"><span>Ship via</span><input value={draft.shipVia} onChange={(event) => update("shipVia", event.target.value)} /></label>
               <label className="field"><span>F.O.B.</span><input value={draft.fob} onChange={(event) => update("fob", event.target.value)} /></label>
@@ -5253,7 +5256,7 @@ function VendorsPage({ state, setState, search, setSearch, onAdd }: {
       setBusy(false);
     }
   };
-  const saveVendor = (vendor: Vendor) => syncRequest("/api/vendors", "PATCH", { portalRecordId: vendor.portalRecordId, name: vendor.name, trade: vendor.trade, contact: vendor.contact, email: vendor.email, phone: vendor.phone, notes: vendor.notes, status: vendor.status });
+  const saveVendor = (vendor: Vendor) => syncRequest("/api/vendors", "PATCH", { portalRecordId: vendor.portalRecordId, name: vendor.name, address: vendor.address ?? "", trade: vendor.trade, contact: vendor.contact, email: vendor.email, phone: vendor.phone, notes: vendor.notes, status: vendor.status });
   const makeMainContact = async (vendor: Vendor, contact: VendorContact) => {
     const saved = await syncRequest("/api/vendors", "PATCH", { portalRecordId: vendor.portalRecordId, name: vendor.name, trade: vendor.trade, contact: contact.name, email: contact.email, phone: contact.phone, notes: vendor.notes, status: vendor.status });
     if (saved) setMessage(`${contact.name} is now the main contact for ${vendor.name}.`);
@@ -5287,6 +5290,7 @@ function VendorsPage({ state, setState, search, setSearch, onAdd }: {
                   <div className="vendor-edit-heading"><div><span className="eyebrow">SHARED PORTAL COMPANY</span><h3>{vendor.name || "Unnamed vendor"}</h3></div><span className="autosave-chip">● Shared with Portal</span></div>
                   <div className="form-grid vendor-edit-grid">
                     <label className="field full"><span>Subcontractor company</span><input value={vendor.name} onChange={(event) => updateVendor(vendor.id, "name", event.target.value)} /></label>
+                    <label className="field full"><span>Company address</span><textarea rows={2} maxLength={1000} value={vendor.address ?? ""} onChange={(event) => updateVendor(vendor.id, "address", event.target.value)} /></label>
                     <label className="field"><span>Trade</span><input value={vendor.trade} onChange={(event) => updateVendor(vendor.id, "trade", event.target.value)} placeholder="Painting, electrical, drywall…" /></label>
                     <label className="field"><span>Status</span><select value={vendor.status} onChange={(event) => updateVendor(vendor.id, "status", event.target.value as Vendor["status"])}><option>Active</option><option>Inactive</option></select></label>
                     <label className="field"><span>Contact person</span><input value={vendor.contact} onChange={(event) => updateVendor(vendor.id, "contact", event.target.value)} /></label>
