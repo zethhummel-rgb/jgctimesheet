@@ -343,6 +343,7 @@ function selectSubcontractorSupplierForContact(id) {
 function clearSubcontractorSupplierForm() {
     editingSubcontractorSupplierId = "";
     document.getElementById("supplierCompanyName").value = "";
+    document.getElementById("supplierCompanyAddress").value = "";
     document.getElementById("supplierCategory").value = "Subcontractor";
     document.getElementById("supplierServiceType").value = "";
     document.getElementById("supplierOrder").value = "0";
@@ -361,6 +362,7 @@ function editSubcontractorSupplier(id) {
 
     editingSubcontractorSupplierId = id;
     document.getElementById("supplierCompanyName").value = entry.company_name || "";
+    document.getElementById("supplierCompanyAddress").value = entry.address || "";
     document.getElementById("supplierCategory").value = entry.category || "Subcontractor";
     document.getElementById("supplierServiceType").value = entry.service_type || "";
     document.getElementById("supplierOrder").value = entry.sort_order || 0;
@@ -419,6 +421,7 @@ function renderSubcontractorSupplierCompanyPanel(entry) {
                 <div class="supplier-company-meta-grid">
                     <div class="supplier-company-meta"><strong>Category</strong>${escapeHtml(entry.category || "-")}</div>
                     <div class="supplier-company-meta"><strong>Service / Trade</strong>${escapeHtml(entry.service_type || "-")}</div>
+                    ${entry.address ? '<div class="supplier-company-meta"><strong>Company Address</strong><span style="white-space:pre-line;overflow-wrap:anywhere;">' + escapeHtml(entry.address) + '</span></div>' : ""}
                     <div class="supplier-company-meta"><strong>Order</strong>${Number(entry.sort_order || 0)}</div>
                     <div class="supplier-company-meta"><strong>Notes</strong>${escapeHtml(entry.notes || "-")}</div>
                 </div>
@@ -503,6 +506,7 @@ async function loadSubcontractorSuppliers() {
 
 async function saveSubcontractorSupplier() {
     const companyName = document.getElementById("supplierCompanyName").value.trim();
+    const address = document.getElementById("supplierCompanyAddress").value.trim().slice(0, 1000);
     const category = document.getElementById("supplierCategory").value.trim() || "Subcontractor";
     const serviceType = document.getElementById("supplierServiceType").value.trim();
     const notes = document.getElementById("supplierNotes").value.trim();
@@ -517,6 +521,7 @@ async function saveSubcontractorSupplier() {
 
     const values = {
         company_name: companyName,
+        address,
         category,
         service_type: serviceType,
         notes,

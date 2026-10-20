@@ -4,6 +4,72 @@ const { test, expect } = require("@playwright/test");
 
 const portalRoot = path.resolve(__dirname, "..");
 
+for (const width of [390, 1440]) test(`Portal vendor company address can be added edited cleared and reopened at ${width}px`, async ({ page }, info) => {
+  test.setTimeout(45000);
+  const errors = watchRuntimeErrors(page), writes = [];
+  let rows = [{ id: 'vendor-address-company', company_name: 'Synthetic Electrical Company', category: 'Subcontractor', service_type: 'Electrical', address: '123 Original Company Street', contact_name: 'Keep Main Contact', phone: '6135550101', email: '', notes: 'Keep notes', sort_order: 0, is_active: true }];
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  await page.route(`${supabaseOrigin}/rest/v1/subcontractors_suppliers*`, async route => {
+    const request = route.request(), url = new URL(request.url());
+    let row;
+    if (request.method() === 'PATCH') {
+      const patch = request.postDataJSON();
+      row = rows.find(item => 'eq.' + item.id === url.searchParams.get('id'));
+      Object.assign(row, patch);
+      writes.push({ method: 'PATCH', values: patch });
+    } else if (request.method() === 'POST') {
+      const values = request.postDataJSON();
+      row = { id: 'new-address-company', ...values };
+      rows.push(row);
+      writes.push({ method: 'POST', values });
+    }
+    const object = String(request.headers().accept || '').includes('application/vnd.pgrst.object');
+    return route.fulfill({ json: object ? row || rows[0] : rows });
+  });
+  const open = async () => {
+    await page.goto('/admin.html?tab=adminTools');
+    await page.waitForFunction(() => adminDataLoaded === true);
+    await page.locator('.admin-tool-card[onclick*="subcontractorsSuppliers"]').click();
+    await expect(page.locator('#subcontractorsSuppliersAdminList')).toContainText('Synthetic Electrical Company');
+  };
+  await open();
+  await page.setViewportSize({ width, height: 900 });
+  const section = page.locator('#subcontractorsSuppliersSection');
+  const address = section.getByLabel('Company Address', { exact: true });
+  await expect(address).toBeVisible();
+  const company = () => section.locator('.supplier-company-panel').filter({ hasText: 'Synthetic Electrical Company' });
+  await company().locator('summary').click();
+  await company().getByRole('button', { name: 'Edit Company', exact: true }).click();
+  await expect(address).toHaveValue('123 Original Company Street');
+  await address.fill('456 Updated Company Road\nCornwall, Ontario K6H 0A1');
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate(t => applyJgcTheme(t), theme);
+    await address.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: info.outputPath(`portal-vendor-address-${theme}-${width}.png`) });
+  }
+  await section.getByRole('button', { name: 'Update Company', exact: true }).click();
+  await expect.poll(() => writes.length).toBe(1);
+  expect(writes[0].values.address).toContain('456 Updated Company Road');
+  expect(rows[0]).toMatchObject({ contact_name: 'Keep Main Contact', phone: '6135550101', notes: 'Keep notes' });
+  await expect(address).toHaveValue('');
+  await expect(company()).toContainText('456 Updated Company Road');
+  await open();
+  await company().locator('summary').click();
+  await company().getByRole('button', { name: 'Edit Company', exact: true }).click();
+  await expect(address).toHaveValue('456 Updated Company Road\nCornwall, Ontario K6H 0A1');
+  await address.fill('');
+  await section.getByRole('button', { name: 'Update Company', exact: true }).click();
+  await expect.poll(() => writes.length).toBe(2);
+  expect(rows[0].address).toBe('');
+  await section.getByLabel('Company Name', { exact: true }).fill('New Synthetic Vendor');
+  await address.fill('789 New Company Avenue');
+  await section.getByRole('button', { name: 'Add Company', exact: true }).click();
+  await expect.poll(() => writes.length).toBe(3);
+  expect(writes[2]).toMatchObject({ method: 'POST', values: { company_name: 'New Synthetic Vendor', address: '789 New Company Avenue' } });
+  await expectNoRuntimeErrors(errors, 'Portal vendor address form');
+});
+
 for (const [pageName, selector, value] of [
   ['timesheet.html', '#jobName', '26998 - Shared employee project'],
   ['work-orders.html', '#woJobSearch', '26998 - Shared employee project'],
