@@ -10,13 +10,14 @@
 <div class="logo-wrap jgc-brand"><img src="logo.webp" alt="John Gordon Construction"></div>
 <section class="container jgc-panel">
 <div class="jsa-section-heading"><h1>Prepared JSAs</h1><a href="admin.html?tab=safetyRecords">Safety Records</a></div>
-<p>Prepare and export a JSA ahead of the work. Intended employees are only assigned when you activate it.</p>
+<p>Prepare and export a JSA ahead of the work. Unused JSAs move to Previous JSAs the day after their work date, marked “Not activated.”</p>
 <div id="preparedJsaControls" hidden>
-<div class="actions jgc-actions"><a class="jgc-button" href="jsa.html?prepared=new">Prepare new JSA</a><button id="preparedRefresh" type="button">Refresh</button></div>
-<div class="grid jgc-form-grid"><div class="field"><label for="preparedSearch">Search project, date or crew</label><input id="preparedSearch" type="text"></div><div class="field"><label for="preparedFilter">Status</label><select id="preparedFilter"><option value="draft">Prepared / Draft</option><option value="active">Active / Assigned</option><option value="all">All</option></select></div></div>
+<div class="actions jgc-actions"><a class="jgc-button" href="jsa.html?prepared=new">Prepare new JSA</a><a class="jgc-button jgc-button--secondary" href="previous-inspections.html?recordType=reports&amp;reportFilter=JSA">Previous JSAs</a><button id="preparedRefresh" type="button">Refresh</button></div>
+<div class="grid jgc-form-grid"><div class="field"><label for="preparedSearch">Search project, date or workers</label><input id="preparedSearch" type="text"></div><div class="field"><label for="preparedFilter">Status</label><select id="preparedFilter"><option value="draft">Prepared / Draft</option><option value="active">Active / Assigned</option><option value="previous">Previous / Not activated</option><option value="all">All</option></select></div></div>
 </div>
 <p id="preparedStatus" role="status">Checking admin access…</p><div id="preparedList" class="prepared-jsa-list"></div>
 </section></main>
 <script src="vendor/supabase-js.min.js?v=1"></script><script src="common.js?v=82"></script>
-<script src="prepared-jsas.js?v=3"></script>
+<script src="jsa-preparation-status.js?v=1"></script>
+<script src="prepared-jsas.js?v=4"></script>
 </body></html>
