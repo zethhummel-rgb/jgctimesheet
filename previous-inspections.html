@@ -27,6 +27,7 @@
     <h1 class="jgc-section-title">Previous Inspections</h1>
     <div class="subtitle">Completed inspections from the last 2 months</div>
 
+    <p id="preparedHistoryStatus" role="status" hidden></p>
     <div id="inspectionList" class="empty jgc-empty-state">Loading inspections...</div>
     <div id="editPanel" class="edit-panel" hidden></div>
 
@@ -43,6 +44,7 @@
 <script src="common.js?v=82"></script>
 <script src="job-board-context.js?v=2"></script>
 <script src="safety-acknowledgements.js?v=9"></script>
+<script src="jsa-preparation-status.js?v=1"></script>
 <script src="jsa-workers.js?v=3"></script>
 <script src="toolbox-report-actions.js?v=2"></script>
 <script src="inspection-records.js?v=17"></script>
@@ -92,7 +94,7 @@ function applyInspectionPageCopy() {
       title.textContent = "Previous Reports";
     }
     if (subtitle) {
-      subtitle.textContent = "Completed reports from the last 2 months";
+      subtitle.textContent = "Reports from the last 2 months, plus unused JSAs marked Not activated";
     }
     if (todaysButton) {
       todaysButton.textContent = "Today's Reports";
@@ -216,6 +218,7 @@ async function emailPreviousToolboxReport(id) {
 }
 
 function renderPreviousViewCell(record) {
+    if (record.not_activated) return `<a class="jgc-button" href="jsa.html?prepared=${encodeURIComponent(record.id)}">Open / PDF</a>`;
     if (["accident_reports", "employee_injury_reports"].includes(record.report_source)) {
         const page = record.report_source === "accident_reports" ? "accident-report.html" : "employee-injury-report.html";
         return `<a class="jgc-button" href="${page}?reportId=${encodeURIComponent(record.id)}">View / PDF</a>`;
@@ -505,7 +508,23 @@ async function loadInspections() {
 
     if (isReportsView) {
         try {
-            const reportRecords = (await loadReportRecords(twoMonthsAgo.toISOString())).filter(isPreviousRecord);
+            const [savedReports, unusedJsas] = await Promise.all([
+                loadReportRecords(twoMonthsAgo.toISOString()),
+                window.JgcJsaPreparationStatus.loadPrevious(inspectionSupabaseClient).then(rows => {
+                    document.getElementById("preparedHistoryStatus").hidden = true;
+                    return rows;
+                }).catch(() => {
+                    const notice = document.getElementById("preparedHistoryStatus");
+                    notice.textContent = "Could not load unused JSAs. Refresh this page to try again.";
+                    notice.hidden = false;
+                    return [];
+                })
+            ]);
+            const reportRecords = savedReports.filter(isPreviousRecord).concat(unusedJsas.map(row => ({
+                ...normalizeReportRecord("jsa", row.payload.record),
+                id: row.id, report_source: "jsa_preparations", supports_inspection_actions: false,
+                not_activated: true, created_at: row.created_at
+            }))).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
             if (!reportRecords.length) {
                 list.className = "empty";
                 list.textContent = "No reports have been saved in the last 2 months.";
@@ -565,7 +584,7 @@ async function loadInspections() {
 // Records grouped by job in collapsible sections, one card per record (type, date, person, a short
 // summary and its actions), with a search box and type filter. This replaced a 9-column table that
 // scrolled sideways on phones (Zeth, 2026-09-27).
-const recordBrowser = { search: "", type: "", openJobs: new Set(), touched: false };
+const recordBrowser = { search: "", type: isReportsView && queryParams.get("reportFilter") === "JSA" ? "JSA" : "", openJobs: new Set(), touched: false };
 
 function getRecordType(record) {
     return String(record.report_type || record.inspection_type || "Record").trim();
@@ -641,6 +660,7 @@ function renderRecordCard(record) {
                 <strong class="history-card__type">${escapeHtml(type)}</strong>
                 <span class="history-card__meta">${escapeHtml([recordDate, person].filter(Boolean).join(" · "))}</span>
             </div>
+            ${record.not_activated ? '<div><span class="jgc-badge jgc-badge--warning">Not activated</span></div>' : ""}
             ${details ? `<div class="history-card__details">${details}</div>` : ""}
             ${savedDate && savedDate !== recordDate ? `<div class="history-card__saved">Saved ${escapeHtml(savedDate)}</div>` : ""}
             ${actions.length ? `<div class="history-card__actions">${actions.join("")}</div>` : ""}
@@ -1960,6 +1980,7 @@ async function signOut() {
 }
 
 loadInspections();
+if (isReportsView) window.JgcJsaPreparationStatus.onDayChange(() => void loadInspections());
 </script>
 </body>
 </html>

@@ -3,16 +3,24 @@
   const client = window.supabase.createClient("https://xnrljkkszoimegfivlya.supabase.co", "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58");
   const $ = id => document.getElementById(id);
   const escape = value => String(value || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  let rows = [], loading = false, deleting = false;
+  let rows = [], loading = false, deleting = false, authorized = false;
+  const preparationStatus = window.JgcJsaPreparationStatus;
+  if (new URLSearchParams(location.search).get("view") === "previous") $("preparedFilter").value = "previous";
   function render() {
     const term = $("preparedSearch").value.trim().toLowerCase(), filter = $("preparedFilter").value;
-    const filtered = rows.filter(row => (filter === "all" || (filter === "active") === Boolean(row.activated_at)) && JSON.stringify(row.payload).toLowerCase().includes(term));
+    const filtered = rows.filter(row => {
+      const past = preparationStatus.isNotActivated(row);
+      const active = Boolean(row.activated_at || row.record_id);
+      const matches = filter === "all" || (filter === "previous" ? past : filter === "active" ? active : !past && !active);
+      return matches && JSON.stringify(row.payload).toLowerCase().includes(term);
+    }).sort((a, b) => filter === "previous" ? String(b.payload.record?.inspection_date || "").localeCompare(String(a.payload.record?.inspection_date || "")) : 0);
     $("preparedList").innerHTML = filtered.map(row => {
       const record = row.payload.record || {}, fields = record.form_data?.fields || [];
       const project = fields.find(f => f.label === "Project / Job")?.value || "Project not entered";
       const crew = fields.find(f => /Workers Onsite|Crew Sign Off/i.test(f.label))?.value || "Workers Onsite not selected";
+      const past = preparationStatus.isNotActivated(row);
       const deleteButton = !row.activated_at && !row.record_id ? `<button type="button" class="jgc-button jgc-button--danger" data-delete-prepared="${escape(row.id)}"${deleting ? " disabled" : ""}>Delete</button>` : "";
-      return `<article class="prepared-jsa-card"><div class="jsa-section-heading"><h2>${escape(project)}</h2><span class="prepared-jsa-state">${row.activated_at ? "Worker sign-off" : "Prepared"}</span></div><p>Work date: ${escape(record.inspection_date || "Not entered")}</p><p>${escape(crew)}</p><div class="actions jgc-actions"><a class="jgc-button jgc-button--secondary" href="jsa.html?prepared=${encodeURIComponent(row.id)}">${row.activated_at ? "Open active JSA" : "Edit / PDF / activate"}</a>${deleteButton}</div></article>`;
+      return `<article class="prepared-jsa-card"><div class="jsa-section-heading"><h2>${escape(project)}</h2><span class="prepared-jsa-state">${past ? "Not activated" : row.activated_at || row.record_id ? "Worker sign-off" : "Prepared"}</span></div><p>Work date: ${escape(record.inspection_date || "Not entered")}</p><p>${escape(crew)}</p><div class="actions jgc-actions"><a class="jgc-button jgc-button--secondary" href="jsa.html?prepared=${encodeURIComponent(row.id)}">${past ? "Open / PDF" : row.activated_at || row.record_id ? "Open active JSA" : "Edit / PDF / activate"}</a>${deleteButton}</div></article>`;
     }).join("");
     $("preparedStatus").textContent = filtered.length ? `${filtered.length} JSA${filtered.length === 1 ? "" : "s"}` : "No JSAs match this view.";
   }
@@ -53,9 +61,10 @@
     }
   };
   $("preparedSearch").oninput = render; $("preparedFilter").onchange = render; $("preparedRefresh").onclick = load;
+  preparationStatus.onDayChange(() => { if (authorized) void load(); });
   (async () => {
     const result = await client.rpc("is_admin");
     if (result.error || result.data !== true) { $("preparedStatus").textContent = "Prepared JSAs are available to approved administrators only."; return; }
-    $("preparedJsaControls").hidden = false; await load();
+    authorized = true; $("preparedJsaControls").hidden = false; await load();
   })().catch(() => { $("preparedStatus").textContent = "Sign in as an approved administrator to open prepared JSAs."; });
 }());

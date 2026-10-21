@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "1021";
+const JGC_RELEASE_ID = "1022";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -78,7 +78,8 @@ const JGC_APP_SHELL = [
   "./hot-work-permit.html",
   "./jsa.html",
   "./prepared-jsas.html",
-  "./prepared-jsas.js?v=3",
+  "./jsa-preparation-status.js?v=1",
+  "./prepared-jsas.js?v=4",
   "./jsa-library-admin.html",
   "./jsa-library-admin.js?v=2",
   "./jsa-library-admin.css?v=3",
