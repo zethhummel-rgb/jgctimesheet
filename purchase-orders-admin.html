@@ -99,6 +99,10 @@
     </section>
 
     <section id="poAdminDevicesView" class="po-view" hidden>
+      <div class="po-tabs jgc-tabs" role="group" aria-label="PO device status">
+        <button class="active jgc-tab" type="button" data-device-tab="current" aria-pressed="true">Current</button>
+        <button class="secondary jgc-tab" type="button" data-device-tab="revoked" aria-pressed="false">Revoked</button>
+      </div>
       <div class="po-table-wrap jgc-table-wrap">
         <table class="po-table jgc-table">
           <thead>
@@ -161,6 +165,6 @@
   <script src="common.js?v=82"></script>
   <script src="admin-housekeeping.js?v=1"></script>
   <script src="purchase-orders-pdf.js?v=3"></script>
-  <script src="purchase-orders-admin.js?v=14"></script>
+  <script src="purchase-orders-admin.js?v=15"></script>
 </body>
 </html>

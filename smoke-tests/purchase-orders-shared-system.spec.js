@@ -130,7 +130,7 @@ test("Purchase Orders family uses the shared visual source without inline stylin
     expect(source).toContain('purchase-orders.css?v=24');
     expect(source).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   }
-  expect(adminSource).toContain('purchase-orders-admin.js?v=14');
+  expect(adminSource).toContain('purchase-orders-admin.js?v=15');
   expect(adminScript).not.toMatch(/\sstyle\s*=/i);
   expect(featureCss, "PO-only CSS must use centralized design tokens instead of page colours").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
 });
