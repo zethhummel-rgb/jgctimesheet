@@ -1,3 +1,4 @@
+const paperPo = require('./po-paper-helpers');
 const fs = require("node:fs");
 const path = require("node:path");
 const { test, expect } = require("@playwright/test");
@@ -4213,6 +4214,7 @@ test("purchase order job picker searches by job name and number", async ({ page 
   await page.locator("#poNewButton").click();
   await expect(page.locator("#poFormView")).toBeVisible();
 
+  await paperPo.openJob(page);
   const search = page.locator("#poJobSearch");
   const options = page.locator("#poJobOptions");
   await search.fill("Amazon");
@@ -4317,9 +4319,11 @@ test("purchase order Job Notes transfer material and equipment items one at a ti
   await page.goto("/purchase-orders.html", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#poNewButton")).toBeEnabled();
   await page.locator("#poNewButton").click();
+  await paperPo.openJob(page);
   await page.locator("#poJobSearch").fill("25148");
   await page.locator("#poJobOptions [data-po-job-id]").click();
 
+  await paperPo.finishJob(page);
   await expect(page.locator("#poJobNotesPanel")).toBeVisible();
   await expect(page.locator("#poJobNotesSummary")).toContainText("1 open note");
   await expect(page.locator("#poJobNotesSummary")).toContainText("2 unchecked items");
@@ -4340,7 +4344,7 @@ test("purchase order Job Notes transfer material and equipment items one at a ti
   await expect(page.locator('[data-item-field="description"]').nth(1)).toHaveValue("Scissor lift");
   await expect(equipmentItem.getByRole("button", { name: "On PO" })).toBeDisabled();
 
-  await page.locator(".po-material-tile").first().locator("[data-remove-item]").click();
+  await page.locator("[data-paper-remove]").first().click();
   await expect(drywallItem.getByRole("button", { name: "Add to PO" })).toBeEnabled();
   await expect(equipmentItem.getByRole("button", { name: "On PO" })).toBeDisabled();
   expect(jobNoteMethods.every((method) => method === "GET" || method === "HEAD")).toBe(true);
@@ -4403,10 +4407,9 @@ test("purchase order submit feedback closes success and emphasizes failure", asy
   await expect(page.locator("#poNotice")).toHaveClass(/po-submit-error/);
   await expect(page.locator("#poNotice")).toHaveAttribute("role", "alert");
 
-  await page.locator("#poManualJobName").fill("Smoke Test Project");
-  await page.locator("#poSupplierName").fill("Smoke Test Supplier");
-  await page.locator('[data-item-field="quantity_ordered"]').fill("1");
-  await page.locator('[data-item-field="description"]').fill("Smoke test material");
+  await paperPo.manualJob(page, "Smoke Test Project");
+  await paperPo.to(page, "Smoke Test Supplier");
+  await paperPo.item(page, "1", "Smoke test material");
   await page.locator("#poSubmitButton").click();
 
   await expect(page.locator("#poFormView")).toBeHidden();
@@ -4442,10 +4445,9 @@ async function openLowSignalPoPage(page, submitRoute) {
   await page.evaluate(() => { window.uploadJgcFile = async (options) => ({ data: { path: options.path, fullPath: `${options.bucket}/${options.path}` }, error: null }); });
   await expect(page.locator("#poNewButton")).toBeEnabled();
   await page.locator("#poNewButton").click();
-  await page.locator("#poManualJobName").fill("Smoke Test Project");
-  await page.locator("#poSupplierName").fill("Smoke Test Supplier");
-  await page.locator('[data-item-field="quantity_ordered"]').fill("1");
-  await page.locator('[data-item-field="description"]').fill("Smoke test material");
+  await paperPo.manualJob(page, "Smoke Test Project");
+  await paperPo.to(page, "Smoke Test Supplier");
+  await paperPo.item(page, "1", "Smoke test material");
   return calls;
 }
 
@@ -5558,6 +5560,7 @@ for (const theme of ['light','dark']) {
       await page.route(`${supabaseOrigin}/rest/v1/rpc/digital_po_get_device_context`,route=>route.fulfill({json:{registered:true,device_id:'00000000-0000-4000-8000-000000000203',device_status:'active',lease_expires_at:'2027-07-21T12:00:00.000Z',blocks:[{id:'00000000-0000-4000-8000-000000000204',range_start:39100,range_end:39109,next_number:39100,status:'active'}]}}));
       await page.goto('/purchase-orders.html');
       await expect(page.locator('#poNewButton')).toBeEnabled();await page.locator('#poNewButton').click();
+      await paperPo.openJob(page);
       await page.locator('#poJobSearch').fill('26999');
       const result=page.locator('#poJobOptions [data-po-job-id]');
       await expect(result).toContainText('Readable job results');

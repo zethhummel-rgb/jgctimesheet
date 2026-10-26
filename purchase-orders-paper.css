@@ -1,0 +1,69 @@
+/* Employee PO document and accessible native section editors. */
+.po-employee-page .po-paper {
+  padding:24px; margin:0 0 20px; border:1px solid var(--jgc-color-border);
+  background:var(--jgc-color-surface); color:var(--jgc-color-text);
+}
+.po-paper-enabled .po-form-title h2 { display:none; }
+.po-paper-brand { width:210px; max-width:100%; height:68px; overflow:hidden; margin-bottom:18px; }
+.po-paper-brand img { display:block; width:auto; max-width:none; height:164.6px; margin:-42.4px 0 0 -18.3px; }
+.po-paper-banner { margin:0; padding:9px; background:var(--jgc-color-brand-800); color:var(--jgc-color-on-brand); text-align:center; font-size:22px; letter-spacing:1px; }
+.po-paper-number { padding:16px 0; border-bottom:2px solid var(--jgc-color-border); margin-bottom:12px; }
+.po-paper-number > span { display:block; color:var(--jgc-color-text-muted); font-size:13px; }
+.po-paper-number #poNumberDisplay { margin:0; font-size:24px; font-weight:700; color:var(--jgc-color-text); }
+.po-employee-page button.po-paper-field {
+  display:block; width:100%; text-align:left; white-space:normal; overflow-wrap:anywhere;
+  padding:12px; margin:0 0 12px; border:1px dashed var(--jgc-color-border); border-radius:4px;
+  background:var(--jgc-color-surface-soft); color:var(--jgc-color-text); min-height:72px;
+  font-family:var(--jgc-font-family); font-size:16px; line-height:1.45;
+}
+.po-paper-field > span:not(.po-paper-label) { display:block; white-space:pre-wrap; }
+.po-paper-field small { display:block; font-size:12px; color:var(--jgc-color-text-muted); margin-top:3px; }
+.po-paper-label { display:block; font-size:12px; font-weight:700; color:var(--jgc-color-text-muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
+.po-paper-meta { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.po-paper-items { width:100%; table-layout:fixed; border-collapse:collapse; margin:20px 0 8px; }
+.po-paper-items th { background:var(--jgc-color-brand-800); color:var(--jgc-color-on-brand); padding:9px; font-size:14px; text-align:left; }
+.po-paper-items th:first-child { width:70px; }
+.po-paper-items th:last-child { width:46px; }
+.po-paper-items th:last-child span { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+.po-paper-items td { padding:0; border-bottom:1px solid var(--jgc-color-border); vertical-align:top; overflow-wrap:anywhere; }
+.po-paper-items td button { display:block; min-height:52px; width:100%; padding:12px 8px; border:0; border-radius:0; background:transparent; color:var(--jgc-color-text); text-align:left; white-space:pre-wrap; font-size:16px; line-height:1.45; }
+.po-paper-items .po-paper-remove { text-align:center; color:var(--jgc-color-text-muted); font-size:22px; }
+.po-paper-items td[colspan] { padding:14px 8px; color:var(--jgc-color-text-muted); }
+.po-paper [data-paper-add] { margin:8px 0 20px; }
+.po-paper-author { margin-top:18px; padding-top:15px; border-top:2px solid var(--jgc-color-border); }
+.po-paper-instruction { color:var(--jgc-color-text-muted); font-size:12px; margin:15px 0; }
+.po-paper-save-status { font-size:13px; color:var(--jgc-color-text-muted); min-height:20px; margin:12px 0 0; }
+.po-paper-receipts { padding:14px; border:1px solid var(--jgc-color-border); margin-bottom:16px; border-radius:8px; background:var(--jgc-color-surface-soft); }
+.po-paper-receipts summary { min-height:30px; font-weight:700; }
+.po-paper-dialog {
+  width:min(520px,calc(100% - 24px)); max-width:calc(100% - 24px); max-height:calc(100dvh - 24px);
+  padding:20px; overflow:auto; overscroll-behavior:contain; border:1px solid var(--jgc-color-border);
+  border-radius:14px; background:var(--jgc-color-surface); color:var(--jgc-color-text); font-family:var(--jgc-font-family);
+  top:0; bottom:auto; margin:24px auto;
+}
+.po-paper-dialog::backdrop { background:color-mix(in srgb,var(--jgc-color-page-deep) 65%,transparent); }
+.po-paper-dialog-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
+.po-paper-dialog h2 { color:var(--jgc-color-text); font-size:21px; margin:0; }
+.po-paper-dialog .jgc-label { display:block; margin:14px 0 7px; }
+.po-paper-dialog input,.po-paper-dialog textarea { width:100%; font-size:17px; }
+.po-paper-dialog textarea { min-height:110px; resize:vertical; }
+.po-paper-dialog .po-paper-done { margin-top:20px; width:100%; min-height:48px; }
+.po-paper-dialog .po-paper-manual { margin-top:16px; width:100%; min-height:46px; }
+.po-paper-dialog .po-job-options { position:static; max-height:200px; overflow:auto; }
+.po-paper-dialog .po-job-picker { position:relative; }
+.po-paper-dialog .jgc-job-dropdown { width:100%; }
+.po-paper-dialog .jgc-job-option { white-space:normal; }
+.po-paper-dialog #poJobSearch { padding-right:42px; }
+@media (max-width:600px) {
+  .po-employee-page .po-paper { padding:14px 12px; }
+  .po-paper-meta { gap:8px; }
+  .po-paper-banner { font-size:19px; }
+  .po-paper-items th:first-child { width:54px; }
+  .po-paper-items th:last-child { width:44px; }
+  .po-paper-dialog { margin:12px auto; padding:16px; }
+}
+:root[data-jgc-theme] body.po-employee-page .po-paper h2.po-paper-banner,
+.po-employee-page .po-paper .po-paper-items th {
+  background:var(--jgc-color-brand-800); color:var(--jgc-color-on-brand) !important;
+}
+@media (prefers-reduced-motion:reduce) { .po-paper-dialog { scroll-behavior:auto; } }
