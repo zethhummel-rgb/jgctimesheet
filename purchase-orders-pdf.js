@@ -57,7 +57,7 @@
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(20, 28, 23);
-    const lines = doc.splitTextToSize(text(value), width - 12).slice(0, 2);
+    const lines = doc.splitTextToSize(text(value), width - 12);
     doc.text(lines, x + 6, y + 24);
   }
 
@@ -68,6 +68,8 @@
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     columns.forEach((column) => {
+      doc.setFillColor(18, 104, 59);
+      doc.setTextColor(255, 255, 255);
       doc.rect(column.x, y, column.width, 22, "FD");
       const label = doc.splitTextToSize(column.label, column.width - 6);
       doc.text(label, column.x + 3, y + 9);
@@ -97,7 +99,7 @@
     doc.setFillColor(24, 105, 64);
     doc.rect(pageWidth - 255, 31, 219, 27, "F");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
+    doc.setFontSize(continuation ? 11.5 : 16);
     doc.setTextColor(255, 255, 255);
     doc.text(continuation ? "PURCHASE ORDER - CONTINUED" : "PURCHASE ORDER", pageWidth - 245, 50);
 
@@ -142,19 +144,19 @@
 
     drawPageHeader(doc, data, logoData, false);
     let y = 126;
+    const toHeight = Math.max(48, doc.splitTextToSize(text(data.supplier_name), contentWidth - 12).length * 12 + 24);
+    drawField(doc, "To", data.supplier_name, margin, y, contentWidth, toHeight);
+    y += toHeight;
     drawField(doc, "Date of Order", formatDate(data.order_date), margin, y, half, 44);
     drawField(doc, "Job #", data.job_number, margin + half, y, half, 44);
     y += 44;
-    drawField(doc, "To", data.supplier_name, margin, y, half, 48);
-    drawField(doc, "Job Name", data.job_name, margin + half, y, half, 48);
-    y += 60;
+    const jobHeight = Math.max(44, doc.splitTextToSize(text(data.job_name), contentWidth - 12).length * 12 + 24);
+    drawField(doc, "Job Name", data.job_name, margin, y, contentWidth, jobHeight);
+    y += jobHeight + 12;
 
     const columns = [
-      { key: "quantity_ordered", label: "QTY. ORDERED", x: margin, width: 64 },
-      { key: "quantity_received", label: "QTY. REC'D", x: margin + 64, width: 61 },
-      { key: "details", label: "STOCK NUMBER / DESCRIPTION", x: margin + 125, width: 257 },
-      { key: "unit_price", label: "UNIT PRICE", x: margin + 382, width: 72 },
-      { key: "amount", label: "AMOUNT", x: margin + 454, width: contentWidth - 454 }
+      { key: "quantity_ordered", label: "QTY.", x: margin, width: 64 },
+      { key: "details", label: "DESCRIPTION", x: margin + 64, width: contentWidth - 64 }
     ];
 
     y = drawTableHeader(doc, y, columns);
@@ -166,7 +168,7 @@
         item.description || "",
         item.notes ? "Note: " + item.notes : ""
       ].filter(Boolean).join("\n");
-      const detailLines = doc.splitTextToSize(details, columns[2].width - 8);
+      const detailLines = doc.splitTextToSize(details, columns[1].width - 8);
       const rowHeight = Math.max(28, detailLines.length * 10 + 10);
 
       if (y + rowHeight > pageHeight - 80) {
@@ -182,8 +184,7 @@
       doc.setFontSize(8.5);
       columns.forEach((column) => doc.rect(column.x, y, column.width, rowHeight));
       doc.text(text(item.quantity_ordered), columns[0].x + 4, y + 16);
-      doc.text(text(item.quantity_received), columns[1].x + 4, y + 16);
-      doc.text(detailLines, columns[2].x + 4, y + 13);
+      doc.text(detailLines, columns[1].x + 4, y + 13);
       y += rowHeight;
 
       if (index === items.length - 1) {
@@ -199,20 +200,20 @@
     });
 
     if (data.notes) {
-      const notes = doc.splitTextToSize("Order notes: " + data.notes, contentWidth - 12);
-      const notesHeight = Math.max(30, notes.length * 10 + 12);
-      if (y + notesHeight > pageHeight - 80) {
-        drawFooter(doc, data);
-        doc.addPage();
-        drawPageHeader(doc, data, logoData, true);
-        y = 126;
-      }
-      doc.setFillColor(238, 246, 239);
-      doc.setDrawColor(36, 83, 57);
-      doc.rect(margin, y + 10, contentWidth, notesHeight, "FD");
       doc.setFontSize(8.5);
-      doc.setTextColor(20, 28, 23);
-      doc.text(notes, margin + 6, y + 24);
+      const notes = doc.splitTextToSize("Order notes: " + data.notes, contentWidth - 12);
+      while (notes.length) {
+        let capacity = Math.floor((pageHeight - 80 - y - 22) / 10);
+        if (capacity < 1) {
+          drawFooter(doc, data); doc.addPage(); drawPageHeader(doc, data, logoData, true);
+          y = 126; capacity = Math.floor((pageHeight - 80 - y - 22) / 10);
+        }
+        const chunk = notes.splice(0, capacity), notesHeight = Math.max(30, chunk.length * 10 + 12);
+        doc.setFillColor(238, 246, 239); doc.setDrawColor(36, 83, 57);
+        doc.rect(margin, y + 10, contentWidth, notesHeight, "FD");
+        doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(20, 28, 23);
+        doc.text(chunk, margin + 6, y + 24); y += notesHeight + 10;
+      }
     }
 
     const pages = doc.getNumberOfPages();

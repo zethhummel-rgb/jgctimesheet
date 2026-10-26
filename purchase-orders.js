@@ -45,7 +45,8 @@
     receiptPreviewUrl: "",
     syncing: false,
     formLocked: false,
-    initialized: false
+    initialized: false,
+    paper: null
   };
 
   const elements = {};
@@ -778,7 +779,7 @@
     const matches = getMatchingJobs(searchValue);
     elements.jobOptions.innerHTML = matches.length
       ? matches.map((job) => getJgcJobOptionHtml(job, `data-po-job-id="${escapeText(job.id)}"`)).join("")
-      : '<div class="jgc-job-dropdown__empty">No matching listed jobs. Use the manual job fields below.</div>';
+      : '<div class="jgc-job-dropdown__empty">No matching listed jobs. Use Manual Entry.</div>';
   }
 
   function openJobOptions() {
@@ -811,6 +812,7 @@
     closeJobOptions();
     syncJobLock();
     renderJobNotesPanel();
+    state.paper?.refresh();
   }
 
   function handleJobSearchInput() {
@@ -1100,7 +1102,7 @@
     row.dataset.jobNoteItemId = item && item.source_job_list_item_id ? item.source_job_list_item_id : "";
     row.innerHTML = `
       <div>
-        <label class="jgc-label">Qty Ordered</label>
+        <label class="jgc-label">Qty.</label>
         <input class="jgc-input" data-item-field="quantity_ordered" type="number" min="0" step="0.001" inputmode="decimal" autocomplete="off" value="${escapeText(item && item.quantity_ordered !== null && item.quantity_ordered !== undefined ? item.quantity_ordered : "")}">
       </div>
       <div class="description">
@@ -1206,9 +1208,12 @@
     elements.cancelButton.hidden = !(po && po.id && state.user && (po.creator_profile_id === state.user.id || isAdmin()) && po.workflow_status !== "cancelled" && po.workflow_status !== "closed");
     closeJobOptions();
     renderJobNotesPanel();
+    state.paper?.locked();
   }
 
   async function openForm(id) {
+    await state.paper?.settled();
+    state.paper?.reset();
     showNotice("");
     state.pendingReceipt = null;
     const record = id ? getRecord(id) : null;
@@ -1260,10 +1265,12 @@
     elements.formView.hidden = false;
     window.scrollTo({ top: 0, behavior: "smooth" });
     updateIcons();
+    state.paper?.refresh();
 
   }
 
   function closeForm() {
+    state.paper?.reset();
     state.activeId = "";
     state.pendingReceipt = null;
     state.jobNotesExpanded = false;
@@ -1403,7 +1410,7 @@
   async function saveDraftLocally(options) {
     const settings = options || {};
     const formData = collectFormData();
-    if (!formData.order_date || !validateJobEntry()) {
+    if (!settings.checkpoint && (!formData.order_date || !validateJobEntry())) {
       throw new Error("Date and either a listed job or a manual job name are required before the first draft can be saved.");
     }
 
@@ -1455,6 +1462,7 @@
       items: formData.items,
       job_note_links: collectJobNoteLinks(),
       dirty: true,
+      defer_sync_until_valid: !formData.order_date || !validateJobEntry(),
       assignment_dirty: false,
       desired_assigned_profile_id: null,
       pending_submit: Boolean(settings.submit || (record && record.pending_submit)),
@@ -1749,7 +1757,7 @@
   async function syncDraftNow(id) {
     const owner = offlineAccountId();
     let draft = getDraft(id);
-    if (!draft || !navigator.onLine) {
+    if (!draft || !navigator.onLine || draft.defer_sync_until_valid) {
       return draft;
     }
 
@@ -1812,7 +1820,7 @@
       await loadServerRecords();
       state.drafts = await idbGetAll(DRAFT_STORE);
       reconciled.push(...await reconcileSettledServerDrafts());
-      for (const draft of state.drafts.filter((item) => item.dirty || item.assignment_dirty || item.pending_submit || item.pending_cancel)) {
+      for (const draft of state.drafts.filter((item) => !item.defer_sync_until_valid && (item.dirty || item.assignment_dirty || item.pending_submit || item.pending_cancel))) {
         try {
           await syncDraft(draft.id);
         } catch (error) {
@@ -1916,6 +1924,7 @@
 
   async function handleSave(event) {
     event.preventDefault();
+    await state.paper?.settled();
     elements.saveButton.disabled = true;
     let savedDraft = null;
     try {
@@ -1953,6 +1962,7 @@
   }
 
   async function handleSubmit() {
+    await state.paper?.settled();
     elements.submitButton.disabled = true;
     let draft = null;
     try {
@@ -1995,6 +2005,8 @@
   }
 
   async function handleCancel(id) {
+    await state.paper?.settled();
+    id = typeof id === "string" ? id : null;
     const record = getRecord(id || state.activeId);
     if (!record || !confirm("Cancel " + formatPoNumber(record.po.po_number) + "? Its number and history will be retained.")) {
       return;
@@ -2009,6 +2021,26 @@
         pending_submit: false,
         updated_local_at: new Date().toISOString()
       };
+      if (draft.defer_sync_until_valid) {
+        const server = state.serverRecords.find((item) => item.id === draft.id);
+        if (!server) {
+          // This reserved number has never reached the server. Retain it locally,
+          // without inventing job details just to cancel an unfinished order.
+          draft.po.workflow_status = "cancelled";
+          draft.dirty = false;
+          draft.pending_submit = false;
+          draft.pending_cancel = false;
+          await persistDraft(draft);
+          closeForm();
+          renderList();
+          showNotice(formatPoNumber(record.po.po_number) + " cancelled on this device. Its reserved number is retained.");
+          updateSyncBadge();
+          return;
+        }
+        draft.po = clone(server.po || server);
+        draft.dirty = false;
+        draft.defer_sync_until_valid = false;
+      }
       draft.pending_cancel = true;
       draft.pending_submit = false;
       await persistDraft(draft);
@@ -2033,6 +2065,7 @@
   }
 
   async function handleViewPdf(id) {
+    await state.paper?.settled();
     const record = id ? getRecord(id) : null;
     const displayedNumber = elements.numberDisplay.textContent.match(/PO-(\d+)/i);
     const data = record
@@ -2355,6 +2388,16 @@
   async function initialize() {
     captureElements();
     bindEvents();
+    if (window.JgcPaperPo) state.paper = window.JgcPaperPo.initialize({
+      elements, collect: collectFormData, formatDate, selectJob, addRow: addMaterialRow, closeJobOptions,
+      author: () => (state.activeId && getRecord(state.activeId)?.po.creator_name) || state.profile?.display_name || "",
+      isCurrent: () => Boolean(state.user && state.user.id === state.storageAccountId && state.activeId),
+      checkpoint: async () => {
+        const record = state.activeId && getRecord(state.activeId);
+        if (!record || !state.user || record.po.creator_profile_id !== state.user.id || !EDITABLE_STATUSES.has(record.po.workflow_status) || state.formLocked) return false;
+        await saveDraftLocally({ checkpoint: true }); updateSyncBadge(); return true;
+      }
+    });
     updateIcons();
     updateNetworkBadge();
 
@@ -2375,6 +2418,7 @@
       state.storageAccountId = state.user.id;
       state.client.auth.onAuthStateChange((_event, session) => {
         if (!session || session.user.id !== state.storageAccountId) {
+          state.paper?.reset();
           state.user = null;
           state.drafts = [];
           state.serverRecords = [];
