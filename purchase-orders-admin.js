@@ -14,7 +14,8 @@
     profiles: [],
     approvedWorkers: [],
     activeOrderId: "",
-    tab: "devices"
+    tab: "devices",
+    deviceTab: "current"
   };
 
   const elements = {};
@@ -285,7 +286,8 @@
   }
 
   function renderDevices() {
-    elements.devicesBody.innerHTML = state.devices.map((device) => {
+    const devices = state.devices.filter((device) => (device.status === "revoked") === (state.deviceTab === "revoked"));
+    elements.devicesBody.innerHTML = devices.map((device) => {
       const profile = getProfile(device.profile_id);
       const blocks = state.blocks.filter((block) => block.device_id === device.id);
       const remaining = blocks
@@ -321,7 +323,7 @@
           </td>
         </tr>
       `;
-    }).join("") || '<tr class="po-empty-row"><td colspan="7">No PO devices registered.</td></tr>';
+    }).join("") || `<tr class="po-empty-row"><td colspan="7">${state.deviceTab === "revoked" ? "No revoked PO devices." : "No current PO devices registered."}</td></tr>`;
     updateIcons();
   }
 
@@ -603,6 +605,17 @@
       if (button) {
         openOrderDetails(button.dataset.viewOrder);
       }
+    });
+    document.querySelectorAll("[data-device-tab]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.deviceTab = button.dataset.deviceTab;
+        document.querySelectorAll("[data-device-tab]").forEach((tab) => {
+          tab.classList.toggle("active", tab === button);
+          tab.classList.toggle("secondary", tab !== button);
+          tab.setAttribute("aria-pressed", String(tab === button));
+        });
+        renderDevices();
+      });
     });
     elements.devicesBody.addEventListener("click", (event) => {
       const blockButton = event.target.closest("[data-assign-block]");
