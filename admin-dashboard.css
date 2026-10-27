@@ -284,10 +284,10 @@ body:has(#summarySection:not([hidden]))>.tabs { background:transparent !importan
 .admin-schedule-overflow .schedule-event-time { font-weight:700; white-space:nowrap; }
 .admin-schedule-overflow-open { width:100%; min-height:36px; margin-top:8px; border:1px solid var(--jgc-color-border); border-radius:7px; background:var(--jgc-color-surface); color:var(--jgc-color-text); font-weight:700; cursor:pointer; }
 
-/* New counters: the number itself opens the related area; a red note flags overdue items. */
+/* New counters: the number itself opens the related area; a contrasting warning flags overdue items. */
 #summarySection a.dashboard-metric { text-decoration:none; }
 #summarySection a.dashboard-metric:hover strong, #summarySection a.dashboard-metric:focus-visible strong { text-decoration:underline; }
-#summarySection .dashboard-metric-alert { font-size:.72rem; font-weight:700; color:var(--jgc-color-danger); white-space:nowrap; }
+#summarySection .dashboard-metric-alert { font-size:.72rem; font-weight:700; color:var(--jgc-color-warning); white-space:nowrap; }
 #summarySection .dashboard-widget[data-compact="true"] .dashboard-metric .dashboard-metric-alert { display:inline; }
 /* Compact totals show the number only; empty-list copy belongs in expanded cards. */
 #summarySection .dashboard-widget[data-compact="true"] .dashboard-widget-body:has(.dashboard-metric)>p { display:none; }
