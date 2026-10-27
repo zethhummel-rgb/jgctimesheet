@@ -5932,7 +5932,7 @@ test('Dashboard saves layout, hides/restores widgets, resets, and preserves the 
 
 test('Dashboard approved default layout applies to new accounts and Reset while preserving personal layouts',async({page})=>{
  const state=await mockDashboard(page);await page.setViewportSize({width:1440,height:1100});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();
- const expected=[['jobs-stat',3,44,0,0],['quotes',3,44,3,0],['work-orders',3,44,6,0],['purchase-orders',3,44,9,0],['vacation',2,44,0,0],['equipment-expiry',2,44,2,0],['missing-timesheets',2,44,4,0],['tm-work-orders',2,44,0,58],['calendar',6,522,0,116],['recent',6,310,6,0],['active-jobs',6,310,6,328],['job-board-signins',4,280,0,652],['tasks',4,280,4,652],['announcements',4,280,8,652]];
+ const expected=[['jobs-stat',3,44,0,0],['quotes',3,44,3,0],['work-orders',3,44,6,0],['purchase-orders',3,44,9,0],['vacation',2,44,0,0],['equipment-expiry',2,44,2,0],['missing-timesheets',2,44,4,0],['tm-work-orders',2,44,0,58],['certificate-expiry',2,44,2,58],['calendar',6,522,0,116],['recent',6,310,6,0],['active-jobs',6,310,6,328],['job-board-signins',4,280,0,652],['tasks',4,280,4,652],['announcements',4,280,8,652]];
  const read=()=>page.locator('.dashboard-widget').evaluateAll(els=>els.map(e=>[e.dataset.widget,Number(e.style.getPropertyValue('--widget-width')),parseInt(e.style.getPropertyValue('--widget-height')),Number(e.style.getPropertyValue('--widget-x'))-1,Number(e.style.getPropertyValue('--widget-y'))-1]));
  expect(await read()).toEqual(expected);expect(state.writes).toHaveLength(0);
  for(const id of ['jobs-stat','quotes','work-orders','purchase-orders'])await expect(page.locator(`[data-widget="${id}"]`)).toBeHidden();
@@ -6110,7 +6110,7 @@ test('Dashboard Job Board Sign-ins lists recent board sign-ins and recovers afte
 test('Dashboard counts active jobs across pages and normalizes invalid layout',async({page})=>{
  await mockDashboard(page,{layout:{widgets:[{id:'tasks',width:999,height:0},{id:'tasks'},{id:'unknown'}]}});
  await page.route(`${supabaseOrigin}/rest/v1/jobs*`,r=>{const offset=Number(new URL(r.request().url()).searchParams.get('offset')||0);return r.fulfill({json:Array.from({length:offset?1:500},(_,i)=>({id:'j'+(i+offset),job_number:String(26999-i-offset),customer:'Synthetic Client',job_name:'Project',active:true}))});});
- await page.goto('/admin.html?tab=summary');await expect(page.locator('[data-widget="jobs-stat"] .dashboard-metric strong')).toHaveText('501');await expect(page.locator('.dashboard-widget')).toHaveCount(14);
+ await page.goto('/admin.html?tab=summary');await expect(page.locator('[data-widget="jobs-stat"] .dashboard-metric strong')).toHaveText('501');await expect(page.locator('.dashboard-widget')).toHaveCount(15);
  await expect(page.locator('.dashboard-widget').first()).toHaveAttribute('data-widget','tasks');
  await page.locator('[data-widget="tasks"] .dashboard-widget-options').click();await expect(page.getByLabel('Tasks / Follow-Ups width',{exact:true})).toHaveValue('4');
 });
@@ -6262,4 +6262,32 @@ test('T&M No WO needed persists, supports Undo and retains the reminder when sav
  const modal=page.locator('#tmWorkOrdersDialog');await modal.getByRole('button',{name:'No WO needed',exact:true}).click();await expect(card.locator('.dashboard-metric strong')).toHaveText('0');await expect(modal).toContainText('All caught up');await modal.getByText('No WO needed (1)',{exact:true}).click();await expect(modal.getByRole('button',{name:'Undo',exact:true})).toBeVisible();
  expect(writes[0]).toEqual({p_job_id:item.job_id,p_work_date:item.work_date,p_not_required:true});await modal.getByRole('button',{name:'Close',exact:true}).click();await page.reload();await card.getByRole('link',{name:'T&M Work Orders',exact:true}).click();await modal.getByText('No WO needed (1)',{exact:true}).click();await modal.getByRole('button',{name:'Undo',exact:true}).click();await expect(card.locator('.dashboard-metric strong')).toHaveText('1');expect(writes.at(-1).p_not_required).toBe(false);
  fail=true;await modal.getByRole('button',{name:'No WO needed',exact:true}).click();await expect(modal.getByRole('alert')).toContainText('Could not save');await expect(card.locator('.dashboard-metric strong')).toHaveText('1');await expect(modal.getByRole('button',{name:'No WO needed',exact:true})).toBeEnabled();
+});
+
+
+for(const theme of ['light','dark'])for(const width of [390,1440])test(`Dashboard certificate expiry slim widget ${theme} ${width}`,async({page},info)=>{
+ await page.clock.setFixedTime(new Date('2026-10-27T02:00:00Z')); // Still October 26 in Toronto.
+ await mockDashboard(page,{theme});await page.setViewportSize({width,height:1100});
+ const records=[{id:'today',worker_name:'Worker Today',certificate_name:'First Aid',expiry_date:'2026-10-26'},{id:'tomorrow',worker_name:'Worker Tomorrow',certificate_name:'WHMIS',expiry_date:'2026-10-27'},{id:'boundary',worker_name:'Worker Boundary',certificate_name:'Working at Heights',expiry_date:'2026-11-25'},{id:'expired',worker_name:'Worker Expired',certificate_name:'Lift Training',expiry_date:'2026-10-25'},{id:'future',worker_name:'Future Worker',certificate_name:'Future Training',expiry_date:'2026-11-26'},{id:'no-date',worker_name:'No Date Worker',certificate_name:'No Expiry',expiry_date:null}];
+ await page.route(`${supabaseOrigin}/rest/v1/certificates*`,route=>{const u=new URL(route.request().url());const filtered=u.searchParams.get('select')==='id,worker_name,certificate_name,expiry_date';return route.fulfill({json:filtered?records.filter(r=>r.expiry_date&&r.expiry_date<='2026-11-25'):records});});
+ await page.goto('/admin.html?tab=summary');const card=page.locator('[data-widget="certificate-expiry"]');await expect(card.locator('.dashboard-metric strong')).toHaveText('3');await expect(card.locator('.dashboard-metric-alert')).toHaveText('1 expired');await expect(card).toHaveAttribute('data-slim','true');await expect(card.locator('a.dashboard-metric')).toHaveAttribute('href','admin.html?tab=certificates');
+ const vehicle=page.locator('[data-widget="equipment-expiry"]');expect((await card.boundingBox()).height).toBe((await vehicle.boundingBox()).height);await expectReadableText(card.locator('.dashboard-metric strong, .dashboard-metric-alert, h2 a'),'Certificate slim '+theme);await page.screenshot({path:info.outputPath(`certificate-slim-${width}-${theme}.png`),fullPage:true});
+ await card.locator('.dashboard-widget-options').click();await page.getByLabel('Expiring Certificates height',{exact:true}).selectOption('280');await expect(card.locator('.dashboard-list')).toContainText('Worker Today');await expect(card.locator('.dashboard-list')).toContainText('today');await expect(card.locator('.dashboard-list')).toContainText('Worker Boundary');await expect(card.locator('.dashboard-list')).toContainText('Worker Expired');await expect(card.locator('.dashboard-list')).not.toContainText('Future Worker');await expect(card.locator('.dashboard-list')).not.toContainText('No Date Worker');
+});
+
+test('Dashboard certificate widget recovers from a query failure without blocking the other widgets',async({page})=>{
+ await mockDashboard(page);let fail=true;await page.route(`${supabaseOrigin}/rest/v1/certificates*`,route=>fail?route.fulfill({status:403,json:{message:'Synthetic denial'}}):route.fulfill({json:[]}));
+ await page.goto('/admin.html?tab=summary');const card=page.locator('[data-widget="certificate-expiry"]');await expect(card).toContainText('Could not load this widget');await expect(page.locator('[data-widget="vacation"] .dashboard-metric strong')).toHaveText('0');fail=false;await page.locator('#dashboardRefresh').click();await expect(card.locator('.dashboard-metric strong')).toHaveText('0');await expect(card.locator('.dashboard-metric-alert')).toHaveCount(0);await expect(card).toContainText('Nothing expires in the next 30 days.');
+});
+
+test('Dashboard certificate widget joins an existing layout without changing saved widget settings',async({page})=>{
+ const old={version:2,widgets:[{id:'equipment-expiry',width:3,height:144,x:0,y:0,visible:false},{id:'calendar',width:6,height:456,x:6,y:0,visible:true}]};await mockDashboard(page,{layout:old});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();const card=page.locator('[data-widget="certificate-expiry"]');await expect(card).toBeVisible();await expect(card).toHaveAttribute('data-slim','true');await expect(page.locator('[data-widget="equipment-expiry"]')).toBeHidden();await expect(page.locator('[data-widget="calendar"]')).toHaveCSS('grid-column-start','7');
+ await openDashboardWidgetMenu(page);await page.locator('#dashboardWidgetChoices input[value="certificate-expiry"]').uncheck();await expect(card).toBeHidden();await expect(page.locator('#dashboardLayoutStatus')).toHaveText('Layout saved to your account.');await page.reload();await expect(page.locator('#dashboardEdit')).toBeEnabled();await expect(card).toBeHidden();
+});
+
+
+test('Dashboard certificate expiry counts every page of matching certificates',async({page})=>{
+ await page.clock.setFixedTime(new Date('2026-10-27T15:00:00Z'));await mockDashboard(page);const offsets=[];
+ await page.route(`${supabaseOrigin}/rest/v1/certificates*`,route=>{const u=new URL(route.request().url());if(u.searchParams.get('select')!=='id,worker_name,certificate_name,expiry_date')return route.fulfill({json:[]});const offset=Number(u.searchParams.get('offset')||0);offsets.push(offset);return route.fulfill({json:Array.from({length:offset<1000?500:1},(_,i)=>({id:'certificate-'+(offset+i),worker_name:'Synthetic Worker',certificate_name:'Training',expiry_date:'2026-10-28'}))});});
+ await page.goto('/admin.html?tab=summary');await expect(page.locator('[data-widget="certificate-expiry"] .dashboard-metric strong')).toHaveText('1001');expect(offsets).toEqual([0,500,1000]);
 });

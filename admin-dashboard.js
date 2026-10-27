@@ -6,7 +6,7 @@
     ['jobs-stat','Active Jobs',3,44,0,0], ['quotes','Quotes',3,44,3,0],
     ['work-orders','Work Orders',3,44,6,0], ['purchase-orders','Purchase Orders',3,44,9,0],
     ['vacation','Vacation Requests',2,44,0,0], ['equipment-expiry','Vehicle / Equipment Expiries',2,44,2,0], ['missing-timesheets','Missing Timesheets',2,44,4,0],
-    ['tm-work-orders','T&M Work Orders',2,44,0,58],
+    ['tm-work-orders','T&M Work Orders',2,44,0,58], ['certificate-expiry','Expiring Certificates',2,44,2,58],
     ['calendar','Schedule Calendar',6,522,0,116],
     ['recent','Recent Work',6,310,6,0], ['active-jobs','Active Jobs',6,310,6,328],
     ['job-board-signins','Job Board Sign-ins',4,280,0,652], ['tasks','Tasks / Follow-Ups',4,280,4,652], ['announcements','Announcements',4,280,8,652]
@@ -15,7 +15,7 @@
   // Saved layouts keep a renamed widget's place: Subcontractor Activity became Job Board Sign-ins (release 1001).
   const renamedWidgets = {subcontractors:'job-board-signins'};
   const widths = [2,3,4,5,6,7,8,9,10,11,12], heights = [44,144,280,313,408,456,640];
-  const geometry=window.JgcDashboardGrid, statIds=["jobs-stat","quotes","work-orders","purchase-orders","vacation","equipment-expiry","missing-timesheets","tm-work-orders"];
+  const geometry=window.JgcDashboardGrid, statIds=["jobs-stat","quotes","work-orders","purchase-orders","vacation","equipment-expiry","missing-timesheets","tm-work-orders","certificate-expiry"];
   let selected="recent"; const toolbars=new Map();
   const minimumHeight=id=>statIds.includes(id)?44:id==='calendar'?280:144;
   const defaults = () => ({version:2, widgets:geometry.pack(definitions.map(([id,,width,height,x,y]) => ({id,width,height,x,y,visible:!defaultHidden.has(id)})))});
@@ -44,7 +44,7 @@
     clipboard:'<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 12h6M9 16h4"/>'
   };
   const icon=key=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[key]||iconPaths.briefcase}</svg>`;
-  const widgetIcons={'tm-work-orders':'wrench','jobs-stat':'briefcase',quotes:'file','work-orders':'wrench','purchase-orders':'cart','estimate-desk':'calculator',calendar:'calendar',recent:'clock','active-jobs':'briefcase','job-board-signins':'users',tasks:'check',announcements:'notice',vacation:'plane','equipment-expiry':'truck','missing-timesheets':'clipboard'};
+  const widgetIcons={'tm-work-orders':'wrench','jobs-stat':'briefcase',quotes:'file','work-orders':'wrench','purchase-orders':'cart','estimate-desk':'calculator',calendar:'calendar',recent:'clock','active-jobs':'briefcase','job-board-signins':'users',tasks:'check',announcements:'notice',vacation:'plane','equipment-expiry':'truck','certificate-expiry':'file','missing-timesheets':'clipboard'};
   function normalize(value) {
     const result=defaults(), supplied=Array.isArray(value?.widgets) ? value.widgets : [];
     const seen=new Set(), ordered=[];
@@ -263,6 +263,19 @@
         if(generation!==loadId)return;
         const href='admin.html?tab=vacation';
         fill('vacation',metric(result.data.length,'awaiting approval',href)+list(result.data.map(r=>({title:r.worker_display_name||r.worker_name||'Employee',icon:'plane',detail:[r.start_date&&r.end_date&&r.end_date!==r.start_date?date(r.start_date)+' – '+date(r.end_date):date(r.start_date),String(r.request_type||'').replace(/_/g,' ')].filter(Boolean).join(' · '),href})),'No vacation requests awaiting approval.'),[['Review requests',href]]);
+      }),
+      load(['certificate-expiry'],async()=>{
+        const today=torontoToday(),href='admin.html?tab=certificates';
+        let all=[];
+        for(let offset=0;;offset+=500){
+          const result=await rows(supabaseClient.from('certificates').select('id,worker_name,certificate_name,expiry_date').not('expiry_date','is',null).lte('expiry_date',addDays(today,30)).order('expiry_date',{ascending:true}).order('id').range(offset,offset+499));
+          all.push(...result.data);if(result.data.length<500)break;
+        }
+        if(generation!==loadId)return;
+        const items=all.map(c=>({...c,days:daysBetween(today,c.expiry_date)})).filter(c=>Number.isFinite(c.days)&&c.days<=30);
+        const expiring=items.filter(c=>c.days>=0),expired=items.filter(c=>c.days<0);
+        const entries=expiring.concat(expired).map(c=>({title:[c.worker_name,c.certificate_name].filter(Boolean).join(' \u00b7 '),icon:'file',detail:c.days<0?'Expired '+date(c.expiry_date):'Expires '+date(c.expiry_date)+' \u00b7 '+(c.days===0?'today':c.days+' day'+(c.days===1?'':'s')),badge:c.days<0?'Expired':'',href}));
+        fill('certificate-expiry',metric(expiring.length,'expiring in 30 days',href,expired.length?expired.length+' expired':'')+list(entries,'Nothing expires in the next 30 days.'),[['Open Certificates',href]]);
       }),
       load(['equipment-expiry'],async()=>{
         // Mirrors the Equipment tab's 30-day expiry notices; already-expired items are flagged separately.
