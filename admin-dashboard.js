@@ -132,6 +132,7 @@
       const card=document.createElement('section');card.className='dashboard-widget';card.dataset.widget=id;card.setAttribute('aria-label',title);
       card.innerHTML=`<header class="dashboard-widget-header"><h2><span class="dashboard-icon">${icon(widgetIcons[id])}</span><span>${title}</span></h2><button class="dashboard-widget-options" type="button" aria-label="Customize ${title}" title="Customize widget">⋮</button></header><div class="dashboard-edit-tools" hidden><button type="button" class="dashboard-move" aria-label="Move ${title}" title="Focus here and use arrow keys to move">⠿ Move with keys</button><button type="button" data-move="-1" aria-label="Move ${title} earlier">↑</button><button type="button" data-move="1" aria-label="Move ${title} later">↓</button><label>Width<select data-size="width" aria-label="${title} width">${widths.map((n,i)=>`<option value="${n}">${({2:'Small',4:'Third',6:'Half',8:'Wide',12:'Full'})[n]||n+' columns'}</option>`).join('')}</select></label><label>Height<select data-size="height" aria-label="${title} height">${heights.filter(n=>n>=minimumHeight(id)).map(n=>`<option value="${n}">${({44:'Slim',144:'Compact',280:'Short',313:'Half of tall',408:'Standard',456:'Medium',640:'Tall'})[n]}</option>`).join('')}</select></label><button type="button" data-half aria-label="Halve ${title} height">Half height</button><button type="button" data-hide aria-label="Hide ${title}">Hide</button></div><div class="dashboard-widget-body"><p>Loading…</p></div><footer class="dashboard-widget-footer" hidden></footer><button type="button" class="dashboard-resize" hidden aria-label="Resize ${title}" title="Drag to resize; arrow keys adjust width and height">↘</button>`;
       cards.set(id,card);grid.append(card);const tools=card.querySelector('.dashboard-edit-tools');tools.dataset.widgetControls=id;toolbars.set(id,tools);panel.append(tools);
+      if(id==='certificate-expiry')card.addEventListener('click',event=>{const link=event.target.closest('a[href="#certificate-expiry"]');if(link){event.preventDefault();openCertificateExpiry(link);}});
       card.querySelector('.dashboard-widget-options').onclick=()=>{if(!ready)return;selectWidget(id);toolbars.get(id).querySelector('.dashboard-move').focus();};
       tools.querySelectorAll('[data-move]').forEach(b=>b.onclick=()=>move(id,Number(b.dataset.move)));
       tools.querySelector('[data-hide]').onclick=()=>{layout.widgets.find(w=>w.id===id).visible=false;changed();$('jgcAppearanceSettingsButton').focus();};
@@ -217,6 +218,28 @@
     return {payDate,weekStarts:[addDays(payDate,-18),addDays(payDate,-11)],end:addDays(payDate,-5)};
   }
   async function rows(query){const result=await query;if(result.error)throw result.error;return result;}
+  let certificateExpiry={loading:true,items:[],error:false},certificateDialog,certificateTrigger;
+  function renderCertificateExpiryDialog(){
+    if(!certificateDialog)return;
+    const content=certificateDialog.querySelector('[data-certificate-details]');
+    if(certificateExpiry.loading){content.innerHTML='<p role="status">Loading certificates...</p>';return;}
+    if(certificateExpiry.error){content.innerHTML='<p role="alert">Could not load certificates. Close this window and use Refresh to try again.</p>';return;}
+    const expiring=certificateExpiry.items.filter(c=>c.days>=0),expired=certificateExpiry.items.filter(c=>c.days<0);
+    const group=(title,items)=>`<section><h3>${title} (${items.length})</h3>${items.length?'<ul class="dashboard-certificate-list">'+items.map(c=>`<li><strong>${esc(c.worker_name||'Employee name not entered')}</strong><span>${esc(c.certificate_name||'Certificate name not entered')}</span><span class="dashboard-certificate-date">${c.days<0?'Expired':'Expires'} <time datetime="${esc(c.expiry_date)}">${esc(new Date(c.expiry_date+'T12:00:00').toLocaleDateString('en-CA',{year:'numeric',month:'short',day:'numeric'}))}</time></span></li>`).join('')+'</ul>':'<p>No certificates expire in the next 30 days.</p>'}</section>`;
+    content.innerHTML=group('Expiring within 30 days',expiring)+(expired.length?group('Already expired',expired):'');
+  }
+  function updateCertificateExpiry(value){certificateExpiry=value;if(certificateDialog?.open)renderCertificateExpiryDialog();}
+  function openCertificateExpiry(trigger){
+    certificateTrigger=trigger;
+    if(!certificateDialog){
+      certificateDialog=document.createElement('dialog');certificateDialog.className='dashboard-tm-dialog dashboard-certificate-dialog';certificateDialog.setAttribute('aria-labelledby','dashboardCertificateTitle');
+      certificateDialog.innerHTML='<header><h2 id="dashboardCertificateTitle">Expiring Certificates</h2><button type="button" autofocus>Close</button></header><div data-certificate-details></div><footer><a href="admin.html?tab=certificates">Open Certificates</a></footer>';
+      certificateDialog.querySelector('button').onclick=()=>certificateDialog.close();
+      certificateDialog.addEventListener('close',()=>{const target=certificateTrigger?.isConnected?certificateTrigger:cards.get('certificate-expiry').querySelector('a[href="#certificate-expiry"]');target?.focus({preventScroll:true});});
+      document.body.append(certificateDialog);
+    }
+    renderCertificateExpiryDialog();if(!certificateDialog.open)certificateDialog.showModal();
+  }
   let workspacePromise;
   function workspace(){return workspacePromise ||= rows(supabaseClient.from('estimator_workspaces').select('payload').eq('id','main').maybeSingle()).then(r=>r.data?.payload||{});}
   async function loadWidgets(){
@@ -265,7 +288,9 @@
         fill('vacation',metric(result.data.length,'awaiting approval',href)+list(result.data.map(r=>({title:r.worker_display_name||r.worker_name||'Employee',icon:'plane',detail:[r.start_date&&r.end_date&&r.end_date!==r.start_date?date(r.start_date)+' – '+date(r.end_date):date(r.start_date),String(r.request_type||'').replace(/_/g,' ')].filter(Boolean).join(' · '),href})),'No vacation requests awaiting approval.'),[['Review requests',href]]);
       }),
       load(['certificate-expiry'],async()=>{
+        updateCertificateExpiry({loading:true,items:[],error:false});
         const today=torontoToday(),href='admin.html?tab=certificates';
+        try {
         let all=[];
         for(let offset=0;;offset+=500){
           const result=await rows(supabaseClient.from('certificates').select('id,worker_name,certificate_name,expiry_date').not('expiry_date','is',null).lte('expiry_date',addDays(today,30)).order('expiry_date',{ascending:true}).order('id').range(offset,offset+499));
@@ -275,7 +300,10 @@
         const items=all.map(c=>({...c,days:daysBetween(today,c.expiry_date)})).filter(c=>Number.isFinite(c.days)&&c.days<=30);
         const expiring=items.filter(c=>c.days>=0),expired=items.filter(c=>c.days<0);
         const entries=expiring.concat(expired).map(c=>({title:[c.worker_name,c.certificate_name].filter(Boolean).join(' \u00b7 '),icon:'file',detail:c.days<0?'Expired '+date(c.expiry_date):'Expires '+date(c.expiry_date)+' \u00b7 '+(c.days===0?'today':c.days+' day'+(c.days===1?'':'s')),badge:c.days<0?'Expired':'',href}));
-        fill('certificate-expiry',metric(expiring.length,'expiring in 30 days',href,expired.length?expired.length+' expired':'')+list(entries,'Nothing expires in the next 30 days.'),[['Open Certificates',href]]);
+        updateCertificateExpiry({loading:false,items,error:false});
+        fill('certificate-expiry',metric(expiring.length,'expiring in 30 days','#certificate-expiry',expired.length?expired.length+' expired':'')+list(entries,'Nothing expires in the next 30 days.'),[['View expiring certificates','#certificate-expiry'],['Open Certificates',href]]);
+        cards.get('certificate-expiry').querySelectorAll('a[href="#certificate-expiry"]').forEach(link=>link.setAttribute('aria-haspopup','dialog'));
+        } catch(error){if(generation===loadId)updateCertificateExpiry({loading:false,items:[],error:true});throw error;}
       }),
       load(['equipment-expiry'],async()=>{
         // Mirrors the Equipment tab's 30-day expiry notices; already-expired items are flagged separately.
