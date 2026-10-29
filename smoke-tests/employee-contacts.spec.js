@@ -115,3 +115,16 @@ test('signup requires name phone email and stores Contacts opt-in for approval',
  await expect.poll(()=>state.signup).not.toBeNull();expect(state.signup.data.phone).toBe('6135550808 ext220');expect(state.signup.data.add_to_contacts).toBe(true);expect(state.signup.data.display_name).toBe('New Employee');
  expect(state.signup.data).not.toHaveProperty('role');
 });
+
+
+test('contact phone numbers format while typing and retain extensions and international numbers',async({page})=>{
+ const state=await fixture(page);await page.goto('/admin.html?tab=contacts');await page.locator('#contactsList tr').filter({hasText:'Synthetic Employee'}).getByRole('button',{name:'Edit',exact:true}).click();const phone=page.locator('#contactPhone');await expect(phone).toHaveValue('6135550002');await phone.fill('');await phone.pressSequentially('6135551234');await expect(phone).toHaveValue('613-555-1234');
+ await phone.evaluate(el=>el.setSelectionRange(4,4));await phone.press('Backspace');expect((await phone.inputValue()).replace(/\D/g,'')).toBe('615551234');
+ await phone.fill('6135551234');await phone.evaluate(el=>el.setSelectionRange(3,3));await phone.press('Delete');expect((await phone.inputValue()).replace(/\D/g,'')).toBe('613551234');
+ await phone.fill('16135551234 ext. 22');await expect(phone).toHaveValue('1-613-555-1234 ext. 22');await phone.fill('+44 20 7946 0958');await expect(phone).toHaveValue('+44 20 7946 0958');await phone.fill('911');await expect(phone).toHaveValue('911');await phone.fill('6135559876');await page.locator('#contactSaveButton').click();await expect.poll(()=>state.calls.find(c=>c.name==='update_contact')?.args.phone).toBe('613-555-9876');
+});
+
+
+test('contact saving remains available if the optional phone formatter cannot load',async({page})=>{
+ const state=await fixture(page),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.route('**/phone-number-format.js*',r=>r.abort());await page.goto('/admin.html?tab=contacts');await page.locator('#contactsList tr').filter({hasText:'Synthetic Employee'}).getByRole('button',{name:'Edit',exact:true}).click();await page.locator('#contactPhone').fill('6135559876');await page.locator('#contactSaveButton').click();await expect.poll(()=>state.calls.find(c=>c.name==='update_contact')?.args.phone).toBe('6135559876');expect(errors).toEqual([]);
+});

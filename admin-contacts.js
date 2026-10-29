@@ -105,7 +105,8 @@ async function loadContacts() {
 async function saveContact() {
     const name = document.getElementById("contactName").value.trim();
     const role = document.getElementById("contactRole").value.trim();
-    const phone = document.getElementById("contactPhone").value.trim();
+    const rawPhone = document.getElementById("contactPhone").value.trim();
+    const phone = window.JgcPhoneNumbers ? JgcPhoneNumbers.format(rawPhone, { final: true }) : rawPhone;
     const email = document.getElementById("contactEmail").value.trim();
     const notes = document.getElementById("contactNotes").value.trim();
     const sortOrder = Number(document.getElementById("contactOrder").value || 0);
@@ -723,3 +724,6 @@ async function deleteSubcontractorSupplierContact(id) {
     renderSubcontractorSuppliers();
     setSubcontractorSupplierContactStatus("Contact deleted.");
 }
+
+// Applies to dynamically opened contact and employee phone fields as well.
+if (window.JgcPhoneNumbers) JgcPhoneNumbers.bind(document);
