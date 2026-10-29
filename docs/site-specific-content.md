@@ -71,3 +71,34 @@ legend prompts appear only once information is entered. Completed answers such
 as No, Not applicable, Not required and 0 remain visible. Existing standard
 procedure text remains content until it is cleared. Saved data is not changed by
 export, and contents numbering reflects only the sections that actually appear.
+
+
+## Optional traffic and spill plans (release 1032)
+
+New page type and Procedure template both offer Traffic control plan, Spill
+prevention plan, and Spill cleanup and response plan. These are optional editable
+copies, stored as existing procedure pages with layout keys; opening a saved plan
+does not insert or modify anything. Each appears in the automatic contents when
+included and populated. Existing maps/photos, formatting, page library, inclusion
+and PDF pagination work for the new pages. Unfilled form prompts stay in the editor
+and are omitted from PDF output; no checklist answer or signature is inferred.
+
+Private user references: the JGC Traffic Plan Revision 0 and Spill Plans
+Revision 1, supplied 2026-10-29. The source originals are not committed. Traffic includes access/pedestrians, deliveries/equipment,
+hazards/protection, responsibilities/emergencies and daily implementation checks.
+Spill prevention includes equipment/fluids, drainage, refuelling, capacity and kit
+registers, readiness and daily checks. Response includes notifications, cleanup,
+waste and reinstatement, incident/timeline logs and closeout. Neither source DOCX
+contains an embedded site map; administrators attach the current site's marked
+layout through the existing private Section maps and photos workflow.
+
+The supplied off-site-refuelling rule, 110% sizing criterion and immediate-verbal /
+24-hour client reporting requirement remain visible editable project requirements,
+not claims of universal legal thresholds. Equipment volumes, capacity calculations,
+contacts, drainage, access and approvals remain blank until verified for the job.
+No source job number/address, CBSA route colours, site-specific contact or approval
+is copied. The existing plan supplies the current job identity and revision.
+
+Reference checks on 2026-10-29: Ontario Spills Action Centre telephone and reporting
+guidance https://www.ontario.ca/page/report-pollution-and-spills ; construction traffic
+and equipment signaller scope https://www.ontario.ca/page/achieve-compliance-construction-sites-general-requirements-and-personal-protective-equipment .

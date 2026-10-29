@@ -310,3 +310,71 @@ test('mobile floating formatting stays above a reduced visual viewport keyboard'
  await setup(page,{width:390});await showPage(page,'scope');const field=page.getByRole('textbox',{name:'Scope of work',exact:true}),box=page.getByRole('group',{name:'Site plan text formatting',exact:true});await field.fill('Keyboard selection');await field.click();await field.press('ControlOrMeta+A');await field.evaluate(el=>el.scrollIntoView({block:'center'}));
  await page.evaluate(()=>{const v=window.visualViewport;Object.defineProperty(v,'height',{configurable:true,value:380});Object.defineProperty(v,'offsetTop',{configurable:true,value:300});v.dispatchEvent(new Event('resize'));});await expect(box).toBeVisible();await expect.poll(async()=>{const r=await box.boundingBox();return !!r&&r.y>=300&&r.y+r.height<=680;}).toBe(true);await expandFormatting(page);await expect.poll(async()=>{const r=await box.boundingBox();return !!r&&r.y>=300&&r.y+r.height<=680;}).toBe(true);await page.getByRole('button',{name:'Underline',exact:true}).click();await expect(field.locator('span').first()).toHaveCSS('text-decoration-line','underline');await page.screenshot({path:info.outputPath('mobile-keyboard.png')});
 });
+
+test('traffic and spill templates are optional independent copies with blank site records',()=>{
+ const choices=load('site-specific-plan-templates').sitePlanTemplateChoices;
+ const plan=model.createSitePlan(fixture().jobs[0],'QA Author'),before=structuredClone(plan);
+ expect(plan.pages.some(p=>choices.some(c=>c.id===p.layoutKey))).toBe(false);
+ for(const {id} of choices){
+  const a=model.createTaskPage(id),b=model.createStandardProcedure(id);
+  expect(a.kind).toBe('procedure');expect(a.layoutKey).toBe(id);expect(a.id).not.toBe(b.id);
+  expect(a.blocks.length).toBeGreaterThan(5);expect(a.illustrations).toEqual([]);
+  expect(JSON.stringify(a)).not.toMatch(/GOC6812588|Brookdale|CBSA|BGIS|green-marked|red access alignment/);
+  for(const block of a.blocks.filter(b=>b.type==='questions'))expect(block.rows.every(r=>r.value===''&&r.notes==='')).toBe(true);
+  a.blocks[0].rows[0].cells.entry='QA entered site detail';expect(JSON.stringify(b)).not.toContain('QA entered site detail');
+ }
+ expect(plan).toEqual(before);
+ const pages=choices.map(c=>model.createTaskPage(c.id)),filtered=load('site-specific-pdf-content').siteSpecificPdfPages({...plan,pages});
+ expect(filtered[0].blocks.some(b=>b.id==='traffic-site'||b.id==='traffic-contacts'||b.id==='traffic-checks')).toBe(false);
+ expect(filtered[1].blocks.some(b=>b.id==='spill-inventory'||b.id==='spill-capacity'||b.id==='spill-kits')).toBe(false);
+ expect(filtered[2].blocks.some(b=>b.id==='spill-incident'||b.id==='spill-call-log'||b.id==='spill-closeout')).toBe(false);
+ expect(JSON.stringify(filtered)).toContain('Off-site refuelling only');
+ pages[0].blocks.find(b=>b.id==='traffic-checks').rows[0].value='No';
+ expect(JSON.stringify(load('site-specific-pdf-content').siteSpecificPdfPages({...plan,pages}))).toContain('"value":"No"');
+});
+
+for(const width of [390,1440])test(`traffic and spill plan selectors save editable records and reuse safely ${width}`,async({page},info)=>{
+ test.setTimeout(90000);const store=await setup(page,{width});await options(page);
+ await page.getByRole('combobox',{name:'New page type',exact:true}).selectOption('traffic-control');await page.getByRole('button',{name:'Add page',exact:true}).click();
+ await expect(page.getByLabel('Page title',{exact:true})).toHaveText('Traffic control plan');
+ const entry=page.getByRole('textbox',{name:'Site access and layout row 2 Site information',exact:true});await entry.fill('QA approved east entrance');
+ const check=page.getByRole('combobox',{name:'Access, security and delivery arrangements confirmed',exact:true});await check.selectOption('No');
+ await page.getByRole('textbox',{name:'Access, security and delivery arrangements confirmed notes',exact:true}).fill('Awaiting QA confirmation');
+ await page.getByRole('button',{name:'Save page to library',exact:true}).click();await expect.poll(()=>store.getState().safetyLibrary?.length).toBe(1);
+ await options(page);await page.getByRole('combobox',{name:'Procedure template',exact:true}).selectOption('spill-prevention');await page.getByRole('button',{name:'Add procedure',exact:true}).click();
+ await expect(page.getByLabel('Page title',{exact:true})).toHaveText('Spill prevention plan');
+ await page.getByRole('textbox',{name:'Spill capacity worksheet row 2 Site information',exact:true}).fill('QA verified example 400 L');
+ await page.getByRole('textbox',{name:'Spill kit register row 1 Exact location',exact:true}).fill('QA east staging area');
+ await page.getByText('+ Map or photo',{exact:true}).click();await expect(page.getByLabel('Section map or photo',{exact:true})).toBeVisible();
+ await options(page);await page.getByRole('combobox',{name:'New page type',exact:true}).selectOption('spill-response');await page.getByRole('button',{name:'Add page',exact:true}).click();
+ await page.getByRole('textbox',{name:'Notification log row 1 Recipient / role',exact:true}).fill('QA site representative');
+ await page.getByRole('checkbox',{name:'Include this page',exact:true}).uncheck();await saved(page);
+ const pages=store.getState().jobs[0].siteSpecific.pages,traffic=pages.find(p=>p.layoutKey==='traffic-control'),response=pages.find(p=>p.layoutKey==='spill-response');
+ expect(response.included).toBe(false);expect(store.getState().safetyLibrary[0].blocks[0].rows[1].cells.entry).toBe('QA approved east entrance');
+ await page.reload();await page.getByRole('tab',{name:'Safety',exact:true}).click();await page.getByRole('tab',{name:'Create Site Specific',exact:true}).click();
+ await showPage(page,traffic.id);await expect(entry).toHaveText('QA approved east entrance');await expect(check).toHaveValue('No');
+ await entry.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath(`traffic-${width}.png`)});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ await options(page);await page.getByRole('combobox',{name:'Procedure template',exact:true}).selectOption('traffic-control');await page.getByRole('button',{name:'Add procedure',exact:true}).click();
+ await expect(entry).toHaveText('');expect(store.getState().safetyLibrary[0].blocks[0].rows[1].cells.entry).toBe('QA approved east entrance');
+});
+
+test('traffic and spill PDF keeps procedures, entered records, contents and maps while omitting empty forms',async({page},info)=>{
+ test.setTimeout(60000);const {buildSiteSpecificPdf}=load('site-specific-pdf'),plan=model.createSitePlan(fixture().jobs[0],'QA Author');
+ plan.pages=['traffic-control','spill-prevention','spill-response'].map(id=>model.createTaskPage(id));
+ const traffic=plan.pages[0],prevention=plan.pages[1],response=plan.pages[2];
+ traffic.blocks.find(b=>b.id==='traffic-site').rows[1].cells.entry='QA verified entrance';
+ traffic.blocks.find(b=>b.id==='traffic-checks').rows[0].value='No';
+ prevention.blocks.find(b=>b.id==='spill-inventory').rows[0].cells={unit:'QA HYDRO UNIT',product:'QA hydraulic fluid',volume:'400',release:'400 L - independent system',control:'QA verified manufacturer data'};
+ response.blocks.find(b=>b.id==='spill-call-log').rows[0].cells={recipient:'QA representative',time:'QA logged call',record:'QA reference 123'};
+ const image=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=800;canvas.height=400;const c=canvas.getContext('2d');c.fillStyle='#e7f0e9';c.fillRect(0,0,800,400);c.fillStyle='#145b3d';c.font='28px Arial';c.fillText('QA TRAFFIC LAYOUT',60,150);return canvas.toDataURL('image/png').split(',')[1];});
+ traffic.illustrations=[{id:'qa-layout',kind:'board',title:'Traffic layout',fileName:'qa-layout.png',fileType:'image/png',included:true,caption:'QA confirmed routes and exclusion zones'}];
+ const before=structuredClone(plan),logoBytes=new Uint8Array(fs.readFileSync(path.resolve(__dirname,'../estimating/jgc-logo-transparent.png')));
+ let reads=0;const result=await buildSiteSpecificPdf({plan,logoBytes,readAttachment:async()=>{reads++;return new Blob([Buffer.from(image,'base64')],{type:'image/png'});}});
+ const file=info.outputPath('traffic-and-spill.pdf');fs.writeFileSync(file,Buffer.from(await result.blob.arrayBuffer()));const parsed=await texts(file);
+ expect(reads).toBe(1);expect(plan).toEqual(before);expect(parsed.values[1]).toContain('PLAN CONTENTS');
+ for(const text of ['Traffic control plan','Spill prevention plan','Spill cleanup and response plan','QA verified entrance','QA HYDRO UNIT','QA reference 123','QA confirmed routes and exclusion zones','Off-site refuelling only','110%'])expect(parsed.text).toContain(text);
+ expect(parsed.text).not.toMatch(/GOC6812588|Brookdale|TO CONFIRM|Spill incident report|Spill capacity worksheet/);
+ expect(parsed.values.at(-1)).toContain('Page '+parsed.pages+' of '+parsed.pages);
+ const {PDFDocument}=require('../estimating-app/node_modules/pdf-lib'),pdf=await PDFDocument.load(fs.readFileSync(file));expect(pdf.getPages().every(p=>p.getWidth()===612&&p.getHeight()===792)).toBe(true);
+});

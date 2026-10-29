@@ -1,3 +1,4 @@
+import { sitePlanTemplateChoices, type SitePlanTemplateId } from './site-specific-plan-templates';
 import {safetyTextPlain} from './site-specific-rich-text';
 import type { Job } from './estimator-data';
 import { standardSafetyPages, standardProcedure } from './site-specific-content';
@@ -9,6 +10,7 @@ export type SafetyChecklist = { type:'checklist'; id:string; title:string; rows:
 export type SafetySteps = { type:'steps'; id:string; title:string; rows:{id:string;title:string;body:string}[] };
 export type SafetyBlock = SafetyTable | SafetyQuestions | SafetyChecklist | SafetySteps;
 export type SafetyPage = { id: string; kind: 'section'|'task'|'procedure'|'risk'|'custom'; title: string; included: boolean; fields: SafetyField[]; layoutKey?:string; blocks?:SafetyBlock[]; illustrations?:SafetyIllustration[] };
+export type SafetyNewPageType = SafetyPage['kind'] | SitePlanTemplateId;
 export type SafetyLibraryPage = SafetyPage & { savedAt: string; savedBy: string; jobNumber: string };
 export type SafetyAttachment = { id: string; kind: 'certificate'|'board'; title: string; included: boolean; fileName: string; fileType?: string; filePath?: string; boardId?: string; documentId?: string; category?: string; expiryDate?: string };
 export type SafetyIllustration = SafetyAttachment & { caption?:string };
@@ -52,10 +54,11 @@ export function addStandardSafetyContent(plan:SiteSpecificPlan) {
  return {plan:{...plan,pages},fieldsAdded,pagesAdded};
 }
 export function createStandardProcedure(id:string):SafetyPage {const page=standardProcedure(id);if(!page)throw new Error('Choose a standard procedure.');return {...page,id:safetyId()};}
-export function createTaskPage(kind:SafetyPage['kind']):SafetyPage {
+export function createTaskPage(kind:SafetyNewPageType):SafetyPage {
+ if(sitePlanTemplateChoices.some(p=>p.id===kind))return createStandardProcedure(kind);
  const id=safetyId(),fields=['Task / activity','Work steps or procedure','Hazards and risks','Controls and safe work measures','PPE, equipment and training','Person responsible / review'].map((label,index)=>({id:`field-${index}`,label,value:'',multiline:true}));
  const blocks:SafetyBlock[]=kind==='procedure'?[{type:'steps',id:'procedure-steps',title:'Procedure steps',rows:[{id:safetyId(),title:'',body:''}]}]:kind==='task'||kind==='risk'?[{type:'table',id:'task-analysis',title:kind==='risk'?'Risk assessment':'Task hazard analysis',columns:[{id:'task',label:'Task / work step',weight:1.3},{id:'hazards',label:'Potential hazards',weight:1.5},{id:'controls',label:'Required action / procedure',weight:2.5},{id:'responsible',label:'Responsible person',weight:1.2}],rows:[{id:safetyId(),cells:{task:'',hazards:'',controls:'',responsible:''}}]}]:[];
- return {id,kind,title:kind==='task'?'New task':kind==='procedure'?'New procedure':kind==='risk'?'New risk assessment':'Additional page',included:true,fields,blocks};
+ return {id,kind:kind as SafetyPage['kind'],title:kind==='task'?'New task':kind==='procedure'?'New procedure':kind==='risk'?'New risk assessment':'Additional page',included:true,fields,blocks};
 }
 export function sitePlanErrors(plan:SiteSpecificPlan) { const errors:string[]=[]; for(const [key,label] of [['project','Project'],['jobNumber','Job number'],['address','Site address'],['preparedBy','Prepared by'],['planDate','Plan date'],['revision','Revision']] as const) if(!safetyTextPlain(plan[key]).trim()) errors.push(label); if(!/^\d{4}-\d{2}-\d{2}$/.test(plan.planDate)||Number.isNaN(Date.parse(plan.planDate+'T12:00:00Z'))||new Date(plan.planDate+'T12:00:00Z').toISOString().slice(0,10)!==plan.planDate)errors.push('Valid plan date'); if(!plan.pages.some(p=>p.included))errors.push('At least one plan page'); if(plan.pages.some(p=>p.included&&!safetyTextPlain(p.title).trim()))errors.push('Page titles'); return [...new Set(errors)]; }
 export function sitePlanFileName(plan:SiteSpecificPlan) {return `JGC-Site-Specific-${plan.jobNumber}-Rev-${plan.revision}.pdf`.replace(/[<>:"/\\|?*\x00-\x1f]/g,'-');}
