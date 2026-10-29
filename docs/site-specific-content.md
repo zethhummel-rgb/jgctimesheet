@@ -113,3 +113,15 @@ cached PDF. Contents and subsequent exports follow the remaining pages. Original
 standard sections keep their Include this page control. Saved library versions,
 uploaded source files and previously published PDFs are retained. A plan with no
 remaining sections returns to its cover and can accept new pages.
+
+
+## Supporting appendix order (release 1034)
+
+The editor contents and combined PDF share one grouping rule: selected JSAs first
+under JSA, all selected Portal certificates next under Certificates, then other
+supporting documents in their existing relative order. Each group gets one
+appendix number and contents entry; each complete source page is retained and its
+footer identifies the appendix. Numbering closes gaps when JSA or certificates
+are absent. Individual certificate names are not listed in the plan contents.
+Inline section images and the hospital map stay inside their sections. Grouping
+does not rename originals, alter selections, or change saved attachment metadata.

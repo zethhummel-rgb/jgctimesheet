@@ -1,6 +1,6 @@
 import { sitePlanTemplateChoices, sitePlanTemplate } from './site-specific-plan-templates';
 import {safetyTextPlain} from './site-specific-rich-text';
-import type { SafetyBlock, SafetyPage, SiteSpecificPlan } from './site-specific';
+import type { SafetyAttachment, SafetyBlock, SafetyPage, SiteSpecificPlan } from './site-specific';
 import { structuredSafetyPages } from './site-specific-structure';
 
 const filled = (value: string) => Boolean(safetyTextPlain(value).trim());
@@ -58,4 +58,20 @@ export function siteSpecificPdfPages(plan: SiteSpecificPlan): SafetyPage[] {
     illustrations: (page.illustrations || []).filter(item => item.included),
   })).filter(page => page.fields.length || page.blocks.length || page.illustrations.length ||
     (page.id === 'emergency' && plan.hospitalMap?.included));
+}
+
+
+export type SafetyAppendix = {number:number;title:string;items:SafetyAttachment[]};
+// One shared, output-only order for the editor contents and the combined PDF.
+// JSA and certificate groups keep complete originals; other attachments follow.
+export function siteSpecificAppendices(plan:SiteSpecificPlan,pages=siteSpecificPdfPages(plan)):SafetyAppendix[] {
+ const inlineIds=new Set(pages.flatMap(page=>(page.illustrations||[]).map(item=>item.id)));
+ if(plan.hospitalMap?.included&&pages.some(page=>page.id==='emergency'))inlineIds.add(plan.hospitalMap.id);
+ const selected=[...new Map(plan.attachments.filter(item=>item.included&&!inlineIds.has(item.id)).map(item=>[item.id,item])).values()];
+ const jsas=selected.filter(item=>item.kind!=='certificate'&&item.category==='jsa'),certificates=selected.filter(item=>item.kind==='certificate');
+ const groups:{title:string;items:SafetyAttachment[]}[]=[];
+ if(jsas.length)groups.push({title:'JSA',items:jsas});
+ if(certificates.length)groups.push({title:'Certificates',items:certificates});
+ groups.push(...selected.filter(item=>item.kind!=='certificate'&&item.category!=='jsa').map(item=>({title:item.title,items:[item]})));
+ return groups.map((group,index)=>({...group,number:index+1}));
 }

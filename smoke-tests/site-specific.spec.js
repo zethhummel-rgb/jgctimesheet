@@ -414,3 +414,40 @@ test('last added page can be deleted and a fresh page can be added afterwards',a
  const store=await setup(page,{width:390,seed});await showPage(page,added.id);page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Delete page',exact:true}).click();await saved(page);await expect(page.locator('.ss-paper')).toHaveAttribute('data-page-id','cover');expect(store.getState().jobs[0].siteSpecific.pages).toEqual([]);
  await page.reload();await page.getByRole('tab',{name:'Safety',exact:true}).click();await page.getByRole('tab',{name:'Create Site Specific',exact:true}).click();await options(page);await page.getByRole('combobox',{name:'New page type',exact:true}).selectOption('custom');await page.getByRole('button',{name:'Add page',exact:true}).click();await expect(page.getByLabel('Page title',{exact:true})).toHaveText('Additional page');await saved(page);expect(store.getState().jobs[0].siteSpecific.pages).toHaveLength(1);
 });
+
+function appendixFixture(){
+ const seed=fixture(),plan=model.createSitePlan(seed.jobs[0],'QA Author');
+ plan.pages=[{id:'scope',kind:'section',title:'QA scope',included:true,fields:[{id:'scope-text',label:'Work',value:'QA scope content'}]}];plan.updatedAt='2026-10-29T12:00:00Z';
+ const doc=(id,title,kind='board',category='other')=>({id,title,kind,category,included:true,fileName:id+'.pdf'});
+ plan.attachments=[doc('policy','JGC policy','board','jgc-policy'),doc('cert-a','Worker A - Training','certificate'),doc('jsa-a','Daily JSA A','board','jsa'),doc('cert-b','Worker B - Training','certificate'),doc('jsa-b','Daily JSA B','board','jsa')];seed.jobs[0].siteSpecific=plan;return seed;
+}
+
+test('appendix groups put JSAs first and all certificates second without changing source metadata',()=>{
+ const plan=appendixFixture().jobs[0].siteSpecific,before=structuredClone(plan),group=load('site-specific-pdf-content').siteSpecificAppendices;
+ expect(group(plan).map(a=>({number:a.number,title:a.title,ids:a.items.map(i=>i.id)}))).toEqual([{number:1,title:'JSA',ids:['jsa-a','jsa-b']},{number:2,title:'Certificates',ids:['cert-a','cert-b']},{number:3,title:'JGC policy',ids:['policy']}]);expect(plan).toEqual(before);
+ for(const a of plan.attachments.filter(a=>a.category==='jsa'))a.included=false;
+ expect(group(plan).map(a=>[a.number,a.title])).toEqual([[1,'Certificates'],[2,'JGC policy']]);
+ for(const a of plan.attachments.filter(a=>a.kind==='certificate'))a.included=false;
+ expect(group(plan).map(a=>[a.number,a.title])).toEqual([[1,'JGC policy']]);
+ plan.pages[0].illustrations=[{...plan.attachments[0],fileName:'inline.png'}];expect(group(plan)).toEqual([]);
+});
+
+for(const width of [390,1440])test(`appendix contents group certificates and close numbering gaps ${width}`,async({page},info)=>{
+ const store=await setup(page,{width,seed:appendixFixture()});await showPage(page,'contents');const links=page.locator('.ss-contents button');
+ await expect(links).toHaveText(['1.QA scope','Appendix 1:JSA','Appendix 2:Certificates','Appendix 3:JGC policy']);
+ await expect(page.locator('.ss-contents')).not.toContainText('Worker A');await expect(page.locator('.ss-contents')).not.toContainText('Worker B');
+ await page.screenshot({path:info.outputPath(`appendices-${width}.png`)});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ await page.getByRole('button',{name:/Appendix 1:\s*JSA/}).click();await expect(page.locator('.ss-paper')).toHaveAttribute('data-page-id','attachments');
+ await page.getByRole('checkbox',{name:/Daily JSA A/}).uncheck();await page.getByRole('checkbox',{name:/Daily JSA B/}).uncheck();await saved(page);await showPage(page,'contents');await expect(links).toHaveText(['1.QA scope','Appendix 1:Certificates','Appendix 2:JGC policy']);
+ expect(store.getState().jobs[0].siteSpecific.attachments.filter(a=>a.kind==='certificate').every(a=>a.included)).toBe(true);
+});
+
+test('appendix PDF groups complete originals and labels every attachment page',async({page},info)=>{
+ const plan=appendixFixture().jobs[0].siteSpecific,before=structuredClone(plan),{PDFDocument,StandardFonts,degrees}=require('../estimating-app/node_modules/pdf-lib'),sources=new Map();
+ for(const item of plan.attachments){const doc=await PDFDocument.create(),font=await doc.embedFont(StandardFonts.Helvetica);for(let n=1;n<=2;n++){const p=doc.addPage([612,792]);if(item.id==='cert-a'&&n===2){p.setRotation(degrees(90));p.setCropBox(20,30,500,600);}p.drawText(item.id+' ORIGINAL PAGE '+n,{x:55,y:400,font,size:14});}sources.set(item.id,new Blob([await doc.save()],{type:'application/pdf'}));}
+ const reads=[],built=await load('site-specific-pdf').buildSiteSpecificPdf({plan,logoBytes:new Uint8Array(fs.readFileSync(path.resolve(__dirname,'../estimating/jgc-logo-transparent.png'))),readAttachment:async item=>{reads.push(item.id);return sources.get(item.id);}}),file=info.outputPath('grouped-appendices.pdf');fs.writeFileSync(file,Buffer.from(await built.blob.arrayBuffer()));const parsed=await texts(file);
+ expect(reads).toEqual(['jsa-a','jsa-b','cert-a','cert-b','policy']);expect(plan).toEqual(before);expect(parsed.pages).toBe(13);
+ const toc=parsed.values[1];expect(toc).toContain('Appendix 1: JSA');expect(toc).toContain('Appendix 2: Certificates');expect(toc).toContain('Appendix 3: JGC policy');expect(toc).not.toMatch(/Worker A|Worker B|Daily JSA/);
+ for(const [i,id] of reads.entries())for(let n=1;n<=2;n++){const value=parsed.values[3+i*2+n-1];expect(value).toContain(id+' ORIGINAL PAGE '+n);expect(value).toContain(i<2?'Appendix 1: JSA':i<4?'Appendix 2: Certificates':'Appendix 3: JGC policy');}
+ const doc=await PDFDocument.load(fs.readFileSync(file));expect(doc.getPage(8).getSize()).toEqual({width:600,height:528});expect(parsed.values.at(-1)).toContain('Page 13 of 13');
+});
