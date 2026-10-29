@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "1027";
+const JGC_RELEASE_ID = "1028";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -153,7 +153,8 @@ const JGC_APP_SHELL = [
   "./shared-uploads.js?v=3",
   "./offline-sync.js?v=3",
   "./admin-backups.js?v=3",
-  "./admin-contacts.js?v=4",
+  "./admin-contacts.js?v=5",
+  "./phone-number-format.js?v=1",
   "./admin-vacation.js?v=4",
   "./admin-notices.js?v=4",
   "./admin-certificates.js?v=4",
@@ -203,22 +204,22 @@ const JGC_APP_SHELL = [
   "./icon-180.png?v=4",
   "./icon-192.png?v=4",
   "./icon-512.png?v=4",
-  "./estimating/assets/browser-C2TgV7uw.js",
+  "./estimating/assets/browser-x6WPiDzD.js",
   "./estimating/assets/document-worker-Dtm2PRGS.js",
-  "./estimating/assets/drawing-pdf-t5MU_Swq.js",
-  "./estimating/assets/es-DdxoqUiZ.js",
-  "./estimating/assets/index-3VomX11c.js",
+  "./estimating/assets/drawing-pdf-THsiH89k.js",
+  "./estimating/assets/es-C49khOFz.js",
+  "./estimating/assets/index-BAKPhFjr.js",
   "./estimating/assets/index-VooMP9QA.css",
   "./estimating/assets/job-accounting-workbook-nafjXhd6.js",
-  "./estimating/assets/job-schedule-pdf-DJcsJIEL.js",
-  "./estimating/assets/job-warranty-pdf-CuRKfmYQ.js",
+  "./estimating/assets/job-schedule-pdf-DIxkR3A1.js",
+  "./estimating/assets/job-warranty-pdf-BdCaEkRw.js",
   "./estimating/assets/pdf-Bs__3tTL.js",
-  "./estimating/assets/pdf-Cc-Iz6R0.js",
-  "./estimating/assets/proposal-pdf-BZap2SM8.js",
-  "./estimating/assets/purchase-order-pdf-Dncr0poW.js",
-  "./estimating/assets/quote-backup-pdf-DD9QNlDX.js",
-  "./estimating/assets/rfi-pdf-CCOoGkY5.js",
-  "./estimating/assets/src-B8GBWm3f.js"
+  "./estimating/assets/pdf-Bsm179S0.js",
+  "./estimating/assets/proposal-pdf-D-tfrsrR.js",
+  "./estimating/assets/purchase-order-pdf-B6Avmfot.js",
+  "./estimating/assets/quote-backup-pdf-j8aAnW6x.js",
+  "./estimating/assets/rfi-pdf-TkdUziHZ.js",
+  "./estimating/assets/src-CYgJLEad.js"
 ];
 
 function isJgcCacheableResponse(response) {
