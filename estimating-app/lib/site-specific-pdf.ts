@@ -1,4 +1,4 @@
-import {embedSafetyFonts,drawSafetyText} from './site-specific-pdf-rich-text';
+import {embedSafetyFonts,drawSafetyText,safetyLineHeight} from './site-specific-pdf-rich-text';
 import {safetyTextPlain} from './site-specific-rich-text';
 import { PDFDocument, rgb, degrees, type PDFFont, type PDFPage } from 'pdf-lib';
 import { clean, wrap, renderSafetySection } from './site-specific-pdf-layout';
@@ -24,15 +24,15 @@ export async function buildSiteSpecificPdf(options:{plan:SiteSpecificPlan;logoBy
  const illustrations=new Map<string,Awaited<ReturnType<typeof doc.embedPng>>>();
  for(const source of sources.filter(s=>inlineIds.has(s.item.id))){illustrations.set(source.item.id,source.type==='image/png'?await doc.embedPng(source.bytes):await doc.embedJpg(source.bytes));source.bytes=new Uint8Array();}
  const contentsTitles=[...pages.map((p,i)=>`${i+1}. ${p.title}`),...attachments.map((s,i)=>`Appendix ${i+1}: ${s.item.title}`)],tocGroups:{start:number;end:number}[]=[];
- let tocStart=0,tocHeight=0;contentsTitles.forEach((title,index)=>{const height=wrap(title,regular,10,456).length*14+12;if(tocHeight+height>508){tocGroups.push({start:tocStart,end:index});tocStart=index;tocHeight=0;}tocHeight+=height;});if(contentsTitles.length)tocGroups.push({start:tocStart,end:contentsTitles.length});const tocPages=tocGroups.length;
+ let tocStart=0,tocHeight=0;contentsTitles.forEach((title,index)=>{const height=wrap(title,regular,10,456).reduce((n,r)=>n+safetyLineHeight(r,10,14),0)+12;if(tocHeight+height>508){tocGroups.push({start:tocStart,end:index});tocStart=index;tocHeight=0;}tocHeight+=height;});if(contentsTitles.length)tocGroups.push({start:tocStart,end:contentsTitles.length});const tocPages=tocGroups.length;
  const cover=doc.addPage([612,792]),contents=Array.from({length:tocPages},()=>doc.addPage([612,792]));
- const text=(page:PDFPage,value:string,x:number,y:number,size=10,font=regular,color=ink)=>drawSafetyText(page,value,x,y,size,font,color);
+ const text=(page:PDFPage,value:string,x:number,y:number,size=10,font=regular,color=ink)=>drawSafetyText(page,value,x,y,size,font,color,516);
  const rule=(page:PDFPage,y:number,color=line,thickness=.6)=>page.drawLine({start:{x:48,y},end:{x:564,y},color,thickness});
  function header(page:PDFPage){page.drawImage(logo,{x:48,y:725,width:155,height:155*logo.height/logo.width});text(page,'JOHN GORDON CONSTRUCTION',48,710,8,bold,green);text(page,`Job ${plan.jobNumber} · Rev ${plan.revision}`,360,735,9,regular,muted);rule(page,694,green,2);}
  header(cover);text(cover,'SITE SPECIFIC',48,616,25,bold,green);text(cover,'HEALTH AND SAFETY PLAN',48,581,22,bold,green);rule(cover,560,gold,1.5);
- let y=515;for(const row of wrap(plan.project,bold,17,516)){text(cover,row,48,y,17,bold);y-=24;}
+ let y=515;for(const row of wrap(plan.project,bold,17,516)){text(cover,row,48,y,17,bold);y-=safetyLineHeight(row,17,24);}
  const info=[['Job number',plan.jobNumber],['Site address',plan.address],['Client / owner',plan.client],['Prepared by',plan.preparedBy],['Plan date',plan.planDate],['Revision',plan.revision]].filter(([,value])=>value.trim());
- for(const [label,value] of info){y-=24;text(cover,label.toUpperCase(),48,y,8,bold,muted);y-=17;for(const row of wrap(value,regular,11,516)){if(y<80)throw new Error('The cover information is too long. Shorten the project name or address.');text(cover,row,48,y,11);y-=15;}}
+ for(const [label,value] of info){y-=24;text(cover,label.toUpperCase(),48,y,8,bold,muted);y-=17;for(const row of wrap(value,regular,11,516)){if(y<80)throw new Error('The cover information is too long. Shorten the project name or address.');const step=safetyLineHeight(row,11,15);if(y-step<65)throw new Error("The cover information is too long. Shorten the project name or address.");text(cover,row,48,y-Math.max(0,step-15),11);y-=step;}}
  const entries:{title:string;page:number}[]=[];
  for(const [index,section] of pages.entries()){
   entries.push({title:contentsTitles[index],page:doc.getPageCount()+1});
@@ -50,7 +50,7 @@ export async function buildSiteSpecificPdf(options:{plan:SiteSpecificPlan;logoBy
    out.drawPage(page,{...position,width:page.width,height:page.height,rotate:degrees(-rotation)});
   }
  }else{const image=source.type==='image/png'?await doc.embedPng(source.bytes):await doc.embedJpg(source.bytes);const p=doc.addPage([612,792]);header(p);text(p,source.item.title,48,666,11,bold,green);const factor=Math.min(516/image.width,560/image.height);p.drawImage(image,{x:(612-image.width*factor)/2,y:86+(560-image.height*factor)/2,width:image.width*factor,height:image.height*factor});}source.pdf=undefined;source.bytes=new Uint8Array();}
- contents.forEach((p,index)=>{header(p);text(p,'PLAN CONTENTS'+(index?' - continued':''),48,650,19,bold,green);text(p,'Numbered plan sections and complete supporting documents',48,624,9,regular,muted);let y=592;for(const entry of entries.slice(tocGroups[index].start,tocGroups[index].end)){const rows=wrap(entry.title,regular,10,456);text(p,String(entry.page),540,y,10,bold,green);for(const row of rows){text(p,row,48,y,10);y-=14;}rule(p,y+3);y-=12;}});
+ contents.forEach((p,index)=>{header(p);text(p,'PLAN CONTENTS'+(index?' - continued':''),48,650,19,bold,green);text(p,'Numbered plan sections and complete supporting documents',48,624,9,regular,muted);let y=592;for(const entry of entries.slice(tocGroups[index].start,tocGroups[index].end)){const rows=wrap(entry.title,regular,10,456);text(p,String(entry.page),540,y,10,bold,green);for(const row of rows){drawSafetyText(p,row,48,y-Math.max(0,safetyLineHeight(row,10,14)-14),10,regular,ink,456);y-=safetyLineHeight(row,10,14);}rule(p,y+3);y-=12;}});
  const total=doc.getPageCount();for(const [index,p] of doc.getPages().entries()){const width=p.getWidth();const label=`JGC · Job ${plan.jobNumber} · Revision ${plan.revision}`;text(p,label,Math.min(48,width*.06),12,7,regular,muted);const count=`Page ${index+1} of ${total}`;text(p,count,width-regular.widthOfTextAtSize(count,7)-Math.min(48,width*.06),12,7,regular,muted);}
  if(total>DOCUMENT_LIMITS.pdfPages+100)throw new Error('The combined plan exceeds 500 pages. Split it into separate plans.');const bytes=await doc.save();if(bytes.length>DOCUMENT_LIMITS.outputBytes)throw new Error('The combined PDF exceeds 50 MB. Resize images or split the supporting documents.');return {blob:new Blob([bytes as Uint8Array<ArrayBuffer>],{type:'application/pdf'}),pages:total};
 }

@@ -1,42 +1,33 @@
-import {safetyTextPlain} from './site-specific-rich-text';
 import { rgb, type PDFDocument, type PDFFont, type PDFPage, type PDFImage } from 'pdf-lib';
 import type { SafetyPage } from './site-specific';
 
 export const safetyColors={green:rgb(.07,.25,.19),gold:rgb(.68,.53,.18),ink:rgb(.10,.17,.14),muted:rgb(.34,.41,.38),line:rgb(.8,.85,.82),pale:rgb(.94,.96,.95)};
 export { clean, wrap } from './site-specific-pdf-rich-text';
-import {wrap,drawSafetyText} from './site-specific-pdf-rich-text';
+import {wrap,drawSafetyText,safetyLineHeight} from './site-specific-pdf-rich-text';
 
 type Illustration={title:string;caption?:string;image:PDFImage};
 export function renderSafetySection({doc,section,number,regular,bold,header,illustrations}: {doc:PDFDocument;section:SafetyPage;number:number;regular:PDFFont;bold:PDFFont;header:(p:PDFPage)=>void;illustrations:Illustration[]}) {
  const {green,gold,ink,muted,line,pale}=safetyColors,W=516,L=48,B=66;
  let p!:PDFPage,y=0,started=false;
- const text=(value:string,x:number,baseline:number,size=9.5,font=regular,color=ink)=>drawSafetyText(p,value,x,baseline,size,font,color);
- function start(continued=false){p=doc.addPage([612,792]);started=true;header(p);y=666;const title=`${number}. ${section.title}${continued?' - continued':''}`;for(const row of wrap(title,bold,15,W)){text(row,L,y,15,bold,green);y-=20;}p.drawLine({start:{x:L,y:y-2},end:{x:L+W,y:y-2},color:gold,thickness:1});y-=24;}
+ const text=(value:string,x:number,baseline:number,size=9.5,font=regular,color=ink,width=W-20)=>drawSafetyText(p,value,x,baseline,size,font,color,width);
+ function start(continued=false){p=doc.addPage([612,792]);started=true;header(p);y=666;const title=`${number}. ${section.title}${continued?' - continued':''}`;for(const row of wrap(title,bold,15,W)){text(row,L,y-Math.max(0,safetyLineHeight(row,15,20)-20),15,bold,green,W);y-=safetyLineHeight(row,15,20);}p.drawLine({start:{x:L,y:y-2},end:{x:L+W,y:y-2},color:gold,thickness:1});y-=24;}
  function ensure(height:number){if(y-height<B)start(true);}
- function heading(title:string,continued=false,minBody=24){if(!title.trim()){ensure(minBody);return;}const rows=wrap(title+(continued?' - continued':''),bold,10.5,W-20);ensure(rows.length*14+18+minBody);const h=rows.length*14+8;p.drawRectangle({x:L,y:y-h+10,width:W,height:h,color:pale});let baseline=y-3;for(const row of rows){text(row,L+10,baseline,10.5,bold,green);baseline-=14;}y-=h+6;}
- function body(value:string,label=''){if(!value.trim())return;const paragraphs=value.trim().split('\n');for(const [i,paragraph] of paragraphs.entries()){
-  const isList=paragraphs.length>1&&!/\[(?:b|i|u|hy|hg|sm|lg|serif|mono)\]/.test(value)&&paragraph.trim(),numbered=/^(?:\d+[.)]|\u2022)\s/.test(safetyTextPlain(paragraph)),prefix=isList&&!numbered?'• ':'';
-  const rows=wrap(prefix+paragraph.trim(),regular,9.5,W-20);for(const [n,row] of rows.entries()){if(y<B+14){start(true);if(label)heading(label,true);}text(row,L+10+(n&&prefix?8:0),y,9.5);y-=14;}if(i<paragraphs.length-1)y-=5;
- }y-=9;}
- function narrative(label:string,value:string){
-  if(!value.trim())return;
-  const paragraphs=value.trim().split('\n'),height=wrap(label,bold,10.5,W-20).length*14+23+paragraphs.reduce((n,t)=>n+wrap(t,regular,9.5,W-28).length*14+5,0)+10;
-  if(height<500)ensure(height);
-  heading(label);body(value,label);
- }
+ function heading(title:string,continued=false,minBody=24){if(!title.trim()){ensure(minBody);return;}const rows=wrap(title+(continued?' - continued':''),bold,10.5,W-20);const step=Math.max(...rows.map(r=>safetyLineHeight(r,10.5,14)));ensure(rows.length*step+18+minBody);const h=rows.length*step+8;p.drawRectangle({x:L,y:y-h+10,width:W,height:h,color:pale});let baseline=y-3-Math.max(0,step-14);for(const row of rows){text(row,L+10,baseline,10.5,bold,green);baseline-=step;}y-=h+6;}
+ function body(value:string,label=''){if(!value.trim())return;const rows=wrap(value,regular,9.5,W-20);for(const row of rows){const step=safetyLineHeight(row,9.5,14);if(y-step<B){start(true);if(label)heading(label,true);}text(row,L+10,y-Math.max(0,step-14),9.5);y-=step;}y-=9;}
+ function narrative(label:string,value:string){if(!value.trim())return;const rows=wrap(value,regular,9.5,W-20),height=rows.reduce((n,r)=>n+safetyLineHeight(r,9.5,14),0)+50;if(height<500)ensure(height);heading(label);body(value,label);}
  function table(title:string,columns:{label:string;weight?:number}[],rows:string[][]){
   rows=rows.filter(row=>row.some(value=>value.trim()));if(!rows.length)return;
   const active=columns.map((_,i)=>i).filter(i=>rows.some(row=>row[i]?.trim()));
   columns=active.map(i=>columns[i]);rows=rows.map(row=>active.map(i=>row[i]||''));if(!columns.length)return;
-  const weight=columns.reduce((n,c)=>n+(c.weight||1),0),widths=columns.map(c=>W*(c.weight||1)/weight),headers=columns.map((c,i)=>wrap(c.label,bold,8.7,widths[i]-14)),hh=Math.max(...headers.map(c=>c.length))*12+16;
-  function tableHeader(continued=false){heading(title,continued,hh+32);p.drawRectangle({x:L,y:y-hh+8,width:W,height:hh,color:green});let x=L;headers.forEach((cell,i)=>{cell.forEach((row,n)=>text(row,x+7,y-5-n*12,8.7,bold,rgb(1,1,1)));x+=widths[i];});y-=hh;}
+  const weight=columns.reduce((n,c)=>n+(c.weight||1),0),widths=columns.map(c=>W*(c.weight||1)/weight),headers=columns.map((c,i)=>wrap(c.label,bold,8.7,widths[i]-14)),headerStep=Math.max(12,...headers.flat().map(r=>safetyLineHeight(r,8.7,12))),hh=Math.max(...headers.map(c=>c.length))*headerStep+16;
+  function tableHeader(continued=false){heading(title,continued,hh+32);p.drawRectangle({x:L,y:y-hh+8,width:W,height:hh,color:green});let x=L;headers.forEach((cell,i)=>{cell.forEach((row,n)=>text(row,x+7,y-5-Math.max(0,headerStep-12)-n*headerStep,8.7,bold,rgb(1,1,1),widths[i]-14));x+=widths[i];});y-=hh;}
   function next(){start(true);tableHeader(true);}
   tableHeader();
   rows.forEach((row,index)=>{
-   const cells=columns.map((_,i)=>wrap(row[i]?.trim()||'',regular,9,widths[i]-14)),count=Math.max(...cells.map(c=>c.length));let offset=0;
-   if(count*12+16<=440&&count*12+16>y-B)next();
-   while(offset<count){let available=Math.floor((y-B-16)/12);if(available<1){next();available=Math.floor((y-B-16)/12);}const take=Math.min(count-offset,available),h=take*12+16;let x=L;
-    cells.forEach((cell,i)=>{p.drawRectangle({x,y:y-h+8,width:widths[i],height:h,color:index%2?pale:rgb(1,1,1),borderColor:line,borderWidth:.55});cell.slice(offset,offset+take).forEach((row,n)=>text(row,x+7,y-5-n*12,9));x+=widths[i];});y-=h;offset+=take;if(offset<count)next();
+   const cells=columns.map((_,i)=>wrap(row[i]?.trim()||'',regular,9,widths[i]-14)),count=Math.max(...cells.map(c=>c.length)),step=Math.max(12,...cells.flat().map(r=>safetyLineHeight(r,9,12)));let offset=0;
+   if(count*step+16<=440&&count*step+16>y-B)next();
+   while(offset<count){let available=Math.floor((y-B-16)/step);if(available<1){next();available=Math.floor((y-B-16)/step);}const take=Math.min(count-offset,available),h=take*step+16;let x=L;
+    cells.forEach((cell,i)=>{p.drawRectangle({x,y:y-h+8,width:widths[i],height:h,color:index%2?pale:rgb(1,1,1),borderColor:line,borderWidth:.55});cell.slice(offset,offset+take).forEach((row,n)=>text(row,x+7,y-5-Math.max(0,step-12)-n*step,9,regular,ink,widths[i]-14));x+=widths[i];});y-=h;offset+=take;if(offset<count)next();
    }
   });y-=20;
  }
@@ -61,10 +52,10 @@ export function renderSafetySection({doc,section,number,regular,bold,header,illu
      ...(r.label.trim()?wrap(r.label,bold,9,w-18):[]).map(value=>({value,bold:true,status:false})),
      ...(r.value.trim()?[{value:r.value,bold:true,status:true}]:[]),
      ...(r.notes.trim()?wrap(r.notes,regular,8.5,w-18):[]).map(value=>({value,bold:false,status:false})),
-    ]);const count=Math.max(...group.map(g=>g.length));let offset=0;
-    if(count*12+20<=480&&y-count*12-20<B){start(true);heading(block.title,true);}
-    while(offset<count){let available=Math.floor((y-B-20)/12);if(available<2){start(true);heading(block.title,true);available=Math.floor((y-B-20)/12);}const take=Math.min(count-offset,available),h=take*12+20;
-     group.forEach((cell,index)=>{const x=L+index*(w+gap);p.drawRectangle({x,y:y-h+8,width:w,height:h,color:pale,borderColor:line,borderWidth:.6});cell.slice(offset,offset+take).forEach((r,n)=>{const baseline=y-7-n*12;if(r.status){p.drawRectangle({x:x+9,y:baseline-1,width:7,height:7,borderColor:green,borderWidth:.8});if(['Required','Task specific'].includes(r.value)){p.drawLine({start:{x:x+10,y:baseline+2},end:{x:x+12,y:baseline},color:green,thickness:1});p.drawLine({start:{x:x+12,y:baseline},end:{x:x+16,y:baseline+5},color:green,thickness:1});}}text(r.value,x+(r.status?22:9),baseline,r.bold?9:8.5,r.bold?bold:regular,r.bold?green:ink);});});y-=h+8;offset+=take;if(offset<count){start(true);heading(block.title,true);}
+    ]);const count=Math.max(...group.map(g=>g.length)),step=Math.max(12,...group.flat().map(r=>safetyLineHeight(r.value,r.bold?9:8.5,12)));let offset=0;
+    if(count*step+20<=480&&y-count*step-20<B){start(true);heading(block.title,true);}
+    while(offset<count){let available=Math.floor((y-B-20)/step);if(available<2){start(true);heading(block.title,true);available=Math.floor((y-B-20)/step);}const take=Math.min(count-offset,available),h=take*step+20;
+     group.forEach((cell,index)=>{const x=L+index*(w+gap);p.drawRectangle({x,y:y-h+8,width:w,height:h,color:pale,borderColor:line,borderWidth:.6});cell.slice(offset,offset+take).forEach((r,n)=>{const baseline=y-7-Math.max(0,step-12)-n*step;if(r.status){p.drawRectangle({x:x+9,y:baseline-1,width:7,height:7,borderColor:green,borderWidth:.8});if(['Required','Task specific'].includes(r.value)){p.drawLine({start:{x:x+10,y:baseline+2},end:{x:x+12,y:baseline},color:green,thickness:1});p.drawLine({start:{x:x+12,y:baseline},end:{x:x+16,y:baseline+5},color:green,thickness:1});}}text(r.value,x+(r.status?22:9),baseline,r.bold?9:8.5,r.bold?bold:regular,r.bold?green:ink,w-(r.status?31:18));});});y-=h+8;offset+=take;if(offset<count){start(true);heading(block.title,true);}
     }
    }y-=8;
   }

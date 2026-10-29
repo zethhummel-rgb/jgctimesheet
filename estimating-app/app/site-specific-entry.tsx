@@ -1,44 +1,79 @@
 import {formatPhoneRichText,phonePosition,phoneDeletion} from '../lib/phone-number';
 import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type TextareaHTMLAttributes } from 'react';
 import type { SafetyField } from '../lib/site-specific';
-import { safetyTextHtml, safetyTextPlain, safetyList } from '../lib/site-specific-rich-text';
+import { safetyTextHtml, safetyTextPlain, safetyList, safetyTextRuns, safetyRunValue, safetyTextDefault, safetyToken, safetyEdit, type SafetyTextStyle } from '../lib/site-specific-rich-text';
 let activeEditor:HTMLElement|null=null,savedRange:Range|null=null;
-function remember(editor:HTMLElement){const selection=getSelection();if(selection?.rangeCount&&editor.contains(selection.anchorNode)&&editor.contains(selection.focusNode)){activeEditor=editor;savedRange=selection.getRangeAt(0).cloneRange();}}
+const histories=new WeakMap<HTMLElement,{past:string[];future:string[];value:string}>(),pending=new WeakMap<HTMLElement,SafetyTextStyle>();
+function announce(){document.dispatchEvent(new Event('ss-selection'));}
+function remember(editor:HTMLElement){const selection=getSelection();if(selection?.rangeCount&&editor.contains(selection.anchorNode)&&editor.contains(selection.focusNode)){activeEditor=editor;savedRange=selection.getRangeAt(0).cloneRange();announce();}}
+function childrenValue(node:Node){let value='',previousBlock=false;for(const child of node.childNodes){const block=child instanceof HTMLElement&&/^(DIV|P|UL|OL)$/.test(child.tagName),part=serialize(child);if(value&&(block||previousBlock)&&!safetyTextPlain(value).endsWith('\n')&&!safetyTextPlain(part).startsWith('\n'))value+='\n';value+=part;previousBlock=block;}return value;}
 function serialize(node:Node):string{
  if(node.nodeType===Node.TEXT_NODE)return node.textContent||'';
- if(!(node instanceof HTMLElement))return [...node.childNodes].map(serialize).join('');
+ if(!(node instanceof HTMLElement))return childrenValue(node);
  if(node.tagName==='BR')return '\n';
- let value=[...node.childNodes].map(serialize).join('');if(!value)return '';
- const tokens=(node.dataset.ssStyle||node.dataset.ssFormat||'').split(' ').filter(x=>['b','i','u','hy','hg','sm','lg','nm','sans','serif','mono'].includes(x));
+ let value=childrenValue(node);if(!value)return '';
+ const tokens=(node.dataset.ssStyle||'').split(' ').filter(x=>safetyToken.test(x));
  if(node.matches('b,strong')||node.style.fontWeight==='bold'||Number(node.style.fontWeight)>=600)tokens.push('b');
  if(node.matches('i,em')||node.style.fontStyle==='italic')tokens.push('i');
  if(node.tagName==='U'||node.style.textDecoration.includes('underline'))tokens.push('u');
  for(const t of [...new Set(tokens)])value='['+t+']'+value+'[/'+t+']';
  if(node.tagName==='LI'){const number=node.parentElement?.tagName==='OL'?[...node.parentElement.children].indexOf(node)+1:null;return (number?number+'. ':'\u2022 ')+value+'\n';}
- if(/^(DIV|P|UL|OL)$/.test(node.tagName)&&node.nextSibling)value+='\n';return value;
+ return value;
 }
-const editorValue=(editor:HTMLElement)=>[...editor.childNodes].map(serialize).join('').replace(/\u00a0/g,' ').replace(/\n{3,}/g,'\n\n').replace(/\n$/,'');
+const editorValue=(editor:HTMLElement)=>childrenValue(editor).replace(/\u00a0/g,' ').replace(/\n{3,}/g,'\n\n').replace(/\n$/,'');
+function selectionInfo(){
+ const editor=activeEditor;if(!editor?.isConnected||!savedRange)return null;
+ const before=savedRange.cloneRange();try{before.selectNodeContents(editor);before.setEnd(savedRange.startContainer,savedRange.startOffset);const length=()=>{const box=document.createElement('div');box.append(before.cloneContents());return safetyTextPlain(childrenValue(box)).length;};const start=length();before.setEnd(savedRange.endContainer,savedRange.endOffset);return {editor,start,end:length()};}catch{return null;}
+}
+function currentStyle(){const info=selectionInfo();if(!info)return safetyTextDefault;if(pending.has(info.editor)&&info.start===info.end)return pending.get(info.editor)!;let at=0;for(const run of safetyTextRuns(editorValue(info.editor))){at+=run.text.length;if(at>info.start)return run.style;}return safetyTextDefault;}
+function replace(editor:HTMLElement,value:string,start:number,end:number){editor.innerHTML=safetyTextHtml(value);editor.focus();selectText(editor,start,end);editor.dispatchEvent(new Event('input',{bubbles:true}));remember(editor);}
+function history(editor:HTMLElement,redo=false){if(editor.contentEditable!=='true'||editor.closest('fieldset[disabled]'))return;const h=histories.get(editor),from=redo?h?.future:h?.past,to=redo?h?.past:h?.future;if(!h||!from?.length||!to)return;to.push(h.value);const value=from.pop()!;h.value=value;pending.delete(editor);replace(editor,value,safetyTextPlain(value).length,safetyTextPlain(value).length);}
 function format(command:string,scope:HTMLElement|null){
- const editor=activeEditor;if(!editor?.isConnected||!scope?.contains(editor)||editor.getAttribute('contenteditable')!=='true'||editor.closest('fieldset[disabled]')||!savedRange)return;
- const selection=getSelection();if(!selection)return;const restore=savedRange.cloneRange();editor.focus();try{selection.removeAllRanges();selection.addRange(restore);}catch{return;}
- const range=selection.getRangeAt(0);
- if(command==='insertUnorderedList'||command==='insertOrderedList'){
-  if(range.collapsed)return;const box=document.createElement('div');box.append(range.extractContents());const template=document.createElement('template');template.innerHTML=safetyTextHtml(safetyList(editorValue(box),command==='insertOrderedList'));const nodes=[...template.content.childNodes];range.insertNode(template.content);if(nodes.length){range.setStartBefore(nodes[0]);range.setEndAfter(nodes.at(-1)!);selection.removeAllRanges();selection.addRange(range);}
+ const info=selectionInfo();if(!info)return;const {editor}=info;
+ if(!scope?.contains(editor)||editor.getAttribute('contenteditable')!=='true'||editor.closest('fieldset[disabled]'))return;
+ if(command==='undo'||command==='redo'){history(editor,command==='redo');return;}
+ let {start,end}=info;const value=editorValue(editor),plain=safetyTextPlain(value),style=currentStyle();
+ const paragraph=/^(a[lcr]|in[+-]|ls|insert)/.test(command);
+ if(paragraph){start=plain.lastIndexOf('\n',Math.max(0,start-1))+1;const next=plain.indexOf('\n',Math.max(start,end-1));end=next<0?plain.length:next;}
+ let patch:Partial<SafetyTextStyle>={};
+ if(['bold','italic','underline','strike'].includes(command)){const key=command as 'bold'|'italic'|'underline'|'strike';patch[key]=!style[key];}
+ else if(command==='clear')patch={...safetyTextDefault,strike:false,points:undefined,highlight:undefined,color:undefined,align:undefined,indent:undefined,spacing:undefined};
+ else if(['sans','serif','mono'].includes(command))patch.family=command as SafetyTextStyle['family'];
+ else if(command.startsWith('pt'))patch={points:Number(command.slice(2)),size:'normal'};
+ else if(['sm','lg','nm'].includes(command))patch={points:undefined,size:command==='sm'?'small':command==='lg'?'large':'normal'};
+ else if(command==='hy'||command==='hg')patch.highlight=command==='hy'?'yellow':'green';
+ else if(command.startsWith('color:'))patch.color=command.slice(6)||undefined;
+ else if(command.startsWith('highlight:'))patch.highlight=command.slice(10)||undefined;
+ else if(/^a[lcr]$/.test(command))patch.align=command==='ac'?'center':command==='ar'?'right':'left';
+ else if(command.startsWith('in'))patch.indent=Math.min(3,Math.max(0,(style.indent||0)+(command==='in+'?1:-1)));
+ else if(command.startsWith('ls'))patch.spacing=Number(command.slice(2))/10;
+ if(start===end){pending.set(editor,{...style,...patch});editor.focus();announce();return;}
+ pending.delete(editor);
+ let result=safetyEdit(value,start,end,patch);
+ if(command.startsWith('insert')){
+  let offset=0;const left: string[]=[],middle:string[]=[],right:string[]=[];
+  for(const run of safetyTextRuns(value)){const a=Math.max(0,Math.min(run.text.length,start-offset)),b=Math.max(0,Math.min(run.text.length,end-offset));left.push(safetyRunValue({...run,text:run.text.slice(0,a)}));middle.push(safetyRunValue({...run,text:run.text.slice(a,b)}));right.push(safetyRunValue({...run,text:run.text.slice(b)}));offset+=run.text.length;}
+  const body=safetyList(middle.join(''),command==='insertOrderedList');result=left.join('')+body+right.join('');end=start+safetyTextPlain(body).length;
  }
- else if(['bold','italic','underline','undo','redo'].includes(command))document.execCommand(command);
- else if(command==='clear'){const fragment=range.extractContents(),box=document.createElement('div');box.append(fragment);const node=document.createTextNode(safetyTextPlain(editorValue(box)));range.insertNode(node);range.selectNodeContents(node);selection.removeAllRanges();selection.addRange(range);}
- else {const span=document.createElement('span');span.dataset.ssStyle=command;
-  if(command==='hy'||command==='hg'){span.style.backgroundColor=command==='hy'?'#fff2a8':'#cfecc8';span.style.color='#102018';}
-  if(['sm','lg','nm'].includes(command))span.style.fontSize=(parseFloat(getComputedStyle(editor).fontSize)*(command==='sm'?.85:command==='lg'?1.3:1))+'px';
-  if(['sans','serif','mono'].includes(command))span.style.fontFamily=command==='serif'?'Times New Roman,serif':command==='mono'?'Courier New,monospace':'Arial,sans-serif';
-  if(range.collapsed)return;span.append(range.extractContents());range.insertNode(span);range.selectNodeContents(span);selection.removeAllRanges();selection.addRange(range);
- }
- editor.dispatchEvent(new Event('input',{bubbles:true}));remember(editor);
+ replace(editor,result,start,end);
 }
+const colors=[['','Automatic'],['#172d24','Black'],['#145b3d','JGC green'],['#b42318','Red'],['#184e9e','Blue'],['#713ba4','Purple'],['#9a6700','Gold'],['#596579','Grey']];
+const highlights=[['','No highlight'],['yellow','Yellow'],['green','Green'],['#cce9ff','Blue'],['#fbd5e5','Pink'],['#ffdcb5','Orange']];
 export function SiteFormattingToolbar(){
- const ref=useRef<HTMLDivElement>(null);const apply=(command:string)=>format(command,ref.current?.closest('.ss-builder')||null);
- useEffect(()=>{const focus=(event:FocusEvent)=>{const target=event.target;if(target instanceof Element&&!target.closest('[data-ss-rich-editor],.ss-format-toolbar')){activeEditor=null;savedRange=null;}};document.addEventListener('focusin',focus);return ()=>document.removeEventListener('focusin',focus);},[]);
- return <div ref={ref} className="ss-format-toolbar" role="group" aria-label="Site plan text formatting"><span>Select text to format</span>{[['bold','Bold'],['italic','Italic'],['underline','Underline'],['hy','Highlight'],['hg','Green highlight'],['insertUnorderedList','Bullets'],['insertOrderedList','Numbered list'],['clear','Clear formatting']].map(([command,title])=><button type="button" key={command} aria-label={title} title={title} onPointerDown={e=>e.preventDefault()} onClick={()=>apply(command)}>{title==='Bold'?<b>B</b>:title==='Italic'?<i>I</i>:title==='Underline'?<u>U</u>:title}</button>)}<label>Font<select aria-label="Text font" defaultValue="" onChange={e=>{apply(e.target.value);e.currentTarget.value='';}}><option value="" disabled>Choose font</option><option value="sans">Arial</option><option value="serif">Times New Roman</option><option value="mono">Courier</option></select></label><label>Size<select aria-label="Text size" defaultValue="" onChange={e=>{apply(e.target.value==='normal'?'nm':e.target.value);e.currentTarget.value='';}}><option value="" disabled>Choose size</option><option value="sm">Small</option><option value="normal">Normal</option><option value="lg">Large</option></select></label></div>;
+ const ref=useRef<HTMLDivElement>(null),[tick,setTick]=useState(0),[tab,setTab]=useState('Font');void tick;
+ const apply=(command:string)=>format(command,ref.current?.closest('.ss-builder')||null);
+ useEffect(()=>{const update=()=>setTick(n=>n+1),selection=()=>{const sel=getSelection();const el=sel?.anchorNode?.parentElement?.closest<HTMLElement>('[data-ss-rich-editor]');if(el)remember(el);},focus=(event:FocusEvent)=>{const target=event.target;if(target instanceof Element&&!target.closest('[data-ss-rich-editor],.ss-format-toolbar')){activeEditor=null;savedRange=null;update();}};document.addEventListener('focusin',focus);document.addEventListener('ss-selection',update);document.addEventListener('selectionchange',selection);return ()=>{document.removeEventListener('focusin',focus);document.removeEventListener('ss-selection',update);document.removeEventListener('selectionchange',selection);};},[]);
+ const info=selectionInfo(),s=currentStyle(),enabled=Boolean(info&&ref.current?.closest('.ss-builder')?.contains(info.editor)&&info.editor.contentEditable==='true'&&!info.editor.closest('fieldset[disabled]'));
+ const button=(command:string,title:string,icon:React.ReactNode,pressed?:boolean)=><button type="button" aria-label={title} title={title} disabled={!enabled||(command==='undo'&&!histories.get(info!.editor)?.past.length)||(command==='redo'&&!histories.get(info!.editor)?.future.length)} aria-pressed={pressed} onPointerDown={e=>e.preventDefault()} onClick={()=>apply(command)}>{icon}</button>;
+ const alignIcon=(align:string)=><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">{[3,7,11,15].map((y,i)=><path key={y} d={`M${i%2?(align==='center'?5:align==='right'?8:2):2} ${y}h${i%2?8:14}`} stroke="currentColor" strokeWidth="1.6"/>)}</svg>;
+ return <div ref={ref} className="ss-format-toolbar" role="group" aria-label="Site plan text formatting">
+  <div className="ss-ribbon-header"><strong>Text formatting</strong><span className="ss-active-field">{enabled?info!.editor.getAttribute('aria-label'):'Click a text box to begin'}</span><div className="ss-history">{button('undo','Undo','↶')}{button('redo','Redo','↷')}</div></div>
+  <div className="ss-ribbon-tabs" role="tablist" aria-label="Formatting tools">{['Font','Paragraph'].map(name=><button key={name} role="tab" type="button" aria-selected={tab===name} onPointerDown={e=>e.preventDefault()} onClick={()=>setTab(name)}>{name}</button>)}</div>
+  <div className="ss-ribbon-body" data-mobile-tab={tab}>
+   <div className="ss-ribbon-group ss-font-group"><div className="ss-ribbon-row"><select disabled={!enabled} aria-label="Text font" value={s.family} onChange={e=>apply(e.target.value)}><option value="sans">Arial</option><option value="serif">Times New Roman</option><option value="mono">Courier New</option></select><select disabled={!enabled} aria-label="Text size" value={s.points?'pt'+s.points:s.size==='small'?'sm':s.size==='large'?'lg':'nm'} onChange={e=>apply(e.target.value)}><option value="nm">Auto</option><option value="sm">Small (legacy)</option><option value="lg">Large (legacy)</option>{[8,9,10,11,12,14,16,18,20,24,28,32,36].map(n=><option key={n} value={'pt'+n}>{n}</option>)}</select>{button('clear','Clear formatting',<span>A⌫</span>)}</div><div className="ss-ribbon-row">{button('bold','Bold',<b>B</b>,s.bold)}{button('italic','Italic',<i>I</i>,s.italic)}{button('underline','Underline',<u>U</u>,s.underline)}{button('strike','Strikethrough',<s>ab</s>,!!s.strike)}<label className="ss-colour-control" title="Font colour"><span style={{borderBottomColor:s.color||'#172d24'}}>A</span><select disabled={!enabled} aria-label="Font colour" value={s.color||''} onChange={e=>apply('color:'+e.target.value)}>{colors.map(([v,n])=><option key={v} value={v}>{n}</option>)}</select></label><label className="ss-colour-control" title="Text highlight"><span style={{background:s.highlight==='yellow'?'#fff2a8':s.highlight==='green'?'#cfecc8':s.highlight}}>▰</span><select disabled={!enabled} aria-label="Highlight colour" value={s.highlight||''} onChange={e=>apply('highlight:'+e.target.value)}>{highlights.map(([v,n])=><option key={v} value={v}>{n}</option>)}</select></label></div><small>Font</small></div>
+   <div className="ss-ribbon-group ss-paragraph-group"><div className="ss-ribbon-row">{button('insertUnorderedList','Bullets','• ≡')}{button('insertOrderedList','Numbered list','1. ≡')}{button('in-','Decrease indent','⇤')}{button('in+','Increase indent','⇥')}</div><div className="ss-ribbon-row">{button('al','Align left',alignIcon('left'),!s.align||s.align==='left')}{button('ac','Align centre',alignIcon('center'),s.align==='center')}{button('ar','Align right',alignIcon('right'),s.align==='right')}<select disabled={!enabled} aria-label="Line spacing" value={'ls'+((s.spacing||1)*10)} onChange={e=>apply(e.target.value)}><option value="ls10">Single</option><option value="ls15">1.5 lines</option><option value="ls20">Double</option></select></div><small>Paragraph</small></div>
+  </div>
+ </div>;
 }
 export function FormattedSiteText({value}:{value:string}){return <span dangerouslySetInnerHTML={{__html:safetyTextHtml(value)}}/>;}
 function textSelection(editor:HTMLElement){
@@ -57,12 +92,13 @@ export function DocumentText(props:TextareaHTMLAttributes<HTMLTextAreaElement>){
   const typed=editorValue(editor),value=phone?formatPhoneRichText(typed,final):typed;
   if(props.maxLength&&value.length>props.maxLength){editor.innerHTML=safetyTextHtml(local.current);return;}
   if(value!==typed){const selection=textSelection(editor),before=safetyTextPlain(typed),after=safetyTextPlain(value);editor.innerHTML=safetyTextHtml(value);if(selection&&document.activeElement===editor)selectText(editor,phonePosition(before,after,selection.start),phonePosition(before,after,selection.end));}
-  if(final&&value===local.current)return;local.current=value;props.onChange?.({target:{value},currentTarget:{value}} as ChangeEvent<HTMLTextAreaElement>);remember(editor);
+  if(final&&value===local.current)return;const h=histories.get(editor)||{past:[],future:[],value:local.current};if(h.value!==value){h.past.push(h.value);if(h.past.length>100)h.past.shift();h.future=[];h.value=value;}histories.set(editor,h);local.current=value;props.onChange?.({target:{value},currentTarget:{value}} as ChangeEvent<HTMLTextAreaElement>);remember(editor);
  }
 
+ useEffect(()=>{const el=ref.current;if(!el)return;const insert=(event:InputEvent)=>{const style=pending.get(el);if(!style||event.inputType!=='insertText'||event.isComposing||!event.data||el.contentEditable!=='true'||el.closest('fieldset[disabled]'))return;event.preventDefault();document.execCommand('insertHTML',false,safetyTextHtml(safetyRunValue({text:event.data,style})));};el.addEventListener('beforeinput',insert);return ()=>el.removeEventListener('beforeinput',insert);},[]);
  useLayoutEffect(()=>{const parent=ref.current?.closest('fieldset');if(!parent)return;const update=()=>setLocked(parent.disabled);update();const observer=new MutationObserver(update);observer.observe(parent,{attributes:true,attributeFilter:['disabled']});return ()=>observer.disconnect();},[]);
  useLayoutEffect(()=>{const el=ref.current;if(!el)return;if(document.activeElement===el&&local.current===String(props.value||''))return;const html=safetyTextHtml(String(props.value||''));if(el.innerHTML!==html)el.innerHTML=html;local.current=String(props.value||'');},[props.value]);
- return <div ref={ref} role="textbox" aria-label={props['aria-label']?safetyTextPlain(props['aria-label']):undefined} aria-multiline="true" aria-readonly={props.readOnly||undefined} aria-required={props.required||undefined} contentEditable={!locked&&!props.disabled&&!props.readOnly} suppressContentEditableWarning className={`ss-document-text ss-rich-editor ${props.className||''}`} data-ss-rich-editor data-placeholder={props.placeholder||''} inputMode={props.inputMode||(phone?'tel':undefined)} onSelect={e=>remember(e.currentTarget)} onKeyUp={e=>remember(e.currentTarget)} onMouseUp={e=>remember(e.currentTarget)} onTouchEnd={e=>remember(e.currentTarget)} onFocus={e=>remember(e.currentTarget)} onInput={e=>{if(!(e.nativeEvent as InputEvent).isComposing)commit(e.currentTarget);}} onCompositionEnd={e=>commit(e.currentTarget)} onBlur={e=>{if(phone&&!props.readOnly&&!props.disabled&&!locked)commit(e.currentTarget,true);}} onKeyDown={e=>{if(!phone||!['Backspace','Delete'].includes(e.key))return;const selection=textSelection(e.currentTarget);if(!selection)return;const plain=safetyTextPlain(editorValue(e.currentTarget)),range=phoneDeletion(plain,selection.start,selection.end,e.key);if(range.start!==selection.start||range.end!==selection.end)selectText(e.currentTarget,range.start,range.end);}} onDrop={e=>{e.preventDefault();if(!props.readOnly&&!props.disabled&&!locked)document.execCommand('insertText',false,e.dataTransfer.getData('text/plain'));}} onPaste={e=>{e.preventDefault();if(!props.readOnly&&!props.disabled&&!locked)document.execCommand('insertText',false,e.clipboardData.getData('text/plain'));}}/>;
+ return <div ref={ref} role="textbox" aria-label={props['aria-label']?safetyTextPlain(props['aria-label']):undefined} aria-multiline="true" aria-readonly={props.readOnly||undefined} aria-required={props.required||undefined} contentEditable={!locked&&!props.disabled&&!props.readOnly} suppressContentEditableWarning className={`ss-document-text ss-rich-editor ${props.className||''}`} data-ss-rich-editor data-placeholder={props.placeholder||''} inputMode={props.inputMode||(phone?'tel':undefined)} onMouseDown={e=>pending.delete(e.currentTarget)} onSelect={e=>remember(e.currentTarget)} onKeyUp={e=>remember(e.currentTarget)} onMouseUp={e=>remember(e.currentTarget)} onTouchEnd={e=>remember(e.currentTarget)} onFocus={e=>remember(e.currentTarget)} onInput={e=>{if(!(e.nativeEvent as InputEvent).isComposing)commit(e.currentTarget);}} onCompositionEnd={e=>commit(e.currentTarget)} onBlur={e=>{if(phone&&!props.readOnly&&!props.disabled&&!locked)commit(e.currentTarget,true);}} onKeyDown={e=>{if((e.ctrlKey||e.metaKey)&&['z','y'].includes(e.key.toLowerCase())){e.preventDefault();history(e.currentTarget,e.key.toLowerCase()==='y'||e.shiftKey);return;}if(!phone||!['Backspace','Delete'].includes(e.key))return;const selection=textSelection(e.currentTarget);if(!selection)return;const plain=safetyTextPlain(editorValue(e.currentTarget)),range=phoneDeletion(plain,selection.start,selection.end,e.key);if(range.start!==selection.start||range.end!==selection.end)selectText(e.currentTarget,range.start,range.end);}} onDrop={e=>{e.preventDefault();if(!props.readOnly&&!props.disabled&&!locked)document.execCommand('insertText',false,e.dataTransfer.getData('text/plain'));}} onPaste={e=>{e.preventDefault();if(!props.readOnly&&!props.disabled&&!locked)document.execCommand('insertText',false,e.clipboardData.getData('text/plain'));}}/>;
 }
 export function DocumentFields({fields,onChange}:{fields:SafetyField[];onChange:(fields:SafetyField[])=>void}){
  return <div className="ss-document-fields">{fields.map((field,index)=><section className="ss-document-field" key={field.id}><div className="ss-document-label"><DocumentText aria-label={`Field ${index+1} heading`} value={field.label} maxLength={200} onChange={e=>onChange(fields.map(f=>f.id===field.id?{...f,label:e.target.value}:f))}/></div><DocumentText aria-label={safetyTextPlain(field.label)} placeholder={`Enter ${safetyTextPlain(field.label).toLowerCase()}...`} maxLength={20000} value={field.value} onChange={e=>onChange(fields.map(f=>f.id===field.id?{...f,value:e.target.value}:f))}/></section>)}</div>;
