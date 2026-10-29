@@ -1,7 +1,8 @@
+import {safetyTextPlain} from './site-specific-rich-text';
 import type { SafetyBlock, SafetyPage, SiteSpecificPlan } from './site-specific';
 import { structuredSafetyPages } from './site-specific-structure';
 
-const filled = (value: string) => Boolean(value.trim());
+const filled = (value: string) => Boolean(safetyTextPlain(value).trim());
 
 // A default contact role or map legend label is a prompt, not a completed row.
 // Reusable procedure/responsibility text is real plan content and stays in the PDF.
@@ -14,7 +15,7 @@ for (const page of structuredSafetyPages()) {
       const values = block.columns.filter(column => filled(row.cells[column.id] || ''));
       if (values.length === 1) {
         const column = values[0];
-        prompts.add(JSON.stringify([column.id, row.cells[column.id].trim()]));
+        prompts.add(JSON.stringify([column.id, safetyTextPlain(row.cells[column.id]).trim()]));
       }
     }
     if (prompts.size) tablePrompts.set(block.id, prompts);
@@ -28,7 +29,7 @@ function pdfBlock(block: SafetyBlock): SafetyBlock | undefined {
       if (!values.length) return false;
       if (values.length !== 1) return true;
       const column = values[0];
-      return !tablePrompts.get(block.id)?.has(JSON.stringify([column.id, row.cells[column.id].trim()]));
+      return !tablePrompts.get(block.id)?.has(JSON.stringify([column.id, safetyTextPlain(row.cells[column.id]).trim()]));
     });
     if (!rows.length) return;
     const columns = block.columns.filter(column => rows.some(row => filled(row.cells[column.id] || '')));

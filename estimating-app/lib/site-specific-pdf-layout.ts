@@ -1,20 +1,21 @@
+import {safetyTextPlain} from './site-specific-rich-text';
 import { rgb, type PDFDocument, type PDFFont, type PDFPage, type PDFImage } from 'pdf-lib';
 import type { SafetyPage } from './site-specific';
 
 export const safetyColors={green:rgb(.07,.25,.19),gold:rgb(.68,.53,.18),ink:rgb(.10,.17,.14),muted:rgb(.34,.41,.38),line:rgb(.8,.85,.82),pale:rgb(.94,.96,.95)};
-export function clean(value:string,font:PDFFont) {return [...String(value).normalize('NFC').replace(/[\u2010-\u2015]/g,'-').replace(/[\u2018\u2019]/g,"'").replace(/[\u201c\u201d]/g,'"').replace(/\r/g,'')].map(c=>{if(c==='\n')return c;try{font.encodeText(c);return c;}catch{return '?';}}).join('');}
-export function wrap(value:string,font:PDFFont,size:number,width:number) {const lines:string[]=[];for(const paragraph of clean(value,font).split('\n')){let row='';for(let word of paragraph.split(/\s+/).filter(Boolean)){if(row&&font.widthOfTextAtSize(row+' '+word,size)>width){lines.push(row);row='';}while(font.widthOfTextAtSize(word,size)>width){let n=1;while(n<word.length&&font.widthOfTextAtSize(word.slice(0,n+1),size)<=width)n++;if(row){lines.push(row);row='';}lines.push(word.slice(0,n));word=word.slice(n);}row+=(row?' ':'')+word;}lines.push(row);}return lines;}
+export { clean, wrap } from './site-specific-pdf-rich-text';
+import {wrap,drawSafetyText} from './site-specific-pdf-rich-text';
 
 type Illustration={title:string;caption?:string;image:PDFImage};
 export function renderSafetySection({doc,section,number,regular,bold,header,illustrations}: {doc:PDFDocument;section:SafetyPage;number:number;regular:PDFFont;bold:PDFFont;header:(p:PDFPage)=>void;illustrations:Illustration[]}) {
  const {green,gold,ink,muted,line,pale}=safetyColors,W=516,L=48,B=66;
  let p!:PDFPage,y=0,started=false;
- const text=(value:string,x:number,baseline:number,size=9.5,font=regular,color=ink)=>p.drawText(clean(value,font),{x,y:baseline,size,font,color});
+ const text=(value:string,x:number,baseline:number,size=9.5,font=regular,color=ink)=>drawSafetyText(p,value,x,baseline,size,font,color);
  function start(continued=false){p=doc.addPage([612,792]);started=true;header(p);y=666;const title=`${number}. ${section.title}${continued?' - continued':''}`;for(const row of wrap(title,bold,15,W)){text(row,L,y,15,bold,green);y-=20;}p.drawLine({start:{x:L,y:y-2},end:{x:L+W,y:y-2},color:gold,thickness:1});y-=24;}
  function ensure(height:number){if(y-height<B)start(true);}
  function heading(title:string,continued=false,minBody=24){if(!title.trim()){ensure(minBody);return;}const rows=wrap(title+(continued?' - continued':''),bold,10.5,W-20);ensure(rows.length*14+18+minBody);const h=rows.length*14+8;p.drawRectangle({x:L,y:y-h+10,width:W,height:h,color:pale});let baseline=y-3;for(const row of rows){text(row,L+10,baseline,10.5,bold,green);baseline-=14;}y-=h+6;}
  function body(value:string,label=''){if(!value.trim())return;const paragraphs=value.trim().split('\n');for(const [i,paragraph] of paragraphs.entries()){
-  const isList=paragraphs.length>1&&paragraph.trim(),numbered=/^\d+[.)]\s/.test(paragraph),prefix=isList&&!numbered?'• ':'';
+  const isList=paragraphs.length>1&&!/\[(?:b|i|u|hy|hg|sm|lg|serif|mono)\]/.test(value)&&paragraph.trim(),numbered=/^(?:\d+[.)]|\u2022)\s/.test(safetyTextPlain(paragraph)),prefix=isList&&!numbered?'• ':'';
   const rows=wrap(prefix+paragraph.trim(),regular,9.5,W-20);for(const [n,row] of rows.entries()){if(y<B+14){start(true);if(label)heading(label,true);}text(row,L+10+(n&&prefix?8:0),y,9.5);y-=14;}if(i<paragraphs.length-1)y-=5;
  }y-=9;}
  function narrative(label:string,value:string){

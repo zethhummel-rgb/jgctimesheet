@@ -1,3 +1,4 @@
+import {safetyTextPlain} from './site-specific-rich-text';
 import type { Job } from './estimator-data';
 import { standardSafetyPages, standardProcedure } from './site-specific-content';
 import { structuredSafetyPages } from './site-specific-structure';
@@ -35,7 +36,7 @@ export function addStructuredSafetyContent(plan:SiteSpecificPlan) {
  return {plan:{...plan,pages},blocksAdded,pagesAdded,fieldsAdded};
 }
 export function pageHasContent(page:SafetyPage) {
- return page.fields.some(f=>f.value.trim()) || (page.illustrations||[]).length>0 || (page.blocks||[]).some(b=>b.type==='table'?b.rows.some(r=>Object.values(r.cells).some(v=>v.trim())):b.type==='steps'?b.rows.some(r=>r.body.trim()):b.rows.some(r=>r.value||r.notes.trim()));
+ return page.fields.some(f=>safetyTextPlain(f.value).trim()) || (page.illustrations||[]).length>0 || (page.blocks||[]).some(b=>b.type==='table'?b.rows.some(r=>Object.values(r.cells).some(v=>safetyTextPlain(v).trim())):b.type==='steps'?b.rows.some(r=>safetyTextPlain(r.body).trim()):b.rows.some(r=>r.value||safetyTextPlain(r.notes).trim()));
 }
 // Existing plans change only when the administrator explicitly requests standard content.
 // Keep titles, inclusion choices, ordering, entered values, map/files and publication history.
@@ -56,5 +57,5 @@ export function createTaskPage(kind:SafetyPage['kind']):SafetyPage {
  const blocks:SafetyBlock[]=kind==='procedure'?[{type:'steps',id:'procedure-steps',title:'Procedure steps',rows:[{id:safetyId(),title:'',body:''}]}]:kind==='task'||kind==='risk'?[{type:'table',id:'task-analysis',title:kind==='risk'?'Risk assessment':'Task hazard analysis',columns:[{id:'task',label:'Task / work step',weight:1.3},{id:'hazards',label:'Potential hazards',weight:1.5},{id:'controls',label:'Required action / procedure',weight:2.5},{id:'responsible',label:'Responsible person',weight:1.2}],rows:[{id:safetyId(),cells:{task:'',hazards:'',controls:'',responsible:''}}]}]:[];
  return {id,kind,title:kind==='task'?'New task':kind==='procedure'?'New procedure':kind==='risk'?'New risk assessment':'Additional page',included:true,fields,blocks};
 }
-export function sitePlanErrors(plan:SiteSpecificPlan) { const errors:string[]=[]; for(const [key,label] of [['project','Project'],['jobNumber','Job number'],['address','Site address'],['preparedBy','Prepared by'],['planDate','Plan date'],['revision','Revision']] as const) if(!plan[key].trim()) errors.push(label); if(!/^\d{4}-\d{2}-\d{2}$/.test(plan.planDate)||Number.isNaN(Date.parse(plan.planDate+'T12:00:00Z'))||new Date(plan.planDate+'T12:00:00Z').toISOString().slice(0,10)!==plan.planDate)errors.push('Valid plan date'); if(!plan.pages.some(p=>p.included))errors.push('At least one plan page'); if(plan.pages.some(p=>p.included&&!p.title.trim()))errors.push('Page titles'); return [...new Set(errors)]; }
+export function sitePlanErrors(plan:SiteSpecificPlan) { const errors:string[]=[]; for(const [key,label] of [['project','Project'],['jobNumber','Job number'],['address','Site address'],['preparedBy','Prepared by'],['planDate','Plan date'],['revision','Revision']] as const) if(!safetyTextPlain(plan[key]).trim()) errors.push(label); if(!/^\d{4}-\d{2}-\d{2}$/.test(plan.planDate)||Number.isNaN(Date.parse(plan.planDate+'T12:00:00Z'))||new Date(plan.planDate+'T12:00:00Z').toISOString().slice(0,10)!==plan.planDate)errors.push('Valid plan date'); if(!plan.pages.some(p=>p.included))errors.push('At least one plan page'); if(plan.pages.some(p=>p.included&&!safetyTextPlain(p.title).trim()))errors.push('Page titles'); return [...new Set(errors)]; }
 export function sitePlanFileName(plan:SiteSpecificPlan) {return `JGC-Site-Specific-${plan.jobNumber}-Rev-${plan.revision}.pdf`.replace(/[<>:"/\\|?*\x00-\x1f]/g,'-');}
