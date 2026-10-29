@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "1032";
+const JGC_RELEASE_ID = "1033";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -204,22 +204,22 @@ const JGC_APP_SHELL = [
   "./icon-180.png?v=4",
   "./icon-192.png?v=4",
   "./icon-512.png?v=4",
-  "./estimating/assets/browser-BLbDcqw4.js",
-  "./estimating/assets/document-worker-BZxtQYhv.js",
-  "./estimating/assets/drawing-pdf-DhOB8HKa.js",
-  "./estimating/assets/es-CVmj1C6R.js",
-  "./estimating/assets/index-5iQwtePX.js",
-  "./estimating/assets/index-BFZ6R-dI.css",
+  "./estimating/assets/browser-DgNv2xiv.js",
+  "./estimating/assets/document-worker-CjYLHMky.js",
+  "./estimating/assets/drawing-pdf-DXWqarFw.js",
+  "./estimating/assets/es-CGxBZzTU.js",
+  "./estimating/assets/index-CqKynXbB.css",
+  "./estimating/assets/index-h_oX1uFH.js",
   "./estimating/assets/job-accounting-workbook-nafjXhd6.js",
-  "./estimating/assets/job-schedule-pdf-DPzH_UTD.js",
-  "./estimating/assets/job-warranty-pdf-ueXk4bf_.js",
-  "./estimating/assets/pdf--q5NUrIN.js",
+  "./estimating/assets/job-schedule-pdf-JnWJo-qC.js",
+  "./estimating/assets/job-warranty-pdf-DlmWq6ms.js",
   "./estimating/assets/pdf-Bs__3tTL.js",
-  "./estimating/assets/proposal-pdf-DgoAfmzg.js",
-  "./estimating/assets/purchase-order-pdf-mdkxbrXM.js",
-  "./estimating/assets/quote-backup-pdf-BzsOHljP.js",
-  "./estimating/assets/rfi-pdf-Dz9-yig0.js",
-  "./estimating/assets/src-B4gXwKSz.js"
+  "./estimating/assets/pdf-CtS3Ahei.js",
+  "./estimating/assets/proposal-pdf-s3cTqZEB.js",
+  "./estimating/assets/purchase-order-pdf-B4gMPe4B.js",
+  "./estimating/assets/quote-backup-pdf-C_bGf1Cj.js",
+  "./estimating/assets/rfi-pdf-BAeUv_oI.js",
+  "./estimating/assets/src-BjOOIhi3.js"
 ];
 
 function isJgcCacheableResponse(response) {

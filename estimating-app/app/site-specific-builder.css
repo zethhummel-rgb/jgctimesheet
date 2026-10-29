@@ -67,3 +67,5 @@ html[data-jgc-theme] body.jgc-theme .ss-builder .ss-paper[data-page-id] .ss-docu
 .ss-format-floating[data-expanded=false] .ss-ribbon-tabs,.ss-format-floating[data-expanded=false] .ss-ribbon-body{display:none}
 @media(max-width:760px){.ss-format-floating[data-expanded=false] button{width:44px;min-width:44px;height:44px;min-height:44px}.ss-format-floating .ss-ribbon-header{padding:2px 7px}.ss-format-floating .ss-history>button{min-width:36px;min-height:36px}.ss-format-floating .ss-font-group .ss-ribbon-row:last-of-type{flex-wrap:wrap}.ss-format-floating .ss-colour-control select{width:68px}}
 @media print{.ss-format-floating{display:none!important}}
+
+.ss-add-to-page>button.ss-delete-page{margin-left:auto;min-height:44px;color:#942b2b;border-color:#d6aaaa;background:#fff7f7}

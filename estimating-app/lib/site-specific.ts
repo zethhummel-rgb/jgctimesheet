@@ -17,6 +17,12 @@ export type SafetyIllustration = SafetyAttachment & { caption?:string };
 export interface SiteSpecificPlan { version: 1; project: string; jobNumber: string; address: string; client: string; preparedBy: string; planDate: string; revision: string; pages: SafetyPage[]; attachments: SafetyAttachment[]; hospitalMap?: SafetyAttachment; visibility: 'public'|'restricted'; updatedAt: string; published?: {documentId: string; at: string; revision: string; updatedAt: string} }
 export function sitePlanDate() { const p = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()); return ['year','month','day'].map(k=>p.find(x=>x.type===k)?.value).join('-'); }
 export const safetyId = () => crypto.randomUUID();
+const corePageIds = new Set([...standardSafetyPages(),...structuredSafetyPages()].map(page=>page.id));
+export function canDeleteSafetyPage(page:SafetyPage) {return !corePageIds.has(page.id);}
+export function deleteSafetyPage(plan:SiteSpecificPlan,id:string):SiteSpecificPlan {
+ const page=plan.pages.find(page=>page.id===id);
+ return page&&canDeleteSafetyPage(page)?{...plan,pages:plan.pages.filter(page=>page.id!==id)}:plan;
+}
 export function createSitePlan(job:Job,author:string):SiteSpecificPlan {
  const pages=structuredSafetyPages();
  const contacts=pages.find(p=>p.id==='contacts')!.blocks!.find(b=>b.id==='contractor-contacts');

@@ -102,3 +102,14 @@ is copied. The existing plan supplies the current job identity and revision.
 Reference checks on 2026-10-29: Ontario Spills Action Centre telephone and reporting
 guidance https://www.ontario.ca/page/report-pollution-and-spills ; construction traffic
 and equipment signaller scope https://www.ontario.ca/page/achieve-compliance-construction-sites-general-requirements-and-personal-protective-equipment .
+
+
+## Added-page deletion (release 1033)
+
+Added task, procedure, risk, blank and saved-library-copy pages have a Delete page
+button at the bottom. Confirmation names the page; cancelling makes no change.
+Removal is scoped to that page in the current editable plan and invalidates the
+cached PDF. Contents and subsequent exports follow the remaining pages. Original
+standard sections keep their Include this page control. Saved library versions,
+uploaded source files and previously published PDFs are retained. A plan with no
+remaining sections returns to its cover and can accept new pages.

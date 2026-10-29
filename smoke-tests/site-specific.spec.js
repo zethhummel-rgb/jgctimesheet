@@ -378,3 +378,39 @@ test('traffic and spill PDF keeps procedures, entered records, contents and maps
  expect(parsed.values.at(-1)).toContain('Page '+parsed.pages+' of '+parsed.pages);
  const {PDFDocument}=require('../estimating-app/node_modules/pdf-lib'),pdf=await PDFDocument.load(fs.readFileSync(file));expect(pdf.getPages().every(p=>p.getWidth()===612&&p.getHeight()===792)).toBe(true);
 });
+
+test('added page deletion preserves standard sections, library copies and historical files',()=>{
+ const plan=model.createSitePlan(fixture().jobs[0],'QA Author'),core=plan.pages[0];
+ expect(model.deleteSafetyPage(plan,core.id)).toBe(plan);
+ expect(model.deleteSafetyPage(plan,'missing')).toBe(plan);
+ for(const kind of ['custom','task','procedure','risk','traffic-control','spill-prevention','spill-response'])expect(model.canDeleteSafetyPage(model.createTaskPage(kind))).toBe(true);
+ const copy={...structuredClone(core),id:model.safetyId()},other={...structuredClone(copy),id:model.safetyId()};
+ copy.illustrations=[{id:'map',kind:'board',title:'Saved map',included:true,fileName:'map.png'}];
+ plan.pages.push(copy,other);plan.published={documentId:'published',at:'2026-10-01',revision:'1',updatedAt:'2026-10-01'};
+ plan.attachments=[{id:'support',kind:'board',title:'Supporting PDF',included:true,fileName:'support.pdf'}];
+ const library=structuredClone(copy),before=structuredClone(plan),result=model.deleteSafetyPage(plan,copy.id);
+ expect(result.pages.some(p=>p.id===copy.id)).toBe(false);expect(result.pages.some(p=>p.id===other.id)).toBe(true);
+ expect(result.published).toEqual(before.published);expect(result.attachments).toEqual(before.attachments);expect(plan).toEqual(before);expect(library.illustrations[0].id).toBe('map');
+});
+
+for(const width of [390,1440])test(`added page deletion confirms, saves and updates contents and PDF ${width}`,async({page},info)=>{
+ test.setTimeout(60000);const seed=fixture(),plan=model.createSitePlan(seed.jobs[0],'QA Author'),added=model.createTaskPage('traffic-control'),keep=model.createTaskPage('traffic-control');
+ added.title=keep.title='QA duplicate title';added.blocks[0].rows[0].cells.entry='UNIQUE DELETED PAGE CONTENT';keep.blocks[0].rows[0].cells.entry='RETAINED PAGE CONTENT';
+ plan.pages=[plan.pages[0],added,keep];plan.updatedAt='2026-10-29T12:00:00Z';plan.published={documentId:'qa-historical',at:'2026-10-28',revision:'1',updatedAt:'2026-10-28'};seed.jobs[0].siteSpecific=plan;
+ const store=await setup(page,{width,seed});await showPage(page,plan.pages[0].id);await expect(page.getByRole('button',{name:'Delete page',exact:true})).toHaveCount(0);
+ await showPage(page,added.id);await page.getByRole('button',{name:'Save page to library',exact:true}).click();await expect.poll(()=>store.getState().safetyLibrary?.length).toBe(1);
+ const library=structuredClone(store.getState().safetyLibrary),remove=page.getByRole('button',{name:'Delete page',exact:true});await remove.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath(`delete-page-${width}.png`)});
+ page.once('dialog',dialog=>dialog.dismiss());await remove.click();expect(store.getState().jobs[0].siteSpecific.pages).toHaveLength(3);await expect(page.locator('.ss-paper')).toHaveAttribute('data-page-id',added.id);
+ page.once('dialog',async dialog=>{expect(dialog.message()).toContain('QA duplicate title');await dialog.accept();});await remove.click();await saved(page);
+ const result=store.getState().jobs[0].siteSpecific;expect(result.pages.map(p=>p.id)).toEqual([plan.pages[0].id,keep.id]);expect(result.published.documentId).toBe('qa-historical');expect(store.getState().safetyLibrary).toEqual(library);
+ await expect(page.locator('.ss-paper')).toHaveAttribute('data-page-id',keep.id);await showPage(page,'contents');await expect(page.locator('.ss-contents').getByRole('button',{name:/QA duplicate title/})).toHaveCount(1);
+ const built=await load('site-specific-pdf').buildSiteSpecificPdf({plan:result,logoBytes:new Uint8Array(fs.readFileSync(path.resolve(__dirname,'../estimating/jgc-logo-transparent.png'))),readAttachment:async()=>{throw new Error('No attachment should be read');}}),file=info.outputPath('after-delete.pdf');fs.writeFileSync(file,Buffer.from(await built.blob.arrayBuffer()));const parsed=await texts(file);expect(parsed.text).toContain('RETAINED PAGE CONTENT');expect(parsed.text).not.toContain('UNIQUE DELETED PAGE CONTENT');
+ await page.reload();await page.getByRole('tab',{name:'Safety',exact:true}).click();await page.getByRole('tab',{name:'Create Site Specific',exact:true}).click();await showPage(page,keep.id);expect(store.getState().jobs[0].siteSpecific.pages.some(p=>p.id===added.id)).toBe(false);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+
+test('last added page can be deleted and a fresh page can be added afterwards',async({page})=>{
+ const seed=fixture(),plan=model.createSitePlan(seed.jobs[0],'QA Author'),added=model.createTaskPage('custom');plan.pages=[added];plan.updatedAt='2026-10-29T12:00:00Z';seed.jobs[0].siteSpecific=plan;
+ const store=await setup(page,{width:390,seed});await showPage(page,added.id);page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Delete page',exact:true}).click();await saved(page);await expect(page.locator('.ss-paper')).toHaveAttribute('data-page-id','cover');expect(store.getState().jobs[0].siteSpecific.pages).toEqual([]);
+ await page.reload();await page.getByRole('tab',{name:'Safety',exact:true}).click();await page.getByRole('tab',{name:'Create Site Specific',exact:true}).click();await options(page);await page.getByRole('combobox',{name:'New page type',exact:true}).selectOption('custom');await page.getByRole('button',{name:'Add page',exact:true}).click();await expect(page.getByLabel('Page title',{exact:true})).toHaveText('Additional page');await saved(page);expect(store.getState().jobs[0].siteSpecific.pages).toHaveLength(1);
+});
