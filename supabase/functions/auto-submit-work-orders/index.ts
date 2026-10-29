@@ -429,6 +429,16 @@ function formatDigitalPoNumber(value: unknown) {
   return number ? "PO-" + number : "";
 }
 
+function buildWorkOrderSignatureHtml(signatures: any, type: any, label: any) {
+  const signature = signatures && signatures[type];
+  const image = String(signature && signature.image || "");
+  const name = String(signature && signature.name || "").trim().slice(0, 150);
+  const valid = name && image.length <= 150000 && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(image);
+  return '<div class="wo-pdf-signature">' + (valid
+    ? '<img src="' + image + '" alt="' + escapeHtml(label) + '"><div>' + escapeHtml(name) + '</div>'
+    : '') + '<div class="line">' + escapeHtml(label) + '</div></div>';
+}
+
 function buildWorkOrderPdfHtml(bundle: WorkOrderBundle) {
   const { wo, pos, digitalPos, labour, equipment, rentals, materials, misc, travel } = bundle;
   const totalLabour = labour.reduce((total, row) => total + Number(row.hours || 0), 0);
@@ -440,6 +450,7 @@ function buildWorkOrderPdfHtml(bundle: WorkOrderBundle) {
 <title>${escapeHtml(wo.wo_number || "Work Order")}</title>
 <style>
 ${(globalThis as any).JgcWorkOrderPdfBranding.css}
+.wo-pdf-signature img { display:block; max-width:100%; height:58px; object-fit:contain; object-position:left; }
 </style>
 </head>
 <body>
@@ -504,8 +515,8 @@ ${(globalThis as any).JgcWorkOrderPdfBranding.css}
   ${wo.notes ? '<h2>Notes</h2><div class="description">' + escapeHtml(wo.notes) + "</div>" : ""}
 
   <div class="signatures">
-    <div class="line">Supervisor Signature</div>
-    <div class="line">Client Signature</div>
+    ${buildWorkOrderSignatureHtml(wo.signatures, "supervisor", "Supervisor Signature")}
+    ${buildWorkOrderSignatureHtml(wo.signatures, "client", "Client Signature")}
   </div>
 </body>
 </html>`;

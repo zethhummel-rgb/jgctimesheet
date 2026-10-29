@@ -100,3 +100,15 @@ test('Work Order PDF still opens when the branding script is unavailable', async
   await expect(page.locator('h2')).toHaveCount(10);
   await expect(page.locator('.line')).toHaveText(['Supervisor Signature', 'Client Signature']);
 });
+
+for (const edge of [false, true]) test(`Work Order ${edge ? 'scheduled' : 'browser'} PDF preserves optional signatures and rejects unsafe image sources`, async ({page}) => {
+  const b=fixture();
+  const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aEv8AAAAASUVORK5CYII=';
+  b.wo.signatures={supervisor:{name:'A & B <Supervisor>',image:png,signed_at:'2026-10-29T14:00:00Z'},client:{name:'Unsafe source',image:'https://example.invalid/track.png'}};
+  const source=fs.readFileSync(path.join(root,edge?'supabase/functions/auto-submit-work-orders/index.ts':'work-orders.html'),'utf8');
+  await page.setContent(render(source,edge,b));
+  await expect(page.locator('.wo-pdf-signature img')).toHaveCount(1);
+  await expect(page.locator('.wo-pdf-signature').first()).toContainText('A & B <Supervisor>');
+  expect(await page.content()).not.toContain('example.invalid');
+  await expect(page.locator('.line')).toHaveText(['Supervisor Signature','Client Signature']);
+});

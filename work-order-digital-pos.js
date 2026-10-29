@@ -58,36 +58,29 @@
     const availableIds = new Set(available.map((row) => row.id));
     state.pendingPoIds = new Set(Array.from(state.pendingPoIds).filter((id) => availableIds.has(id)));
     const selectedCount = state.pendingPoIds.size;
+    const locked = !document.getElementById('lockedNotice').hidden;
 
     availableList.innerHTML = available.length ? `
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Select</th><th>Digital Portal PO</th><th>Supplier</th><th>Date</th><th>Created / Assigned</th><th>Materials</th><th>Receipt</th><th>Status</th></tr></thead>
-          <tbody>
-            ${available.map((row) => `
-              <tr>
-                <td><input type="checkbox" data-digital-po-id="${escapeText(row.id)}" aria-label="Select ${escapeText(formatPoNumber(row.po_number))}" ${state.pendingPoIds.has(row.id) ? "checked" : ""}></td>
-                <td><strong>${escapeText(formatPoNumber(row.po_number))}</strong></td>
-                <td>${escapeText(row.supplier_name || "-")}</td>
-                <td>${escapeText(formatDate(row.order_date))}</td>
-                <td>${escapeText(row.creator_name || "-")}<br><span class="small">${escapeText(row.assigned_name || "Not assigned")}</span></td>
-                <td>${escapeText(row.material_count || 0)}</td>
-                <td>${row.receipt_attached ? "Yes" : "No"}</td>
-                <td>${escapeText(statusLabel(row.workflow_status))}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
+      ${available.map((row) => `
+        <label class="wo-po-card">
+          <input type="checkbox" data-digital-po-id="${escapeText(row.id)}" aria-label="Select ${escapeText(formatPoNumber(row.po_number))}" ${state.pendingPoIds.has(row.id) ? "checked" : ""} ${locked ? "disabled" : ""}>
+          <span class="wo-po-description"><strong>${escapeText(formatPoNumber(row.po_number))} · ${escapeText(row.supplier_name || "-")}</strong>
+            <small>${escapeText(formatDate(row.order_date))} · ${escapeText(statusLabel(row.workflow_status))}</small>
+            <small>Created: ${escapeText(row.creator_name || "-")} · Assigned: ${escapeText(row.assigned_name || "Not assigned")}</small>
+            <small>${escapeText(row.material_count || 0)} materials · Receipt: ${row.receipt_attached ? "Attached" : "Not attached"}</small>
+          </span>
+        </label>
+      `).join("")}
     ` : '<div class="small">No unlinked digital POs found for this job and date.</div>';
 
     linkedWrap.hidden = !linked.length;
     linkedList.innerHTML = linked.map((row) => `
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid rgba(99,205,107,.28);padding:10px;margin-top:7px;border-radius:6px;">
-        <span><strong>Digital Portal ${escapeText(formatPoNumber(row.po_number))}</strong> | ${escapeText(row.supplier_name || "-")} | ${escapeText(formatDate(row.order_date))}</span>
+      <div class="wo-po-card">
+        <div class="wo-po-description"><strong>Digital Portal ${escapeText(formatPoNumber(row.po_number))} · ${escapeText(row.supplier_name || "-")}</strong><small>${escapeText(formatDate(row.order_date))} · Linked</small>
         <div class="actions">
           ${typeof isAdmin !== "undefined" && isAdmin ? `<button type="button" class="secondary" data-open-digital-po="${escapeText(row.id)}">View</button>` : ""}
-          <button type="button" class="delete-button" data-unlink-digital-po="${escapeText(row.id)}">Unlink</button>
+          <button type="button" class="delete-button" data-unlink-digital-po="${escapeText(row.id)}" ${locked ? "disabled" : ""}>Unlink</button>
+        </div>
         </div>
       </div>
     `).join("");

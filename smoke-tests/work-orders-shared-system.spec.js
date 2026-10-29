@@ -263,7 +263,8 @@ for (const viewport of [
     expect(dimensions.fieldOverflows).toEqual([]);
     expect(dimensions.firstButtonHeight).toBeGreaterThanOrEqual(44);
     if (viewport.name === "phone") {
-      expect(dimensions.formColumns.trim().split(/\s+/)).toHaveLength(1);
+      // The approved paper layout keeps the short date / customer PO fields side by side.
+      expect(dimensions.formColumns.trim().split(/\s+/)).toHaveLength(2);
       expect(dimensions.managementScrollable).toBe(true);
       const bottomNav = page.locator(".jgc-mobile-bottom-nav");
       await expect(bottomNav).toBeVisible();
@@ -372,6 +373,15 @@ test("Admin Work Orders stays contained and keeps its editor and management acti
   expect(dimensions.filterColumns.trim().split(/\s+/)).toHaveLength(1);
   expect(dimensions.summaryColumns.trim().split(/\s+/)).toHaveLength(1);
   expect(await contrastRatio(page, "#workOrdersSection .summary-tile")).toBeGreaterThanOrEqual(4.5);
+  await page.locator('#adminWorkOrderEditorFrame').scrollIntoViewIfNeeded();
+  await page.evaluate(()=>window.scrollBy(0,600));
+  await expect.poll(()=>page.evaluate(()=>{
+    const frame=document.getElementById('adminWorkOrderEditorFrame');
+    const rect=frame.getBoundingClientRect();
+    const button=frame.contentDocument.getElementById('submitButton').getBoundingClientRect();
+    const nav=document.querySelector('.jgc-mobile-bottom-nav').getBoundingClientRect();
+    return rect.top+button.top>=0 && rect.top+button.bottom<=nav.top+1;
+  })).toBe(true);
   expect(errors).toEqual([]);
 
   if (process.env.JGC_WORK_ORDER_SCREENSHOT_DIR) {
