@@ -1,10 +1,10 @@
-const JGC_RELEASE_ID = "1035";
+const JGC_RELEASE_ID = "1036";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
   "./employee-contacts.js?v=1",
   "./employee-contacts.css?v=1",
-  "./jsa-workers.js?v=3",
+  "./jsa-workers.js?v=4",
   "./jsa-workers.css?v=1",
   "./jsa-worker-editor.js?v=1",
   "./job-board-context.js?v=2",

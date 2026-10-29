@@ -156,3 +156,15 @@ test('a staff phone can collect a JSA prepared ahead of time without editing its
  await sign(page,'Synthetic Worker');await sign(page,'Manual Worker');await expect(page.locator('#jsaPostSaveQrPanel h3')).toHaveText('Completed');
  expect(store.calls.filter(c=>c.name==='save_worker_jsa')).toHaveLength(1);
 });
+
+for(const width of [390,1440])test(`listed employee signs only their own outstanding JSA from Reports ${width}`,async({page})=>{
+ await page.setViewportSize({width,height:900});const store=await fixture(page);await fill(page);await page.locator('#jsaCompleteWorkers').click();
+ store.model.can_collect=false;Object.assign(store.model.acknowledgements[0],{matched_employee_id:creator.id,attendee_name:creator.display_name});
+ await page.goto('/todays-inspections.html?recordType=reports');await page.evaluate(async id=>JGCJsaWorkers.openReview(inspectionSupabaseClient,id,document.getElementById('editPanel')),store.model.record.id);
+ const panel=page.locator('#editPanel');await expect(panel.locator('[data-jsa-worker-sign]')).toHaveCount(0);await expect(panel.locator('[data-jsa-own-sign]')).toBeEnabled();
+ await panel.locator('[data-jsa-own-sign]').click();await expect(page.locator('#safetySignaturePrintedName')).toHaveValue(creator.display_name);
+ const canvas=page.locator('.safety-signature-pad'),box=await canvas.boundingBox();await page.mouse.move(box.x+20,box.y+20);await page.mouse.down();await page.mouse.move(box.x+100,box.y+60,{steps:8});await page.mouse.up();
+ await page.locator('#safetySignatureRead').check();await page.getByRole('button',{name:'Confirm signature',exact:true}).click();
+ await expect(panel.locator('[data-jsa-own-sign]')).toHaveCount(0);expect(store.model.acknowledgements[0].signature_signed_at).toBeTruthy();expect(store.model.acknowledgements[1].signature_signed_at).toBeNull();expect(store.model.workflow.outstanding).toBe(1);
+ expect(store.calls.filter(c=>c.name==='sign_jsa_worker').at(-1).args.p_acknowledgement_id).toBe(store.model.acknowledgements[0].id);
+});
