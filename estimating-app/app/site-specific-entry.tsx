@@ -1,3 +1,4 @@
+import {createPortal} from 'react-dom';
 import {formatPhoneRichText,phonePosition,phoneDeletion} from '../lib/phone-number';
 import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type TextareaHTMLAttributes } from 'react';
 import type { SafetyField } from '../lib/site-specific';
@@ -60,20 +61,45 @@ function format(command:string,scope:HTMLElement|null){
 const colors=[['','Automatic'],['#172d24','Black'],['#145b3d','JGC green'],['#b42318','Red'],['#184e9e','Blue'],['#713ba4','Purple'],['#9a6700','Gold'],['#596579','Grey']];
 const highlights=[['','No highlight'],['yellow','Yellow'],['green','Green'],['#cce9ff','Blue'],['#fbd5e5','Pink'],['#ffdcb5','Orange']];
 export function SiteFormattingToolbar(){
- const ref=useRef<HTMLDivElement>(null),[tick,setTick]=useState(0),[tab,setTab]=useState('Font');void tick;
- const apply=(command:string)=>format(command,ref.current?.closest('.ss-builder')||null);
- useEffect(()=>{const update=()=>setTick(n=>n+1),selection=()=>{const sel=getSelection();const el=sel?.anchorNode?.parentElement?.closest<HTMLElement>('[data-ss-rich-editor]');if(el)remember(el);},focus=(event:FocusEvent)=>{const target=event.target;if(target instanceof Element&&!target.closest('[data-ss-rich-editor],.ss-format-toolbar')){activeEditor=null;savedRange=null;update();}};document.addEventListener('focusin',focus);document.addEventListener('ss-selection',update);document.addEventListener('selectionchange',selection);return ()=>{document.removeEventListener('focusin',focus);document.removeEventListener('ss-selection',update);document.removeEventListener('selectionchange',selection);};},[]);
- const info=selectionInfo(),s=currentStyle(),enabled=Boolean(info&&ref.current?.closest('.ss-builder')?.contains(info.editor)&&info.editor.contentEditable==='true'&&!info.editor.closest('fieldset[disabled]'));
+ const host=useRef<HTMLSpanElement>(null),ref=useRef<HTMLDivElement>(null),dismissed=useRef(false),[tick,setTick]=useState(0),[tab,setTab]=useState('Font'),[expanded,setExpanded]=useState(false),[mobile,setMobile]=useState(()=>matchMedia('(max-width:760px)').matches),[position,setPosition]=useState({left:8,top:8,width:620,maxHeight:500,visible:false});
+ const scope=()=>host.current?.closest<HTMLElement>('.ss-builder')||null;
+ const apply=(command:string)=>format(command,scope());
+ const hide=()=>{dismissed.current=true;setExpanded(false);setTick(n=>n+1);};
+ useEffect(()=>{
+  let frame=0;const update=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>setTick(n=>n+1));};
+  const inside=(target:EventTarget|null)=>target instanceof Node&&Boolean(ref.current?.contains(target));
+  const selection=()=>{const sel=getSelection(),el=sel?.anchorNode?.parentElement?.closest<HTMLElement>('[data-ss-rich-editor]');if(el&&scope()?.contains(el)){if(el.contains(sel?.focusNode||null))remember(el);else{activeEditor=null;savedRange=null;update();}}};
+  const focus=(event:FocusEvent)=>{const target=event.target;if(inside(target))return;if(target instanceof Element&&target.closest('[data-ss-rich-editor]')&&scope()?.contains(target))return;activeEditor=null;savedRange=null;setExpanded(false);update();};
+  const pointer=(event:PointerEvent)=>{if(inside(event.target))return;const target=event.target;if(target instanceof Element&&scope()?.contains(target)&&target.closest('[data-ss-rich-editor]')){dismissed.current=false;return;}activeEditor=null;savedRange=null;setExpanded(false);update();};
+  const keys=(event:KeyboardEvent)=>{if(event.key==='Escape'&&(inside(event.target)||scope()?.contains(event.target as Node))){event.preventDefault();hide();activeEditor?.focus({preventScroll:true});}};
+  const media=matchMedia('(max-width:760px)'),resize=()=>{setMobile(media.matches);update();};
+  document.addEventListener('focusin',focus);document.addEventListener('pointerdown',pointer,true);document.addEventListener('keydown',keys);document.addEventListener('ss-selection',update);document.addEventListener('selectionchange',selection);window.addEventListener('scroll',update,true);window.addEventListener('resize',resize);window.visualViewport?.addEventListener('resize',update);window.visualViewport?.addEventListener('scroll',update);media.addEventListener('change',resize);
+  return ()=>{cancelAnimationFrame(frame);document.removeEventListener('focusin',focus);document.removeEventListener('pointerdown',pointer,true);document.removeEventListener('keydown',keys);document.removeEventListener('ss-selection',update);document.removeEventListener('selectionchange',selection);window.removeEventListener('scroll',update,true);window.removeEventListener('resize',resize);window.visualViewport?.removeEventListener('resize',update);window.visualViewport?.removeEventListener('scroll',update);media.removeEventListener('change',resize);activeEditor=null;savedRange=null;};
+ },[]);
+ const info=selectionInfo(),s=currentStyle(),enabled=Boolean(info&&scope()?.contains(info.editor)&&info.editor.contentEditable==='true'&&!info.editor.closest('fieldset[disabled]'));
+ useLayoutEffect(()=>{
+  const box=ref.current,editor=activeEditor,view=window.visualViewport,left=view?.offsetLeft||0,top=view?.offsetTop||0,vw=view?.width||innerWidth,vh=view?.height||innerHeight;
+  const width=Math.min(mobile?(expanded?360:220):640,vw-16),maxHeight=Math.max(60,vh-24);
+  if(!enabled||dismissed.current||!box||!editor){setPosition(p=>p.visible?{...p,visible:false}:p);return;}
+  const editRect=editor.getBoundingClientRect(),selectionRect=savedRange?.getBoundingClientRect(),anchor=selectionRect?.height?selectionRect:editRect;
+  const within=editRect.bottom>top&&editRect.top<top+vh&&editRect.right>left&&editRect.left<left+vw;
+  const height=Math.min(box.getBoundingClientRect().height,maxHeight),keyboard=vh<innerHeight*.8;
+  let x=mobile?left+(vw-width)/2:anchor.left,y=mobile?top+vh-height-(keyboard?8:80):anchor.top-height-12;
+  if(!mobile&&y<top+8)y=anchor.bottom+12;
+  x=Math.max(left+8,Math.min(x,left+vw-width-8));y=Math.max(top+8,Math.min(y,top+vh-height-8));
+  const next={left:Math.round(x),top:Math.round(y),width,maxHeight,visible:within};setPosition(p=>JSON.stringify(p)===JSON.stringify(next)?p:next);
+ },[tick,mobile,expanded,tab,enabled,position.width]);
  const button=(command:string,title:string,icon:React.ReactNode,pressed?:boolean)=><button type="button" aria-label={title} title={title} disabled={!enabled||(command==='undo'&&!histories.get(info!.editor)?.past.length)||(command==='redo'&&!histories.get(info!.editor)?.future.length)} aria-pressed={pressed} onPointerDown={e=>e.preventDefault()} onClick={()=>apply(command)}>{icon}</button>;
  const alignIcon=(align:string)=><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">{[3,7,11,15].map((y,i)=><path key={y} d={`M${i%2?(align==='center'?5:align==='right'?8:2):2} ${y}h${i%2?8:14}`} stroke="currentColor" strokeWidth="1.6"/>)}</svg>;
- return <div ref={ref} className="ss-format-toolbar" role="group" aria-label="Site plan text formatting">
-  <div className="ss-ribbon-header"><strong>Text formatting</strong><span className="ss-active-field">{enabled?info!.editor.getAttribute('aria-label'):'Click a text box to begin'}</span><div className="ss-history">{button('undo','Undo','↶')}{button('redo','Redo','↷')}</div></div>
+ return <><span ref={host} className="ss-format-anchor" aria-hidden="true"/>{createPortal(<div ref={ref} className="ss-format-toolbar ss-format-floating" data-expanded={!mobile||expanded} role="group" aria-label="Site plan text formatting" style={{left:position.left,top:position.top,width:position.width,maxHeight:position.maxHeight,visibility:position.visible?'visible':'hidden',pointerEvents:position.visible?'auto':'none'}}>
+
+  <div className="ss-ribbon-header">{mobile?<button type="button" className="ss-format-toggle" aria-label={expanded?'Collapse formatting':'Expand formatting'} aria-expanded={expanded} onPointerDown={e=>e.preventDefault()} onClick={()=>setExpanded(v=>!v)}>Aa <span>Formatting</span> {expanded?'▾':'▴'}</button>:<strong>Text formatting</strong>}<span className="ss-active-field">{enabled?info!.editor.getAttribute('aria-label'):'Click a text box to begin'}</span><div className="ss-history">{button('undo','Undo','↶')}{button('redo','Redo','↷')}<button type="button" aria-label="Close formatting" title="Close formatting (Esc)" onPointerDown={e=>e.preventDefault()} onClick={hide}>×</button></div></div>
   <div className="ss-ribbon-tabs" role="tablist" aria-label="Formatting tools">{['Font','Paragraph'].map(name=><button key={name} role="tab" type="button" aria-selected={tab===name} onPointerDown={e=>e.preventDefault()} onClick={()=>setTab(name)}>{name}</button>)}</div>
   <div className="ss-ribbon-body" data-mobile-tab={tab}>
    <div className="ss-ribbon-group ss-font-group"><div className="ss-ribbon-row"><select disabled={!enabled} aria-label="Text font" value={s.family} onChange={e=>apply(e.target.value)}><option value="sans">Arial</option><option value="serif">Times New Roman</option><option value="mono">Courier New</option></select><select disabled={!enabled} aria-label="Text size" value={s.points?'pt'+s.points:s.size==='small'?'sm':s.size==='large'?'lg':'nm'} onChange={e=>apply(e.target.value)}><option value="nm">Auto</option><option value="sm">Small (legacy)</option><option value="lg">Large (legacy)</option>{[8,9,10,11,12,14,16,18,20,24,28,32,36].map(n=><option key={n} value={'pt'+n}>{n}</option>)}</select>{button('clear','Clear formatting',<span>A⌫</span>)}</div><div className="ss-ribbon-row">{button('bold','Bold',<b>B</b>,s.bold)}{button('italic','Italic',<i>I</i>,s.italic)}{button('underline','Underline',<u>U</u>,s.underline)}{button('strike','Strikethrough',<s>ab</s>,!!s.strike)}<label className="ss-colour-control" title="Font colour"><span style={{borderBottomColor:s.color||'#172d24'}}>A</span><select disabled={!enabled} aria-label="Font colour" value={s.color||''} onChange={e=>apply('color:'+e.target.value)}>{colors.map(([v,n])=><option key={v} value={v}>{n}</option>)}</select></label><label className="ss-colour-control" title="Text highlight"><span style={{background:s.highlight==='yellow'?'#fff2a8':s.highlight==='green'?'#cfecc8':s.highlight}}>▰</span><select disabled={!enabled} aria-label="Highlight colour" value={s.highlight||''} onChange={e=>apply('highlight:'+e.target.value)}>{highlights.map(([v,n])=><option key={v} value={v}>{n}</option>)}</select></label></div><small>Font</small></div>
    <div className="ss-ribbon-group ss-paragraph-group"><div className="ss-ribbon-row">{button('insertUnorderedList','Bullets','• ≡')}{button('insertOrderedList','Numbered list','1. ≡')}{button('in-','Decrease indent','⇤')}{button('in+','Increase indent','⇥')}</div><div className="ss-ribbon-row">{button('al','Align left',alignIcon('left'),!s.align||s.align==='left')}{button('ac','Align centre',alignIcon('center'),s.align==='center')}{button('ar','Align right',alignIcon('right'),s.align==='right')}<select disabled={!enabled} aria-label="Line spacing" value={'ls'+((s.spacing||1)*10)} onChange={e=>apply(e.target.value)}><option value="ls10">Single</option><option value="ls15">1.5 lines</option><option value="ls20">Double</option></select></div><small>Paragraph</small></div>
   </div>
- </div>;
+ </div>,document.body)}</>;
 }
 export function FormattedSiteText({value}:{value:string}){return <span dangerouslySetInnerHTML={{__html:safetyTextHtml(value)}}/>;}
 function textSelection(editor:HTMLElement){
