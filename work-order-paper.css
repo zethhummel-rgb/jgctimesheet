@@ -1,0 +1,129 @@
+/* Paper-style WO editor. Uses the portal theme and existing form controls. */
+.work-orders-page #workOrderFormCard {
+  padding: 0; border: 0; box-shadow: none; background: transparent;
+}
+.work-orders-page .wo-editor-layout { display: grid; grid-template-columns: minmax(0,1fr) 250px; gap: 22px; align-items: start; }
+.work-orders-page .work-order-page-header .logo-wrap { display: none; }
+.work-orders-page .wo-paper { min-width: 0; padding: clamp(18px,3vw,36px); background: var(--jgc-color-surface); border: 1px solid var(--jgc-color-border); box-shadow: var(--jgc-shadow-sm); }
+.work-orders-page .wo-paper-brand { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-bottom: 20px; border-bottom: 3px solid var(--jgc-color-brand-600); }
+.work-orders-page .wo-paper-brand img { width: 205px; max-width: 52%; height: 85px; object-fit: contain; }
+.work-orders-page .wo-paper-brand p { margin: 0; font-size: 12px; line-height: 1.65; text-align: right; color: var(--jgc-color-text-muted); }
+.work-orders-page .wo-paper-title { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 0 20px; }
+.work-orders-page .wo-paper-title h2 { margin: 0; font-size: 21px; text-transform: uppercase; letter-spacing: .04em; }
+.work-orders-page .wo-paper-title input { min-width: 0; width: 48%; border: 0; padding: 0; background: transparent; font-size: 17px; font-weight: 750; text-align: right; color: var(--jgc-color-text); cursor: default; }
+.work-orders-page .wo-paper .form-grid { gap: 10px; }
+.work-orders-page .wo-paper-fields > .jgc-field { background: var(--jgc-color-surface-soft); padding: 12px; border-bottom: 1px solid var(--jgc-color-border); min-width: 0; }
+.work-orders-page .wo-paper-fields label { font-size: 12px; color: var(--jgc-color-text-muted); margin-bottom: 5px; }
+.work-orders-page .wo-paper-fields input:not([type=hidden]),
+.work-orders-page .wo-paper-fields textarea { background: transparent; border: 1px solid transparent; border-radius: 3px; padding: 5px 2px; font-size: 16px; line-height: 1.5; color: var(--jgc-color-text); }
+.work-orders-page .wo-paper-fields input:focus,
+.work-orders-page .wo-paper-fields textarea:focus { background: var(--jgc-color-input); color: var(--jgc-color-text-dark); }
+.work-orders-page .wo-paper-fields :is(input:not([type=hidden]),textarea):not(:focus) { background: transparent !important; border-color: transparent !important; color: var(--jgc-color-text) !important; box-shadow: none !important; }
+.work-orders-page .wo-paper-title #woNumber { background: transparent !important; border-color: transparent !important; color: var(--jgc-color-text) !important; box-shadow: none !important; }
+.work-orders-page .wo-job-details summary { cursor: pointer; padding: 8px 0 0; font-size: 12px; color: var(--jgc-color-text-muted); }
+.work-orders-page .wo-paper-fields input[readonly] { cursor: default; }
+.work-orders-page .wo-paper-fields textarea { min-height: 130px; }
+.work-orders-page .wo-paper-fields #woJobSearch { padding-right: 40px; }
+.work-orders-page .wo-paper-fields .wo-description-field { margin-top: 14px; }
+.work-orders-page .wo-paper-fields .wo-description-field label { font-size: 15px; color: var(--jgc-color-text); border-bottom: 2px solid var(--jgc-color-brand-600); padding-bottom: 10px; }
+.work-orders-page .wo-paper .form-section { margin-top: 28px; }
+.work-orders-page .wo-paper .form-section > h3 { font-size: 16px; border-bottom: 2px solid var(--jgc-color-brand-600); padding-bottom: 12px; margin: 0 0 14px; }
+.work-orders-page .wo-paper #digitalPoWorkOrderSection { margin-top: 20px; }
+.work-orders-page .wo-paper #digitalPoWorkOrderSection > h3 { border-bottom: 1px solid var(--jgc-color-border); font-size: 14px; }
+.work-orders-page .wo-paper table { min-width: 0; background: transparent; }
+.work-orders-page .wo-paper th { background: var(--jgc-color-surface-soft); color: var(--jgc-color-text); }
+.work-orders-page .wo-paper th, .work-orders-page .wo-paper td { border: 0; border-bottom: 1px solid var(--jgc-color-border); padding: 12px 8px; overflow-wrap: anywhere; }
+.work-orders-page .wo-paper .wo-labour-table { table-layout: fixed; }
+.work-orders-page .wo-labour-table th:last-child, .work-orders-page .wo-labour-table td:last-child { width: 64px; text-align: right; }
+.work-orders-page .wo-labour-table td small { display: block; line-height: 1.6; color: var(--jgc-color-text-muted); }
+.work-orders-page .wo-labour-table tfoot { background: var(--jgc-color-surface-soft); font-weight: 700; }
+.work-orders-page .wo-labour-controls { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; align-items: flex-start; }
+.work-orders-page .wo-labour-controls details { min-width: 0; }
+.work-orders-page .wo-labour-controls details[open] { flex-basis: 100%; }
+.work-orders-page .wo-labour-controls summary { display: inline-flex; cursor: pointer; font-weight: 650; align-items: center; min-height: 44px; padding: 8px 12px; border: 1px solid var(--jgc-color-border); border-radius: 6px; list-style: none; }
+.work-orders-page .wo-labour-controls summary::-webkit-details-marker { display: none; }
+.work-orders-page .wo-labour-controls summary::before { content: '+'; margin-right: 8px; }
+.work-orders-page .wo-labour-controls details[open] > summary::before { content: '−'; }
+.work-orders-page .wo-labour-controls .employee-picker { margin-top: 12px; }
+.work-orders-page .wo-paper .form-section.collapsible { margin-top: 10px; border-radius: 5px; padding: 0; background: var(--jgc-color-surface-soft); }
+.work-orders-page .wo-paper .form-section-header { padding: 14px; gap: 12px; min-height: 56px; color: var(--jgc-color-text); }
+.work-orders-page .wo-paper .form-section-header h3 { font-size: 14px; }
+.work-orders-page .wo-paper .form-section-header h3::before { content: '▸'; margin-right: 9px; }
+.work-orders-page .wo-paper .form-section-header[aria-expanded=true] h3::before { content: '▾'; }
+.work-orders-page .wo-paper .form-section-header > span { font-size: 12px; font-weight: 400; color: var(--jgc-color-text-muted); }
+.work-orders-page .wo-paper .form-section-body { padding: 0 14px 14px; margin-top: 0; }
+.work-orders-page .wo-paper .item-row { background: var(--jgc-color-surface); border-radius: 5px; }
+.work-orders-page .wo-paper .item-row label { font-size: 12px; }
+.work-orders-page .wo-paper input, .work-orders-page .wo-paper select, .work-orders-page .wo-paper textarea { font-size: 16px; }
+.work-orders-page .wo-paper button { width: auto; min-height: 44px; }
+.work-orders-page .wo-paper .form-section-header { width: 100%; }
+.work-orders-page .wo-paper .delete-button { background: transparent; color: var(--jgc-color-text); border: 1px solid var(--jgc-color-border); justify-self: start; }
+.work-orders-page .wo-paper .material-row { grid-template-columns: 110px minmax(0,1fr); }
+.work-orders-page .wo-po-card { display: flex; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--jgc-color-border); align-items: flex-start; font-weight: 400; }
+.work-orders-page .wo-po-card input[type=checkbox] { flex: 0 0 auto; width: 22px; height: 22px; margin: 2px 0; }
+.work-orders-page .wo-po-card .wo-po-description { flex: 1; min-width: 0; }
+.work-orders-page .wo-po-card strong, .work-orders-page .wo-po-card small { display: block; line-height: 1.65; overflow-wrap: anywhere; }
+.work-orders-page .wo-po-card small { color: var(--jgc-color-text-muted); }
+.work-orders-page .wo-po-card .actions { margin: 6px 0 0; }
+.work-orders-page .wo-side { display: grid; gap: 16px; position: sticky; top: 90px; }
+.work-orders-page .wo-side-card { padding: 18px; border: 1px solid var(--jgc-color-border); border-radius: 8px; background: var(--jgc-color-surface); }
+.work-orders-page .wo-side-card h3 { font-size: 15px; margin: 0 0 16px; }
+.work-orders-page .wo-side-card button { width: 100%; margin-top: 10px; min-height: 44px; }
+.work-orders-page .wo-side-card label { font-size: 12px; }
+.work-orders-page .wo-side-card .small { line-height: 1.6; }
+.work-orders-page .wo-readiness { padding: 0; list-style: none; font-size: 13px; line-height: 1.7; color: var(--jgc-color-text-muted); }
+.work-orders-page .wo-readiness li { margin: 7px 0; }
+.work-orders-page .wo-readiness li::before { content: '○'; margin-right: 8px; }
+.work-orders-page .wo-readiness li[data-complete=true]::before { content: '✓'; color: var(--jgc-color-brand-600); }
+.work-orders-page .wo-paper-footer { display: flex; justify-content: space-between; gap: 16px; padding-top: 16px; margin-top: 26px; border-top: 1px solid var(--jgc-color-border); font-size: 11px; color: var(--jgc-color-text-muted); }
+.work-orders-page .wo-submit-dock { position: fixed; z-index: 1010; bottom: var(--wo-nav-height,0px); left: 0; right: 0; background: var(--jgc-color-surface); border-top: 1px solid var(--jgc-color-border); padding: 12px max(16px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left)); box-shadow: var(--jgc-shadow-md); }
+.work-orders-page .wo-dock-inner { max-width: 1160px; margin: auto; display: flex; gap: 12px; align-items: center; }
+.work-orders-page .wo-dock-status { flex: 1; min-width: 0; font-size: 13px; }
+.work-orders-page .wo-dock-status strong { display: block; }
+.work-orders-page .wo-submit-dock button { min-height: 48px; width: auto; }
+.work-orders-page :is(#earlySubmitButton,.wo-early-submit) { background: var(--jgc-color-badge-info); color: var(--jgc-color-on-brand); border: 1px solid var(--jgc-color-badge-info); }
+.work-orders-page .wo-form-status { color: var(--jgc-color-text) !important; padding: 12px 0; }
+.work-orders-page .wo-form-status[data-error=true] { color: var(--jgc-color-danger); font-weight: 700; }
+.work-orders-page .page { padding-bottom: calc(var(--wo-dock-height,90px) + 24px); }
+.work-orders-page .wo-signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 28px; }
+.work-orders-page button.wo-signature { display: block; width: 100%; background: var(--jgc-color-surface-soft); color: var(--jgc-color-text); border-radius: 0; border-bottom: 1px solid var(--jgc-color-border); min-height: 108px; text-align: left; padding: 14px; }
+.work-orders-page .wo-signature strong, .work-orders-page .wo-signature span { display: block; font-size: 12px; margin-bottom: 8px; }
+.work-orders-page .wo-signature span { font-weight: 400; color: var(--jgc-color-text-muted); }
+.work-orders-page .wo-signature img { display: block; max-width: 100%; height: 65px; object-fit: contain; object-position: left; background: var(--jgc-color-on-brand); }
+.work-orders-page .wo-signature-dialog { width: min(540px,calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 24px; border: 1px solid var(--jgc-color-border); border-radius: 12px; background: var(--jgc-color-surface); color: var(--jgc-color-text); overflow: auto; }
+.work-orders-page .wo-signature-dialog::backdrop { background: color-mix(in srgb,var(--jgc-color-page-deep) 65%,transparent); }
+.work-orders-page .wo-signature-dialog canvas { display: block; width: 100%; height: 200px; margin: 16px 0; touch-action: none; border: 1px solid var(--jgc-color-border); border-radius: 6px; background: var(--jgc-color-on-brand); }
+.work-orders-page .wo-signature-dialog .jgc-actions { flex-wrap: wrap; }
+.work-orders-page .wo-signature-dialog button { width: auto; min-height: 44px; }
+.work-orders-page.embedded-work-order .wo-submit-dock { position: sticky; bottom: var(--wo-embedded-bottom,0px); margin-top: 20px; }
+.work-orders-page.embedded-work-order .wo-side { position: static; }
+.work-orders-page.embedded-work-order .page { padding-bottom: 12px; }
+.work-orders-page .wo-paper [hidden] { display: none !important; }
+@media(max-width:1100px) {
+  .work-orders-page .wo-editor-layout { grid-template-columns: minmax(0,1fr) 215px; gap: 16px; }
+}
+@media(max-width:920px) {
+  .work-orders-page .wo-editor-layout { grid-template-columns: minmax(0,1fr); }
+  .work-orders-page .wo-side { position: static; grid-template-columns: 1fr 1fr; }
+  .work-orders-page .wo-dock-status { display: none; }
+  .work-orders-page .wo-dock-inner { gap: 10px; }
+  .work-orders-page .wo-submit-dock button { flex: 1; font-size: 14px; padding: 10px; }
+  .work-orders-page .wo-submit-dock { padding: 10px 12px; }
+  .work-orders-page .wo-paper #labourPreview table { min-width: 0; }
+}
+@media(max-width:520px) {
+  .work-orders-page .wo-paper { padding: 16px; }
+  .work-orders-page .wo-paper-brand img { width: 160px; }
+  .work-orders-page .wo-paper-brand p { font-size: 10px; }
+  .work-orders-page .wo-paper-title h2 { font-size: 17px; }
+  .work-orders-page .wo-paper-title input { font-size: 15px; }
+  .work-orders-page .wo-side, .work-orders-page .wo-signatures { grid-template-columns: 1fr; }
+  .work-orders-page .wo-paper-fields.form-grid { grid-template-columns: 1fr 1fr; }
+  .work-orders-page .wo-paper-fields > .jgc-field { padding: 9px; }
+  .work-orders-page .wo-paper-fields .wo-job-number-field { display: none; }
+  .work-orders-page .wo-paper-fields .wo-attention-field { grid-column: 1 / -1; }
+  .work-orders-page .wo-paper th, .work-orders-page .wo-paper td { font-size: 13px; padding: 10px 6px; }
+}
+@media print {
+  .work-orders-page .wo-submit-dock { display: none; }
+}

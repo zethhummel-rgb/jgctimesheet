@@ -10,6 +10,7 @@
 <link rel="manifest" href="manifest.json?v=7">
 <link rel="stylesheet" href="jgc-design-system.css?v=14" data-jgc-design-system="14">
 <link rel="stylesheet" href="work-orders-design-system.css?v=4">
+<link rel="stylesheet" href="work-order-paper.css?v=1">
 </head>
 <body class="work-orders-page jgc-page jgc-system-page">
 <main class="page jgc-page-shell jgc-page-shell--wide">
@@ -45,7 +46,6 @@
           <select id="woStatusFilter" class="jgc-select" onchange="renderWorkOrders()">
             <option value="">All Statuses</option>
             <option value="draft">Draft</option>
-            <option value="ready_for_submission">Ready For Submission</option>
             <option value="submitted">Submitted</option>
           </select>
           <input id="woDateFilter" class="jgc-input" type="date" onchange="renderWorkOrders()">
@@ -56,34 +56,24 @@
     </section>
 
     <section id="workOrderFormCard" class="card jgc-panel">
-      <h2 id="formTitle">New Work Order</h2>
-      <div class="small wo-section-intro">Create and manage Work Order drafts with PO numbers, labour, equipment, rentals, materials, and PDF/email submission.</div>
       <div id="lockedNotice" class="locked-note" hidden>This Work Order has been submitted and is locked.</div>
+      <div class="wo-editor-layout">
+      <div class="wo-paper">
+        <div class="wo-paper-brand"><img src="estimating/jgc-logo-transparent.png" alt="John Gordon Construction"><p>JOHN GORDON<br>CONSTRUCTION INC.<br>613-932-1293</p></div>
+        <div class="wo-paper-title"><h2>Work Order</h2><input id="woNumber" aria-label="WO Number" placeholder="Select a job" readonly></div>
 
-      <div class="form-grid jgc-form-grid">
+
+      <div class="form-grid jgc-form-grid wo-paper-fields">
         <div class="jgc-field">
-          <label>WO Number</label>
-          <input id="woNumber" class="jgc-input" placeholder="Select a job to generate" readonly>
-        </div>
-        <div class="jgc-field">
-          <label>Date</label>
+          <label for="woDate">Date</label>
           <input id="woDate" class="jgc-input" type="date" onchange="renderLabourPreview(); window.jgcDigitalPoWorkOrder && window.jgcDigitalPoWorkOrder.useWorkOrderDate();">
         </div>
         <div class="jgc-field">
-          <label>Status</label>
-          <select id="woStatus" class="jgc-select">
-            <option value="draft">Draft</option>
-            <option value="ready_for_submission">Ready For Submission</option>
-            <option value="submitted" disabled>Submitted - locked</option>
-          </select>
-          <div id="woSubmittedInfo" class="small wo-status-line"></div>
-        </div>
-        <div class="jgc-field">
-          <label>Customer PO#</label>
+          <label for="woCustomerPo">Customer PO#</label>
           <input id="woCustomerPo" class="jgc-input" placeholder="Customer PO number if provided">
         </div>
         <div class="full jgc-field jgc-field--full">
-          <label>Job</label>
+          <label for="woJobSearch">Project / Job #</label>
           <div id="woJobPicker" class="jgc-job-picker">
             <div class="jgc-job-picker__field">
               <input id="woJobSearch" class="jgc-input" placeholder="Start typing job number, client or job name" autocomplete="off" role="combobox" aria-controls="woJobSuggestions" aria-autocomplete="list" onfocus="renderJobSearchSuggestions()" onblur="scheduleCloseJobSearchSuggestions()" oninput="handleJobSearchInput(event)" onchange="handleJobSearchInput(event)">
@@ -92,53 +82,53 @@
             <div id="woJobSuggestions" class="jgc-job-dropdown" role="listbox" aria-label="Active jobs"></div>
             <input id="woJob" type="hidden">
           </div>
+          <div id="woJobClient" class="small"></div>
         </div>
-        <div class="jgc-field">
-          <label>Job Number</label>
+        <div class="jgc-field wo-job-number-field">
+          <label for="woJobNumber">Job Number</label>
           <input id="woJobNumber" class="jgc-input" readonly>
         </div>
-        <div class="jgc-field">
-          <label>Attention</label>
+        <div class="jgc-field wo-attention-field">
+          <label for="woCustomer">Attention</label>
           <input id="woCustomer" class="jgc-input" placeholder="Homeowner, site contact, or attention line">
         </div>
         <input id="woJobName" type="hidden">
         <input id="woJobType" type="hidden" value="T&M">
         <div class="full jgc-field jgc-field--full">
-          <label>Job Address</label>
+          <label for="woJobAddress">Address</label>
           <input id="woJobAddress" class="jgc-input" placeholder="Job address">
         </div>
-        <div class="full jgc-field jgc-field--full">
-          <label>Description of Work Completed Today</label>
+        <div class="full jgc-field jgc-field--full wo-description-field">
+          <label for="woDescription">Description of Work Completed Today</label>
           <textarea id="woDescription" class="jgc-textarea" placeholder="Example: Replaced damaged ceiling tiles, installed FRP panels, completed drywall repairs..."></textarea>
         </div>
       </div>
 
       <div class="form-section jgc-section">
         <h3>Labour</h3>
-        <div class="small wo-equipment-help">Select the employees expected on this Work Order. Matching checks same employee, same job number, and same date.</div>
-        <div id="employeePicker" class="employee-picker small">Loading employees...</div>
-        <div class="manual-labour-panel">
-          <label class="manual-labour-toggle">
-            <input id="manualLabourEnabled" type="checkbox" onchange="toggleManualLabourEntry()">
-            <span>Manual Labour entry</span>
-          </label>
-          <div id="manualLabourFields" hidden>
-            <div id="manualLabourRows" class="manual-labour-rows"></div>
-            <div class="manual-labour-actions jgc-actions">
-              <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="addManualLabourRow()">Add Entry</button>
-            </div>
-          </div>
-        </div>
-        <div class="actions jgc-actions wo-labour-actions">
-          <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="refreshLabourPreview()">Refresh Labour Match</button>
-        </div>
         <div id="labourPreview" class="small">Select employees to preview labour.</div>
+        <div class="wo-labour-controls">
+          <details><summary>Choose employees</summary>
+            <p class="small">Hours come from each employee’s timesheet for this job and work date.</p>
+            <div id="employeePicker" class="employee-picker small">Loading employees...</div>
+          </details>
+          <details><summary>Manual hours</summary>
+            <div class="manual-labour-panel">
+              <label class="manual-labour-toggle"><input id="manualLabourEnabled" type="checkbox" onchange="toggleManualLabourEntry()"><span>Include manual labour</span></label>
+              <div id="manualLabourFields" hidden><div id="manualLabourRows" class="manual-labour-rows"></div>
+                <div class="manual-labour-actions jgc-actions"><button type="button" class="secondary jgc-button jgc-button--secondary" onclick="addManualLabourRow()">Add Entry</button></div>
+              </div>
+            </div>
+          </details>
+          <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="refreshLabourPreview()">Refresh timesheet hours</button>
+        </div>
       </div>
 
       <div class="form-section jgc-section">
-        <h3>Paper / Manual Purchase Orders</h3>
+        <h3>Purchase Orders</h3>
+        <p class="small">Paper / manual POs</p>
         <div id="poRows"></div>
-        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="addPoRow()">Add PO</button>
+        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="addPoRow()">Add paper / manual PO</button>
       </div>
 
       <div class="form-section jgc-section" id="digitalPoWorkOrderSection">
@@ -158,6 +148,7 @@
           <label>Linked Digital Portal POs</label>
           <div id="digitalPoLinkedList"></div>
         </div>
+        <p class="small">Selected digital POs link when you save or submit this WO.</p>
       </div>
 
       <div class="form-section collapsible jgc-section">
@@ -237,22 +228,58 @@
         </div>
       </div>
 
-<div class="actions jgc-actions wo-actions-bottom">
-  <button id="saveButton" class="jgc-button" type="button" onclick="saveWorkOrder()">Save Draft</button>
-  <button id="submitButton" class="jgc-button" type="button" onclick="submitCurrentWorkOrder()">Submit Work Order</button>
-  <button id="earlySubmitButton" type="button" class="secondary jgc-button jgc-button--secondary" onclick="submitCurrentWorkOrderEarly()">Early Submission</button>
-  <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="resetWorkOrderForm()">Clear</button>
-</div>
-      <div id="formStatus" class="small wo-form-status"></div>
+      <div class="wo-signatures">
+        <button id="supervisorSignatureButton" class="wo-signature" type="button" onclick="JgcWorkOrderPaper.sign('supervisor')"><strong>Supervisor signature</strong><span>Tap to sign · optional</span></button>
+        <button id="clientSignatureButton" class="wo-signature" type="button" onclick="JgcWorkOrderPaper.sign('client')"><strong>Client signature</strong><span>Tap to sign · optional</span></button>
+      </div>
+      <div class="wo-paper-footer"><span>John Gordon Construction Inc.</span><span id="woPaperNumber"></span></div>
+      </div>
+      <aside class="wo-side" aria-label="Work Order actions">
+        <section class="wo-side-card">
+          <h3 id="formTitle">New Work Order</h3>
+          <strong id="woStatusLabel">Draft</strong>
+          <input id="woStatus" type="hidden" value="draft">
+          <div id="woSubmittedInfo" class="small wo-status-line"></div>
+          <ul id="woReadiness" class="wo-readiness"><li>Job &amp; date</li><li>Description</li><li>Labour</li></ul>
+          <p class="small">Supervisor: <span id="woSupervisor"></span></p>
+          <button id="saveButton" class="secondary jgc-button jgc-button--secondary" type="button" onclick="saveWorkOrder()">Save Draft</button>
+          <p class="small">Normal submission is held until the following Monday at 8:00 a.m. Hours stay editable until then. Use Early Submission when the hours are final.</p>
+        </section>
+        <section class="wo-side-card">
+          <h3>PDF &amp; email</h3>
+          <button id="previewButton" type="button" class="secondary jgc-button jgc-button--secondary" onclick="JgcWorkOrderPaper.output('preview')">Preview document</button>
+          <button id="pdfButton" type="button" class="secondary jgc-button jgc-button--secondary" onclick="JgcWorkOrderPaper.output('pdf')">Save PDF</button>
+          <button id="emailButton" type="button" class="secondary jgc-button jgc-button--secondary" onclick="JgcWorkOrderPaper.output('email')">Email PDF</button>
+          <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="resetWorkOrderForm()">Clear</button>
+        </section>
+      </aside>
+      </div>
+      <div id="formStatus" class="small wo-form-status" role="status" aria-live="polite"></div>
+      <footer id="woSubmitDock" class="wo-submit-dock" aria-label="Submit Work Order">
+        <div class="wo-dock-inner">
+          <div class="wo-dock-status"><strong id="woDockNumber">New Work Order</strong><span id="woDockState"></span></div>
+          <button id="earlySubmitButton" type="button" class="jgc-button" onclick="submitCurrentWorkOrderEarly()">Early Submission</button>
+          <button id="submitButton" class="jgc-button" type="button" onclick="submitCurrentWorkOrder()">Submit Work Order</button>
+        </div>
+      </footer>
     </section>
   </div>
 </main>
+<dialog id="woSignatureDialog" class="wo-signature-dialog" aria-labelledby="woSignatureTitle">
+  <h2 id="woSignatureTitle">Signature</h2>
+  <label for="woSignatureName">Printed name</label><input id="woSignatureName" maxlength="150" autocomplete="name">
+  <p class="small">Sign in the white box with your finger, mouse or stylus. This signature is saved with the WO.</p>
+  <canvas id="woSignatureCanvas" width="700" height="280" aria-label="Draw your signature"></canvas>
+  <p id="woSignatureError" role="alert"></p>
+  <div class="jgc-actions"><button id="woSignatureClear" type="button" class="secondary">Clear</button><button id="woSignatureRemove" type="button" class="secondary" hidden>Remove signature</button><button id="woSignatureCancel" type="button" class="secondary">Cancel</button><button id="woSignatureDone" type="button" disabled>Use signature</button></div>
+</dialog>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=82"></script>
 <script src="job-list-sync.js?v=1"></script>
 <script src="employee-feature-access.js?v=3"></script>
 <script src="work-order-pdf-branding.js?v=1"></script>
+<script src="work-order-paper.js?v=1"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -333,6 +360,7 @@ function captureLocalWorkOrderDraft() {
     jobAddress: document.getElementById("woJobAddress").value || "",
     description: document.getElementById("woDescription").value || "",
     notes: document.getElementById("woNotes").value || "",
+    signatures: window.JgcWorkOrderPaper.getSignatures(),
     purchaseOrders: collectPoRows(),
     equipment: collectEquipmentRows(),
     rentals: collectRentalRows(),
@@ -438,6 +466,7 @@ function restoreLocalWorkOrderDraft() {
   document.getElementById("woJobAddress").value = draft.jobAddress || "";
   document.getElementById("woDescription").value = draft.description || "";
   document.getElementById("woNotes").value = draft.notes || "";
+  window.JgcWorkOrderPaper.setSignatures(draft.signatures);
   restoreLocalWorkOrderRows("poRows", draft.purchaseOrders, addPoRow);
   restoreLocalWorkOrderRows("equipmentRows", draft.equipment, addEquipmentRow);
   restoreLocalWorkOrderRows("rentalRows", draft.rentals, addRentalRow);
@@ -1101,33 +1130,15 @@ function renderLabourPreview() {
   const labourComplete = completeCount === rows.length;
 
   panel.innerHTML = `
-    <div class="labour-summary">
-      <div class="labour-metric"><span>Total Labour Hours</span><strong>${totalHours.toFixed(2)}</strong></div>
-      <div class="labour-metric"><span>Labour Complete</span><strong>${labourComplete ? "Yes" : "No"}</strong></div>
-      <div class="labour-metric"><span>Matched Employees</span><strong>${completeCount} / ${rows.length}</strong></div>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Employee</th>
-            <th>Status</th>
-            <th>Hours</th>
-            <th>Notes</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows.map((row) => `
-            <tr>
-              <td>${escapeHtml(row.employee_name)}</td>
-              <td>${row.complete ? '<span class="complete-text">Complete</span>' : '<span class="missing-text">' + (row.manual ? "Missing Hours" : "Missing Timesheet") + '</span>'}</td>
-              <td>${row.complete ? row.hours.toFixed(2) : "-"}</td>
-              <td>${escapeHtml(row.notes || "")}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    </div>
+    <table class="wo-labour-table">
+      <thead><tr><th>Employee</th><th>Labour</th><th>Hours</th></tr></thead>
+      <tbody>${rows.map((row) => `
+        <tr><td>${escapeHtml(row.employee_name)}</td>
+          <td>${row.manual ? "Manual hours" : "Timesheet"}<small>${row.complete ? escapeHtml(row.notes || (row.manual ? "Entered on this WO" : "Same job & date")) : (row.manual ? "Missing hours" : "Missing timesheet")}</small></td>
+          <td>${row.complete ? row.hours.toFixed(2) : "—"}</td></tr>
+      `).join("")}</tbody>
+      <tfoot><tr><td colspan="2">Total labour<small>${completeCount} / ${rows.length} entries complete${labourComplete ? "" : " · awaiting hours"}</small></td><td>${totalHours.toFixed(2)}</td></tr></tfoot>
+    </table>
   `;
 }
 
@@ -1171,9 +1182,10 @@ function rebuildEmployeeDirectory(includeSelectedKeys) {
 
 async function refreshLabourPreview() {
   setFormStatus("Refreshing labour from timesheets...");
+  const selectedKeys = collectSelectedEmployees().map((row) => row.worker_key);
   await loadTimesheetEntries();
-  rebuildEmployeeDirectory();
-  renderEmployeePicker(labourRows.filter((row) => row.work_order_id === editingWorkOrderId && !isManualLabourRow(row)).map((row) => row.worker_key || normalizeWorkerName(row.employee_name)));
+  rebuildEmployeeDirectory(selectedKeys);
+  renderEmployeePicker(selectedKeys);
   renderLabourPreview();
   setFormStatus("Labour match refreshed.");
 }
@@ -1379,16 +1391,16 @@ function addMaterialRow(rowData) {
   row.className = "item-row material-row";
   row.innerHTML = `
     <div>
-      <label>Shop</label>
-      <input data-material-field="purchased_from" placeholder="Shop / source" value="${escapeHtml(rowData && rowData.purchased_from ? rowData.purchased_from : "JGC Shop")}">
-    </div>
-    <div>
       <label>Quantity</label>
       <input data-material-field="quantity" placeholder="Example: 12 sheets" value="${escapeHtml(rowData && rowData.quantity !== undefined && rowData.quantity !== null ? rowData.quantity : "")}">
     </div>
-    <div class="wide">
+    <div>
       <label>Material Description</label>
       <input data-material-field="material_description" placeholder="Material used" value="${escapeHtml(rowData && rowData.material_description ? rowData.material_description : "")}">
+    </div>
+    <div class="wide">
+      <label>Shop</label>
+      <input data-material-field="purchased_from" placeholder="Shop / source" value="${escapeHtml(rowData && rowData.purchased_from ? rowData.purchased_from : "JGC Shop")}">
     </div>
     <button type="button" class="delete-button" onclick="this.closest('.material-row').remove()">Remove Material</button>
   `;
@@ -1559,6 +1571,7 @@ function resetWorkOrderForm(options) {
   document.getElementById("woJobAddress").value = "";
   document.getElementById("woDescription").value = "";
   document.getElementById("woNotes").value = "";
+  window.JgcWorkOrderPaper.setSignatures({});
   document.getElementById("poRows").innerHTML = "";
   addPoRow();
   if (window.jgcDigitalPoWorkOrder) {
@@ -1586,7 +1599,7 @@ function setPdfEmailControlsDisabled(isDisabled) {
   ["pdfButton", "emailButton"].forEach((buttonId) => {
     const button = document.getElementById(buttonId);
     if (button) {
-      button.disabled = isDisabled;
+      button.disabled = false;
     }
   });
 }
@@ -1615,7 +1628,7 @@ function setFormLocked(isLocked) {
     field.disabled = isLocked;
   });
   document.querySelectorAll("#workOrderFormCard button").forEach((button) => {
-    if (button.id === "pdfButton" || button.id === "emailButton" || button.textContent === "Clear") {
+    if (button.id === "pdfButton" || button.id === "emailButton" || button.id === "previewButton" || button.textContent === "Clear") {
       return;
     }
     button.disabled = isLocked;
@@ -1625,12 +1638,13 @@ function setFormLocked(isLocked) {
 function setFormStatus(message, isError) {
   const status = document.getElementById("formStatus");
   status.textContent = message || "";
-  status.style.color = isError ? "#ffb8b8" : "#d7e6d6";
+  status.dataset.error = String(Boolean(isError));
+  window.JgcWorkOrderPaper.refresh();
 }
 
 function getStatusLabel(status) {
   if (status === "ready_for_submission") {
-    return "Ready For Submission";
+    return "Submitted";
   }
   return String(status || "draft").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
@@ -1661,7 +1675,10 @@ function getWorkOrderStatusText(wo) {
   }
 
   if (isWorkOrderPendingSubmission(wo)) {
-    return "Pending Submission " + getPendingSubmissionDateLabel(wo);
+    return "Submitted · sends " + getPendingSubmissionDateLabel(wo);
+  }
+  if (wo && wo.status === "ready_for_submission") {
+    return "Submitted · awaiting hours or details";
   }
 
   const label = getStatusLabel(wo && wo.status);
@@ -1684,7 +1701,9 @@ function renderSubmittedInfo(wo) {
   const submittedDate = getSubmittedDateLabel(wo);
   submittedInfo.textContent = (wo && wo.status === "submitted" && submittedDate)
     ? "Submitted on " + submittedDate
-    : "";
+    : wo && wo.status === "ready_for_submission"
+      ? isWorkOrderPendingSubmission(wo) ? "Sends " + getPendingSubmissionDateLabel(wo) : "Waiting for " + ((wo.waiting_for || []).join(", ") || "hours or details")
+      : "";
 }
 
 async function setWorkOrderManagementView(view) {
@@ -1738,11 +1757,11 @@ function renderWorkOrders() {
       wo.created_by_name,
       wo.supervisor_name
     ].join(" ").toLowerCase();
-    const isSubmitted = Boolean(wo.locked || wo.status === "submitted" || isWorkOrderPendingSubmission(wo));
+    const isSubmitted = Boolean(wo.locked || wo.status === "submitted" || wo.status === "ready_for_submission");
 
     return (!search || text.includes(search)) &&
       (workOrderManagementView === "submitted" ? isSubmitted : !isSubmitted) &&
-      (!statusFilter || wo.status === statusFilter) &&
+      (!statusFilter || (statusFilter === "submitted" ? isSubmitted : wo.status === statusFilter)) &&
       (!dateFilter || wo.work_order_date === dateFilter);
   });
 
@@ -1791,7 +1810,7 @@ function renderWorkOrders() {
                     <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="editWorkOrder('${escapeHtml(wo.id)}')">${isLocked ? "View" : "Edit"}</button>
                     ${!isLocked && wo.status === "ready_for_submission" ? `<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="moveWorkOrderToDraft('${escapeHtml(wo.id)}')">Move to Draft</button>` : ""}
           ${isLocked || isPendingSubmission ? "" : `<button type="button" class="jgc-button" onclick="submitSavedWorkOrder('${escapeHtml(wo.id)}')">Submit</button>`}
-          ${isLocked ? "" : `<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="submitSavedWorkOrderEarly('${escapeHtml(wo.id)}')">Early Submission</button>`}
+          ${isLocked ? "" : `<button type="button" class="jgc-button wo-early-submit" onclick="submitSavedWorkOrderEarly('${escapeHtml(wo.id)}')">Early Submission</button>`}
                     <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="downloadWorkOrderPdf('${escapeHtml(wo.id)}')">Save PDF</button>
                     <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="emailWorkOrderPdf('${escapeHtml(wo.id)}')">Email PDF</button>
                     ${isAdmin && !isLocked ? `<button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteWorkOrder('${escapeHtml(wo.id)}')">Delete</button>` : ""}
@@ -1875,6 +1894,7 @@ function editWorkOrder(id) {
   document.getElementById("woJobAddress").value = wo.job_address || "";
   document.getElementById("woDescription").value = wo.description_of_work || "";
   document.getElementById("woNotes").value = wo.notes || "";
+  window.JgcWorkOrderPaper.setSignatures(wo.signatures);
   document.getElementById("poRows").innerHTML = "";
   const rows = purchaseOrders.filter((po) => po.work_order_id === wo.id).sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
   if (rows.length) {
@@ -2066,6 +2086,7 @@ async function saveWorkOrder(options) {
     job_address: jobAddress,
     status: settings.forceStatus || status,
     description_of_work: description,
+    signatures: window.JgcWorkOrderPaper.getSignatures(),
     notes,
     labour_complete: labourComplete,
     waiting_for: waitingFor,
@@ -2132,6 +2153,12 @@ async function saveWorkOrder(options) {
   }
 
   const workOrderId = result.data.id;
+  // A retry after a related-row/PO-link failure must update this same WO, not allocate another number.
+  editingWorkOrderId = workOrderId;
+  const savedIndex = workOrders.findIndex((item) => item.id === workOrderId);
+  if (savedIndex >= 0) workOrders[savedIndex] = result.data;
+  else workOrders.push(result.data);
+  persistLocalWorkOrderDraft({ force: true });
   const { error: poDeleteError } = await supabaseClient
     .from("work_order_purchase_orders")
     .delete()
@@ -2264,7 +2291,7 @@ async function saveWorkOrder(options) {
     const digitalPoResult = await window.jgcDigitalPoWorkOrder.linkPendingTo(workOrderId);
     if (digitalPoResult && digitalPoResult.error) {
       setFormStatus("Work order saved, but the selected digital POs could not be linked: " + digitalPoResult.error.message, true);
-      return workOrderId;
+      return "";
     }
   }
 
@@ -2446,7 +2473,7 @@ async function holdWorkOrderForMondaySubmission(id, gate, options) {
   const settings = options || {};
   const markedReady = await markWorkOrderReady(id, [], { labourComplete: true });
   const mondayText = formatWorkOrderGateDate(gate && gate.monday);
-  const message = "Work Order is ready and will submit automatically on " + mondayText + ".";
+  const message = "Work Order submitted. It will send automatically on " + mondayText + ".";
 
   if (markedReady && !settings.silent) {
     if (settings.fromSavedList) {
@@ -2704,8 +2731,8 @@ async function submitCurrentWorkOrder(options) {
     const markedReady = await markWorkOrderReady(workOrderId, check.waitingFor);
 
     if (markedReady) {
-      finishWorkOrderAndStartNext("Work Order is ready for submission and waiting for: " + check.waitingFor.join(", "));
-      alert("Work Order is ready, but not complete yet. Waiting for: " + check.waitingFor.join(", "));
+      finishWorkOrderAndStartNext("Work Order submitted. Waiting for: " + check.waitingFor.join(", "));
+      alert("Work Order submitted. It will send when complete and the release time is reached. Waiting for: " + check.waitingFor.join(", "));
     }
   } finally {
     currentWorkOrderSubmitInFlight = false;
@@ -2770,8 +2797,8 @@ async function submitSavedWorkOrder(id, options) {
     if (markedReady) {
       editWorkOrder(id);
       const waitingMessage = check.waitingFor.length ? check.waitingFor.join(", ") : "required information";
-      setFormStatus("Work Order is ready for submission and waiting for: " + waitingMessage);
-      alert("Work Order is ready, but not complete yet. Waiting for: " + waitingMessage);
+      setFormStatus("Work Order submitted. Waiting for: " + waitingMessage);
+      alert("Work Order submitted. It will send when complete and the release time is reached. Waiting for: " + waitingMessage);
     }
   } finally {
     workOrderSubmitLocks.delete(submitKey);
@@ -3240,6 +3267,16 @@ function formatTransportationProvider(value) {
   return value || "Required";
 }
 
+function buildWorkOrderSignatureHtml(signatures, type, label) {
+  const signature = signatures && signatures[type];
+  const image = String(signature && signature.image || "");
+  const name = String(signature && signature.name || "").trim().slice(0, 150);
+  const valid = name && image.length <= 150000 && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(image);
+  return '<div class="wo-pdf-signature">' + (valid
+    ? '<img src="' + image + '" alt="' + escapeHtml(label) + '"><div>' + escapeHtml(name) + '</div>'
+    : '') + '<div class="line">' + escapeHtml(label) + '</div></div>';
+}
+
 function buildWorkOrderPdfHtml(id) {
   const bundle = getWorkOrderBundle(id);
 
@@ -3294,6 +3331,7 @@ function buildWorkOrderPdfHtml(id) {
 <title>${escapeHtml(wo.wo_number || "Work Order")}</title>
 <style>
 ${pdfBranding.css}
+.wo-pdf-signature img { display:block; max-width:100%; height:58px; object-fit:contain; object-position:left; }
 </style>
 </head>
 <body>
@@ -3365,8 +3403,8 @@ ${pdfBranding.css}
   ${wo.notes ? '<h2>Notes</h2><div class="description">' + escapeHtml(wo.notes) + '</div>' : ""}
 
   <div class="signatures">
-    <div class="line">Supervisor Signature</div>
-    <div class="line">Client Signature</div>
+    ${buildWorkOrderSignatureHtml(wo.signatures, "supervisor", "Supervisor Signature")}
+    ${buildWorkOrderSignatureHtml(wo.signatures, "client", "Client Signature")}
   </div>
 </body>
 </html>`;
@@ -3422,7 +3460,8 @@ function emailCurrentWorkOrderPdf() {
   emailWorkOrderPdf(editingWorkOrderId);
 }
 
-async function downloadWorkOrderPdf(id) {
+async function downloadWorkOrderPdf(id, options) {
+  const settings = options || {};
   const bundle = getWorkOrderBundle(id);
 
   if (!bundle) {
@@ -3430,7 +3469,7 @@ async function downloadWorkOrderPdf(id) {
     return;
   }
 
-  const pdfWindow = window.open("", "_blank");
+  const pdfWindow = settings.targetWindow || window.open("", "_blank");
 
   if (!pdfWindow) {
     alert("Allow popups to save the Work Order PDF.");
@@ -3439,10 +3478,11 @@ async function downloadWorkOrderPdf(id) {
 
   try {
     await loadDigitalPoPdfRowsForWorkOrder(bundle.wo);
+    pdfWindow.document.open();
     pdfWindow.document.write(buildWorkOrderPdfHtml(id));
     pdfWindow.document.close();
     pdfWindow.focus();
-    setTimeout(() => pdfWindow.print(), 300);
+    if (!settings.preview) setTimeout(() => pdfWindow.print(), 300);
   } catch (error) {
     pdfWindow.close();
     alert("The linked Digital POs could not be loaded, so the PDF was not created. Please refresh and try again.");
@@ -3552,6 +3592,6 @@ async function applyTmReminderPrefill(restored) {
   setFormStatus('Job and work date filled from the T&M reminder. Review the hours and complete this work order.');
 }
 </script>
-<script src="work-order-digital-pos.js?v=3"></script>
+<script src="work-order-digital-pos.js?v=4"></script>
 </body>
 </html>

@@ -175,7 +175,8 @@ for (const [name, url, selector, form] of [
     const layout = await field.evaluate(el => {
       const r = el.getBoundingClientRect();
       const parent = el.parentElement.getBoundingClientRect();
-      const text = Array.from(document.querySelectorAll("input.jgc-input:not([type=date]):not([type=hidden]):not([type=checkbox]):not([type=radio]), input:not([type]):not([type=hidden])"))
+      // The paper WO number is a heading. Compare its date to the adjacent editable field.
+      const text = (el.id === "woDate" && document.getElementById("woCustomerPo")) || Array.from(document.querySelectorAll("input.jgc-input:not([type=date]):not([type=hidden]):not([type=checkbox]):not([type=radio]), input:not([type]):not([type=hidden])"))
         .find(other => other.offsetParent && other.getBoundingClientRect().width > 100);
       return { right: r.right, parentRight: parent.right, left: r.left, parentLeft: parent.left, height: r.height, textHeight: text ? text.getBoundingClientRect().height : null, minWidth: getComputedStyle(el).minWidth, display: getComputedStyle(el).display, pageWidth: document.documentElement.scrollWidth };
     });
@@ -206,6 +207,8 @@ test("Work Orders: a picked job keeps its client and shows the job details card"
   await expect(page.locator("#woJobName")).toHaveValue("Ingleside Development");
   // The shared "Selected job details" card recognises the label and shows the client.
   const card = page.locator(".jgc-employee-job-details").filter({ hasText: "McKay Mechanical" });
+  await expect(page.locator("#woJobClient")).toContainText("McKay Mechanical");
+  await page.locator(".wo-job-details > summary").click();
   await expect(card).toBeVisible();
   await expect(card).toContainText("Ingleside Development");
 });
@@ -324,6 +327,7 @@ for (const theme of ["light", "dark"]) for (const [name, url, selectors] of [
     await expect(options.first()).toContainText("26147");
     await options.first().click();
     const card = page.locator(".jgc-employee-job-details").filter({ hasText: "Prescott POE" });
+    if (name === "Work Orders") await page.locator(".wo-job-details > summary").click();
     await expect(card).toBeVisible();
     await expect(card).toContainText("1032 Highway 16 (POE), Prescott ON K0E 1T0");
     await expect(card).not.toContainText("Lansdowne");
