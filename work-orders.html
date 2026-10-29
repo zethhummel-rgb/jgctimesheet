@@ -124,11 +124,15 @@
         </div>
       </div>
 
-      <div class="form-section jgc-section">
-        <h3>Purchase Orders</h3>
-        <p class="small">Paper / manual POs</p>
+      <div class="form-section collapsible jgc-section">
+        <button type="button" class="form-section-header" aria-expanded="false" aria-controls="manualPoSectionBody" onclick="toggleFormSection('manualPoSectionBody', 'manualPoToggleText')">
+          <h3>Paper / Manual Purchase Orders</h3>
+          <span id="manualPoToggleText">Show</span>
+        </button>
+        <div id="manualPoSectionBody" class="form-section-body" hidden>
         <div id="poRows"></div>
         <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="addPoRow()">Add paper / manual PO</button>
+        </div>
       </div>
 
       <div class="form-section jgc-section" id="digitalPoWorkOrderSection">
