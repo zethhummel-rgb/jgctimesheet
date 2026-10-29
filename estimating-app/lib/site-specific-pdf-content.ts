@@ -1,3 +1,4 @@
+import { sitePlanTemplateChoices, sitePlanTemplate } from './site-specific-plan-templates';
 import {safetyTextPlain} from './site-specific-rich-text';
 import type { SafetyBlock, SafetyPage, SiteSpecificPlan } from './site-specific';
 import { structuredSafetyPages } from './site-specific-structure';
@@ -7,7 +8,7 @@ const filled = (value: string) => Boolean(safetyTextPlain(value).trim());
 // A default contact role or map legend label is a prompt, not a completed row.
 // Reusable procedure/responsibility text is real plan content and stays in the PDF.
 const tablePrompts = new Map<string, Set<string>>();
-for (const page of structuredSafetyPages()) {
+for (const page of [...structuredSafetyPages(), ...sitePlanTemplateChoices.map(choice=>sitePlanTemplate(choice.id)!)]) {
   for (const block of page.blocks || []) {
     if (block.type !== 'table') continue;
     const prompts = new Set<string>();

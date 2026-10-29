@@ -1,3 +1,4 @@
+import { sitePlanTemplateChoices, sitePlanTemplate } from './site-specific-plan-templates';
 import type { SafetyPage } from './site-specific';
 
 // Adapted from the JGC site-specific DOCX, the supplied 20-page framework,
@@ -109,6 +110,7 @@ export function standardSafetyPages(): SafetyPage[] {
 }
 
 export const standardProcedureChoices = [
+  ...sitePlanTemplateChoices,
   {id: 'lockout', title: 'Lockout and tagout'},
   {id: 'dust', title: 'Dust and silica controls'},
   {id: 'fire', title: 'Fire prevention and hot work'},
@@ -126,6 +128,7 @@ const procedureValues: Record<string, {steps: string; hazards: string; controls:
 };
 
 export function standardProcedure(id: string): Omit<SafetyPage, 'id'> | undefined {
+  const planTemplate=sitePlanTemplate(id);if(planTemplate)return planTemplate;
   const choice = standardProcedureChoices.find(p => p.id === id), values = procedureValues[id];
   if (!choice || !values) return;
   return {kind: 'procedure', title: choice.title, included: true, fields: [
