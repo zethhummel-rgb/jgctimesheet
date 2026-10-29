@@ -60,6 +60,10 @@ html[data-jgc-theme] body.jgc-theme .ss-builder .ss-paper[data-page-id] .ss-docu
 .ss-format-anchor{display:none}
 .ss-format-toolbar.ss-format-floating{position:fixed;z-index:1800;margin:0;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;background:#f7faf8;color:#1b2b23;font-family:Arial,Helvetica,sans-serif;border:1px solid #aebfb4;border-radius:10px;box-shadow:0 8px 30px #102b2833}
 .ss-format-floating .ss-ribbon-header{padding:6px 8px}.ss-format-floating .ss-ribbon-body{padding:7px 3px}.ss-format-floating .ss-ribbon-group{padding:0 6px}.ss-format-floating .ss-active-field{max-width:220px}
-.ss-format-floating .ss-format-toggle{border:0;background:transparent;font-size:15px;font-weight:700;gap:9px;min-height:36px}.ss-format-toggle span{font-size:12px}
-@media(max-width:760px){.ss-format-floating[data-expanded=false] .ss-ribbon-tabs,.ss-format-floating[data-expanded=false] .ss-ribbon-body{display:none}.ss-format-floating[data-expanded=false] .ss-history>button:not(:last-child){display:none}.ss-format-floating .ss-ribbon-header{padding:2px 7px}.ss-format-floating .ss-history>button{min-width:36px;min-height:36px}.ss-format-floating .ss-font-group .ss-ribbon-row:last-of-type{flex-wrap:wrap}.ss-format-floating .ss-colour-control select{width:68px}}
+.ss-format-floating .ss-format-toggle{background:transparent;font-size:17px;padding:0;flex:none}
+.ss-quick-format{display:flex;gap:4px}
+.ss-format-floating[data-expanded=false] .ss-ribbon-header{padding:5px;gap:4px;border-bottom:0}
+.ss-format-floating[data-expanded=false] button{width:34px;min-width:34px;height:34px;min-height:34px;padding:0;border:1px solid #c5d4cb;border-radius:5px}
+.ss-format-floating[data-expanded=false] .ss-ribbon-tabs,.ss-format-floating[data-expanded=false] .ss-ribbon-body{display:none}
+@media(max-width:760px){.ss-format-floating[data-expanded=false] button{width:44px;min-width:44px;height:44px;min-height:44px}.ss-format-floating .ss-ribbon-header{padding:2px 7px}.ss-format-floating .ss-history>button{min-width:36px;min-height:36px}.ss-format-floating .ss-font-group .ss-ribbon-row:last-of-type{flex-wrap:wrap}.ss-format-floating .ss-colour-control select{width:68px}}
 @media print{.ss-format-floating{display:none!important}}
