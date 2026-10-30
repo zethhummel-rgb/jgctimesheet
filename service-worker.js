@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "1038";
+const JGC_RELEASE_ID = "1039";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -173,7 +173,7 @@ const JGC_APP_SHELL = [
   "./purchase-orders.css?v=24",
   "./purchase-orders-pdf.js?v=3",
   "./purchase-orders.js?v=28",
-  "./purchase-orders-paper.js?v=1",
+  "./purchase-orders-paper.js?v=2",
   "./purchase-orders-paper.css?v=1",
   "./purchase-orders-admin.js?v=15",
   "./work-order-digital-pos.js?v=4",
