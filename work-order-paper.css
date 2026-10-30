@@ -1,4 +1,7 @@
 /* Paper-style WO editor. Uses the portal theme and existing form controls. */
+.work-orders-page .jgc-offline-status {
+  bottom: calc(max(var(--wo-nav-height,0px),var(--wo-embedded-bottom,0px)) + var(--wo-dock-height,90px) + 12px);
+}
 .work-orders-page #workOrderFormCard {
   padding: 0; border: 0; box-shadow: none; background: transparent;
 }
