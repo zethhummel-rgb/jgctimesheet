@@ -173,17 +173,24 @@ for(const viewport of [{width:390,height:844},{width:1440,height:1000}])test(`st
   await page.setViewportSize(viewport);
   await setup(page);
   await page.evaluate(()=>document.documentElement.style.fontSize='20px');
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('jgc:sync-state',{detail:{source:'purchase-orders',pending:1,status:'idle',href:'purchase-orders.html',label:'purchase order waiting to send'}})));
+  await expect(page.locator('.jgc-offline-status')).toBeVisible();
   for(const y of [0,700,2000]){
     await page.evaluate(y=>window.scrollTo(0,y),y);
     const geometry=await page.evaluate(()=>{
       const submit=document.getElementById('submitButton').getBoundingClientRect();
       const early=document.getElementById('earlySubmitButton').getBoundingClientRect();
       const nav=document.querySelector('.jgc-mobile-bottom-nav');
-      return {top:submit.top,bottom:submit.bottom,earlyTop:early.top,earlyBottom:early.bottom,limit:nav&&getComputedStyle(nav).display!=='none'?nav.getBoundingClientRect().top:innerHeight,width:document.documentElement.scrollWidth,viewport:innerWidth};
+      const banner=document.querySelector('.jgc-offline-status').getBoundingClientRect();
+      const dock=document.getElementById('woSubmitDock').getBoundingClientRect();
+      const hit=document.elementFromPoint(submit.x+submit.width/2,submit.y+submit.height/2);
+      return {bannerBottom:banner.bottom,dockTop:dock.top,submitReachable:!!hit?.closest('#submitButton'),top:submit.top,bottom:submit.bottom,earlyTop:early.top,earlyBottom:early.bottom,limit:nav&&getComputedStyle(nav).display!=='none'?nav.getBoundingClientRect().top:innerHeight,width:document.documentElement.scrollWidth,viewport:innerWidth};
     });
     expect(geometry.top).toBeGreaterThanOrEqual(0);expect(geometry.bottom).toBeLessThanOrEqual(geometry.limit+1);
     expect(geometry.earlyTop).toBeGreaterThanOrEqual(0);expect(geometry.earlyBottom).toBeLessThanOrEqual(geometry.limit+1);
     expect(geometry.width).toBeLessThanOrEqual(geometry.viewport+1);
+    expect(geometry.bannerBottom).toBeLessThanOrEqual(geometry.dockTop-8);
+    expect(geometry.submitReachable).toBe(true);
   }
   await page.locator('#woDescription').scrollIntoViewIfNeeded();
   await page.locator('#woDescription').fill('Readable fields at larger font sizes.');
