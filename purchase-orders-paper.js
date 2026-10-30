@@ -13,11 +13,11 @@
       <h2 class="po-paper-banner">PURCHASE ORDER</h2>
       <div class="po-paper-number"><span>Purchase order number</span><div data-paper-number></div></div>
       <button type="button" class="po-paper-field" data-paper-edit="to"><span class="po-paper-label">To</span><span data-paper-to>Tap to enter company or supplier</span><small>Manual entry</small></button>
+      <button type="button" class="po-paper-field" data-paper-edit="job"><span class="po-paper-label">Job name</span><span data-paper-job-name>Tap to choose or enter a job</span></button>
       <div class="po-paper-meta">
         <button type="button" class="po-paper-field" data-paper-edit="date"><span class="po-paper-label">Date of order</span><span data-paper-date></span></button>
         <button type="button" class="po-paper-field" data-paper-edit="job"><span class="po-paper-label">Job #</span><span data-paper-job-number>Choose or enter job</span></button>
       </div>
-      <button type="button" class="po-paper-field" data-paper-edit="job"><span class="po-paper-label">Job name</span><span data-paper-job-name>Tap to choose or enter a job</span></button>
       <table class="po-paper-items" aria-label="Purchase order items"><thead><tr><th scope="col">Qty.</th><th scope="col">Description</th><th scope="col"><span class="jgc-sr-only">Actions</span></th></tr></thead><tbody data-paper-items></tbody></table>
       <div data-paper-add></div>
       <button type="button" class="po-paper-field po-paper-notes" data-paper-edit="notes"><span class="po-paper-label">Order notes</span><span data-paper-notes>Tap to add delivery or pickup notes</span></button>
