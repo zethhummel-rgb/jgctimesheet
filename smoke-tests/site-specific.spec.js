@@ -472,3 +472,15 @@ test('custom PDF order interleaves complete originals and recalculates contents 
  expect(plan).toEqual(before);expect(parsed.pages).toBe(14);expect(parsed.values[2]).toContain('policy ORIGINAL 1');expect(parsed.values[3]).toContain('policy ORIGINAL 2');expect(parsed.values[4]).toContain('1. QA scope');expect(parsed.values[5]).toContain('cert-a ORIGINAL 1');expect(parsed.values[9]).toContain('2. Last section');expect(parsed.values[10]).toContain('jsa-a ORIGINAL 1');
  const toc=parsed.values[1];expect(toc.indexOf('JGC policy')).toBeLessThan(toc.indexOf('QA scope'));expect(toc.indexOf('Certificates')).toBeLessThan(toc.indexOf('Last section'));expect(toc).toMatch(/3 Appendix 1: JGC policy/);expect(toc).toMatch(/10 2. Last section/);
 });
+
+for(const width of [390,1440])test(`numbered page shortcuts at top and bottom jump directly and preserve edits ${width}`,async({page})=>{
+ const store=await setup(page,{width});const top=page.getByRole('navigation',{name:'Page shortcuts (top)',exact:true}),bottom=page.getByRole('navigation',{name:'Page shortcuts (bottom)',exact:true});
+ await expect(top.locator('[aria-current="page"]')).toHaveText('1');
+ await top.getByRole('button',{name:/^Go to page 3:/}).click();await expect(page.locator('.ss-paper')).toHaveAttribute('data-page-id',store.getState().jobs[0].siteSpecific?.pages[0]?.id||model.createSitePlan(fixture().jobs[0],'QA').pages[0].id);
+ await expect(top.locator('[aria-current="page"]')).toHaveText('3');await expect(bottom.locator('[aria-current="page"]')).toHaveText('3');
+ await page.getByLabel('Page title',{exact:true}).fill('Jump test saved title');
+ await bottom.getByRole('button',{name:/^Go to page 8:/}).click();await expect(top.locator('[aria-current="page"]')).toHaveText('8');
+ await top.getByRole('button',{name:/^Go to page 3:/}).click();await expect(page.getByLabel('Page title',{exact:true})).toHaveText('Jump test saved title');
+ await bottom.getByRole('button',{name:/^Go to page 1:/}).click();await expect(page.locator('.ss-paper')).toHaveAttribute('data-page-id','cover');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});

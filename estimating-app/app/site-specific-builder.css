@@ -79,3 +79,7 @@ html[data-jgc-theme] body.jgc-theme .ss-builder .ss-paper[data-page-id] .ss-docu
 .ss-document-order li>div {display:flex;gap:6px;flex-shrink:0;}
 .ss-document-order button {min-height:44px;}
 @media(max-width:520px){.ss-document-order li{align-items:flex-start;flex-direction:column;}}
+
+.ss-page-shortcuts{display:flex;flex-wrap:wrap;gap:6px;max-width:816px;margin:12px auto 0;}
+.ss-page-shortcuts button{min-width:44px;min-height:44px;padding:8px;}
+.ss-page-shortcuts button[aria-current="page"]{font-weight:800;outline:2px solid var(--green-900);outline-offset:1px;}
