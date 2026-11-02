@@ -1,5 +1,41 @@
 # Site-specific plan standard content
 
+## Visual plan workspace (release 1044)
+
+The creator now has four workspace controls: Edit plan, Organize plan, Supporting
+documents and Add to plan. The editor keeps its existing editable paper, formatting,
+section inclusion, maps, saved copies and PDF actions. Titled section previews
+replace numeric jump buttons; phones use an expandable section chooser. Previous
+and Next move through the cover, contents and editable sections only.
+
+Organize plan shows previews of section content and complete-document cards.
+Cover and contents stay first. Drag handles support mouse and touch, arrow keys
+move the focused item, and a position menu provides direct placement. Escape
+cancels a drag. Undo restores only order keys against the latest plan, preserving
+edits, attachment selections and newly added sections. Selected JSAs and Portal
+certificates remain whole groups. Empty and excluded sections remain editable but
+are marked as omitted from PDF output. Previews represent sections, not exact PDF
+pagination; final page numbers are still calculated by the existing exporter.
+
+Supporting documents is a library outside the paper editor, with search, included
+counts, category filters and an included-only filter. Certificates are grouped by
+their existing training title, including WAH and TNPI. Other groups cover JSAs,
+company policies, SDS, project plans/reports and other documents. Non-certificate
+files can be classified for this plan using optional `libraryCategory` metadata;
+refreshing Portal documents preserves that choice. Source identity, file paths
+and Portal categories stay unchanged. Certificate selection still sets restricted
+publication access. File previews use the existing approved-admin read service;
+PDFs have page navigation and images retain their proportions. Preview errors do
+not change inclusion or silently substitute files.
+
+Add to plan presents traffic, spill prevention, spill response and emergency
+templates alongside blank task/procedure/risk sections, other JGC procedures and
+the saved-page library. Older-plan fill/structure actions are under Maintenance.
+No database migration, new dependency or change to original document storage is
+required. Opening an existing plan does not modify it.
+
+The sections below retain the history and source provenance of earlier releases.
+
 Release 986 uses editable JGC standard wording in new plans and offers an explicit fill-blanks action for existing plans. Opening a saved plan does not migrate, replace or publish it. Existing values, titles, inclusion choices, ordering, attachments and publication metadata remain intact. New fields and missing standard sections are added only on request. Site-specific addresses, scope, schedules, hazards, assigned people, hospitals, directions and muster points require the actual job information.
 
 Source material supplied by the user:
