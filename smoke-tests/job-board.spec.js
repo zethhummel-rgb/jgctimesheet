@@ -14,7 +14,7 @@ const USER_ID = 'eeeeeeee-eeee-4eee-eeee-eeeeeeeeeeee';
 const DOCUMENT_ID = 'ffffffff-ffff-4fff-ffff-ffffffffffff';
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto' }).format(new Date());
 const previousDate = '2026-09-30';
-const categoryValues = ['notice-of-project', 'hs-documents', 'site-specific', 'jgc-policy', 'jsa', 'toolbox-talk', 'accident-incident', 'daily-report', 'permit', 'inspection', 'other'];
+const categoryValues = ['notice-of-project', 'hs-documents', 'site-specific', 'sds', 'jgc-policy', 'jsa', 'toolbox-talk', 'accident-incident', 'daily-report', 'permit', 'inspection', 'other'];
 
 function session(identity) {
   const now = Math.floor(Date.now() / 1000);
@@ -804,4 +804,36 @@ for(const theme of ['light','dark'])for(const width of [390,1440])test(`first vi
  await expect(page.locator('#jsaPromptDialog')).toBeVisible();await page.locator('#jsaPromptReview').click();await expect(page.locator('#jsaSignOnSignTop')).toBeEnabled({timeout:15000});await expect(page.locator('#jsaSignOnStatus')).toContainText('1/2 workers signed');
  await drawAndSubmit();expect(store.workerWorkflow.status).toBe('Completed');expect(store.activatedPreparedIds.size).toBe(1);signCalls=store.calls.filter(c=>c.name==='sign_today_job_board_jsa');expect(signCalls).toHaveLength(2);expect(signCalls[1].args.p_prepared).toBe(false);
  await page.reload();await expect(page.locator('#boardContent')).toBeVisible();await expect.poll(()=>store.calls.filter(c=>c.name==='get_job_board_jsa').length).toBeGreaterThan(2);await page.waitForTimeout(200);await expect(page.locator('#jsaPromptDialog')).toBeHidden();
+});
+
+for (const width of [390, 1440]) test(`published SDS sheets have a collapsed job-specific section at ${width}`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1000 });
+  const store = fixture('guest');
+  store.documentRows.push({ id: 'sds-public', title: 'Concrete cleaner SDS', category: 'sds', report_date: today(), file_name: 'Cleaner-SDS.pdf', mime_type: 'application/pdf', status: 'published', visibility: 'public' });
+  store.documentRows.push({ id: 'sds-pending', title: 'Unpublished SDS', category: 'sds', report_date: today(), status: 'pending', visibility: 'public' });
+  await install(page, store); await page.goto('/job-board.html?embedded=1#board=' + TOKEN);
+  await visitorSignIn(page); await page.reload(); await expect(page.locator('#boardContent')).toBeVisible();
+  const section = page.locator('.board-category').filter({ has: page.locator('#sdsList') });
+  await expect(section).not.toHaveAttribute('open', '');
+  await expect(section.locator('summary')).toContainText('SDS Sheets');
+  await expect(section.locator('summary .board-section-count')).toHaveText('1');
+  await section.locator('summary').click();
+  await expect(page.locator('#sdsList')).toContainText('Concrete cleaner SDS');
+  await expect(page.locator('#sdsList')).not.toContainText('Unpublished SDS');
+  for (const name of ['View', 'Download', 'Email PDF']) await expect(page.locator('#sdsList').getByRole('button', { name, exact: true })).toBeVisible();
+  await expect(page.locator('#dailyReportsList')).not.toContainText('Concrete cleaner SDS');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+});
+
+test('approved staff can upload an SDS sheet using the existing review workflow', async ({ page }) => {
+  const store = await open(page, 'staff');
+  await page.getByRole('tab', { name: 'Create Todays Reports', exact: true }).click();
+  await page.locator('#uploadCategory').selectOption('sds');
+  await page.locator('#uploadTitle').fill('Concrete cleaner SDS');
+  await page.evaluate(() => { window.uploadJgcFile = async () => { await window.fixtureBoardStorageComplete(); return { data: {} }; }; });
+  await page.locator('#uploadFiles').setInputFiles({ name: 'Cleaner-SDS.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\nSynthetic SDS upload') });
+  await page.locator('#uploadSubmit').click();
+  await expect(page.locator('#uploadStatus')).toContainText('1 file uploaded for office review');
+  expect(store.calls.find(c => c.name === 'begin_job_board_upload').args).toMatchObject({ p_category: 'sds', p_title: 'Concrete cleaner SDS', p_file_name: 'Cleaner-SDS.pdf' });
+  expect(store.calls.filter(c => c.name === 'finalize_job_board_upload')).toHaveLength(1);
 });

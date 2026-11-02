@@ -3,7 +3,7 @@
   const CATEGORIES = [
     ['notice-of-project', 'Notice of Project'],
     ['hs-documents', 'H&S documentation'], ['site-specific', 'Site-specific safety'],
-    ['jgc-policy', 'JGC policies'], ['jsa', 'Job safety analysis (JSA)'],
+    ['sds', 'SDS Sheets'], ['jgc-policy', 'JGC policies'], ['jsa', 'Job safety analysis (JSA)'],
     ['toolbox-talk', 'Toolbox talks'], ['accident-incident', 'Accident / incident reports'],
     ['daily-report', 'Daily reports & photos'], ['permit', 'Permits'],
     ['inspection', 'Inspections'], ['other', 'Other reports']
@@ -207,6 +207,7 @@
     ['dailyReportsList', 'Daily Reports', ['daily-report','jsa','toolbox-talk','accident-incident','other'], 'Daily site updates, job safety analyses (JSAs), toolbox talks and report photos. Restricted reports require authorized staff or client access.'],
     ['inspectionList', 'Daily Inspections', ['inspection'], 'Equipment and safety inspections completed for this job, including inspections submitted through equipment QR codes.'],
     ['permitList', 'Daily Permits', ['permit'], 'Work permits for this job, such as hot work, excavation and confined-space entry.'],
+    ['sdsList', 'SDS Sheets', ['sds'], 'Safety Data Sheets for products used on this job, including hazards, safe handling, protective equipment and emergency information.'],
     ['policyList', 'JGC Policy', ['jgc-policy'], 'John Gordon Construction’s current company health and safety policy.']
   ];
   function renderLibrary() {
