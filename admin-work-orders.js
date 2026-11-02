@@ -52,6 +52,13 @@ function getAdminWorkOrderStatusText(wo) {
         return "Submitting";
     }
 
+    if (wo && wo.status === "ready_for_submission") {
+        const waitingFor = Array.isArray(wo.waiting_for) ? wo.waiting_for.map(item => String(item || "").trim()).filter(Boolean) : [];
+        if (waitingFor.length) {
+            return "Waiting for " + waitingFor.join(", ");
+        }
+    }
+
     if (isAdminWorkOrderPendingSubmission(wo)) {
         return "Pending Submission " + getAdminPendingSubmissionDateLabel(wo);
     }
