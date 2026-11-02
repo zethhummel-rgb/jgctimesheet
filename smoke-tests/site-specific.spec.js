@@ -451,3 +451,24 @@ test('appendix PDF groups complete originals and labels every attachment page',a
  for(const [i,id] of reads.entries())for(let n=1;n<=2;n++){const value=parsed.values[3+i*2+n-1];expect(value).toContain(id+' ORIGINAL PAGE '+n);expect(value).toContain(i<2?'Appendix 1: JSA':i<4?'Appendix 2: Certificates':'Appendix 3: JGC policy');}
  const doc=await PDFDocument.load(fs.readFileSync(file));expect(doc.getPage(8).getSize()).toEqual({width:600,height:528});expect(parsed.values.at(-1)).toContain('Page 13 of 13');
 });
+
+for(const width of [390,1440])test(`document order includes supporting uploads and survives reload ${width}`,async({page})=>{
+ const seed=appendixFixture(),store=await setup(page,{width,seed});
+ await page.locator('.ss-document-order summary').click();const row=page.locator('.ss-document-order li').filter({hasText:'JGC policy'});
+ await row.getByRole('button',{name:'Move JGC policy up',exact:true}).click();
+ await expect.poll(()=>store.getState().jobs[0].siteSpecific.documentOrder).toEqual(['page:scope','appendix:jsa','attachment:policy','appendix:certificates']);
+ await row.getByRole('button',{name:'Move JGC policy up',exact:true}).click();await row.getByRole('button',{name:'Move JGC policy up',exact:true}).click();
+ await saved(page);await page.reload();await page.getByRole('tab',{name:'Safety',exact:true}).click();await page.getByRole('tab',{name:'Create Site Specific',exact:true}).click();
+ await page.locator('.ss-document-order summary').click();await expect(page.locator('.ss-document-order li').first()).toContainText('JGC policy');
+ await showPage(page,'contents');await expect(page.locator('.ss-contents button').first()).toContainText('JGC policy');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+test('custom PDF order interleaves complete originals and recalculates contents page numbers',async({},info)=>{
+ const plan=appendixFixture().jobs[0].siteSpecific;plan.pages.push({...structuredClone(plan.pages[0]),id:'last',title:'Last section'});
+ plan.documentOrder=['attachment:policy','page:scope','appendix:certificates','page:last','appendix:jsa'];
+ const before=structuredClone(plan),{PDFDocument}=require('../estimating-app/node_modules/pdf-lib'),sources=new Map();
+ for(const item of plan.attachments){const doc=await PDFDocument.create();for(let n=1;n<=2;n++)doc.addPage([612,792]).drawText(item.id+' ORIGINAL '+n);sources.set(item.id,new Blob([await doc.save()],{type:'application/pdf'}));}
+ const built=await load('site-specific-pdf').buildSiteSpecificPdf({plan,logoBytes:new Uint8Array(fs.readFileSync(path.resolve(__dirname,'../estimating/jgc-logo-transparent.png'))),readAttachment:async item=>sources.get(item.id)}),file=info.outputPath('ordered.pdf');fs.writeFileSync(file,Buffer.from(await built.blob.arrayBuffer()));const parsed=await texts(file);
+ expect(plan).toEqual(before);expect(parsed.pages).toBe(14);expect(parsed.values[2]).toContain('policy ORIGINAL 1');expect(parsed.values[3]).toContain('policy ORIGINAL 2');expect(parsed.values[4]).toContain('1. QA scope');expect(parsed.values[5]).toContain('cert-a ORIGINAL 1');expect(parsed.values[9]).toContain('2. Last section');expect(parsed.values[10]).toContain('jsa-a ORIGINAL 1');
+ const toc=parsed.values[1];expect(toc.indexOf('JGC policy')).toBeLessThan(toc.indexOf('QA scope'));expect(toc.indexOf('Certificates')).toBeLessThan(toc.indexOf('Last section'));expect(toc).toMatch(/3 Appendix 1: JGC policy/);expect(toc).toMatch(/10 2. Last section/);
+});

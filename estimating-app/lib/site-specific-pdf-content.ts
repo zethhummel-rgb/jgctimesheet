@@ -73,5 +73,23 @@ export function siteSpecificAppendices(plan:SiteSpecificPlan,pages=siteSpecificP
  if(jsas.length)groups.push({title:'JSA',items:jsas});
  if(certificates.length)groups.push({title:'Certificates',items:certificates});
  groups.push(...selected.filter(item=>item.kind!=='certificate'&&item.category!=='jsa').map(item=>({title:item.title,items:[item]})));
+ const rank=new Map((plan.documentOrder||[]).map((key,index)=>[key,index]));
+ const key=(group:{items:SafetyAttachment[]})=>group.items[0].kind==='certificate'?'appendix:certificates':group.items[0].category==='jsa'?'appendix:jsa':'attachment:'+group.items[0].id;
+ groups.sort((a,b)=>(rank.get(key(a))??Number.MAX_SAFE_INTEGER)-(rank.get(key(b))??Number.MAX_SAFE_INTEGER));
  return groups.map((group,index)=>({...group,number:index+1}));
+}
+
+// Stable keys keep saved plans compatible as sections/files are added or excluded.
+export function siteSpecificDocumentOrder(plan:SiteSpecificPlan,pages=siteSpecificPdfPages(plan)) {
+ const entries=[...pages.map(page=>({key:'page:'+page.id,title:page.title,page,appendix:undefined as SafetyAppendix|undefined})),
+ ...siteSpecificAppendices(plan,pages).map(appendix=>({key:appendix.items[0].kind==='certificate'?'appendix:certificates':appendix.items[0].category==='jsa'?'appendix:jsa':'attachment:'+appendix.items[0].id,title:appendix.title,page:undefined as SafetyPage|undefined,appendix}))];
+ const rank=new Map((plan.documentOrder||[]).map((key,index)=>[key,index]));
+ return entries.sort((a,b)=>(rank.get(a.key)??Number.MAX_SAFE_INTEGER)-(rank.get(b.key)??Number.MAX_SAFE_INTEGER));
+}
+export function moveSiteSpecificDocument(plan:SiteSpecificPlan,key:string,delta:number):SiteSpecificPlan {
+ const entries=siteSpecificDocumentOrder(plan,plan.pages),index=entries.findIndex(item=>item.key===key),next=index+delta;
+ if(index<0||next<0||next>=entries.length)return plan;
+ [entries[index],entries[next]]=[entries[next],entries[index]];
+ const documentOrder=entries.map(item=>item.key),rank=new Map(documentOrder.map((key,index)=>[key,index]));
+ return {...plan,documentOrder,pages:[...plan.pages].sort((a,b)=>rank.get('page:'+a.id)!-rank.get('page:'+b.id)!)};
 }

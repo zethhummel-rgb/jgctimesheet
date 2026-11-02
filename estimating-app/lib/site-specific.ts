@@ -14,7 +14,7 @@ export type SafetyNewPageType = SafetyPage['kind'] | SitePlanTemplateId;
 export type SafetyLibraryPage = SafetyPage & { savedAt: string; savedBy: string; jobNumber: string };
 export type SafetyAttachment = { id: string; kind: 'certificate'|'board'; title: string; included: boolean; fileName: string; fileType?: string; filePath?: string; boardId?: string; documentId?: string; category?: string; expiryDate?: string };
 export type SafetyIllustration = SafetyAttachment & { caption?:string };
-export interface SiteSpecificPlan { version: 1; project: string; jobNumber: string; address: string; client: string; preparedBy: string; planDate: string; revision: string; pages: SafetyPage[]; attachments: SafetyAttachment[]; hospitalMap?: SafetyAttachment; visibility: 'public'|'restricted'; updatedAt: string; published?: {documentId: string; at: string; revision: string; updatedAt: string} }
+export interface SiteSpecificPlan { version: 1; documentOrder?: string[]; project: string; jobNumber: string; address: string; client: string; preparedBy: string; planDate: string; revision: string; pages: SafetyPage[]; attachments: SafetyAttachment[]; hospitalMap?: SafetyAttachment; visibility: 'public'|'restricted'; updatedAt: string; published?: {documentId: string; at: string; revision: string; updatedAt: string} }
 export function sitePlanDate() { const p = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()); return ['year','month','day'].map(k=>p.find(x=>x.type===k)?.value).join('-'); }
 export const safetyId = () => crypto.randomUUID();
 const corePageIds = new Set([...standardSafetyPages(),...structuredSafetyPages()].map(page=>page.id));

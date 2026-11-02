@@ -2,7 +2,7 @@ import {embedSafetyFonts,drawSafetyText,safetyLineHeight} from './site-specific-
 import {safetyTextPlain} from './site-specific-rich-text';
 import { PDFDocument, rgb, degrees, type PDFFont, type PDFPage } from 'pdf-lib';
 import { clean, wrap, renderSafetySection } from './site-specific-pdf-layout';
-import { siteSpecificPdfPages, siteSpecificAppendices } from './site-specific-pdf-content';
+import { siteSpecificPdfPages, siteSpecificAppendices, siteSpecificDocumentOrder } from './site-specific-pdf-content';
 import { sitePlanErrors, type SiteSpecificPlan, type SafetyAttachment } from './site-specific';
 import { DOCUMENT_LIMITS, imageBudget, imageDimensions } from './document-budget';
 import {preflightPdf,type PdfInputBudget} from './pdf-input-budget';
@@ -23,8 +23,10 @@ export async function buildSiteSpecificPdf(options:{plan:SiteSpecificPlan;logoBy
  const attachments=sources.filter(s=>!inlineIds.has(s.item.id)),appendixById=new Map(appendices.flatMap(appendix=>appendix.items.map(item=>[item.id,appendix] as const)));
  const illustrations=new Map<string,Awaited<ReturnType<typeof doc.embedPng>>>();
  for(const source of sources.filter(s=>inlineIds.has(s.item.id))){illustrations.set(source.item.id,source.type==='image/png'?await doc.embedPng(source.bytes):await doc.embedJpg(source.bytes));source.bytes=new Uint8Array();}
+ const ordered=siteSpecificDocumentOrder(plan,pages),ranges=new Map<string,PDFPage[]>();
  const contentsTitles=[...pages.map((p,i)=>`${i+1}. ${p.title}`),...appendices.map(appendix=>`Appendix ${appendix.number}: ${appendix.title}`)],tocGroups:{start:number;end:number}[]=[];
- let tocStart=0,tocHeight=0;contentsTitles.forEach((title,index)=>{const height=wrap(title,regular,10,456).reduce((n,r)=>n+safetyLineHeight(r,10,14),0)+12;if(tocHeight+height>508){tocGroups.push({start:tocStart,end:index});tocStart=index;tocHeight=0;}tocHeight+=height;});if(contentsTitles.length)tocGroups.push({start:tocStart,end:contentsTitles.length});const tocPages=tocGroups.length;
+ const tocTitles=ordered.map(item=>item.page?`${pages.findIndex(p=>p.id===item.page!.id)+1}. ${item.title}`:`Appendix ${item.appendix!.number}: ${item.title}`);
+ let tocStart=0,tocHeight=0;tocTitles.forEach((title,index)=>{const height=wrap(title,regular,10,456).reduce((n,r)=>n+safetyLineHeight(r,10,14),0)+12;if(tocHeight+height>508){tocGroups.push({start:tocStart,end:index});tocStart=index;tocHeight=0;}tocHeight+=height;});if(contentsTitles.length)tocGroups.push({start:tocStart,end:tocTitles.length});const tocPages=tocGroups.length;
  const cover=doc.addPage([612,792]),contents=Array.from({length:tocPages},()=>doc.addPage([612,792]));
  const text=(page:PDFPage,value:string,x:number,y:number,size=10,font=regular,color=ink)=>drawSafetyText(page,value,x,y,size,font,color,516);
  const rule=(page:PDFPage,y:number,color=line,thickness=.6)=>page.drawLine({start:{x:48,y},end:{x:564,y},color,thickness});
@@ -33,15 +35,17 @@ export async function buildSiteSpecificPdf(options:{plan:SiteSpecificPlan;logoBy
  let y=515;for(const row of wrap(plan.project,bold,17,516)){text(cover,row,48,y,17,bold);y-=safetyLineHeight(row,17,24);}
  const info=[['Job number',plan.jobNumber],['Site address',plan.address],['Client / owner',plan.client],['Prepared by',plan.preparedBy],['Plan date',plan.planDate],['Revision',plan.revision]].filter(([,value])=>value.trim());
  for(const [label,value] of info){y-=24;text(cover,label.toUpperCase(),48,y,8,bold,muted);y-=17;for(const row of wrap(value,regular,11,516)){if(y<80)throw new Error('The cover information is too long. Shorten the project name or address.');const step=safetyLineHeight(row,11,15);if(y-step<65)throw new Error("The cover information is too long. Shorten the project name or address.");text(cover,row,48,y-Math.max(0,step-15),11);y-=step;}}
- const entries:{title:string;page:number}[]=[];
+ const entries:{key:string;title:string;page:number}[]=[];
  for(const [index,section] of pages.entries()){
-  entries.push({title:contentsTitles[index],page:doc.getPageCount()+1});
+  const start=doc.getPageCount();
+  entries.push({key:'page:'+section.id,title:contentsTitles[index],page:doc.getPageCount()+1});
   const sectionImages=(section.illustrations||[]).filter(i=>i.included).map(i=>({title:i.title,caption:i.caption,image:illustrations.get(i.id)!}));
   if(section.id==='emergency'&&mapItem){const hospital=section.fields.find(f=>f.id==='emergency-1')?.value||'',directions=section.fields.find(f=>f.id==='emergency-5')?.value||'';sectionImages.push({title:'Nearest hospital map',caption:[hospital,directions].filter(Boolean).join('\n'),image:illustrations.get(mapItem.id)!});}
   renderSafetySection({doc,section,number:index+1,regular,bold,header,illustrations:sectionImages});
+  ranges.set('page:'+section.id,doc.getPages().slice(start));
  }
  for(const source of attachments){const appendix=appendixById.get(source.item.id)!,appendixTitle=contentsTitles[pages.length+appendix.number-1],start=doc.getPageCount();
-  if(source.item.id===appendix.items[0].id)entries.push({title:appendixTitle,page:start+1});if(source.pdf){
+  if(source.item.id===appendix.items[0].id)entries.push({key:ordered.find(item=>item.appendix?.items.some(i=>i.id===source.item.id))!.key,title:appendixTitle,page:start+1});if(source.pdf){
   const originals=source.pdf.getPages(),boxes=originals.map(original=>{const b=original.getCropBox();return {left:b.x,bottom:b.y,right:b.x+b.width,top:b.y+b.height};});
   const embedded=await doc.embedPages(originals,boxes);
   for(const [index,original] of originals.entries()){
@@ -54,7 +58,13 @@ export async function buildSiteSpecificPdf(options:{plan:SiteSpecificPlan;logoBy
    const x=Math.min(48,p.getWidth()*.06),available=p.getWidth()-2*x;
    // Use the existing footer strip so original certificate/JSA content is untouched.
    drawSafetyText(p,wrap(appendixTitle,bold,6,available)[0]||'',x,22,6,bold,green,available);
-  }source.pdf=undefined;source.bytes=new Uint8Array();}
+  }const key=ordered.find(item=>item.appendix===appendix||item.appendix?.items.some(i=>i.id===source.item.id))!.key;ranges.set(key,[...(ranges.get(key)||[]),...doc.getPages().slice(start)]);source.pdf=undefined;source.bytes=new Uint8Array();}
+ const arranged=[cover,...contents,...ordered.flatMap(item=>ranges.get(item.key)||[])];
+ if(arranged.length!==doc.getPageCount())throw new Error('Document ordering could not be verified. No incomplete PDF was exported.');
+ while(doc.getPageCount())doc.removePage(doc.getPageCount()-1);
+ arranged.forEach(page=>doc.addPage(page));
+ for(const entry of entries)entry.page=arranged.indexOf(ranges.get(entry.key)![0])+1;
+ entries.sort((a,b)=>a.page-b.page);
  contents.forEach((p,index)=>{header(p);text(p,'PLAN CONTENTS'+(index?' - continued':''),48,650,19,bold,green);text(p,'Numbered plan sections and complete supporting documents',48,624,9,regular,muted);let y=592;for(const entry of entries.slice(tocGroups[index].start,tocGroups[index].end)){const rows=wrap(entry.title,regular,10,456);text(p,String(entry.page),540,y,10,bold,green);for(const row of rows){drawSafetyText(p,row,48,y-Math.max(0,safetyLineHeight(row,10,14)-14),10,regular,ink,456);y-=safetyLineHeight(row,10,14);}rule(p,y+3);y-=12;}});
  const total=doc.getPageCount();for(const [index,p] of doc.getPages().entries()){const width=p.getWidth();const label=`JGC · Job ${plan.jobNumber} · Revision ${plan.revision}`;text(p,label,Math.min(48,width*.06),12,7,regular,muted);const count=`Page ${index+1} of ${total}`;text(p,count,width-regular.widthOfTextAtSize(count,7)-Math.min(48,width*.06),12,7,regular,muted);}
  if(total>DOCUMENT_LIMITS.pdfPages+100)throw new Error('The combined plan exceeds 500 pages. Split it into separate plans.');const bytes=await doc.save();if(bytes.length>DOCUMENT_LIMITS.outputBytes)throw new Error('The combined PDF exceeds 50 MB. Resize images or split the supporting documents.');return {blob:new Blob([bytes as Uint8Array<ArrayBuffer>],{type:'application/pdf'}),pages:total};

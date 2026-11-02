@@ -69,3 +69,13 @@ html[data-jgc-theme] body.jgc-theme .ss-builder .ss-paper[data-page-id] .ss-docu
 @media print{.ss-format-floating{display:none!important}}
 
 .ss-add-to-page>button.ss-delete-page{margin-left:auto;min-height:44px;color:#942b2b;border-color:#d6aaaa;background:#fff7f7}
+
+.ss-document-order {margin:16px 0;padding:16px;border:1px solid var(--slate-200);border-radius:8px;}
+.ss-document-order summary {cursor:pointer;font-weight:700;min-height:32px;}
+.ss-document-order ol {padding:0;list-style:none;}
+.ss-document-order li {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--slate-200);}
+.ss-document-order li>span {min-width:0;overflow-wrap:anywhere;}
+.ss-document-order small {display:block;font-size:12px;}
+.ss-document-order li>div {display:flex;gap:6px;flex-shrink:0;}
+.ss-document-order button {min-height:44px;}
+@media(max-width:520px){.ss-document-order li{align-items:flex-start;flex-direction:column;}}
