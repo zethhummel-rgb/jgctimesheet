@@ -208,7 +208,7 @@ test("Work Orders family uses one token-only shared visual source", async () => 
 
   expect(adminSource).toContain('admin.css?v=19');
   expect(adminSource).toContain('work-orders-design-system.css?v=4');
-  expect(adminSource).toContain('admin-work-orders.js?v=4');
+  expect(adminSource).toContain('admin-work-orders.js?v=5');
   expect(adminSource).toMatch(/id="workOrdersSection"[^>]*class="[^"]*\bjgc-admin-feature-surface\b[^"]*\bjgc-work-orders-admin\b/);
   expect(adminWorkOrders).not.toMatch(/class="small" style=/i);
   expect(adminCss).not.toContain(".admin-wo-management {");
@@ -217,7 +217,7 @@ test("Work Orders family uses one token-only shared visual source", async () => 
   expect(serviceWorker).toMatch(/const JGC_RELEASE_ID = "\d+";/);
   expect(serviceWorker).toContain('"./admin.css?v=19"');
   expect(serviceWorker).toContain('"./work-orders-design-system.css?v=4"');
-  expect(serviceWorker).toContain('"./admin-work-orders.js?v=4"');
+  expect(serviceWorker).toContain('"./admin-work-orders.js?v=5"');
 });
 
 for (const viewport of [
@@ -393,4 +393,14 @@ test("Admin Work Orders stays contained and keeps its editor and management acti
   }
 
   await context.close();
+});
+
+for (const width of [390,1280]) test(`Admin WO status shows the actual submission blockers at ${width}`,async({browser})=>{
+ const context=await browser.newContext({viewport:{width,height:900}}),page=await context.newPage();const data=await installState(page,'admin');Object.assign(data.workOrder,{status:'ready_for_submission',locked:false,labour_complete:true,waiting_for:['Description of Work']});await page.goto('/admin.html',{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>typeof window.renderAdminWorkOrders==='function');
+ await page.evaluate(({workOrder,labour})=>{workOrders=[{...workOrder,status:'ready_for_submission',locked:false,labour_complete:true,waiting_for:['Description of Work']}];workOrderLabourRows=[labour];workOrderPurchaseOrders=[];adminWorkOrderDigitalPoCounts={};showTab('workOrders');renderAdminWorkOrders();},{workOrder:data.workOrder,labour:data.labour});
+ const badge=page.locator('#adminWorkOrdersList tbody .jgc-badge');await expect(badge).toHaveText('Waiting for Description of Work');
+ await page.evaluate(()=>{workOrders[0].waiting_for=['Description of Work','Andre Timesheet'];renderAdminWorkOrders();});await expect(badge).toHaveText('Waiting for Description of Work, Andre Timesheet');
+ await page.evaluate(()=>{workOrders[0].waiting_for=[];renderAdminWorkOrders();});await expect(badge).toContainText('Pending Submission');
+ await page.evaluate(()=>{workOrders[0].locked=true;renderAdminWorkOrders();});await expect(badge).toHaveText('Submitting');
+ await context.close();
 });
