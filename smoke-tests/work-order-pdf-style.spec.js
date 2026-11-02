@@ -112,3 +112,21 @@ for (const edge of [false, true]) test(`Work Order ${edge ? 'scheduled' : 'brows
   expect(await page.content()).not.toContain('example.invalid');
   await expect(page.locator('.line')).toHaveText(['Supervisor Signature','Client Signature']);
 });
+
+for(const edge of [false,true])test(`Work Order ${edge?'automatic':'browser'} PDF includes linked client and job while keeping Attention separate`,async({page})=>{
+ const source=fs.readFileSync(path.join(root,edge?'supabase/functions/auto-submit-work-orders/index.ts':'work-orders.html'),'utf8'),b=fixture();b.wo.pdf_client_name='BGIS Federal';b.wo.job_name='Reinstall TV Mount & Resecure Shelving';b.wo.customer='Site contact';
+ await page.setContent(render(source,edge,b));const field=page.locator('.summary>div').filter({has:page.locator('b',{hasText:/^Job Name$/})});await expect(field).toHaveText('Job NameBGIS Federal – Reinstall TV Mount & Resecure Shelving');await expect(page.locator('.summary')).toContainText('AttentionSite contact');
+ b.wo.job_name='BGIS Federal – Reinstall TV Mount & Resecure Shelving';await page.setContent(render(source,edge,b));await expect(field).toHaveText('Job NameBGIS Federal – Reinstall TV Mount & Resecure Shelving');
+});
+
+for(const edge of [false,true])test(`Work Order ${edge?'automatic':'browser'} PDF loads the client from the exact linked job`,async()=>{
+ const source=fs.readFileSync(path.join(root,edge?'supabase/functions/auto-submit-work-orders/index.ts':'work-orders.html'),'utf8'),wo={id:'test-wo',job_id:'linked-inactive-job',job_name:'Reinstall TV Mount & Resecure Shelving',customer:'Attention contact'},calls=[];
+ const db={from(table){const q={select(){return q;},eq(key,value){calls.push([table,key,value]);return q;},order(){return q;},in(){return q;},maybeSingle:async()=>({data:{customer:'BGIS Federal'},error:null}),then(resolve,reject){return Promise.resolve({data:[],error:null}).then(resolve,reject);}};return q;}};
+ if(edge){const code=source.slice(source.indexOf('async function loadBundle('),source.indexOf('async function refreshLabourFromTimesheets('));const c=vm.createContext({});vm.runInContext(stripTypeScriptTypes(code),c);const bundle=await c.loadBundle(db,wo);expect(bundle.wo.pdf_client_name).toBe('BGIS Federal');expect(wo.pdf_client_name).toBeUndefined();}
+ else{const code=source.slice(source.indexOf('async function loadWorkOrderPdfClient('),source.indexOf('function getWorkOrderBundle(')),cache=new Map(),c=vm.createContext({supabaseClient:db,workOrderPdfClients:cache});vm.runInContext(code,c);await c.loadWorkOrderPdfClient(wo);expect(cache.get(wo.id)).toBe('BGIS Federal');}
+ expect(calls).toContainEqual(['jobs','id','linked-inactive-job']);
+});
+
+test('automatic PO PDF includes client and job and escapes their text',async({page})=>{
+ const source=fs.readFileSync(path.join(root,'supabase/functions/send-digital-po-email/index.ts'),'utf8'),code=source.slice(source.indexOf('function clientJobName('),source.indexOf('async function getOutbox('));const c=vm.createContext({escapeHtml:v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'),formatPoNumber:v=>'PO-'+v,formatDate:v=>v});vm.runInContext(stripTypeScriptTypes(code),c);await page.setContent(c.buildPoPdfHtml({po_number:39000,job_number:'26157',job_name:'Reinstall TV Mount & Resecure Shelving',pdf_client_name:'BGIS Federal',supplier_name:'Supplier'},[],''));await expect(page.locator('.field').filter({has:page.locator('.label',{hasText:/^Job Name$/})})).toHaveText('Job NameBGIS Federal – Reinstall TV Mount & Resecure Shelving');expect(c.clientJobName('BGIS Federal','BGIS Federal – Reinstall TV Mount')).toBe('BGIS Federal – Reinstall TV Mount');
+});

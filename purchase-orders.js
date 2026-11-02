@@ -1516,6 +1516,11 @@
     await openForm(result.data.po.id);
   }
 
+  function pdfWithClient(data) {
+    const job = state.jobs.find(job => data.job_id && String(job.id) === String(data.job_id));
+    return Object.assign({}, data, { pdf_client_name: job && job.customer || "" });
+  }
+
   async function savePendingMaterialChanges(record) {
     if (!navigator.onLine) {
       throw new Error("Material changes to a pending PO require an internet connection.");
@@ -1528,7 +1533,7 @@
       items,
       last_edited_by_name: state.profile.display_name
     });
-    const pdfBlob = await window.JgcPurchaseOrderPdf.createBlob(pdfData);
+    const pdfBlob = await window.JgcPurchaseOrderPdf.createBlob(pdfWithClient(pdfData));
     const pdfPath = record.id + "/current/po.pdf";
     const uploadResult = await uploadPoStorageFile(pdfPath, pdfBlob, {
       label: "updated PO PDF",
@@ -1566,7 +1571,7 @@
       items: formData.items,
       last_edited_by_name: state.profile.display_name
     });
-    const pdfBlob = await window.JgcPurchaseOrderPdf.createBlob(pdfData);
+    const pdfBlob = await window.JgcPurchaseOrderPdf.createBlob(pdfWithClient(pdfData));
     const pdfPath = record.id + "/current/po.pdf";
     const retryPendingSave = function() { return savePendingSubmissionChanges(record); };
     const pdfUpload = await uploadPoStorageFile(pdfPath, pdfBlob, {
@@ -1683,7 +1688,7 @@
       items: draft.items,
       submitted_by_name: state.profile.display_name
     });
-    const pdfBlob = await window.JgcPurchaseOrderPdf.createBlob(pdfData);
+    const pdfBlob = await window.JgcPurchaseOrderPdf.createBlob(pdfWithClient(pdfData));
     const pdfPath = draft.id + "/current/po.pdf";
     const retrySubmission = function() { return syncDraft(draft.id); };
     const pdfResult = await uploadPoStorageFile(pdfPath, pdfBlob, {
@@ -2076,7 +2081,7 @@
           items: collectMaterialRows()
         });
     try {
-      await window.JgcPurchaseOrderPdf.view(data);
+      await window.JgcPurchaseOrderPdf.view(pdfWithClient(data));
     } catch (error) {
       showNotice(error.message || "PO PDF could not be opened.", "error");
     }

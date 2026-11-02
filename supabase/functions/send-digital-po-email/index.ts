@@ -100,6 +100,14 @@ function buildEmailText(po: JsonRecord, items: JsonRecord[]) {
   ].filter((line) => line !== "").join("\n");
 }
 
+  function clientJobName(clientValue: unknown, jobValue: unknown) {
+    const client = String(clientValue || "").trim(), job = String(jobValue || "").trim();
+    if (!client || !job) return job || client;
+    const name = String(job).toLowerCase(), prefix = String(client).toLowerCase();
+    if (name === prefix || [" - ", " – ", " — "].some(separator => name.startsWith(prefix + separator))) return job;
+    return client + " – " + job;
+  }
+
 function buildPoPdfHtml(po: JsonRecord, items: JsonRecord[], receiptDataUrl: string) {
   const rows = (items.length ? items : [{}]).map((item) => `<tr>
     <td>${escapeHtml(item.quantity_ordered)}</td>
@@ -135,7 +143,7 @@ function buildPoPdfHtml(po: JsonRecord, items: JsonRecord[], receiptDataUrl: str
     <div class="field"><span class="label">Date of Order</span>${escapeHtml(formatDate(po.order_date))}</div>
     <div class="field"><span class="label">Job #</span>${escapeHtml(po.job_number)}</div>
     <div class="field"><span class="label">To</span>${escapeHtml(po.supplier_name)}</div>
-    <div class="field"><span class="label">Job Name</span>${escapeHtml(po.job_name)}</div>
+    <div class="field"><span class="label">Job Name</span>${escapeHtml(clientJobName(po.pdf_client_name, po.job_name))}</div>
   </div>
   <table><thead><tr><th>Qty. Ordered</th><th>Material Description</th></tr></thead><tbody>${rows}</tbody></table>
   ${po.notes ? `<section class="notes"><h2>Order Notes</h2>${escapeHtml(po.notes).replace(/\n/g, "<br>")}</section>` : ""}
@@ -206,6 +214,11 @@ async function processCleanup(db: any, job: JsonRecord) {
 async function processSend(db: any, job: JsonRecord, toEmail: string) {
   const outbox = await getOutbox(db, job.outbox_id);
   const { po, items } = await getPo(db, job.po_id);
+  if (po.job_id) {
+    const result = await db.from("jobs").select("customer").eq("id", po.job_id).maybeSingle();
+    if (result.error) throw new Error("The linked job's client could not be loaded: " + result.error.message);
+    po.pdf_client_name = result.data?.customer || "";
+  }
   let receiptDataUrl = "";
   if (po.receipt_storage_path) {
     const receiptBlob = await downloadAttachment(db, po.receipt_storage_path);
