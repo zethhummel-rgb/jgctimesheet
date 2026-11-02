@@ -5,13 +5,14 @@ const model=load('site-specific'),merge=load('estimator-state-sync').mergeConcur
 function fixture(){const s=load('estimator-data').createDefaultState();s.clients=[{id:'client',name:'Synthetic client',contact:'',email:'',phone:'',contacts:[],sites:[],notes:''}];s.quotes=[];s.priceBook=[];s.jobs=[{id:'job',jobNumber:'26999',quoteId:'',clientId:'client',project:'Safety Plan QA Project',status:'Active',portalJobId:'portal-job',portalActive:true,portalCustomer:'Synthetic client',portalAddress:'123 Synthetic Street, Cornwall',projectManager:'QA Administrator',acceptedRevenue:0,originalCostBudget:0,approvedRevenueChanges:0,approvedCostChanges:0,estimateToComplete:0,acceptedAt:'2026-10-01T12:00:00Z',costs:[],notes:''}];return s;}
 
 async function showPage(page,id){
- if(await page.locator('.ss-paper').getAttribute('data-page-id')==='library')await page.getByRole('button',{name:'Back to plan',exact:true}).click();
- if(await page.locator('.ss-paper').getAttribute('data-page-id')===id)return;
- while(await page.getByRole('button',{name:'Previous page',exact:true}).isEnabled())await page.getByRole('button',{name:'Previous page',exact:true}).click();
- for(let n=0;n<40;n++){if(await page.locator('.ss-paper').getAttribute('data-page-id')===id)return;if(await page.getByRole('button',{name:'Next page',exact:true}).isDisabled())break;await page.getByRole('button',{name:'Next page',exact:true}).click();}
- throw new Error('Page not reached: '+id);
+ if(id==='attachments'){await page.getByRole('button',{name:/^Supporting documents/}).click();return;}
+ const toggle=page.locator('.ss-mobile-sections');if(await toggle.isVisible()&&await toggle.getAttribute('aria-expanded')!=='true')await toggle.click();
+ const search=page.getByRole('textbox',{name:'Find a section',exact:true});await search.fill('');
+ await page.locator(`[data-section-id="${id}"]`).click();
 }
-async function options(page){const node=page.locator('.ss-plan-options');if(!await node.evaluate(n=>n.open))await node.locator('summary').click();}
+async function options(page){await page.getByRole('button',{name:'Add to plan',exact:true}).click();}
+async function maintenance(page){await options(page);await page.locator('.ss-maintenance summary').click();}
+async function addTemplate(page,id){await options(page);const titles={'traffic-control':'Add Traffic control plan','spill-prevention':'Add Spill prevention plan','spill-response':'Add Spill cleanup and response plan',custom:'Add Blank page',task:'Add Task',procedure:'Add Procedure',risk:'Add Risk assessment',lockout:'+ Lockout and tagout'};await page.getByRole('button',{name:titles[id],exact:true}).click();}
 async function pdfMenu(page){const node=page.locator('.ss-output-menu');if(!await node.evaluate(n=>n.open))await node.locator('summary').click();}
 async function rowOptions(page,label){const node=page.getByLabel(label+' options',{exact:true}).locator('..');if(!await node.evaluate(n=>n.open))await node.locator('summary').click();}
 
@@ -71,7 +72,7 @@ test('standard content is an explicit fill-only operation preserving saved revis
   expect(filled.plan.pages.find(p=>p.id==='roles').fields[0].value).toBe('KEEP THE APPROVED SITE WORDING');expect(filled.plan.pages.find(p=>p.id==='roles').fields[1].value).toContain('daily safety briefings');
   expect(model.addStandardSafetyContent(filled.plan)).toMatchObject({fieldsAdded:0,pagesAdded:0});
   const store=await setup(page,{seed});await page.waitForTimeout(2200);expect(store.getState().jobs[0].siteSpecific).toEqual(before);
-  await options(page);await page.getByRole('button',{name:'Add standard JGC content',exact:true}).click();await expect(page.getByRole('status')).toContainText('Your entered information and page choices are kept');
+  await maintenance(page);await page.getByRole('button',{name:'Add standard JGC content',exact:true}).click();await expect(page.getByRole('status')).toContainText('Your entered information and page choices are kept');
   await expect.poll(()=>store.getState().jobs[0].siteSpecific.pages.find(p=>p.id==='roles').fields[1].value).toContain('Before starting work');
   expect(store.getState().jobs[0].siteSpecific.published).toEqual(before.published);
 });
@@ -79,10 +80,10 @@ test('standard content is an explicit fill-only operation preserving saved revis
 test('standard procedures are editable independent copies and completed versions can be reused',async({page})=>{
   test.setTimeout(60000);
   const store=await setup(page);await showPage(page,'scope');
-  await options(page);await page.getByRole('combobox',{name:'Procedure template',exact:true}).selectOption('lockout');await page.getByRole('button',{name:'Add procedure',exact:true}).click();
+  await options(page);await addTemplate(page,'lockout');
   await expect(page.getByRole('textbox',{name:'Work steps or procedure',exact:true})).toHaveText(/Identify the equipment/);
   await page.getByRole('textbox',{name:'Person responsible / review',exact:true}).fill('QA Site Supervisor');await page.getByRole('button',{name:'Save page to library',exact:true}).click();
-  await page.getByRole('button',{name:'Add procedure',exact:true}).click();await expect(page.getByRole('textbox',{name:'Person responsible / review',exact:true})).toHaveText('');
+  await addTemplate(page,'lockout');await expect(page.getByRole('textbox',{name:'Person responsible / review',exact:true})).toHaveText('');
   await expect.poll(()=>store.getState().jobs[0].siteSpecific?.pages.filter(p=>p.title==='Lockout and tagout').length).toBe(2);
   const copies=store.getState().jobs[0].siteSpecific.pages.filter(p=>p.title==='Lockout and tagout');expect(copies[0].id).not.toBe(copies[1].id);expect(store.getState().safetyLibrary[0].fields.at(-1).value).toBe('QA Site Supervisor');
 });
@@ -335,18 +336,18 @@ test('traffic and spill templates are optional independent copies with blank sit
 
 for(const width of [390,1440])test(`traffic and spill plan selectors save editable records and reuse safely ${width}`,async({page},info)=>{
  test.setTimeout(90000);const store=await setup(page,{width});await options(page);
- await page.getByRole('combobox',{name:'New page type',exact:true}).selectOption('traffic-control');await page.getByRole('button',{name:'Add page',exact:true}).click();
+ await addTemplate(page,'traffic-control');
  await expect(page.getByLabel('Page title',{exact:true})).toHaveText('Traffic control plan');
  const entry=page.getByRole('textbox',{name:'Site access and layout row 2 Site information',exact:true});await entry.fill('QA approved east entrance');
  const check=page.getByRole('combobox',{name:'Access, security and delivery arrangements confirmed',exact:true});await check.selectOption('No');
  await page.getByRole('textbox',{name:'Access, security and delivery arrangements confirmed notes',exact:true}).fill('Awaiting QA confirmation');
  await page.getByRole('button',{name:'Save page to library',exact:true}).click();await expect.poll(()=>store.getState().safetyLibrary?.length).toBe(1);
- await options(page);await page.getByRole('combobox',{name:'Procedure template',exact:true}).selectOption('spill-prevention');await page.getByRole('button',{name:'Add procedure',exact:true}).click();
+ await options(page);await addTemplate(page,'spill-prevention');
  await expect(page.getByLabel('Page title',{exact:true})).toHaveText('Spill prevention plan');
  await page.getByRole('textbox',{name:'Spill capacity worksheet row 2 Site information',exact:true}).fill('QA verified example 400 L');
  await page.getByRole('textbox',{name:'Spill kit register row 1 Exact location',exact:true}).fill('QA east staging area');
  await page.getByText('+ Map or photo',{exact:true}).click();await expect(page.getByLabel('Section map or photo',{exact:true})).toBeVisible();
- await options(page);await page.getByRole('combobox',{name:'New page type',exact:true}).selectOption('spill-response');await page.getByRole('button',{name:'Add page',exact:true}).click();
+ await options(page);await addTemplate(page,'spill-response');
  await page.getByRole('textbox',{name:'Notification log row 1 Recipient / role',exact:true}).fill('QA site representative');
  await page.getByRole('checkbox',{name:'Include this page',exact:true}).uncheck();await saved(page);
  const pages=store.getState().jobs[0].siteSpecific.pages,traffic=pages.find(p=>p.layoutKey==='traffic-control'),response=pages.find(p=>p.layoutKey==='spill-response');
@@ -355,7 +356,7 @@ for(const width of [390,1440])test(`traffic and spill plan selectors save editab
  await showPage(page,traffic.id);await expect(entry).toHaveText('QA approved east entrance');await expect(check).toHaveValue('No');
  await entry.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath(`traffic-${width}.png`)});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
- await options(page);await page.getByRole('combobox',{name:'Procedure template',exact:true}).selectOption('traffic-control');await page.getByRole('button',{name:'Add procedure',exact:true}).click();
+ await options(page);await addTemplate(page,'traffic-control');
  await expect(entry).toHaveText('');expect(store.getState().safetyLibrary[0].blocks[0].rows[1].cells.entry).toBe('QA approved east entrance');
 });
 
@@ -412,7 +413,7 @@ for(const width of [390,1440])test(`added page deletion confirms, saves and upda
 test('last added page can be deleted and a fresh page can be added afterwards',async({page})=>{
  const seed=fixture(),plan=model.createSitePlan(seed.jobs[0],'QA Author'),added=model.createTaskPage('custom');plan.pages=[added];plan.updatedAt='2026-10-29T12:00:00Z';seed.jobs[0].siteSpecific=plan;
  const store=await setup(page,{width:390,seed});await showPage(page,added.id);page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Delete page',exact:true}).click();await saved(page);await expect(page.locator('.ss-paper')).toHaveAttribute('data-page-id','cover');expect(store.getState().jobs[0].siteSpecific.pages).toEqual([]);
- await page.reload();await page.getByRole('tab',{name:'Safety',exact:true}).click();await page.getByRole('tab',{name:'Create Site Specific',exact:true}).click();await options(page);await page.getByRole('combobox',{name:'New page type',exact:true}).selectOption('custom');await page.getByRole('button',{name:'Add page',exact:true}).click();await expect(page.getByLabel('Page title',{exact:true})).toHaveText('Additional page');await saved(page);expect(store.getState().jobs[0].siteSpecific.pages).toHaveLength(1);
+ await page.reload();await page.getByRole('tab',{name:'Safety',exact:true}).click();await page.getByRole('tab',{name:'Create Site Specific',exact:true}).click();await options(page);await addTemplate(page,'custom');await expect(page.getByLabel('Page title',{exact:true})).toHaveText('Additional page');await saved(page);expect(store.getState().jobs[0].siteSpecific.pages).toHaveLength(1);
 });
 
 function appendixFixture(){
@@ -437,7 +438,7 @@ for(const width of [390,1440])test(`appendix contents group certificates and clo
  await expect(links).toHaveText(['1.QA scope','Appendix 1:JSA','Appendix 2:Certificates','Appendix 3:JGC policy']);
  await expect(page.locator('.ss-contents')).not.toContainText('Worker A');await expect(page.locator('.ss-contents')).not.toContainText('Worker B');
  await page.screenshot({path:info.outputPath(`appendices-${width}.png`)});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
- await page.getByRole('button',{name:/Appendix 1:\s*JSA/}).click();await expect(page.locator('.ss-paper')).toHaveAttribute('data-page-id','attachments');
+ await page.getByRole('button',{name:/Appendix 1:\s*JSA/}).click();await expect(page.locator('.ss-documents')).toBeVisible();await expect(page.locator('.ss-paper')).toHaveCount(0);
  await page.getByRole('checkbox',{name:/Daily JSA A/}).uncheck();await page.getByRole('checkbox',{name:/Daily JSA B/}).uncheck();await saved(page);await showPage(page,'contents');await expect(links).toHaveText(['1.QA scope','Appendix 1:Certificates','Appendix 2:JGC policy']);
  expect(store.getState().jobs[0].siteSpecific.attachments.filter(a=>a.kind==='certificate').every(a=>a.included)).toBe(true);
 });
@@ -454,12 +455,12 @@ test('appendix PDF groups complete originals and labels every attachment page',a
 
 for(const width of [390,1440])test(`document order includes supporting uploads and survives reload ${width}`,async({page})=>{
  const seed=appendixFixture(),store=await setup(page,{width,seed});
- await page.locator('.ss-document-order summary').click();const row=page.locator('.ss-document-order li').filter({hasText:'JGC policy'});
- await row.getByRole('button',{name:'Move JGC policy up',exact:true}).click();
+ await page.getByRole('button',{name:'Organize plan',exact:true}).click();const row=page.locator('[data-order-key="attachment:policy"]');
+ await row.getByRole('button',{name:'Move JGC policy',exact:true}).press('ArrowLeft');
  await expect.poll(()=>store.getState().jobs[0].siteSpecific.documentOrder).toEqual(['page:scope','appendix:jsa','attachment:policy','appendix:certificates']);
- await row.getByRole('button',{name:'Move JGC policy up',exact:true}).click();await row.getByRole('button',{name:'Move JGC policy up',exact:true}).click();
+ await row.getByRole('button',{name:'Move JGC policy',exact:true}).press('ArrowLeft');await row.getByRole('button',{name:'Move JGC policy',exact:true}).press('ArrowLeft');
  await saved(page);await page.reload();await page.getByRole('tab',{name:'Safety',exact:true}).click();await page.getByRole('tab',{name:'Create Site Specific',exact:true}).click();
- await page.locator('.ss-document-order summary').click();await expect(page.locator('.ss-document-order li').first()).toContainText('JGC policy');
+ await page.getByRole('button',{name:'Organize plan',exact:true}).click();await expect(page.locator('.ss-organizer-card').first()).toContainText('JGC policy');
  await showPage(page,'contents');await expect(page.locator('.ss-contents button').first()).toContainText('JGC policy');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 });
@@ -473,16 +474,12 @@ test('custom PDF order interleaves complete originals and recalculates contents 
  const toc=parsed.values[1];expect(toc.indexOf('JGC policy')).toBeLessThan(toc.indexOf('QA scope'));expect(toc.indexOf('Certificates')).toBeLessThan(toc.indexOf('Last section'));expect(toc).toMatch(/3 Appendix 1: JGC policy/);expect(toc).toMatch(/10 2. Last section/);
 });
 
-for(const width of [390,1440])test(`numbered page shortcuts at top and bottom jump directly and preserve edits ${width}`,async({page})=>{
- const store=await setup(page,{width});const top=page.getByRole('navigation',{name:'Page shortcuts (top)',exact:true}),bottom=page.getByRole('navigation',{name:'Page shortcuts (bottom)',exact:true});
- await expect(top.locator('[aria-current="page"]')).toHaveText('1');
- await top.getByRole('button',{name:/^Go to page 3:/}).click();await expect(page.locator('.ss-paper')).toHaveAttribute('data-page-id',store.getState().jobs[0].siteSpecific?.pages[0]?.id||model.createSitePlan(fixture().jobs[0],'QA').pages[0].id);
- await expect(top.locator('[aria-current="page"]')).toHaveText('3');await expect(bottom.locator('[aria-current="page"]')).toHaveText('3');
- await page.getByLabel('Page title',{exact:true}).fill('Jump test saved title');
- await bottom.getByRole('button',{name:/^Go to page 8:/}).click();await expect(top.locator('[aria-current="page"]')).toHaveText('8');
- await top.getByRole('button',{name:/^Go to page 3:/}).click();await expect(page.getByLabel('Page title',{exact:true})).toHaveText('Jump test saved title');
- await bottom.getByRole('button',{name:/^Go to page 1:/}).click();await expect(page.locator('.ss-paper')).toHaveAttribute('data-page-id','cover');
- expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+for(const width of [390,1440])test(`titled section navigation preserves edits and mobile selection ${width}`,async({page})=>{
+ const store=await setup(page,{width});await showPage(page,'scope');await expect(page.locator('.ss-paper')).toHaveAttribute('data-page-id','scope');
+ await page.getByLabel('Page title',{exact:true}).fill('Jump test saved title');await showPage(page,'contacts');await showPage(page,'scope');await expect(page.getByLabel('Page title',{exact:true})).toHaveText('Jump test saved title');
+ await showPage(page,'cover');await expect(page.locator('.ss-paper')).toHaveAttribute('data-page-id','cover');
+ await expect(page.locator('.ss-page-shortcuts')).toHaveCount(0);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ if(width===390)await expect(page.locator('.ss-mobile-sections')).toHaveAttribute('aria-expanded','false');
 });
 
 function editableSectionFixture(){const seed=fixture(),plan=model.createSitePlan(seed.jobs[0],'QA');plan.pages=[{id:'editable',kind:'custom',title:'Editable sections',included:true,fields:[{id:'first',label:'First text',value:'FIRST NARRATIVE'},{id:'second',label:'Second text',value:'SECOND NARRATIVE'}],blocks:[{id:'table',type:'table',title:'Editable table',columns:[{id:'item',label:'Item'}],rows:[{id:'row',cells:{item:'TABLE CONTENT'}}]}]}];seed.jobs[0].siteSpecific=plan;seed.safetyLibrary=[{...structuredClone(plan.pages[0]),id:'library-original',savedAt:new Date().toISOString(),savedBy:'QA',jobNumber:'26999'}];return seed;}
@@ -500,4 +497,76 @@ test('mixed template content order and removal are reflected in the actual PDF',
  expect(before.pages[0].fields).toHaveLength(2);expect(before.pages[0].contentOrder).toBeUndefined();
  const built=await load('site-specific-pdf').buildSiteSpecificPdf({plan,logoBytes:new Uint8Array(fs.readFileSync(path.resolve(__dirname,'../estimating/jgc-logo-transparent.png'))),readAttachment:async()=>{throw new Error('No attachments expected');}}),file=info.outputPath('editable-template.pdf');fs.writeFileSync(file,Buffer.from(await built.blob.arrayBuffer()));const parsed=await texts(file);
  expect(parsed.values[2].indexOf('FIRST NARRATIVE')).toBeLessThan(parsed.values[2].indexOf('TABLE CONTENT'));expect(parsed.text).not.toContain('SECOND NARRATIVE');expect(parsed.pages).toBe(3);
+});
+
+
+for(const width of [390,1440])test(`organizer drag, position, undo and content preservation ${width}`,async({page},info)=>{
+ test.setTimeout(60000);const seed=appendixFixture(),store=await setup(page,{width,seed});
+ await page.getByRole('button',{name:'Organize plan',exact:true}).click();
+ const card=page.locator('[data-order-key="attachment:policy"]'),handle=card.getByRole('button',{name:'Move JGC policy',exact:true}),target=page.locator('[data-order-key="page:scope"]');
+ await page.locator('.ss-organizer-grid').scrollIntoViewIfNeeded();
+ const source=await handle.boundingBox(),destination=await target.boundingBox();
+ await page.mouse.move(source.x+source.width/2,source.y+source.height/2);await page.mouse.down();await page.mouse.move(destination.x+12,destination.y+70,{steps:12});
+ await expect(target).toHaveClass(/drop-before/);await page.mouse.up();
+ await expect(page.locator('.ss-organizer-card').first()).toHaveAttribute('data-order-key','attachment:policy');
+ await showPage(page,'scope');await page.getByRole('textbox',{name:'Work',exact:true}).fill('Content entered after the move');
+ await page.getByRole('button',{name:'Organize plan',exact:true}).click();await page.getByRole('button',{name:'Undo last move',exact:true}).click();
+ await expect(page.locator('.ss-organizer-card').last()).toHaveAttribute('data-order-key','attachment:policy');
+ await card.getByRole('combobox',{name:'Position for JGC policy',exact:true}).selectOption({value:'1'});
+ await expect(page.locator('.ss-organizer-card').nth(1)).toHaveAttribute('data-order-key','attachment:policy');
+ await saved(page);expect(store.getState().jobs[0].siteSpecific.pages[0].fields[0].value).toBe('Content entered after the move');
+ expect(store.getState().jobs[0].siteSpecific.attachments).toEqual(seed.jobs[0].siteSpecific.attachments);
+ await page.locator('.ss-output-menu summary').click();await page.locator('.ss-workspace-tools').scrollIntoViewIfNeeded();await page.locator('.ss-builder').screenshot({path:info.outputPath('organizer-'+width+'.png')});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+
+for(const theme of ['light','dark'])for(const width of [390,1440])test(`document library categories, full preview and template gallery ${theme} ${width}`,async({page},info)=>{
+ test.setTimeout(60000);const seed=fixture(),plan=model.createSitePlan(seed.jobs[0],'QA');plan.attachments=[
+ {id:'certificate:qa-cert',kind:'certificate',title:'Alex Sample — Working at Heights',included:false,fileName:'alex-wah.pdf',fileType:'application/pdf',filePath:'qa/cert.pdf',expiryDate:'2025-01-01'},
+ {id:'certificate:qa-tnpi',kind:'certificate',title:'Jamie Sample — TNPI',included:false,fileName:'jamie-tnpi.pdf',fileType:'application/pdf',filePath:'qa/tnpi.pdf'},
+ {id:'board:qa-policy',kind:'board',title:'JGC full policy',included:true,fileName:'policy.pdf',fileType:'application/pdf',boardId:'qa-board',documentId:'qa-policy',category:'jgc-policy'},
+ {id:'board:sds',kind:'board',title:'Synthetic product SDS',included:false,fileName:'sds.pdf',category:'sds'}];seed.jobs[0].siteSpecific=plan;
+ const store=await setup(page,{theme,width,seed});await client(page,await documents());await showPage(page,'attachments');
+ await expect(page.locator('.ss-paper')).toHaveCount(0);await expect(page.locator('.ss-certificate-group>summary').filter({hasText:'WAH'})).toBeVisible();await expect(page.locator('.ss-certificate-group>summary').filter({hasText:'TNPI'})).toBeVisible();
+ await page.getByRole('checkbox',{name:/Alex Sample/}).check();await pdfMenu(page);await expect(page.getByLabel('Published PDF access')).toHaveValue('restricted');await page.locator('.ss-output-menu summary').click();
+ await page.getByRole('button',{name:'Preview Alex Sample — Working at Heights',exact:true}).click();const dialog=page.getByRole('dialog');await expect(dialog.getByText('Page 1 of 2',{exact:true})).toBeVisible({timeout:20000});await expect(dialog.locator('canvas')).toBeVisible();
+ await dialog.getByRole('button',{name:'Next',exact:true}).click();await expect(dialog.getByText('Page 2 of 2',{exact:true})).toBeVisible();await expect(dialog.locator('canvas')).toBeVisible();await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);
+ await page.getByRole('textbox',{name:'Find supporting documents',exact:true}).fill('TNPI');await expect(page.locator('.ss-document-row')).toHaveCount(1);await page.getByRole('textbox',{name:'Find supporting documents',exact:true}).fill('');
+ await page.getByRole('button',{name:/^Safety data sheets/}).click();await expect(page.locator('.ss-document-row')).toHaveCount(1);await page.getByRole('checkbox',{name:/Synthetic product SDS/}).check();await page.getByRole('button',{name:/^All documents/}).click();
+ await page.locator('.ss-builder').screenshot({path:info.outputPath('library-'+theme+'-'+width+'.png')});
+ await options(page);await expect(page.getByRole('button',{name:'Add Traffic control plan',exact:true})).toBeVisible();await page.locator('.ss-builder').screenshot({path:info.outputPath('gallery-'+theme+'-'+width+'.png')});
+ await page.getByRole('button',{name:'Add Blank page',exact:true}).click();await expect(page.getByLabel('Page title',{exact:true})).toHaveText('Additional page');await saved(page);
+ expect(store.getState().jobs[0].siteSpecific.attachments.filter(a=>a.included)).toHaveLength(3);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+
+test('order undo keeps new content, dormant files and newly added sections',()=>{
+ const helper=load('site-specific-workspace'),plan=appendixFixture().jobs[0].siteSpecific,original=load('site-specific-pdf-content').siteSpecificDocumentOrder(plan,plan.pages).map(item=>item.key);
+ let moved=helper.reorderSiteSpecific(plan,'attachment:policy','page:scope',false);moved.pages[0].fields[0].value='Latest text';moved.pages.push({...structuredClone(moved.pages[0]),id:'new',title:'New section'});moved.attachments[0].included=false;
+ moved=helper.applySiteSpecificOrder(moved,original);expect(moved.pages[0].fields[0].value).toBe('Latest text');expect(moved.pages.at(-1).id).toBe('new');expect(moved.attachments[0].included).toBe(false);expect(moved.documentOrder).toContain('attachment:policy');
+});
+
+
+test('touch organizer cancels safely and commits an intentional drop',async({page})=>{
+ test.setTimeout(45000);const store=await setup(page,{width:390,seed:appendixFixture()});await page.getByRole('button',{name:'Organize plan',exact:true}).click();
+ const card=page.locator('[data-order-key="attachment:policy"]'),target=page.locator('[data-order-key="page:scope"]');await page.locator('.ss-organizer-grid').scrollIntoViewIfNeeded();
+ const session=await page.context().newCDPSession(page);
+ async function touchDrag(cancel){const a=await card.getByRole('button',{name:'Move JGC policy',exact:true}).boundingBox(),b=await target.boundingBox();await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:a.x+a.width/2,y:a.y+a.height/2}]});await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:b.x+10,y:b.y+75}]});await expect(target).toHaveClass(/drop-before/);if(cancel)await page.keyboard.press('Escape');await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}
+ await touchDrag(true);await expect(page.locator('.ss-organizer-card').last()).toHaveAttribute('data-order-key','attachment:policy');await touchDrag(false);await expect(page.locator('.ss-organizer-card').first()).toHaveAttribute('data-order-key','attachment:policy');await saved(page);expect(store.getState().jobs[0].siteSpecific.documentOrder[0]).toBe('attachment:policy');
+});
+
+test('library classification survives reload and refresh; preview denial leaves selection unchanged',async({page})=>{
+ test.setTimeout(45000);const store=await setup(page);await client(page,await documents());await showPage(page,'attachments');await page.getByRole('button',{name:'Load Portal documents',exact:true}).click();
+ const row=page.locator('.ss-document-row').filter({hasText:'JGC full policy'});await row.locator('summary').click();await row.getByRole('combobox').selectOption('other');await page.getByRole('button',{name:'Load Portal documents',exact:true}).click();
+ await expect.poll(()=>store.getState().jobs[0].siteSpecific?.attachments.find(a=>a.id==='board:qa-policy')?.libraryCategory).toBe('other');await saved(page);await page.reload();await page.getByRole('tab',{name:'Safety',exact:true}).click();await page.getByRole('tab',{name:'Create Site Specific',exact:true}).click();await showPage(page,'attachments');await expect(page.getByRole('region',{name:'Other documents',exact:true})).toContainText('JGC full policy');
+ await client(page,await documents(),{deny:true});await page.getByRole('button',{name:'Preview JGC full policy',exact:true}).click();await expect(page.getByRole('dialog').getByRole('alert')).toContainText('Approved administrator access is required');await page.getByRole('button',{name:'Close preview',exact:true}).click();expect(store.getState().jobs[0].siteSpecific.attachments.every(a=>!a.included)).toBe(true);expect(await page.evaluate(()=>window.__safetyCalls)).toEqual([]);
+});
+
+
+for(const width of [320,768,1024])test(`workspace controls remain readable and contained at ${width}`,async({page},info)=>{
+ test.setTimeout(45000);await setup(page,{width});await expect(page.locator('.ss-mobile-sections')).toBeVisible();
+ await options(page);await expect(page.getByRole('button',{name:'Add to plan',exact:true})).toHaveCSS('background-color','rgb(16, 61, 49)');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ await page.getByRole('button',{name:'Add Traffic control plan',exact:true}).click();await expect(page.getByLabel('Page title',{exact:true})).toHaveText('Traffic control plan');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ await page.locator('.ss-mobile-sections').click();await page.getByRole('textbox',{name:'Find a section',exact:true}).fill('Emergency');await expect(page.locator('.ss-section-link:visible')).toHaveCount(1);await page.locator('.ss-section-link:visible').click();await expect(page.locator('.ss-mobile-sections')).toBeFocused();await expect(page.locator('.ss-paper')).toHaveAttribute('data-page-id','emergency');
+ await page.getByRole('button',{name:/^Supporting documents/}).click();await expect(page.locator('.ss-paper')).toHaveCount(0);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.screenshot({path:info.outputPath('workspace-'+width+'.png')});
 });
