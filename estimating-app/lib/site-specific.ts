@@ -9,7 +9,7 @@ export type SafetyQuestions = { type:'questions'; id:string; title:string; rows:
 export type SafetyChecklist = { type:'checklist'; id:string; title:string; rows:{id:string;label:string;value:string;notes:string}[] };
 export type SafetySteps = { type:'steps'; id:string; title:string; rows:{id:string;title:string;body:string}[] };
 export type SafetyBlock = SafetyTable | SafetyQuestions | SafetyChecklist | SafetySteps;
-export type SafetyPage = { id: string; kind: 'section'|'task'|'procedure'|'risk'|'custom'; title: string; included: boolean; fields: SafetyField[]; layoutKey?:string; blocks?:SafetyBlock[]; illustrations?:SafetyIllustration[] };
+export type SafetyPage = { contentOrder?:string[]; id: string; kind: 'section'|'task'|'procedure'|'risk'|'custom'; title: string; included: boolean; fields: SafetyField[]; layoutKey?:string; blocks?:SafetyBlock[]; illustrations?:SafetyIllustration[] };
 export type SafetyNewPageType = SafetyPage['kind'] | SitePlanTemplateId;
 export type SafetyLibraryPage = SafetyPage & { savedAt: string; savedBy: string; jobNumber: string };
 export type SafetyAttachment = { id: string; kind: 'certificate'|'board'; title: string; included: boolean; fileName: string; fileType?: string; filePath?: string; boardId?: string; documentId?: string; category?: string; expiryDate?: string };
@@ -68,3 +68,18 @@ export function createTaskPage(kind:SafetyNewPageType):SafetyPage {
 }
 export function sitePlanErrors(plan:SiteSpecificPlan) { const errors:string[]=[]; for(const [key,label] of [['project','Project'],['jobNumber','Job number'],['address','Site address'],['preparedBy','Prepared by'],['planDate','Plan date'],['revision','Revision']] as const) if(!safetyTextPlain(plan[key]).trim()) errors.push(label); if(!/^\d{4}-\d{2}-\d{2}$/.test(plan.planDate)||Number.isNaN(Date.parse(plan.planDate+'T12:00:00Z'))||new Date(plan.planDate+'T12:00:00Z').toISOString().slice(0,10)!==plan.planDate)errors.push('Valid plan date'); if(!plan.pages.some(p=>p.included))errors.push('At least one plan page'); if(plan.pages.some(p=>p.included&&!safetyTextPlain(p.title).trim()))errors.push('Page titles'); return [...new Set(errors)]; }
 export function sitePlanFileName(plan:SiteSpecificPlan) {return `JGC-Site-Specific-${plan.jobNumber}-Rev-${plan.revision}.pdf`.replace(/[<>:"/\\|?*\x00-\x1f]/g,'-');}
+
+export function safetyPageContent(page:SafetyPage) {
+ const items=[...(page.blocks||[]).map(block=>({key:'block:'+block.id,title:block.title,block,field:undefined as SafetyField|undefined})),...page.fields.map(field=>({key:'field:'+field.id,title:field.label,field,block:undefined as SafetyBlock|undefined}))];
+ const rank=new Map((page.contentOrder||[]).map((key,index)=>[key,index]));
+ return items.sort((a,b)=>(rank.get(a.key)??Number.MAX_SAFE_INTEGER)-(rank.get(b.key)??Number.MAX_SAFE_INTEGER));
+}
+export function moveSafetyPageContent(page:SafetyPage,key:string,delta:number):SafetyPage {
+ const items=safetyPageContent(page),index=items.findIndex(item=>item.key===key),next=index+delta;
+ if(index<0||next<0||next>=items.length)return page;
+ [items[index],items[next]]=[items[next],items[index]];
+ return {...page,contentOrder:items.map(item=>item.key)};
+}
+export function removeSafetyPageContent(page:SafetyPage,key:string):SafetyPage {
+ return {...page,fields:page.fields.filter(field=>'field:'+field.id!==key),blocks:page.blocks?.filter(block=>'block:'+block.id!==key),contentOrder:safetyPageContent(page).filter(item=>item.key!==key).map(item=>item.key)};
+}

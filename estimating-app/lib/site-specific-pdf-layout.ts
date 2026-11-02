@@ -1,5 +1,5 @@
 import { rgb, type PDFDocument, type PDFFont, type PDFPage, type PDFImage } from 'pdf-lib';
-import type { SafetyPage } from './site-specific';
+import { safetyPageContent,type SafetyPage } from './site-specific';
 
 export const safetyColors={green:rgb(.07,.25,.19),gold:rgb(.68,.53,.18),ink:rgb(.10,.17,.14),muted:rgb(.34,.41,.38),line:rgb(.8,.85,.82),pale:rgb(.94,.96,.95)};
 export { clean, wrap } from './site-specific-pdf-rich-text';
@@ -34,9 +34,11 @@ export function renderSafetySection({doc,section,number,regular,bold,header,illu
  if(section.fields.length||(section.blocks||[]).length)start();
  // Emergency numbers and hospital details belong at the start, before procedures.
  const emergency=(section.layoutKey||section.id)==='emergency';
- const urgent=emergency?section.fields.filter(f=>['emergency-0','emergency-1','hospital-phone','emergency-5','medical-arrangements'].includes(f.id)):[];
+ const urgent=emergency&&!section.contentOrder?section.fields.filter(f=>['emergency-0','emergency-1','hospital-phone','emergency-5','medical-arrangements'].includes(f.id)):[];
  if(urgent.length)table('Emergency contacts and medical arrangements',[{label:'Detail',weight:1.3},{label:'Site information',weight:3}],urgent.map(f=>[f.label,f.value]));
- for(const block of section.blocks||[]){
+ for(const item of safetyPageContent(section)){
+  if(item.field){if(!urgent.includes(item.field))narrative(item.field.label,item.field.value);continue;}
+  const block=item.block!;
   if(block.type==='table')table(block.title,block.columns,block.rows.map(r=>block.columns.map(c=>r.cells[c.id]||'')));
   if(block.type==='questions'){
    table(block.title,[{label:'Requirement',weight:2},{label:'Assessment',weight:1},{label:'Site notes',weight:2}],block.rows.map(r=>[r.label,r.value,r.notes]));
@@ -60,7 +62,6 @@ export function renderSafetySection({doc,section,number,regular,bold,header,illu
    }y-=8;
   }
  }
- for(const field of section.fields.filter(f=>!urgent.includes(f)))narrative(field.label,field.value);
  for(const illustration of illustrations){
   start(started);heading(illustration.title);if(illustration.caption?.trim())body(illustration.caption,illustration.title);
   // Keep the complete image at its original aspect ratio; never crop a map.

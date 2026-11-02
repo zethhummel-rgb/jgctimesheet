@@ -484,3 +484,20 @@ for(const width of [390,1440])test(`numbered page shortcuts at top and bottom ju
  await bottom.getByRole('button',{name:/^Go to page 1:/}).click();await expect(page.locator('.ss-paper')).toHaveAttribute('data-page-id','cover');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 });
+
+function editableSectionFixture(){const seed=fixture(),plan=model.createSitePlan(seed.jobs[0],'QA');plan.pages=[{id:'editable',kind:'custom',title:'Editable sections',included:true,fields:[{id:'first',label:'First text',value:'FIRST NARRATIVE'},{id:'second',label:'Second text',value:'SECOND NARRATIVE'}],blocks:[{id:'table',type:'table',title:'Editable table',columns:[{id:'item',label:'Item'}],rows:[{id:'row',cells:{item:'TABLE CONTENT'}}]}]}];seed.jobs[0].siteSpecific=plan;seed.safetyLibrary=[{...structuredClone(plan.pages[0]),id:'library-original',savedAt:new Date().toISOString(),savedBy:'QA',jobNumber:'26999'}];return seed;}
+for(const width of [390,1440])test(`template tables and text can move and be removed without changing saved library ${width}`,async({page})=>{
+ const store=await setup(page,{width,seed:editableSectionFixture()});await showPage(page,'editable');
+ await page.getByLabel('First text section options',{exact:true}).click();await page.getByRole('button',{name:'Move First text section up',exact:true}).click();
+ await expect(page.locator('.ss-content-item').first()).toHaveAttribute('data-content-key','field:first');
+ await page.getByLabel('Editable table section options',{exact:true}).click();page.once('dialog',d=>d.dismiss());await page.getByRole('button',{name:'Remove Editable table section',exact:true}).click();await expect(page.getByRole('textbox',{name:'Editable table row 1 Item',exact:true})).toHaveText('TABLE CONTENT');
+ page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Remove Editable table section',exact:true}).click();await expect(page.getByRole('textbox',{name:'Editable table row 1 Item',exact:true})).toHaveCount(0);
+ await saved(page);await page.reload();await page.getByRole('tab',{name:'Safety',exact:true}).click();await page.getByRole('tab',{name:'Create Site Specific',exact:true}).click();await showPage(page,'editable');await expect(page.locator('.ss-content-item').first()).toHaveAttribute('data-content-key','field:first');await expect(page.getByRole('textbox',{name:'First text',exact:true})).toHaveText('FIRST NARRATIVE');
+ expect(store.getState().safetyLibrary[0].blocks[0].rows[0].cells.item).toBe('TABLE CONTENT');expect(store.getState().jobs[0].siteSpecific.pages[0].blocks).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+test('mixed template content order and removal are reflected in the actual PDF',async({},info)=>{
+ const plan=editableSectionFixture().jobs[0].siteSpecific,before=structuredClone(plan);plan.pages[0]=model.removeSafetyPageContent(model.moveSafetyPageContent(plan.pages[0],'field:first',-1),'field:second');
+ expect(before.pages[0].fields).toHaveLength(2);expect(before.pages[0].contentOrder).toBeUndefined();
+ const built=await load('site-specific-pdf').buildSiteSpecificPdf({plan,logoBytes:new Uint8Array(fs.readFileSync(path.resolve(__dirname,'../estimating/jgc-logo-transparent.png'))),readAttachment:async()=>{throw new Error('No attachments expected');}}),file=info.outputPath('editable-template.pdf');fs.writeFileSync(file,Buffer.from(await built.blob.arrayBuffer()));const parsed=await texts(file);
+ expect(parsed.values[2].indexOf('FIRST NARRATIVE')).toBeLessThan(parsed.values[2].indexOf('TABLE CONTENT'));expect(parsed.text).not.toContain('SECOND NARRATIVE');expect(parsed.pages).toBe(3);
+});
