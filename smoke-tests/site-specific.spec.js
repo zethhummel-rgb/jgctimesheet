@@ -593,3 +593,13 @@ test('ASCII85 spill plan previews every page and is included in the combined PDF
  await page.getByRole('button',{name:'Preview Encoded spill plan',exact:true}).click();const dialog=page.getByRole('dialog');await expect(dialog.getByText('Page 1 of 2',{exact:true})).toBeVisible({timeout:20000});await expect(dialog.locator('canvas')).toBeVisible();await dialog.getByRole('button',{name:'Next',exact:true}).click();await expect(dialog.getByText('Page 2 of 2',{exact:true})).toBeVisible();await expect(dialog.locator('canvas')).toBeVisible();await dialog.getByRole('button',{name:'Close preview',exact:true}).click();
  await saved(page);const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download PDF',exact:true}).click();const download=await pending,file=info.outputPath('ascii85-combined.pdf');await download.saveAs(file);const parsed=await texts(file);expect(parsed.text).toContain('ASCII85 SPILL PLAN PAGE 1');expect(parsed.text).toContain('ASCII85 SPILL PLAN PAGE 2');
 });
+
+for(const theme of ['light','dark'])for(const width of [390,1440])test(`single-file category menu is fully visible and usable ${theme} ${width}`,async({page},info)=>{
+ const seed=appendixFixture();seed.jobs[0].siteSpecific.attachments=seed.jobs[0].siteSpecific.attachments.filter(a=>a.id==='policy');
+ seed.jobs[0].siteSpecific.attachments.push({id:'sds',kind:'board',title:'Product SDS',included:false,fileName:'sds.pdf',category:'sds'});
+ const store=await setup(page,{theme,width,seed});await showPage(page,'attachments');const row=page.locator('.ss-document-row').filter({hasText:'JGC policy'});await row.locator('summary').click();const select=row.getByRole('combobox');await expect(select).toBeVisible();await select.scrollIntoViewIfNeeded();
+ const visible=await select.evaluate(el=>{const r=el.getBoundingClientRect();return [0.15,0.5,0.85].every(y=>{const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height*y);return hit===el||el.contains(hit);});});expect(visible).toBe(true);
+ await page.locator('.ss-documents').screenshot({path:info.outputPath('category-menu-'+theme+'-'+width+'.png')});
+ await select.selectOption('other');await expect(page.getByRole('region',{name:'Other documents',exact:true})).toContainText('JGC policy');await saved(page);expect(store.getState().jobs[0].siteSpecific.attachments.find(a=>a.id==='policy').libraryCategory).toBe('other');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
