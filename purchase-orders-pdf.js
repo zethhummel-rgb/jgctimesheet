@@ -128,11 +128,33 @@
     doc.text("Portal authorization record - no field signature required", pageWidth - margin, y + 26, { align: "right" });
   }
 
+  function clientJobName(client, job) {
+    client = String(client || "").trim(); job = String(job || "").trim();
+    if (!client || !job) return job || client;
+    const name = job.toLowerCase(), prefix = client.toLowerCase();
+    if (name === prefix || [" - ", " – ", " — "].some(separator => name.startsWith(prefix + separator))) return job;
+    return client + " – " + job;
+  }
+
+  async function pdfJobName(data) {
+    let client = data.pdf_client_name || "";
+    if (!client && data.job_id && navigator.onLine !== false && typeof createJgcSupabaseClient === "function") {
+      const db = createJgcSupabaseClient();
+      if (db) {
+        const result = await db.from("jobs").select("customer").eq("id", data.job_id).maybeSingle();
+        if (result.error) throw new Error("The linked job's client could not be loaded. Please try again.");
+        client = result.data && result.data.customer || "";
+      }
+    }
+    return clientJobName(client, data.job_name);
+  }
+
   async function createDocument(data) {
     if (!window.jspdf || !window.jspdf.jsPDF) {
       throw new Error("The PDF library is not available.");
     }
 
+    const jobName = await pdfJobName(data);
     const jsPDF = window.jspdf.jsPDF;
     const doc = new jsPDF({ unit: "pt", format: "letter", compress: true });
     const logoData = await getLogoData();
@@ -150,8 +172,8 @@
     drawField(doc, "Date of Order", formatDate(data.order_date), margin, y, half, 44);
     drawField(doc, "Job #", data.job_number, margin + half, y, half, 44);
     y += 44;
-    const jobHeight = Math.max(44, doc.splitTextToSize(text(data.job_name), contentWidth - 12).length * 12 + 24);
-    drawField(doc, "Job Name", data.job_name, margin, y, contentWidth, jobHeight);
+    const jobHeight = Math.max(44, doc.splitTextToSize(text(jobName), contentWidth - 12).length * 12 + 24);
+    drawField(doc, "Job Name", jobName, margin, y, contentWidth, jobHeight);
     y += jobHeight + 12;
 
     const columns = [

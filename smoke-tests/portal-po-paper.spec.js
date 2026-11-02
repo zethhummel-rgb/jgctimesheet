@@ -107,3 +107,8 @@ test('paper PO section editors reload from the actual offline app shell',async({
  await context.setOffline(true);await page.reload();await expect(page.locator('#poNewButton')).toBeEnabled();await page.locator('#poNewButton').click();await expect(page.locator('#poNumberDisplay')).toHaveText('PO-39000');await paper.to(page,'Cached offline supplier');await expect(page.locator('#poPaperSaveStatus')).toHaveText('Saved on this device');await expect(page.locator('.po-paper-banner')).toBeVisible();
  } finally {await context.close();}
 });
+
+test('PO PDF includes the linked client and job without changing PO or job numbers',async({page})=>{
+ await setup(page);const data=await page.evaluate(async()=>Array.from(new Uint8Array(await(await window.JgcPurchaseOrderPdf.createBlob({po_number:39000,order_date:'2026-11-02',job_id:'linked-job',job_number:'26157',job_name:'Reinstall TV Mount & Resecure Shelving',pdf_client_name:'BGIS Federal',supplier_name:'Supplier',items:[{quantity_ordered:1,description:'Material'}]})).arrayBuffer())));
+ const pdfjs=await import(require('node:url').pathToFileURL(require.resolve('pdfjs-dist/legacy/build/pdf.mjs',{paths:[path.join(__dirname,'../estimating-app')]})).href);const pdf=await pdfjs.getDocument({data:new Uint8Array(data),disableWorker:true}).promise;const text=(await(await pdf.getPage(1)).getTextContent()).items.map(x=>x.str).join(' ');expect(text).toContain('BGIS Federal');expect(text).toContain('Reinstall TV Mount & Resecure Shelving');expect(text).toContain('26157');expect(text).toContain('PO-39000');
+});

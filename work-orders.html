@@ -297,6 +297,7 @@ const WORK_ORDER_EMAIL_RECIPIENTS = [
   "darlene@johngordonconstruction.com"
 ];
 let jobs = [];
+const workOrderPdfClients = new Map();
 let workOrders = [];
 let activeWorkOrders = [];
 let submittedWorkOrders = [];
@@ -3207,6 +3208,13 @@ async function loadWorkOrders(showLoading = true) {
   renderWorkOrders();
 }
 
+async function loadWorkOrderPdfClient(wo) {
+  if (!wo.job_id) { workOrderPdfClients.set(String(wo.id), ""); return; }
+  const { data, error } = await supabaseClient.from("jobs").select("customer").eq("id", wo.job_id).maybeSingle();
+  if (error) throw new Error("The linked job's client could not be loaded.");
+  workOrderPdfClients.set(String(wo.id), data && data.customer || "");
+}
+
 function getWorkOrderBundle(id) {
   const wo = workOrders.find((item) => item.id === id);
 
@@ -3215,7 +3223,7 @@ function getWorkOrderBundle(id) {
   }
 
   return {
-    wo,
+    wo: { ...wo, pdf_client_name: workOrderPdfClients.get(String(wo.id)) || (jobs.find(job => String(job.id) === String(wo.job_id)) || {}).customer || "" },
     pos: purchaseOrders.filter((row) => row.work_order_id === id).sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0)),
     digitalPos: digitalPoPdfRows[id] || [],
     labour: labourRows.filter((row) => row.work_order_id === id),
@@ -3246,6 +3254,15 @@ function buildPdfRows(rows, emptyText, cellsBuilder) {
   }
 
   return rows.map((row) => "<tr>" + cellsBuilder(row).map((cell) => "<td>" + escapeHtml(cell) + "</td>").join("") + "</tr>").join("");
+}
+
+function getWorkOrderPdfJobName(wo) {
+  const client = String(wo.pdf_client_name || "").trim();
+  const job = String(wo.job_name || "").trim();
+  if (!client || !job) return job || client;
+  const name = job.toLowerCase(), prefix = client.toLowerCase();
+  if (name === prefix || [" - ", " – ", " — "].some(separator => name.startsWith(prefix + separator))) return job;
+  return client + " – " + job;
 }
 
 function buildOptionalPdfSection(title, rows, headers, cellsBuilder) {
@@ -3349,7 +3366,7 @@ ${pdfBranding.css}
     <div><b>Attention</b>${escapeHtml(wo.customer || "")}</div>
     <div><b>Customer PO #</b>${escapeHtml(wo.customer_po_number || "")}</div>
     <div><b>Job Number</b>${escapeHtml(wo.job_number || "")}</div>
-    <div><b>Job Name</b>${escapeHtml(wo.job_name || "")}</div>
+    <div><b>Job Name</b>${escapeHtml(getWorkOrderPdfJobName(wo))}</div>
     <div><b>Job Address</b>${escapeHtml(wo.job_address || "")}</div>
     <div><b>Supervisor</b>${escapeHtml(wo.supervisor_name || wo.created_by_name || "")}</div>
   </div>
@@ -3481,7 +3498,7 @@ async function downloadWorkOrderPdf(id, options) {
   }
 
   try {
-    await loadDigitalPoPdfRowsForWorkOrder(bundle.wo);
+    await Promise.all([loadDigitalPoPdfRowsForWorkOrder(bundle.wo), loadWorkOrderPdfClient(bundle.wo)]);
     pdfWindow.document.open();
     pdfWindow.document.write(buildWorkOrderPdfHtml(id));
     pdfWindow.document.close();
@@ -3489,7 +3506,7 @@ async function downloadWorkOrderPdf(id, options) {
     if (!settings.preview) setTimeout(() => pdfWindow.print(), 300);
   } catch (error) {
     pdfWindow.close();
-    alert("The linked Digital POs could not be loaded, so the PDF was not created. Please refresh and try again.");
+    alert("The linked job details or Digital POs could not be loaded, so the PDF was not created. Please refresh and try again.");
   }
 }
 
@@ -3505,12 +3522,12 @@ async function emailWorkOrderPdf(id, options) {
   }
 
   try {
-    await loadDigitalPoPdfRowsForWorkOrder(bundle.wo);
+    await Promise.all([loadDigitalPoPdfRowsForWorkOrder(bundle.wo), loadWorkOrderPdfClient(bundle.wo)]);
     bundle = getWorkOrderBundle(id);
   } catch (error) {
     if (!settings.silent) {
-      setFormStatus("The linked Digital POs could not be loaded, so the Work Order was not emailed.", true);
-      alert("The linked Digital POs could not be loaded. Refresh and try again before submitting this Work Order.");
+      setFormStatus("The linked job details or Digital POs could not be loaded, so the Work Order was not emailed.", true);
+      alert("The linked job details or Digital POs could not be loaded. Refresh and try again before submitting this Work Order.");
     }
     return false;
   }

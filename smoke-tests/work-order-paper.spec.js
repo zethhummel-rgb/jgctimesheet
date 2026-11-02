@@ -229,8 +229,9 @@ test('the real offline cache contains the paper editor and keeps draft inputs us
     await page.reload();
     await expect.poll(()=>page.evaluate(()=>!!navigator.serviceWorker.controller)).toBe(true);
     const cached=await page.evaluate(async()=>{
-      const keys=await caches.keys();const cache=await caches.open(keys.find(key=>key==='jgc-portal-v1035'));
-      return Promise.all(['work-order-paper.css?v=1','work-order-paper.js?v=1','work-order-digital-pos.js?v=4'].map(async name=>!!await cache.match(new URL(name,location.href))));
+      const cache=await caches.open((await caches.keys()).filter(key=>/^jgc-portal-v\d+$/.test(key)).sort((a,b)=>Number(b.split('v').at(-1))-Number(a.split('v').at(-1)))[0]);
+      const assets=[...document.querySelectorAll('link[href],script[src]')].map(node=>node.getAttribute('href')||node.getAttribute('src')).filter(name=>/^work-order-(?:paper\.(?:css|js)|digital-pos\.js)\?/.test(name));
+      return Promise.all(assets.map(async name=>!!await cache.match(new URL(name,location.href))));
     });
     expect(cached).toEqual([true,true,true]);
     await context.setOffline(true);

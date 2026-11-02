@@ -266,6 +266,13 @@ async function loadBundle(db: any, wo: WorkOrder): Promise<WorkOrderBundle> {
     throw new Error(errors.map((error) => error.message).join("; "));
   }
 
+  let pdfClientName = "";
+  if (wo.job_id) {
+    const result = await db.from("jobs").select("customer").eq("id", wo.job_id).maybeSingle();
+    if (result.error) throw new Error("The linked job's client could not be loaded: " + result.error.message);
+    pdfClientName = result.data?.customer || "";
+  }
+
   const digitalPoIds = (digitalPoLinks.data || []).map((link: Record<string, any>) => link.po_id).filter(Boolean);
   let digitalPos: Record<string, any>[] = [];
 
@@ -294,7 +301,7 @@ async function loadBundle(db: any, wo: WorkOrder): Promise<WorkOrderBundle> {
   }
 
   return {
-    wo,
+    wo: { ...wo, pdf_client_name: pdfClientName },
     pos: pos.data || [],
     digitalPos,
     labour: labour.data || [],
@@ -404,6 +411,15 @@ function buildPdfRows(rows: Record<string, any>[], emptyText: string, cellsBuild
   return rows.map((row) => "<tr>" + cellsBuilder(row).map((cell) => "<td>" + escapeHtml(cell) + "</td>").join("") + "</tr>").join("");
 }
 
+function getWorkOrderPdfJobName(wo: WorkOrder) {
+  const client = String(wo.pdf_client_name || "").trim();
+  const job = String(wo.job_name || "").trim();
+  if (!client || !job) return job || client;
+  const name = job.toLowerCase(), prefix = client.toLowerCase();
+  if (name === prefix || [" - ", " – ", " — "].some(separator => name.startsWith(prefix + separator))) return job;
+  return client + " – " + job;
+}
+
 function buildOptionalPdfSection(title: string, rows: Record<string, any>[], headers: string[], cellsBuilder: (row: Record<string, any>) => unknown[]) {
   if (!rows.length) {
     return "";
@@ -464,7 +480,7 @@ ${(globalThis as any).JgcWorkOrderPdfBranding.css}
     <div><b>Attention</b>${escapeHtml(wo.customer || "")}</div>
     <div><b>Customer PO #</b>${escapeHtml(wo.customer_po_number || "")}</div>
     <div><b>Job Number</b>${escapeHtml(wo.job_number || "")}</div>
-    <div><b>Job Name</b>${escapeHtml(wo.job_name || "")}</div>
+    <div><b>Job Name</b>${escapeHtml(getWorkOrderPdfJobName(wo))}</div>
     <div><b>Job Address</b>${escapeHtml(wo.job_address || "")}</div>
     <div><b>Supervisor</b>${escapeHtml(wo.supervisor_name || wo.created_by_name || "")}</div>
   </div>
