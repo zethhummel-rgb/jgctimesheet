@@ -5,7 +5,7 @@ import { SupportingDocuments } from './site-specific-documents';
 import { applySiteSpecificOrder, reorderSiteSpecific, type DocumentCategory } from '../lib/site-specific-workspace';
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import type { AppState, Job } from '../lib/estimator-data';
-import { createSitePlan, canDeleteSafetyPage, deleteSafetyPage, createTaskPage, createStandardProcedure, addStandardSafetyContent, addStructuredSafetyContent, pageHasContent, safetyId, sitePlanErrors, sitePlanFileName, type SafetyPage, type SafetyNewPageType, type SiteSpecificPlan } from '../lib/site-specific';
+import { createSitePlan, canDeleteSafetyPage, deleteSafetyPage, createTaskPage, createStandardProcedure, addStandardSafetyContent, addStructuredSafetyContent, pageHasContent, safetyId, sitePlanErrors, sitePlanFileName, type SafetyAttachment, type SafetyPage, type SafetyNewPageType, type SiteSpecificPlan } from '../lib/site-specific';
 import { siteSpecificPdfPages, siteSpecificAppendices, siteSpecificDocumentOrder } from '../lib/site-specific-pdf-content';
 import { loadSafetyAttachments, uploadSafetyAttachment, readSafetyAttachment, publishSafetyPlan } from '../src/site-specific-api';
 import { SafetyIllustrations } from './site-specific-blocks';
@@ -47,6 +47,11 @@ export function SiteSpecificBuilder({job,state,setState,actor,workspaceSaved}:Pr
   const remaining=deleteSafetyPage(plan,current.id).pages,index=plan.pages.findIndex(page=>page.id===current.id),next=remaining[Math.min(index,remaining.length-1)];
   change(p=>deleteSafetyPage(p,current.id));
   setPageId(next?.id||'');setView(next?'Pages':'Details');scrollToPage();notice(`"${title}" deleted from this plan.`);
+ }
+ function removeDocument(item:SafetyAttachment){
+  if(busy||!window.confirm(`Remove "${item.title}" from this Site Specific? It will be left out of future PDFs. The original file and previously published PDFs are kept.`))return;
+  change(p=>({...p,attachments:p.attachments.filter(a=>a.id!==item.id),documentOrder:p.documentOrder?.filter(key=>key!==`attachment:${item.id}`)}));
+  notice(`"${item.title}" removed from this plan. You can add it again from Portal documents.`);
  }
  function savePage(){if(!pageHasContent(current))return notice('Fill out this page before saving it to the library.',true);const saved={...structuredClone(current),id:safetyId(),savedAt:new Date().toISOString(),savedBy:actor,jobNumber:job.jobNumber};setState(s=>({...s,safetyLibrary:[saved,...(s.safetyLibrary||[])]}));notice('Page saved to the reusable library. The log keeps each saved version.');}
  function addPage(kind:SafetyNewPageType){const next=createTaskPage(kind);if(kind==='custom')next.fields=[];change(p=>({...p,pages:[...p.pages,next]}));setPageId(next.id);setView('Pages');scrollToPage();}
@@ -95,7 +100,7 @@ export function SiteSpecificBuilder({job,state,setState,actor,workspaceSaved}:Pr
   <div className="ss-workspace-layout"><SectionNavigator plan={plan} selected={isEditor?(view==='Details'?'cover':view==='Contents'?'contents':current.id):''} busy={busy} onSelect={selectSection}/><div className="ss-workspace-main">
   {view==='Organize'&&<PlanOrganizer plan={plan} busy={busy} canUndo={!!orderHistory.length} onUndo={undoOrder} onMove={reorder} onOpen={item=>{if(item.page)selectSection(item.page.id);else{setView('Attachments');scrollToPage();}}}/>}
   {view==='Templates'&&<PlanTemplateGallery busy={busy} onAdd={addPage} onProcedure={addProcedure} onSaved={()=>{setView('Saved pages');setSearch('');scrollToPage();}} onStructure={addStructure} onStandard={addStandardContent}/>}
-  {view==='Attachments'&&<SupportingDocuments job={job} items={plan.attachments} busy={busy} onLoad={()=>void sources()}
+  {view==='Attachments'&&<SupportingDocuments job={job} items={plan.attachments} busy={busy} onRemove={removeDocument} onLoad={()=>void sources()}
    onInclude={(a,checked)=>change(p=>({...p,visibility:checked&&a.kind==='certificate'?'restricted':p.visibility,attachments:p.attachments.map(x=>x.id===a.id?{...x,included:checked}:x)}))}
    onCategory={(a,libraryCategory)=>change(p=>({...p,attachments:p.attachments.map(x=>x.id===a.id?{...x,libraryCategory}:x)}))}
    upload={<fieldset disabled={busy} className="ss-upload-fields"><label className="field"><span>Additional PDFs, forms or photos</span><input ref={fileInput} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" multiple onChange={e=>setFiles(Array.from(e.target.files||[]))}/></label><label className="field"><span>File category</span><select value={uploadCategory} onChange={e=>setUploadCategory(e.target.value as DocumentCategory)}><option value="plans">Project plans &amp; reports</option><option value="sds">Safety data sheets</option><option value="jsa">Job safety analyses</option><option value="policy">Company policies</option><option value="other">Other documents</option></select></label><p>Originals are saved privately. Up to 20 MB per file and 80 MB per upload.</p>{files.length>0&&<div className="ss-actions"><button type="button" className="button primary" onClick={()=>void upload()}>Upload {files.length} supporting {files.length===1?'file':'files'}</button><button type="button" className="button secondary" onClick={()=>{setFiles([]);if(fileInput.current)fileInput.current.value='';}}>Clear selected files</button></div>}</fieldset>}

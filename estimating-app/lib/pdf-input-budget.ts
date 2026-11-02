@@ -1,3 +1,4 @@
+import {decodePdfAscii85} from './pdf-ascii85';
 import {Unzlib} from 'fflate';
 import {DOCUMENT_LIMITS,imageBudget,imageDimensions} from './document-budget';
 
@@ -38,11 +39,12 @@ export function preflightPdf(bytes:Uint8Array,budget:PdfInputBudget={decodedByte
   const length=lengthToken?.[2]?lengths.get(lengthToken[1]+' '+lengthToken[2]):Number(lengthToken?.[1]);
   if(!Number.isSafeInteger(length)||length!<0||n+length!>bytes.length)throw tooComplex();
   const end=n+length!;if(!/^\s*endstream\b/.test(text.slice(end,end+32)))throw tooComplex();
-  // Unknown/chained filters fail closed; no decoder can allocate unbounded output first.
+  // Only explicitly bounded decoders are allowed; unknown chains still fail closed.
   const filters=[...dictionary.matchAll(/\/Filter\s*(\/\w+|\[[^\]]*\])/g)].map(m=>m[1]);
   if(filters.length>1)throw tooComplex();
   const filter=filters[0]?.replace(/[\[\]\s]/g,'')||'';
-  if(!['','/FlateDecode','/Fl','/DCTDecode','/DCT'].includes(filter))throw tooComplex();
+  const ascii85Flate=/^\/(?:ASCII85Decode|A85)\/(?:FlateDecode|Fl)$/.test(filter);
+  if(!ascii85Flate&&!['','/FlateDecode','/Fl','/DCTDecode','/DCT'].includes(filter))throw tooComplex();
   if(/\/Subtype\s*\/Image\b/.test(dictionary)){
    const width=Number(dictionary.match(/\/Width\s+(\d+)/)?.[1]),height=Number(dictionary.match(/\/Height\s+(\d+)/)?.[1]);
    imageBudget(width,height);
@@ -53,10 +55,11 @@ export function preflightPdf(bytes:Uint8Array,budget:PdfInputBudget={decodedByte
   // Conservative counting also includes strings/font data; over-budget snapping falls back to manual points.
   let inToken=false;
   const countTokens=(chunk:Uint8Array)=>{if(maxTokens===undefined)return;for(const byte of chunk){const boundary=byte===0||byte===9||byte===10||byte===12||byte===13||byte===32||byte===37||byte===40||byte===41||byte===47||byte===60||byte===62||byte===91||byte===93||byte===123||byte===125;if(boundary)inToken=false;else if(!inToken){inToken=true;budget.tokens=(budget.tokens||0)+1;if(budget.tokens>maxTokens)throw tooComplex();}}};
-  if(filter==='/FlateDecode'||filter==='/Fl'){
+  if(ascii85Flate||filter==='/FlateDecode'||filter==='/Fl'){
    let streamBytes=0;
    const inflate=new Unzlib(chunk=>{streamBytes+=chunk.length;budget.decodedBytes+=chunk.length;if(streamBytes>16*1024*1024||budget.decodedBytes>80*1024*1024)throw tooComplex();countTokens(chunk);});
-   for(let offset=n;offset<end;offset+=512)inflate.push(bytes.subarray(offset,Math.min(end,offset+512)),offset+512>=end);
+   if(ascii85Flate){decodePdfAscii85(bytes.subarray(n,end),chunk=>{budget.decodedBytes+=chunk.length;if(budget.decodedBytes>80*1024*1024)throw tooComplex();inflate.push(chunk,false);});inflate.push(new Uint8Array(),true);}
+   else for(let offset=n;offset<end;offset+=512)inflate.push(bytes.subarray(offset,Math.min(end,offset+512)),offset+512>=end);
   }else if(!filter){budget.decodedBytes+=length!;if(budget.decodedBytes>80*1024*1024)throw tooComplex();countTokens(bytes.subarray(n,end));}
   objects.lastIndex=end+9;
  }

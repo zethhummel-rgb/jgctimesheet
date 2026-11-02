@@ -7,8 +7,24 @@ test('real multi-page PDF object streams remain readable within the budget',asyn
 test('PDF compressed stream expansion is stopped before PDF parser allocation',()=>{const bytes=streamPdf(zlibSync(new Uint8Array(17*1024*1024).fill(32)));expect(bytes.length).toBeLessThan(50_000);expect(()=>load('pdf-input-budget').preflightPdf(bytes)).toThrow('too complex');});
 test('PDF filter names hidden behind comments or hex name escapes cannot bypass expansion budget',()=>{const compressed=zlibSync(new Uint8Array(17*1024*1024).fill(32));for(const filter of ['/Filter % comment\n /FlateDecode','/Fi#6cter /FlateDecode','/Filter [/FlateDecode]'])expect(()=>load('pdf-input-budget').preflightPdf(streamPdf(compressed,filter))).toThrow('too complex');});
 test('aggregate decoded PDF budget applies across separate attachments',()=>{const p=load('pdf-input-budget'),budget={decodedBytes:0,objects:0},bytes=streamPdf(zlibSync(new Uint8Array(15*1024*1024).fill(32)));for(let n=0;n<5;n++)p.preflightPdf(bytes,budget);expect(()=>p.preflightPdf(bytes,budget)).toThrow('too complex');});
-test('PDF image dimensions and unknown decoder chains fail before decoding',()=>{const p=load('pdf-input-budget');expect(()=>p.preflightPdf(streamPdf(Buffer.from([1,2,3]),'', '/Subtype /Image /Width 100000 /Height 100000'))).toThrow('image is too large');expect(()=>p.preflightPdf(streamPdf(Buffer.from([1,2,3]),'/Filter [/ASCII85Decode /FlateDecode]'))).toThrow('too complex');});
+test('PDF image dimensions and unknown decoder chains fail before decoding',()=>{const p=load('pdf-input-budget');expect(()=>p.preflightPdf(streamPdf(Buffer.from([1,2,3]),'', '/Subtype /Image /Width 100000 /Height 100000'))).toThrow('image is too large');expect(()=>p.preflightPdf(streamPdf(Buffer.from([1,2,3]),'/Filter [/LZWDecode /FlateDecode]'))).toThrow('too complex');});
 test('drawing tokens are bounded before an operator list can be constructed',()=>{const p=load('pdf-input-budget'),commands=Buffer.from('h\n'.repeat(600_001)),packed=streamPdf(zlibSync(commands));expect(packed.length).toBeLessThan(5000);expect(()=>p.preflightPdf(packed,{decodedBytes:0,objects:0},600_000)).toThrow('too complex');expect(()=>p.preflightPdf(streamPdf(commands,''),{decodedBytes:0,objects:0},600_000)).toThrow('too complex');});
 test('hostile image headers are refused before allocating decoded pixels',()=>{const b=load('document-budget'),png=new Uint8Array(24);png[0]=0x89;png[1]=0x50;new DataView(png.buffer).setUint32(16,100000);new DataView(png.buffer).setUint32(20,100000);const size=b.imageDimensions(png,'image/png');expect(()=>b.imageBudget(size.width,size.height)).toThrow('too large');});
 test('workbook row and cell budgets stop XML object expansion',()=>{const w=load('material-price-workbook'),rows='<row><c r="A1" t="inlineStr"><is><t>item</t></is></c></row>'.repeat(25_001),file=zipSync({'[Content_Types].xml':strToU8('<Types/>'),'xl/worksheets/sheet1.xml':strToU8('<worksheet><sheetData>'+rows+'</sheetData></worksheet>')});expect(()=>w.parseMaterialPriceWorkbook(file)).toThrow('too large');});
 test('timeout stops document work and exposes no partial result',async()=>{let stopped=false;await expect(load('document-budget').documentDeadline(new Promise(()=>{}),10,()=>{stopped=true;})).rejects.toThrow('took too long');expect(stopped).toBe(true);});
+
+const {ascii85}=require('./fixtures/ascii85-pdf');
+test('ASCII85 plus Flate PDF streams accept ordinary documents and preserve expansion and token limits',()=>{
+ const p=load('pdf-input-budget');for(const filter of ['/Filter [/ASCII85Decode /FlateDecode]','/Filter[/A85/Fl]']){
+  const bytes=streamPdf(ascii85(zlibSync(Buffer.from('JGC spill plan content'))),filter);expect(p.preflightPdf(bytes).decodedBytes).toBeGreaterThan(20);
+  expect(()=>p.preflightPdf(streamPdf(ascii85(zlibSync(new Uint8Array(17*1024*1024).fill(32))),filter))).toThrow('too complex');
+  expect(()=>p.preflightPdf(streamPdf(ascii85(zlibSync(Buffer.from('h '.repeat(11)))),filter),{decodedBytes:0,objects:0},10)).toThrow('too complex');
+ }
+});
+test('ASCII85 handles partial groups and zero shorthand while rejecting malformed or oversized streams',()=>{
+ const decode=load('pdf-ascii85').decodePdfAscii85;
+ for(let n=0;n<13;n++){const original=Buffer.from(Array.from({length:n},(_,i)=>(i*83+n)%256)),chunks=[];decode(ascii85(original),c=>chunks.push(Buffer.from(c)));expect(Buffer.concat(chunks)).toEqual(original);}
+ const chunks=[];decode(Buffer.from('z~>'),c=>chunks.push(Buffer.from(c)));expect(Buffer.concat(chunks)).toEqual(Buffer.alloc(4));
+ for(const bad of ['!~>','uuuuu~>','!z~>','!!!!!','!!!!!~x','!!!!!~>x','v~>'])expect(()=>decode(Buffer.from(bad),()=>{})).toThrow('too complex');
+ expect(()=>decode(Buffer.from('z'.repeat(4*1024*1024+1)+'~>'),()=>{})).toThrow('too complex');
+});

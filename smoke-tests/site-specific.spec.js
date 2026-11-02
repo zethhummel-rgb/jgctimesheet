@@ -570,3 +570,26 @@ for(const width of [320,768,1024])test(`workspace controls remain readable and c
  await page.locator('.ss-mobile-sections').click();await page.getByRole('textbox',{name:'Find a section',exact:true}).fill('Emergency');await expect(page.locator('.ss-section-link:visible')).toHaveCount(1);await page.locator('.ss-section-link:visible').click();await expect(page.locator('.ss-mobile-sections')).toBeFocused();await expect(page.locator('.ss-paper')).toHaveAttribute('data-page-id','emergency');
  await page.getByRole('button',{name:/^Supporting documents/}).click();await expect(page.locator('.ss-paper')).toHaveCount(0);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.screenshot({path:info.outputPath('workspace-'+width+'.png')});
 });
+
+for(const width of [390,1440])test(`supporting documents can be removed from the plan and stay removed on reload ${width}`,async({page})=>{
+ const seed=appendixFixture(),original=structuredClone(seed.jobs[0].siteSpecific);
+ const store=await setup(page,{width,seed});await showPage(page,'attachments');
+ const remove=page.getByRole('button',{name:'Remove JGC policy from this plan',exact:true});
+ page.once('dialog',dialog=>dialog.dismiss());await remove.click();await expect(remove).toBeVisible();
+ page.once('dialog',async dialog=>{expect(dialog.message()).toContain('original file and previously published PDFs are kept');await dialog.accept();});
+ await remove.click();await expect(remove).toHaveCount(0);await saved(page);
+ const plan=store.getState().jobs[0].siteSpecific;
+ expect(plan.attachments.some(a=>a.id==='policy')).toBe(false);
+ expect(plan.attachments).toEqual(original.attachments.filter(a=>a.id!=='policy'));
+ expect(plan.pages).toEqual(original.pages);expect(plan.published).toEqual(original.published);
+ expect(load('site-specific-pdf-content').siteSpecificDocumentOrder(plan,plan.pages).some(item=>item.key==='attachment:policy')).toBe(false);
+ await page.reload();await page.getByRole('tab',{name:'Safety',exact:true}).click();await page.getByRole('tab',{name:'Create Site Specific',exact:true}).click();await showPage(page,'attachments');await expect(remove).toHaveCount(0);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+
+test('ASCII85 spill plan previews every page and is included in the combined PDF',async({page},info)=>{
+ test.setTimeout(60000);const seed=fixture(),plan=model.createSitePlan(seed.jobs[0],'QA');plan.updatedAt=new Date().toISOString();plan.attachments=[{id:'board:qa-policy',kind:'board',boardId:'qa-board',documentId:'qa-policy',title:'Encoded spill plan',included:true,fileName:'spill-plan.pdf',fileType:'application/pdf'}];seed.jobs[0].siteSpecific=plan;
+ await setup(page,{seed});const data=require('./fixtures/ascii85-pdf').ascii85Pdf().toString('base64');await client(page,{policy:data,cert:data});await showPage(page,'attachments');
+ await page.getByRole('button',{name:'Preview Encoded spill plan',exact:true}).click();const dialog=page.getByRole('dialog');await expect(dialog.getByText('Page 1 of 2',{exact:true})).toBeVisible({timeout:20000});await expect(dialog.locator('canvas')).toBeVisible();await dialog.getByRole('button',{name:'Next',exact:true}).click();await expect(dialog.getByText('Page 2 of 2',{exact:true})).toBeVisible();await expect(dialog.locator('canvas')).toBeVisible();await dialog.getByRole('button',{name:'Close preview',exact:true}).click();
+ await saved(page);const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download PDF',exact:true}).click();const download=await pending,file=info.outputPath('ascii85-combined.pdf');await download.saveAs(file);const parsed=await texts(file);expect(parsed.text).toContain('ASCII85 SPILL PLAN PAGE 1');expect(parsed.text).toContain('ASCII85 SPILL PLAN PAGE 2');
+});
