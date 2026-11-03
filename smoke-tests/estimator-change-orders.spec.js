@@ -340,3 +340,23 @@ test("approving a CCN creates a tracked CO, updates job totals and exposes its s
   expect(approvedState.jobs[0].approvedCostChanges).toBe(2000);
   expect(approvedState.quotes.find((item) => item.id === "change-1").changeOrder.coNumber).toBe("26128-CO-001");
 });
+
+test("My Open Quotes shows only the signed-in estimator's unfinished quotes", async ({ page }) => {
+  const state = workspaceState();
+  const draft = { ...baseQuote(), id: "my-open", number: "JGC-Q-2099-0001", status: "Draft", ownerUserId: "local-qa", preparedBy: "Old Display Name" };
+  state.quotes.push(draft,
+    { ...draft, id: "other-open", number: "JGC-Q-2099-0002", ownerUserId: "jeff", preparedBy: "Local QA" },
+    { ...draft, id: "my-finished", number: "JGC-Q-2099-0003", status: "Finished" }
+  );
+  await serveState(page, state, []);
+  await page.goto("/estimating/index.html?dev=1");
+  await page.locator(".primary-nav").getByRole("button", { name: /^Quotes/ }).click();
+  const tile = page.getByRole("button", { name: /My Open Quotes/ });
+  await expect(tile).toContainText("1 unfinished quote");
+  await tile.click();
+  const rows = page.locator(".quotes-table tbody tr");
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText(draft.number);
+  await rows.first().click();
+  await expect(page.getByRole("button", { name: /All quotes/ })).toBeVisible();
+});

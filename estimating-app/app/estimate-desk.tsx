@@ -1998,6 +1998,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       return (
         <QuotesPage
           state={state}
+          currentEstimator={currentEstimator}
           search={search}
           setSearch={setSearch}
           statusFilter={quoteStatusFilter}
@@ -2434,19 +2435,23 @@ function matchesWorkSearch(query: string, ...values: Array<string | null | undef
   });
 }
 
+function quoteBelongsToEstimator(quote: Quote, estimator: CurrentEstimator) {
+  if (quote.ownerUserId) return quote.ownerUserId === estimator.id;
+  const currentName = estimator.name.trim().toLocaleLowerCase();
+  const ownerName = (quote.ownerName || quote.preparedBy).trim().toLocaleLowerCase();
+  return Boolean(currentName && ownerName && (
+    ownerName === currentName || currentName.startsWith(`${ownerName} `) || ownerName.startsWith(`${currentName} `)
+  ));
+}
+
 function Dashboard({ state, currentEstimator, onOpenQuote, onOpenJob, onShowQuotes, onShowJobs }: { state: AppState; currentEstimator: CurrentEstimator; onOpenQuote: (id: string, tab?: QuoteTab) => void; onOpenJob: (id: string) => void; onShowQuotes: (status: string) => void; onShowJobs: () => void }) {
   const [workLayout, setWorkLayout] = useWorkListLayout();
   const [companyWide, setCompanyWide] = useState(false);
   const isPhone = useIsPhone();
   useDeskHeader("Overview", companyWide ? "Every estimator's quotes and jobs" : "Your quotes and jobs at a glance");
   const [dashboardSearch, setDashboardSearch] = useState("");
-  const currentOwnerName = currentEstimator.name.trim().toLocaleLowerCase();
   const baseQuotes = state.quotes.filter((quote) => !isChangeNotice(quote));
-  const ownedQuotes = baseQuotes.filter((quote) => {
-    if (quote.ownerUserId) return quote.ownerUserId === currentEstimator.id;
-    const quoteOwnerName = (quote.ownerName || quote.preparedBy).trim().toLocaleLowerCase();
-    return quoteOwnerName === currentOwnerName || currentOwnerName.startsWith(`${quoteOwnerName} `) || quoteOwnerName.startsWith(`${currentOwnerName} `);
-  });
+  const ownedQuotes = baseQuotes.filter(quote => quoteBelongsToEstimator(quote, currentEstimator));
   const dashboardQuotes = currentEstimator.isAdmin && companyWide ? baseQuotes : ownedQuotes;
   const dashboardQuoteIds = new Set(dashboardQuotes.map((quote) => quote.id));
   const dashboardJobs = state.jobs.filter((job) => dashboardQuoteIds.has(job.quoteId));
@@ -2761,8 +2766,9 @@ function LibraryFolders<T>({ records, path, setPath, noun, renderItems }: {
   );
 }
 
-function QuotesPage({ state, search, setSearch, statusFilter, setStatusFilter, onNewQuote, onOpenQuote, onDelete }: {
+function QuotesPage({ state, currentEstimator, search, setSearch, statusFilter, setStatusFilter, onNewQuote, onOpenQuote, onDelete }: {
   state: AppState;
+  currentEstimator: CurrentEstimator;
   search: string;
   setSearch: (value: string) => void;
   statusFilter: string;
@@ -2772,6 +2778,12 @@ function QuotesPage({ state, search, setSearch, statusFilter, setStatusFilter, o
   onDelete: (quote: Quote) => void;
 }) {
   const [libraryPath, setLibraryPath] = useState<LibraryPathPart[]>([]);
+  const [showMyOpenQuotes, setShowMyOpenQuotes] = useState(false);
+  const openQuotes = state.quotes.filter(quote =>
+    quoteBelongsToEstimator(quote, currentEstimator) &&
+    quote.status === "Draft" && !isChangeNotice(quote) &&
+    !state.jobs.some(job => job.quoteId === quote.id)
+  ).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const normalized = search.toLowerCase();
   const quotes = state.quotes.filter((quote) => {
     if (isChangeNotice(quote)) return false;
@@ -2837,6 +2849,16 @@ function QuotesPage({ state, search, setSearch, statusFilter, setStatusFilter, o
         title="Quotes"
         description="Browse by estimator, year, client and work location, or search across every quote."
       />
+      <section className="panel library-browser" aria-label="My Open Quotes">
+        <div className="library-folder-grid">
+          <button type="button" className="library-folder" aria-expanded={showMyOpenQuotes} onClick={() => setShowMyOpenQuotes(open => !open)}>
+            <span className="library-folder-icon" aria-hidden="true">▰</span>
+            <span><small>{currentEstimator.name}</small><strong>My Open Quotes</strong><em>{openQuotes.length} unfinished {openQuotes.length === 1 ? "quote" : "quotes"}</em></span>
+            <b aria-hidden="true">{showMyOpenQuotes ? "⌄" : "›"}</b>
+          </button>
+        </div>
+      </section>
+      {showMyOpenQuotes ? renderQuoteTable(openQuotes) : <>
       <section className="panel toolbar-panel">
         <div className="search-field"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search quote, client, project or reference" aria-label="Search quotes" />{search && <button type="button" className="search-field-clear" aria-label="Clear search" onClick={() => setSearch("")}>{"×"}</button>}</div>
         <div className="filter-tabs" role="group" aria-label="Filter quotes by status">
@@ -2846,6 +2868,7 @@ function QuotesPage({ state, search, setSearch, statusFilter, setStatusFilter, o
         </div>
       </section>
       {search.trim() ? renderQuoteTable(quotes) : <LibraryFolders records={quoteRecords} path={libraryPath} setPath={setLibraryPath} noun="quote" renderItems={renderQuoteTable} />}
+      </>}
     </div>
   );
 }
