@@ -649,7 +649,6 @@
     } catch(error) { status('siteStatus',errorMessage(error),'error'); } finally { busy($('siteSubmit'),false); }
   });
   $('visitorForm').addEventListener('submit', visitorSignIn); $('staffForm').addEventListener('submit', staffSignIn);
-  $('staffSiteSignIn').closest('label').hidden = state.manage; // The office managing a board is not on site.
   function isStaffBoard(){return !!state.user&&!!(state.manage&&state.board?.can_manage||state.board?.can_register_as_staff);}
   function syncBoardTheme(){if(hosted)return;const theme=isStaffBoard()?getStoredJgcThemePreference(state.user.id):'light';if(document.documentElement.dataset.jgcTheme!==theme)applyJgcTheme(theme);}
   window.addEventListener('jgc-theme-change',()=>{if(!hosted&&!isStaffBoard()&&document.documentElement.dataset.jgcTheme!=='light')applyJgcTheme('light');});
