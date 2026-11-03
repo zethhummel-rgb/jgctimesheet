@@ -2778,7 +2778,6 @@ function QuotesPage({ state, currentEstimator, search, setSearch, statusFilter, 
   onDelete: (quote: Quote) => void;
 }) {
   const [libraryPath, setLibraryPath] = useState<LibraryPathPart[]>([]);
-  const [showMyOpenQuotes, setShowMyOpenQuotes] = useState(false);
   const openQuotes = state.quotes.filter(quote =>
     quoteBelongsToEstimator(quote, currentEstimator) &&
     quote.status === "Draft" && !isChangeNotice(quote) &&
@@ -2849,16 +2848,6 @@ function QuotesPage({ state, currentEstimator, search, setSearch, statusFilter, 
         title="Quotes"
         description="Browse by estimator, year, client and work location, or search across every quote."
       />
-      <section className="panel library-browser" aria-label="My Open Quotes">
-        <div className="library-folder-grid">
-          <button type="button" className="library-folder" aria-expanded={showMyOpenQuotes} onClick={() => setShowMyOpenQuotes(open => !open)}>
-            <span className="library-folder-icon" aria-hidden="true">▰</span>
-            <span><small>{currentEstimator.name}</small><strong>My Open Quotes</strong><em>{openQuotes.length} unfinished {openQuotes.length === 1 ? "quote" : "quotes"}</em></span>
-            <b aria-hidden="true">{showMyOpenQuotes ? "⌄" : "›"}</b>
-          </button>
-        </div>
-      </section>
-      {showMyOpenQuotes ? renderQuoteTable(openQuotes) : <>
       <section className="panel toolbar-panel">
         <div className="search-field"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search quote, client, project or reference" aria-label="Search quotes" />{search && <button type="button" className="search-field-clear" aria-label="Clear search" onClick={() => setSearch("")}>{"×"}</button>}</div>
         <div className="filter-tabs" role="group" aria-label="Filter quotes by status">
@@ -2868,7 +2857,24 @@ function QuotesPage({ state, currentEstimator, search, setSearch, statusFilter, 
         </div>
       </section>
       {search.trim() ? renderQuoteTable(quotes) : <LibraryFolders records={quoteRecords} path={libraryPath} setPath={setLibraryPath} noun="quote" renderItems={renderQuoteTable} />}
-      </>}
+      {!search.trim() && libraryPath.length === 0 && (
+        <section className="panel recent-work-panel recent-quotes-panel recent-work-layout-list" aria-label="My Open Quotes">
+          <div className="panel-heading">
+            <div><span className="eyebrow">{currentEstimator.name}</span><h2>My Open Quotes</h2></div>
+            {!!openQuotes.length && <button type="button" className="text-button" onClick={() => onOpenQuote(openQuotes[0].id)}>Open latest <span>→</span></button>}
+          </div>
+          <div className="recent-work-list">
+            {openQuotes.map(quote => (
+              <button type="button" className="recent-work-row" key={quote.id} onClick={() => onOpenQuote(quote.id)}>
+                <span className="recent-work-id"><strong>{quote.number}</strong><small>Rev {quote.revision}</small></span>
+                <span className="recent-work-client"><strong>{clientName(state, quote.clientId)}</strong><small>{quote.project || "Project not named"}</small></span>
+                <span className="recent-work-meta"><StatusPill status={quoteDisplayStatus(quote)} /></span>
+              </button>
+            ))}
+            {!openQuotes.length && <EmptyInline title="No open quotes" detail="Your draft quotes will appear here." />}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

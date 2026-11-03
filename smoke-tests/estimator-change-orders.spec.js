@@ -351,10 +351,11 @@ test("My Open Quotes shows only the signed-in estimator's unfinished quotes", as
   await serveState(page, state, []);
   await page.goto("/estimating/index.html?dev=1");
   await page.locator(".primary-nav").getByRole("button", { name: /^Quotes/ }).click();
-  const tile = page.getByRole("button", { name: /My Open Quotes/ });
-  await expect(tile).toContainText("1 unfinished quote");
-  await tile.click();
-  const rows = page.locator(".quotes-table tbody tr");
+  const panel = page.getByRole("region", { name: "My Open Quotes" });
+  await expect(panel).toBeVisible();
+  const folders = await page.locator(".library-browser").boundingBox();
+  expect((await panel.boundingBox()).y).toBeGreaterThanOrEqual(folders.y + folders.height);
+  const rows = panel.locator(".recent-work-row");
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText(draft.number);
   await rows.first().click();
