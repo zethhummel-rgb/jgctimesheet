@@ -160,7 +160,7 @@ test("date boxes carry the iOS fix in the shared design system", async () => {
 for (const [name, url, selector, form] of [
   ["Timesheet Week Date", "/timesheet.html", "#weekStart"],
   // The PO form opens after a number is reserved; only its layout matters here.
-  ["PO Date of Order", "/purchase-orders.html", "#poOrderDate", "#poFormView"],
+  ["PO Date of Order", "/purchase-orders.html", "#poPaperDate", "#poFormView"],
   ["Work Order Date", "/work-orders.html", "#woDate"]
 ]) {
   test(`${name} stays inside its column and at text-box height on a phone`, async ({ page }) => {
@@ -170,6 +170,7 @@ for (const [name, url, selector, form] of [
     if (form) {
       await page.locator(form).evaluate(el => { el.hidden = false; });
     }
+    if (name === "PO Date of Order") await page.locator('[data-paper-edit="date"]').click();
     const field = page.locator(selector);
     await expect(field).toBeVisible();
     const layout = await field.evaluate(el => {
@@ -315,6 +316,7 @@ for (const theme of ["light", "dark"]) for (const [name, url, selectors] of [
     await signIn(page, { jobs: SITE_JOBS, theme });
     await page.goto(url, { waitUntil: "load" });
     if (selectors.form) await page.locator(selectors.form).evaluate(el => { el.hidden = false; });
+    if (name === "PO") await page.locator('[data-paper-edit="job"]').first().click();
     const search = page.locator(selectors.search);
     await search.click();
     const options = page.locator(`${selectors.list} .jgc-job-option`);
@@ -348,6 +350,7 @@ for (const [name, url, selectors] of [
       // The PO form opens after a number is reserved; only the picker matters here.
       await page.locator(selectors.form).evaluate(el => { el.hidden = false; });
     }
+    if (name === "PO") await page.locator('[data-paper-edit="job"]').first().click();
     const search = page.locator(selectors.search);
     const clear = page.locator(selectors.clear);
     await expect(clear).toBeHidden();

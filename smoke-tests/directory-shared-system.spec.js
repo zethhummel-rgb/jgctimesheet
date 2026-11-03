@@ -113,18 +113,18 @@ test("directory family uses one token-only shared visual source", async () => {
     expect(source).not.toMatch(/\sstyle\s*=/i);
     expect(source).not.toContain("styles.css");
     expect(source).toContain('jgc-design-system.css?v=14');
-    expect(source).toContain('directory-design-system.css?v=2');
+    expect(source).toContain('directory-design-system.css?v=3');
     expect(source).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   }
 
   expect(featureCss, "Directory-only CSS must use centralized design tokens").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
-  expect(adminSource).toContain('directory-design-system.css?v=2');
+  expect(adminSource).toContain('directory-design-system.css?v=3');
   expect(adminSource).toMatch(/id="contactsSection"[^>]*class="[^"]*\bjgc-admin-feature-surface\b[^"]*\bjgc-directory-admin\b/);
   expect(adminSource).toMatch(/id="subcontractorsSuppliersSection"[^>]*class="[^"]*\bjgc-admin-feature-surface\b[^"]*\bjgc-directory-admin\b/);
   expect(adminContacts).not.toMatch(/\sstyle\s*=/i);
   expect(adminContacts).toContain("jgc-table jgc-table--wide");
-  expect(serviceWorker).toContain('"./directory-design-system.css?v=2"');
-  expect(serviceWorker).toContain('"./admin-contacts.js?v=3"');
+  expect(serviceWorker).toContain('"./directory-design-system.css?v=3"');
+  expect(serviceWorker).toContain('"./admin-contacts.js?v=6"');
 });
 
 for (const viewport of [

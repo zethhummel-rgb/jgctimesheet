@@ -92,7 +92,12 @@
       return checkpoint;
     }
     function restorePicker() {
-      if (movedPicker) { movedPicker.placeholder.replaceWith(e.jobPicker); movedPicker = null; }
+      if (movedPicker) {
+        const details = e.jobPicker.nextElementSibling;
+        movedPicker.placeholder.replaceWith(e.jobPicker);
+        if (details?.classList.contains("jgc-employee-job-details")) e.jobPicker.after(details);
+        movedPicker = null;
+      }
       api.closeJobOptions();
     }
     function cancelEdit() {
@@ -125,8 +130,12 @@
         jobSnapshot = { job: e.job.value, number: e.manualJobNumber.value, name: e.manualJobName.value };
         fields.innerHTML = '<label class="jgc-label" for="poJobSearch">Find a saved job</label><div data-paper-picker></div><button type="button" id="poPaperManualEntry" class="jgc-button jgc-button--secondary po-paper-manual">Manual Entry</button>';
         const placeholder = document.createComment("PO job picker");
-        e.jobPicker.before(placeholder); movedPicker = { placeholder };
-        fields.querySelector("[data-paper-picker]").append(e.jobPicker);
+        const details = e.jobPicker.nextElementSibling;
+        e.jobPicker.before(placeholder);
+        movedPicker = { placeholder };
+        const picker = fields.querySelector("[data-paper-picker]");
+        picker.append(e.jobPicker);
+        if (details?.classList.contains("jgc-employee-job-details")) picker.append(details);
       } else if (kind === "item") {
         const value = name => itemRow?.querySelector(`[data-item-field="${name}"]`).value || "";
         fields.innerHTML = input("Qty.", "poPaperQty", value("quantity_ordered"), 'type="number" min="0" step="0.001" inputmode="decimal"') + `<label class="jgc-label" for="poPaperDescription">Description</label><textarea id="poPaperDescription" class="jgc-textarea" maxlength="1000" rows="4" required>${escape(value("description"))}</textarea>`;

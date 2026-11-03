@@ -301,3 +301,8 @@
     overflow: visible;
   }
 }
+
+.jgc-directory-admin .supplier-company-address {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}

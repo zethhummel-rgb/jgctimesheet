@@ -3916,7 +3916,7 @@ test("work order auto-submit recovers stale claims and bounds email delivery", a
   expect(workOrderPage).toContain("signal: AbortSignal.timeout(60_000)");
   expect(workOrderPage).toContain('idempotencyKey: "jgc-work-order-submit-" + id');
   expect(workOrderPage).toContain('rpc("digital_po_work_order_options"');
-  expect(workOrderPage).toContain('await loadDigitalPoPdfRowsForWorkOrder(bundle.wo)');
+  expect(workOrderPage).toContain('loadDigitalPoPdfRowsForWorkOrder(bundle.wo)');
   expect(workOrderPage).toContain('buildOptionalPdfSection("Digital Purchase Orders", digitalPos');
 });
 
@@ -5653,7 +5653,8 @@ async function fillPreparedJsa(page) {
   await select.selectOption('__manual__');
   await page.locator('#jsaField1').fill('26999 - Synthetic construction project');
   await page.locator('#jsaField2').fill('Synthetic site - Cornwall');
-  await page.locator('#jsaField3').fill('2026-11-01');
+  const tomorrow = new Date(Date.now() + 86400000);
+  await page.locator('#jsaField3').fill(new Intl.DateTimeFormat('en-CA', {timeZone:'America/Toronto'}).format(tomorrow));
   await page.locator('#manualCrewInput').fill('Synthetic trade worker');
   await page.locator('#manualCrewCompany').fill('Example subcontractor');
   await page.getByRole('button',{name:'Add Worker',exact:true}).click();

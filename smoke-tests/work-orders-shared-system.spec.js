@@ -235,7 +235,7 @@ for (const viewport of [
     await expect(page.locator("#workOrderFormCard")).toBeVisible();
     await expect(page.locator("#woJobSearch")).toBeVisible();
     await expect(page.locator("#employeePicker .employee-check")).toHaveCount(1);
-    await expect(page.locator(".form-section.collapsible")).toHaveCount(6);
+    await expect(page.locator(".form-section.collapsible")).toHaveCount(7);
     await page.locator("#workOrderManagementCard .collapse-header").click();
     await expect(page.locator("#managementBody")).toBeVisible();
     await expect(page.locator("#woList .wo-management-table tbody tr")).toHaveCount(1);
