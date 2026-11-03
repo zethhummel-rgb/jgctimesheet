@@ -537,7 +537,7 @@
   function chooseLogin(id) { ['loginOptions','visitorGate','staffGate','siteGate'].forEach(key => $(key).hidden = key !== id); }
   // Typed sign-in details survive an unexpected reload (the phone dropping the tab, a weak connection): kept in
   // this tab only, per board, and cleared once the person is signed in. Passwords are never kept.
-  const SIGN_IN_FIELDS = { visitorGate: ['visitorName', 'visitorCompany', 'visitorEmail', 'visitorSiteSignIn'], staffGate: ['staffEmail', 'staffSiteSignIn'], siteGate: ['siteName', 'siteCompany', 'siteReason'] };
+  const SIGN_IN_FIELDS = { visitorGate: ['visitorName', 'visitorCompany', 'visitorEmail'], staffGate: ['staffEmail'], siteGate: ['siteName', 'siteCompany', 'siteReason'] };
   const signInDraftKey = () => 'jgcJobBoardSignInDraft:' + (state.token || state.job);
   function readSignInDraft() { try { return JSON.parse(sessionStorage.getItem(signInDraftKey()) || '{}') || {}; } catch (_) { return {}; } }
   function writeSignInDraft(draft) { try { if (Object.keys(draft).length) sessionStorage.setItem(signInDraftKey(), JSON.stringify(draft)); else sessionStorage.removeItem(signInDraftKey()); } catch (_) {} }
@@ -558,12 +558,12 @@
     try {
       const ticket = await rpc('begin_job_board_site_signin', { p_token: state.token, p_visit_token: state.visit?.token || null, p_name: String(name || '').trim().slice(0, 150), p_company: String(company || '').trim().slice(0, 150) });
       const result = await rpc('record_job_board_site_signin', { p_token: state.token, p_visit_token: ticket.visit_token, p_reason: '', p_submission_id: ticket.nonce });
-      notice('Signed in on site at ' + timeLabel(result.recorded_at)); invalidateLogs();
+      notice('Signed in on site at ' + timeLabel(result.recorded_at)); invalidateLogs(); markOnSiteToday(); void promptActiveJsa();
     } catch (error) { notice('You are logged in, but your site sign-in was not saved: ' + errorMessage(error) + ' Use Site Sign in to try again.', 'error'); }
   }
-  async function visitorSignIn(e) { e.preventDefault(); promptedJsas.clear(); busy($('visitorSubmit'), true); status('visitorStatus', 'Signing in…'); const name = $('visitorName').value.trim(), company = $('visitorCompany').value.trim(), onSite = $('visitorSiteSignIn').checked; try { await registerVisit({ p_name: name, p_company: company, p_email: $('visitorEmail').value.trim() }); if (onSite) markOnSiteToday(); await loadBoard(); if ($('visitorGate').hidden) { status('visitorStatus', ''); clearSignInDraft('visitorGate'); } else status('visitorStatus', 'Site sign-in expired. Please sign in again.', 'error'); if (onSite && !$('boardContent').hidden) await recordLoginSiteSignIn(name, company); } catch (error) { status('visitorStatus', errorMessage(error), 'error'); } finally { busy($('visitorSubmit'), false); } }
+  async function visitorSignIn(e) { e.preventDefault(); promptedJsas.clear(); busy($('visitorSubmit'), true); status('visitorStatus', 'Signing in…'); const name = $('visitorName').value.trim(), company = $('visitorCompany').value.trim(); try { await registerVisit({ p_name: name, p_company: company, p_email: $('visitorEmail').value.trim() }); await loadBoard(); if ($('visitorGate').hidden) { status('visitorStatus', ''); clearSignInDraft('visitorGate'); } else status('visitorStatus', 'Site sign-in expired. Please sign in again.', 'error'); if (!$('boardContent').hidden) await recordLoginSiteSignIn(name, company); } catch (error) { status('visitorStatus', errorMessage(error), 'error'); } finally { busy($('visitorSubmit'), false); } }
   async function staffSignIn(e) {
-    e.preventDefault(); promptedJsas.clear(); busy($('staffSubmit'), true); status('staffStatus', 'Signing in…'); const onSite = $('staffSiteSignIn').checked;
+    e.preventDefault(); promptedJsas.clear(); busy($('staffSubmit'), true); status('staffStatus', 'Signing in…');
     try {
       if (!state.client) throw new Error('The Portal is unavailable. Refresh and try again.');
       if (typeof setJgcAuthPersistencePreference === 'function') setJgcAuthPersistencePreference(false);
@@ -578,9 +578,8 @@
       localStorage.setItem('currentUserEmail', profile.email || verified.data.user.email || ''); localStorage.setItem('currentUserRole', profile.role || 'worker');
       localStorage.setItem('currentAccountStatus', profile.account_status); localStorage.setItem('jgcStayLoggedIn', 'false'); sessionStorage.setItem('jgcActiveSession', 'true');
       state.user = verified.data.user; clearVisit(); clearSignInDraft('staffGate'); $('staffPassword').value = ''; $('staffGate').hidden = true; status('staffStatus', '');
-      if (onSite && !state.manage) markOnSiteToday();
       await loadBoard();
-      if (onSite && !state.manage && !$('boardContent').hidden) await recordLoginSiteSignIn(profile.display_name || verified.data.user.email, 'John Gordon Construction');
+      if (!state.manage && !$('boardContent').hidden) await recordLoginSiteSignIn(profile.display_name || verified.data.user.email, 'John Gordon Construction');
     } catch (error) { status('staffStatus', errorMessage(error), 'error'); }
     finally { busy($('staffSubmit'), false); }
   }
