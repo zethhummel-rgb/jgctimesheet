@@ -522,7 +522,7 @@
       log.events=append?log.events.concat(events):events;log.before=result&&Object.prototype.hasOwnProperty.call(result,'next_before')?result.next_before:null;log.loaded=true;activityElement(kind,'More').hidden=!log.before;renderActivity(kind);status(activityElement(kind,'Status').id,log.events.length+' sign-ins shown. Times are in Toronto.');
     }catch(e){status(activityElement(kind,'Status').id,errorMessage(e),'error');}finally{log.busy=false;busy(activityElement(kind,'Refresh'),false);busy(activityElement(kind,'More'),false);}
   }
-  function renderActivity(kind){const list=activityElement(kind,'List');list.replaceChildren();const events=state.logs[kind].events;if(!events.length)return empty(list,'No sign-ins have been recorded yet.');events.forEach(event=>{const row=text('div','','jgc-record-row board-activity-row'),detail=text('div','');detail.append(text('strong',event.actor_name||event.actor_email||'Portal account'),text('p',[event.actor_company,event.actor_email].filter(Boolean).join(' · '),'board-activity-details'));detail.append(text('p',kind==='site'?(event.verified?'Site Sign in (confirmed)':'Site Sign in (self-reported)'):event.identity_type==='visitor'?'Visitor Login (self-reported)':'Staff Login','board-activity-details'));if(event.reason)detail.append(text('p','Reason: '+event.reason,'board-activity-details'));row.append(text('time',timeLabel(event.created_at),'board-help'),detail);if(kind==='site'&&state.manage&&!event.verified){const confirm=text('button','Confirm on site','jgc-button jgc-button--secondary');confirm.type='button';confirm.addEventListener('click',async()=>{busy(confirm,true);try{await rpc('confirm_job_board_site_signin',{p_event_id:event.id});event.verified=true;renderActivity(kind);notice('This person is confirmed for the on-site roster.');}catch(error){notice(errorMessage(error),'error');busy(confirm,false);}});row.append(confirm);}list.append(row);});}
+  function renderActivity(kind){const list=activityElement(kind,'List');list.replaceChildren();const events=state.logs[kind].events;if(!events.length)return empty(list,'No sign-ins have been recorded yet.');events.forEach(event=>{const row=text('div','','jgc-record-row board-activity-row'),detail=text('div','');detail.append(text('strong',event.actor_name||event.actor_email||'Portal account'),text('p',[event.actor_company,event.actor_email].filter(Boolean).join(' · '),'board-activity-details'));detail.append(text('p',kind==='site'?(event.verified?'Site Sign in (confirmed)':'Site Sign in (self-reported)'):event.identity_type==='visitor'?'Visitor Login (self-reported)':'Staff Login','board-activity-details'));if(event.reason)detail.append(text('p','Reason: '+event.reason,'board-activity-details'));row.append(text('time',timeLabel(event.created_at),'board-help'),detail);list.append(row);});}
   let sitePdfBusy=false;
   async function downloadSiteSignins(){
     if(sitePdfBusy||!state.board?.can_manage)return;sitePdfBusy=true;const control=$('siteActivityPdf'),board=state.board,generation=state.generation;busy(control,true);status('siteActivityStatus','Preparing all site sign-ins…');
@@ -553,7 +553,7 @@
   }
   Object.entries(SIGN_IN_FIELDS).forEach(([gate, ids]) => ids.forEach(id => $(id).addEventListener($(id).type === 'checkbox' ? 'change' : 'input', () => saveSignInDraft(gate))));
   function openStaff() { chooseLogin('staffGate'); $('staffEmail').focus(); $('staffGate').scrollIntoView({ block: 'center' }); }
-  // Logging in also records a site sign-in (name, company, date and time) unless the person unticks the box.
+  // Logging in also records a site sign-in (name, company, date and time).
   async function recordLoginSiteSignIn(name, company) {
     try {
       const ticket = await rpc('begin_job_board_site_signin', { p_token: state.token, p_visit_token: state.visit?.token || null, p_name: String(name || '').trim().slice(0, 150), p_company: String(company || '').trim().slice(0, 150) });
@@ -621,7 +621,8 @@
       status('onsiteStatus', people.length ? people.length + (people.length === 1 ? ' person' : ' people') + ' signed in on site today, ' + dateLabel(result.date) + '.' : 'Nobody has signed in on site today.');
       people.forEach(person => {
         const row = text('div', '', 'jgc-record-row board-onsite-row'), who = document.createElement('div');
-        who.append(text('strong', person.name), text('span', person.company, 'board-help'));
+        const source = person.staff ? 'Staff sign-in' : person.confirmed ? 'Confirmed visitor sign-in' : 'Visitor sign-in';
+        who.append(text('strong', person.name), text('span', person.company, 'board-help'), text('span', source, 'board-help'));
         row.append(who, text('time', 'Signed in ' + clockLabel(person.first_at) + (person.count > 1 ? ' · last ' + clockLabel(person.last_at) : ''), 'board-help'));
         $('onsiteList').append(row);
       });
@@ -644,7 +645,7 @@
     e.preventDefault(); if ($('siteSubmit').disabled) return; busy($('siteSubmit'),true); status('siteStatus','Recording sign-in…');
     try { if(siteSubmission && new Date(siteSubmission.expires_at).getTime()<=Date.now())siteSubmission=null;siteSubmission ||= await rpc('begin_job_board_site_signin',{p_token:state.token,p_visit_token:state.visit?.token||null,p_name:$('siteName').value.trim(),p_company:$('siteCompany').value.trim()});
       const result = await rpc('record_job_board_site_signin',{p_token:state.token,p_visit_token:siteSubmission.visit_token,p_reason:$('siteReason').value.trim(),p_submission_id:siteSubmission.nonce});
-      status('siteStatus','Site sign-in recorded: '+timeLabel(result.recorded_at)+(result.verified?'':' · Awaiting staff confirmation for the on-site roster.'),'success'); $('siteForm').reset(); clearSignInDraft('siteGate'); siteSubmission = null; invalidateLogs();
+      status('siteStatus','Site sign-in recorded: '+timeLabel(result.recorded_at),'success'); $('siteForm').reset(); clearSignInDraft('siteGate'); siteSubmission = null; invalidateLogs();
       if (state.user || state.visit) { chooseLogin(''); notice('Signed in on site at ' + timeLabel(result.recorded_at)); markOnSiteToday(); void promptActiveJsa(); }
     } catch(error) { status('siteStatus',errorMessage(error),'error'); } finally { busy($('siteSubmit'),false); }
   });

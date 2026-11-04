@@ -85,7 +85,7 @@ async function install(page, store, options = {}) {
       if(args.p_prepared){store.activatedPreparedIds ||=new Set();store.activatedPreparedIds.add(args.p_id);if(!store.documentRows.some(d=>d.source_id===args.p_id))store.documentRows.push({id:'activated-'+args.p_id,source_id:args.p_id,source_type:'inspection_records',category:'jsa',status:'published',visibility:'public',title:'Activated prepared JSA',report_date:today(),created_at:new Date().toISOString(),mime_type:'application/pdf'});}
       return route.fulfill({json:{ok:true,signed_at:new Date().toISOString(),workflow:store.workerWorkflow}});
     }
-    if (name === 'get_job_board_onsite_today') { if (!canUpload) return route.fulfill({ status: 403, json: { message: 'Sign in with your JGC account to see who is on site' } }); const people = new Map(); for (const e of store.events.filter(e => e.action === 'site-signin')) { const key = (e.actor_name + '|' + e.actor_company).toLowerCase(), p = people.get(key); if (p) { p.last_at = e.created_at; p.count++; } else people.set(key, { name: e.actor_name, company: e.actor_company, first_at: e.created_at, last_at: e.created_at, count: 1 }); } return route.fulfill({ json: { date: today(), people: [...people.values()] } }); }
+    if (name === 'get_job_board_onsite_today') { if (!canUpload) return route.fulfill({ status: 403, json: { message: 'Sign in with your JGC account to see who is on site' } }); const people = new Map(); for (const e of store.events.filter(e => e.action === 'site-signin')) { const key = (e.actor_name + '|' + e.actor_company).toLowerCase(), p = people.get(key); if (p) { p.last_at = e.created_at; p.count++; } else people.set(key, { name: e.actor_name, company: e.actor_company, first_at: e.created_at, last_at: e.created_at, count: 1, staff: e.identity_type === 'staff', confirmed: e.identity_type !== 'staff' && e.verified === true }); } return route.fulfill({ json: { date: today(), people: [...people.values()] } }); }
     if(name==='begin_job_board_site_signin'){const nonce=require('node:crypto').randomUUID();store.siteTickets ||= new Map();const ticket={nonce,visit_token:args.p_visit_token||VISIT,expires_at:new Date(Date.now()+600000).toISOString()};store.siteTickets.set(nonce,{...ticket,name:canUpload?'Synthetic Site Staff':args.p_name,company:canUpload?'John Gordon Construction':args.p_company});return route.fulfill({json:ticket});}
     if (name === 'record_job_board_site_signin') {const ticket=store.siteTickets?.get(args.p_submission_id);if(!ticket||ticket.visit_token!==args.p_visit_token)return route.fulfill({status:403,json:{message:'Start a fresh site sign-in.'}});store.events.push({id:'site',action:'site-signin',actor_name:ticket.name,actor_company:ticket.company,identity_type:canUpload?'staff':'visitor',verified:canUpload,reason:args.p_reason,created_at:new Date().toISOString()});return route.fulfill({json:{ok:true,verified:canUpload,recorded_at:new Date().toISOString()}}); }
     if(name==='confirm_job_board_site_signin'){const event=store.events.find(e=>e.id===args.p_event_id);if(!manager||!event)return route.fulfill({status:403,json:{message:'Administrator required'}});event.verified=true;return route.fulfill({json:null});}
@@ -500,9 +500,19 @@ test('job report, inspection and permit history includes today and previous grou
     const todayRows=page.locator('#'+id+' [data-period="today"] article'),previousRows=page.locator('#'+id+' [data-period="previous"] article');expect(await todayRows.count()).toBeGreaterThan(0);expect(await previousRows.count()).toBeGreaterThan(0);await expect(todayRows.first()).not.toContainText('Previous');await expect(previousRows.first()).toContainText('Previous');
   }
 });
-test('admin confirms a self-reported visitor once and confirmation survives refresh',async({page})=>{
+test('admin sees visitor attendance in both lists without a confirmation step',async({page})=>{
   const store=await open(page,'admin');store.events=[{id:'external-attendance',action:'site-signin',actor_name:'External Visitor',actor_company:'External Company',verified:false,created_at:new Date().toISOString()}];
-  await page.locator('#boardSiteActivity summary').click();const list=page.locator('#siteActivityList');await expect(list).toContainText('self-reported');await list.getByRole('button',{name:'Confirm on site',exact:true}).click();await expect(list).toContainText('confirmed');await expect(list.getByRole('button',{name:'Confirm on site',exact:true})).toHaveCount(0);await page.locator('#siteActivityRefresh').click();await expect(list).toContainText('confirmed');expect(store.calls.filter(c=>c.name==='confirm_job_board_site_signin')).toHaveLength(1);
+  await page.locator('#boardSiteActivity summary').click();
+  const log = page.locator('#siteActivityList');
+  await expect(log).toContainText('External Visitor');
+  await expect(log).toContainText('self-reported');
+  await expect(log.getByRole('button', { name: 'Confirm on site' })).toHaveCount(0);
+  await page.locator('#boardOnsite').click();
+  const roster = page.locator('#onsiteList .board-onsite-row');
+  await expect(roster).toHaveCount(1);
+  await expect(roster).toContainText('External Visitor');
+  await expect(roster).toContainText('Visitor sign-in');
+  await expect(roster).not.toContainText('Confirmed visitor sign-in');
 });
 
 test('Portal and Site admin sign-in tabs page independently and poster carries both headings',async({page})=>{
@@ -568,10 +578,10 @@ test('unsigned workers are prompted while other required worker signatures are o
 
 test('signed-in staff can see who is on site today; visitors cannot',async({page,browser})=>{
  const store=await open(page,'staff');const at=(h,m)=>new Date(Date.UTC(2026,9,6,h,m)).toISOString();
- store.events.push({id:'s1',action:'site-signin',actor_name:'Synthetic Electrician',actor_company:'Synthetic Electric',created_at:at(11,5)},{id:'s2',action:'site-signin',actor_name:'Synthetic Site Staff',actor_company:'John Gordon Construction',created_at:at(11,30)},{id:'s3',action:'site-signin',actor_name:'synthetic electrician',actor_company:'Synthetic Electric',created_at:at(17,15)});
+ store.events.push({id:'s1',action:'site-signin',actor_name:'Synthetic Electrician',actor_company:'Synthetic Electric',created_at:at(11,5)},{id:'s2',action:'site-signin',actor_name:'Synthetic Site Staff',actor_company:'John Gordon Construction',identity_type:'staff',verified:true,created_at:at(11,30)},{id:'s3',action:'site-signin',actor_name:'synthetic electrician',actor_company:'Synthetic Electric',created_at:at(17,15)});
  await expect(page.locator('#boardOnsite')).toBeVisible();await page.locator('#boardOnsite').click();
  const dialog=page.locator('#onsiteDialog');await expect(dialog).toBeVisible();await expect(page.locator('#onsiteStatus')).toContainText('2 people signed in on site today');
- const rows=page.locator('#onsiteList .board-onsite-row');await expect(rows).toHaveCount(2);await expect(rows.first()).toContainText('Synthetic Electrician');await expect(rows.first()).toContainText('Synthetic Electric');await expect(rows.first()).toContainText('Signed in 7:05');await expect(rows.first()).toContainText('last 1:15');
+ const rows=page.locator('#onsiteList .board-onsite-row');await expect(rows).toHaveCount(2);await expect(rows.first()).toContainText('Synthetic Electrician');await expect(rows.first()).toContainText('Synthetic Electric');await expect(rows.first()).toContainText('Signed in 7:05');await expect(rows.first()).toContainText('last 1:15');await expect(rows.last()).toContainText('Staff sign-in');
  expect(store.calls.find(c=>c.name==='get_job_board_onsite_today').args).toEqual({p_token:TOKEN});
  await page.locator('#onsiteClose').click();await expect(dialog).toBeHidden();
  const visitorPage=await browser.newPage();await open(visitorPage,'guest');await visitorSignIn(visitorPage);await expect(visitorPage.locator('#boardOnsite')).toBeHidden();await visitorPage.close();
