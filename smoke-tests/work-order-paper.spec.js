@@ -6,7 +6,7 @@ const userId = '00000000-0000-4000-8000-000000000096';
 const jobId = '00000000-0000-4000-8000-000000026169';
 const woId = '00000000-0000-4000-8000-000000000020';
 const workerId = '00000000-0000-4000-8000-000000000002';
-async function setup(page, {locked=false, theme='light',failDigitalLink=false}={}) {
+async function setup(page, {locked=false, theme='light',failDigitalLink=false,extras=[],extraId=null,extraLabel=''}={}) {
   await page.clock.install({time:new Date('2026-10-29T16:00:00Z')});
   const user = {id:userId,aud:'authenticated',role:'authenticated',email:'zeth@johngordonconstruction.com',user_metadata:{display_name:'Zeth Hummel'}};
   const b64 = v=>Buffer.from(JSON.stringify(v)).toString('base64url');
@@ -14,6 +14,8 @@ async function setup(page, {locked=false, theme='light',failDigitalLink=false}={
   const session = {user,access_token:b64({alg:'HS256',typ:'JWT'})+'.'+b64({sub:userId,aud:'authenticated',role:'authenticated',email:user.email,exp:now+86400*90,iat:now})+'.fixture-signature',refresh_token:'fixture-refresh',expires_at:now+86400*90,expires_in:86400*90,token_type:'bearer'};
   const employee = {id:workerId,profile_id:userId,display_name:'Zeth Hummel',worker_key:'zeth hummel',approved:true};
   const wo = {id:woId,wo_number:'WO25169-020',work_order_date:'2026-10-29',job_id:jobId,job_number:'25169',job_name:'Service work',job_address:'100 Test Street',job_type:'T&M',customer:'Site manager',customer_po_number:'CLIENT-45',description_of_work:'Repair the entrance.',notes:'Keep access clear.',status:locked?'submitted':'draft',locked,created_by:userId,created_by_name:'Zeth Hummel',supervisor_name:'Zeth Hummel',labour_complete:true,waiting_for:[],created_at:'2026-10-29T14:00:00Z',updated_at:'2026-10-29T14:00:00Z'};
+  wo.tm_extra_id = extraId; wo.tm_extra_label = extraLabel;
+  const extraState = {rows: extras, fail: false, calls: []};
   const db = {
     profiles:[{...user,display_name:'Zeth Hummel',role:'admin',worker_key:'zeth hummel',approved:true,account_status:'approved'}],
     accounts:[],work_orders:[wo],
@@ -50,6 +52,7 @@ async function setup(page, {locked=false, theme='light',failDigitalLink=false}={
     const table=url.pathname.split('/rest/v1/')[1]||'';
     if(table.startsWith('rpc/')) {
       const name=table.slice(4),body=request.postDataJSON()||{};
+      if(name==='list_job_tm_extras'){extraState.calls.push(body);if(extraState.fail)return route.fulfill({status:403,json:{message:'Synthetic extras unavailable'}});return reply(body.p_job_number==='25169'?extraState.rows.filter(row=>row.active||row.id===body.p_selected_extra_id):[]);}
       if(name==='digital_po_work_order_options')return reply(digital.filter(row=>body.p_job_id===jobId && row.order_date===body.p_order_date && (!row.linked_work_order_id||row.linked_work_order_id===body.p_work_order_id)));
       if(name==='digital_po_link_work_orders'){writes.push({table:name,body});if(failDigitalLink){failDigitalLink=false;return route.fulfill({status:403,json:{message:'Synthetic link failure'}});}for(const id of body.p_po_ids){digital.find(row=>row.id===id).linked_work_order_id=body.p_work_order_id;}return reply({});}
       if(name==='digital_po_unlink_work_order'){digital.find(row=>row.id===body.p_po_id).linked_work_order_id=null;return reply({});}
@@ -69,7 +72,7 @@ async function setup(page, {locked=false, theme='light',failDigitalLink=false}={
     if(method!=='GET'&&method!=='HEAD') {
       const body=request.postDataJSON();writes.push({table,method,body});
       if(method==='POST'){rows=(Array.isArray(body)?body:[body]).map((v,i)=>({id:v.id||'saved-'+table+'-'+writes.length+'-'+i,...v}));db[table].push(...rows);}
-      if(method==='PATCH')rows.forEach(row=>Object.assign(row,body));
+      if(method==='PATCH')rows.forEach(row=>{if(table==='work_orders'&&'tm_extra_id' in body&&row.tm_extra_id!==body.tm_extra_id){const extra=extraState.rows.find(extra=>extra.id===body.tm_extra_id);row.tm_extra_label=extra?extra.code+' — '+extra.description:'';}Object.assign(row,body);});
       if(method==='DELETE'){db[table]=db[table].filter(row=>!matches(row));return reply([]);}
     }
     return reply((request.headers().accept||'').includes('vnd.pgrst.object')?(rows[0]||null):rows);
@@ -78,11 +81,13 @@ async function setup(page, {locked=false, theme='light',failDigitalLink=false}={
   await page.goto('/work-orders.html?wo='+woId);
   await expect(page.locator('#woNumber')).toHaveValue('WO25169-020');
   await expect(page.locator('#labourPreview')).toContainText('7.50');
-  return {db,writes,emails,digital,wo};
+  return {db,writes,emails,digital,wo,extraState};
 }
 
 test('paper WO retains its number, every extra, linked POs and both labour sources through save/reopen/PDF',async({page})=>{
-  const {db,writes,digital}=await setup(page);
+  const {db,writes,digital}=await setup(page,{extras:[{id:'extra-1',code:'X1',description:'Chip up flooring tiles',active:true}]});
+  await expect(page.locator('#woExtra')).toBeEnabled();
+  await page.locator('#woExtra').selectOption('extra-1');
   await expect(page.locator('#woStatus')).toBeHidden();
   await expect(page.locator('#woStatusLabel')).toHaveText('Draft');
   await expect(page.locator('#materialSectionBody')).toBeHidden();
@@ -97,6 +102,8 @@ test('paper WO retains its number, every extra, linked POs and both labour sourc
   await expect(page.locator('#formStatus')).toContainText('saved');
   const saved=db.work_orders.find(row=>row.id===woId);
   expect(saved.wo_number).toBe('WO25169-020');
+  expect(saved.tm_extra_id).toBe('extra-1');
+  expect(saved.tm_extra_label).toBe('X1 — Chip up flooring tiles');
   expect(saved.status).toBe('draft');
   expect(saved.description_of_work).toBe('Updated scope without changing references.');
   expect(db.work_order_labour.filter(row=>row.work_order_id===woId).map(r=>[r.employee_name,r.hours]).sort()).toEqual([['Sam Manual',2.5],['Zeth Hummel',5]]);
@@ -112,6 +119,7 @@ test('paper WO retains its number, every extra, linked POs and both labour sourc
   await expect(page.locator('#woNumber')).toHaveValue('WO25169-020');
   await expect(page.locator('#labourPreview')).toContainText('7.50');
   await expect(page.locator('#digitalPoLinkedList')).toContainText('PO-30043');
+  await expect(page.locator('#woExtra')).toHaveValue('extra-1');
   const popupPromise=page.waitForEvent('popup');
   await page.locator('#previewButton').click();
   const pdf=await popupPromise;
@@ -119,6 +127,7 @@ test('paper WO retains its number, every extra, linked POs and both labour sourc
   await expect(pdf.locator('body')).toContainText('PO-1234');
   await expect(pdf.locator('body')).toContainText('PO-30043');
   await expect(pdf.locator('body')).toContainText('Sam Manual');
+  await expect(pdf.locator('body')).toContainText('X1 — Chip up flooring tiles');
   await expect(pdf.locator('body')).toContainText('7.50');
 });
 
@@ -243,4 +252,52 @@ test('the real offline cache contains the paper editor and keeps draft inputs us
     expect(draft.manualLabour[0].hours).toBe(2.5);
     await expect(page.locator('#submitButton')).toBeVisible();
   } finally {await context.close();}
+});
+
+test('saved closed extra survives a failed reload and keeps its original PDF label',async({page})=>{
+  const {extraState,writes}=await setup(page,{
+    extraId:'extra-1',extraLabel:'X1 — Original scope',
+    extras:[{id:'extra-1',code:'X1',description:'Renamed scope',active:false}]
+  });
+  await expect(page.locator('#woExtra')).toHaveValue('extra-1');
+  await expect(page.locator('#woExtra option:checked')).toContainText('Original scope');
+  extraState.fail=true;
+  await page.reload();
+  await expect(page.locator('#woExtraStatus')).toContainText('could not be loaded');
+  await expect(page.locator('#woExtra')).toHaveValue('extra-1');
+  await page.locator('#saveButton').click();
+  await expect(page.locator('#formStatus')).toContainText('saved');
+  expect(writes.filter(row=>row.table==='work_orders'&&row.method==='PATCH').at(-1).body.tm_extra_id).toBe('extra-1');
+});
+
+test('extra selection survives a local draft reload and clearing the job clears the extra',async({page})=>{
+  await setup(page,{extras:[{id:'extra-1',code:'X1',description:'Chip up flooring tiles',active:true}]});
+  await page.getByRole('button',{name:'New Work Order',exact:true}).click();
+  await page.locator('#woJobSearch').fill('25169');
+  await page.locator('#woJobSuggestions button').first().click();
+  await expect(page.locator('#woExtra')).toBeEnabled();
+  await page.locator('#woExtra').selectOption('extra-1');
+  await page.locator('#woDescription').fill('Locally saved scope');
+  await page.evaluate(()=>persistLocalWorkOrderDraft({force:true}));
+  await page.goto('/work-orders.html');
+  await expect(page.locator('#woDescription')).toHaveValue('Locally saved scope');
+  await expect(page.locator('#woExtra')).toHaveValue('extra-1');
+  await page.locator('#woJobClear').click();
+  await expect(page.locator('#woExtra')).toHaveValue('');
+  await expect(page.locator('#woExtraStatus')).toContainText('Select a job');
+});
+
+test('a late extras response cannot restore the extra after the selected job is cleared', async({page}) => {
+  await setup(page,{extraId:'extra-1',extraLabel:'X1 — Flooring',extras:[{id:'extra-1',code:'X1',description:'Flooring',active:true}]});
+  await expect(page.locator('#woExtra')).toBeEnabled();
+  let pending;
+  await page.route(origin+'/rest/v1/rpc/list_job_tm_extras', route => { pending=route; });
+  await page.evaluate(()=>{void loadWorkOrderExtras('extra-1','X1 — Flooring');setFormLocked(false);});
+  await expect(page.locator('#woExtra')).toBeDisabled();
+  await expect.poll(()=>Boolean(pending)).toBe(true);
+  await page.locator('#woJobClear').click();
+  await pending.fulfill({status:200,json:[{id:'extra-1',code:'X1',description:'Flooring',active:true}]});
+  await expect(page.locator('#woExtra')).toHaveValue('');
+  await expect(page.locator('#woExtraStatus')).toHaveText('Select a job to see its T&M extras.');
+  await expect(page.locator('#woExtra option')).toHaveCount(1);
 });

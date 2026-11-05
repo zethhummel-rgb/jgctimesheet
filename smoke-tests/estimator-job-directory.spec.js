@@ -142,6 +142,17 @@ async function serveDirectory(page, state, options = {}) {
       }
       return route.fulfill({ json: { state, updatedAt: fixtureDate } });
     }
+    if (url.pathname.endsWith("/api/job-tm-extras") && request.method() === "GET") {
+      const job = state.jobs.find((item) => item.jobNumber === url.searchParams.get("jobNumber"));
+      if (!job) return route.fulfill({ status: 404, json: { error: "Unknown official job number" } });
+      // The ordinary directory fixture has no extras. Its one existing payroll
+      // total belongs to 26902, matching the job-costing response below.
+      const total = { hours: job.jobNumber === "26902" ? 16 : 0, loaded_cost: job.jobNumber === "26902" ? 672 : 0, missing_rate_hours: 0 };
+      return route.fulfill({ json: { job_id: job.portalJobId, extras: [], costing: {
+        original: total, extras: [], unallocated: { hours: 0, loaded_cost: 0, missing_rate_hours: 0 },
+        total, unpriced_manual_wo_hours: 0,
+      } } });
+    }
     if (url.pathname.endsWith("/api/job-costing")) {
       return route.fulfill({ json: { actuals: [{
         portalJobId: officialIds.tm, jobNumber: "26902", workerProfileId: "directory-worker",

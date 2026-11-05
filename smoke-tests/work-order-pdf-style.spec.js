@@ -130,3 +130,15 @@ for(const edge of [false,true])test(`Work Order ${edge?'automatic':'browser'} PD
 test('automatic PO PDF includes client and job and escapes their text',async({page})=>{
  const source=fs.readFileSync(path.join(root,'supabase/functions/send-digital-po-email/index.ts'),'utf8'),code=source.slice(source.indexOf('function clientJobName('),source.indexOf('async function getOutbox('));const c=vm.createContext({escapeHtml:v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'),formatPoNumber:v=>'PO-'+v,formatDate:v=>v});vm.runInContext(stripTypeScriptTypes(code),c);await page.setContent(c.buildPoPdfHtml({po_number:39000,job_number:'26157',job_name:'Reinstall TV Mount & Resecure Shelving',pdf_client_name:'BGIS Federal',supplier_name:'Supplier'},[],''));await expect(page.locator('.field').filter({has:page.locator('.label',{hasText:/^Job Name$/})})).toHaveText('Job NameBGIS Federal – Reinstall TV Mount & Resecure Shelving');expect(c.clientJobName('BGIS Federal','BGIS Federal – Reinstall TV Mount')).toBe('BGIS Federal – Reinstall TV Mount');
 });
+
+for (const edge of [false, true]) test(`T&M extra snapshot appears safely in ${edge ? 'automatic email' : 'browser'} WO PDF`, async ({page}) => {
+  const b = fixture();
+  b.wo.tm_extra_label = 'X1 — Flooring <tiles> & adhesive';
+  const source = fs.readFileSync(path.join(root, edge ? 'supabase/functions/auto-submit-work-orders/index.ts' : 'work-orders.html'), 'utf8');
+  await page.setContent(render(source, edge, b));
+  await expect(page.getByRole('heading', {name:'T&M Extra'})).toBeVisible();
+  await expect(page.locator('.description').first()).toHaveText(b.wo.tm_extra_label);
+  delete b.wo.tm_extra_label;
+  await page.setContent(render(source, edge, b));
+  await expect(page.getByRole('heading', {name:'T&M Extra'})).toHaveCount(0);
+});

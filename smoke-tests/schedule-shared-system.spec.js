@@ -438,7 +438,10 @@ test("Admin Schedule fits all seven calendar columns in phone landscape", async 
 
 async function openCalendarEditor(page, theme = "light") {
   await installState(page, "admin");
-  await page.addInitScript((theme) => localStorage.setItem("jgcPortalTheme", theme), theme);
+  await page.addInitScript(({ theme, userId }) => {
+    localStorage.setItem("jgcPortalTheme", theme);
+    localStorage.setItem("jgcPortalTheme:" + userId, theme);
+  }, { theme, userId: createSession("admin").user.id });
   await page.goto("/admin.html?tab=summary", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => adminDataLoaded === true);
   await page.evaluate((theme) => applyJgcTheme(theme), theme);
@@ -517,7 +520,10 @@ for (const theme of ["light", "dark"]) {
     test(`event details show saved notes without writing at ${width}px in ${theme}`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await installState(page, "admin");
-      await page.addInitScript((theme) => localStorage.setItem("jgcPortalTheme", theme), theme);
+      await page.addInitScript(({ theme, userId }) => {
+        localStorage.setItem("jgcPortalTheme", theme);
+        localStorage.setItem("jgcPortalTheme:" + userId, theme);
+      }, { theme, userId: createSession("admin").user.id });
       await page.goto("/admin.html?tab=summary");
       await page.waitForFunction(() => adminDataLoaded === true);
       const notes = 'Meet at the site trailer.\nBring the drawings & PPE.\n<script>window.unexpectedEventScript = true</script>';

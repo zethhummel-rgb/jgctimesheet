@@ -1,6 +1,7 @@
 import { JobDrawings } from "./job-drawings";
 import { JobSafety } from "./job-safety";
 import { JobWarrantyPage } from "./job-warranty";
+import { JobLabourCostBreakdown, JobTmExtras } from "./job-tm-extras";
 import { JobRfis } from "./job-rfis";
 import { JobSchedule } from "./job-schedule";
 import { ShopDrawingHistory } from "./shop-drawing-history";
@@ -191,12 +192,13 @@ const navItems: { key: ViewKey; label: string }[] = [
 const tabBarItems = navItems.slice(0, 4);
 
 type QuoteTab = "details" | "estimate" | "breakdown" | "review" | "divisions" | "proposal" | "purchase-orders" | "history";
-type JobTab = "summary" | "schedule" | "purchase-orders" | "changes" | "shop-drawings" | "rfis" | "statistics" | "drawings" | "job-board" | "warranty";
+type JobTab = "tm-extras" | "summary" | "schedule" | "purchase-orders" | "changes" | "shop-drawings" | "rfis" | "statistics" | "drawings" | "job-board" | "warranty";
 const jobTabs: readonly { key: JobTab; label: string }[] = [
   { key: "summary", label: "Summary" },
   { key: "schedule", label: "Schedule" },
   { key: "purchase-orders", label: "Purchase Orders" },
   { key: "changes", label: "CCNs / Change Orders" },
+  { key: "tm-extras", label: "T&M Extras" },
   { key: "shop-drawings", label: "Shop Drawings" },
   { key: "rfis", label: "RFIs" },
   { key: "statistics", label: "Statistics / Other" },
@@ -6378,6 +6380,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           {!job.portalJobId && <p className="job-documents-status error">This older estimator job must be linked to its official Portal job before these details can be edited.</p>}
           {jobInfoMessage && <p className={`job-documents-status ${jobInfoError ? "error" : "success"}`} role="status">{jobInfoMessage}</p>}
         </section>
+        {currentEstimator.isAdmin && <JobLabourCostBreakdown key={job.id} job={job} refreshKey={jobCostingStatus} onRefresh={onRefreshJobCosting} />}
         <section className={`panel job-shop-drawing-summary ${shopDrawingMetrics.overdue ? "has-overdue" : ""}`}>
           <div className="panel-heading">
             <div><span className="eyebrow">SHOP DRAWING STATUS</span><h2>{shopDrawings.length ? `${shopDrawingMetrics.open} open submission${shopDrawingMetrics.open === 1 ? "" : "s"}` : "No shop drawings entered"}</h2><p>OneDrive files stay linked to the controlled register. Approved current revisions can be shared to the employee job list.</p></div>
@@ -6651,6 +6654,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
         <JobDrawings key={job.id} job={job} actor={currentEstimator.name} active={tab === "drawings"} />
         <JobSafety key={`safety-${job.id}`} job={job} active={tab === "job-board"} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />
         {tab === "warranty" && <JobWarrantyPage key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />}
+        {tab === "tm-extras" && <JobTmExtras key={job.id} job={job} />}
         {tab === "rfis" && <JobRfis key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />}
         <div className="schedule-tab" hidden={tab !== "schedule"}><JobSchedule key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} /></div>
         {tab === "statistics" && <>

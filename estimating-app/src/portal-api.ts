@@ -1274,6 +1274,21 @@ async function route(client: any, input: RequestInfo | URL, init?: RequestInit) 
     return getSupplierCatalog(client, url);
   }
   if (url.pathname.endsWith("/api/job-costing")) return jobCostingResponse(client);
+  if (url.pathname.endsWith("/api/job-tm-extras")) {
+    if (request.method === "GET") {
+      const result = await client.rpc("get_job_tm_extras", { p_job_number: url.searchParams.get("jobNumber") || "" });
+      if (result.error) throw new Error(result.error.message || "Extras could not be loaded.");
+      return json(result.data);
+    }
+    if (request.method !== "POST") return json({ error: "Use GET or POST for job extras." }, 405);
+    const body = await request.json();
+    const result = await client.rpc("save_job_tm_extra", {
+      p_job_number: String(body.jobNumber || ""), p_description: String(body.description || ""),
+      p_extra_id: body.extraId || null, p_active: body.active !== false, p_request_id: body.requestId || null
+    });
+    if (result.error) throw new Error(result.error.message || "This extra could not be saved.");
+    return json(result.data);
+  }
   if (url.pathname.endsWith("/api/job-statistics")) return jobStatisticsResponse(client, request, url);
   if (url.pathname.endsWith("/api/job-info")) return mutatePortalJobInfo(client, request);
   if (url.pathname.endsWith("/api/job-create")) return createPortalJob(client, request);
