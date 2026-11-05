@@ -485,6 +485,8 @@ ${(globalThis as any).JgcWorkOrderPdfBranding.css}
     <div><b>Supervisor</b>${escapeHtml(wo.supervisor_name || wo.created_by_name || "")}</div>
   </div>
 
+  ${wo.tm_extra_label ? '<h2>T&amp;M Extra</h2><div class="description">' + escapeHtml(wo.tm_extra_label) + '</div>' : ""}
+
   <h2>Description of Work Completed Today</h2>
   <div class="description">${escapeHtml(wo.description_of_work || "")}</div>
 

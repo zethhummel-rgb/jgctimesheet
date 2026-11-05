@@ -1,137 +1,137 @@
 {
-  "../../../../visualizations/2026/10/02/01a0fe31-b8d8-7003-b81b-c29b2c8255de/security-1013/estimator-deps/node_modules/.pnpm/pdfjs-dist@6.2.108/node_modules/pdfjs-dist/legacy/build/pdf.mjs": {
-    "file": "assets/pdf-CG6lrWXm.js",
+  "../../../../../AppData/Local/Temp/jgc-tm-extras-dependencies/node_modules/.pnpm/pdfjs-dist@6.2.108/node_modules/pdfjs-dist/legacy/build/pdf.mjs": {
+    "file": "assets/pdf-DJkM_HqJ.js",
     "name": "pdf",
-    "src": "../../../../visualizations/2026/10/02/01a0fe31-b8d8-7003-b81b-c29b2c8255de/security-1013/estimator-deps/node_modules/.pnpm/pdfjs-dist@6.2.108/node_modules/pdfjs-dist/legacy/build/pdf.mjs",
+    "src": "../../../../../AppData/Local/Temp/jgc-tm-extras-dependencies/node_modules/.pnpm/pdfjs-dist@6.2.108/node_modules/pdfjs-dist/legacy/build/pdf.mjs",
     "isDynamicEntry": true,
     "imports": [
       "index.html"
     ]
   },
-  "../../../../visualizations/2026/10/02/01a0fe31-b8d8-7003-b81b-c29b2c8255de/security-1013/estimator-deps/node_modules/.pnpm/tesseract.js@7.0.0/node_modules/tesseract.js/src/index.js": {
-    "file": "assets/src-BgA_bwTD.js",
+  "../../../../../AppData/Local/Temp/jgc-tm-extras-dependencies/node_modules/.pnpm/tesseract.js@7.0.0/node_modules/tesseract.js/src/index.js": {
+    "file": "assets/src-CNxUyvNe.js",
     "name": "src",
-    "src": "../../../../visualizations/2026/10/02/01a0fe31-b8d8-7003-b81b-c29b2c8255de/security-1013/estimator-deps/node_modules/.pnpm/tesseract.js@7.0.0/node_modules/tesseract.js/src/index.js",
+    "src": "../../../../../AppData/Local/Temp/jgc-tm-extras-dependencies/node_modules/.pnpm/tesseract.js@7.0.0/node_modules/tesseract.js/src/index.js",
     "isDynamicEntry": true,
     "imports": [
       "index.html"
     ]
   },
-  "../../../../visualizations/2026/10/02/01a0fe31-b8d8-7003-b81b-c29b2c8255de/security-1013/estimator-deps/node_modules/.pnpm/tus-js-client@4.3.1/node_modules/tus-js-client/lib.esm/browser/index.js": {
-    "file": "assets/browser-CJId0Lt2.js",
+  "../../../../../AppData/Local/Temp/jgc-tm-extras-dependencies/node_modules/.pnpm/tus-js-client@4.3.1/node_modules/tus-js-client/lib.esm/browser/index.js": {
+    "file": "assets/browser-Cwz_RKV3.js",
     "name": "browser",
-    "src": "../../../../visualizations/2026/10/02/01a0fe31-b8d8-7003-b81b-c29b2c8255de/security-1013/estimator-deps/node_modules/.pnpm/tus-js-client@4.3.1/node_modules/tus-js-client/lib.esm/browser/index.js",
+    "src": "../../../../../AppData/Local/Temp/jgc-tm-extras-dependencies/node_modules/.pnpm/tus-js-client@4.3.1/node_modules/tus-js-client/lib.esm/browser/index.js",
     "isDynamicEntry": true,
     "imports": [
       "index.html"
     ]
   },
-  "_es-CYXVB8x4.js": {
-    "file": "assets/es-CYXVB8x4.js",
+  "_es-DqQL7aoP.js": {
+    "file": "assets/es-DqQL7aoP.js",
     "name": "es",
     "imports": [
       "index.html"
     ]
   },
   "index.html": {
-    "file": "assets/index-B6ZparG_.js",
+    "file": "assets/index-BEPjDgKc.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "dynamicImports": [
-      "../../../../visualizations/2026/10/02/01a0fe31-b8d8-7003-b81b-c29b2c8255de/security-1013/estimator-deps/node_modules/.pnpm/tus-js-client@4.3.1/node_modules/tus-js-client/lib.esm/browser/index.js",
-      "../../../../visualizations/2026/10/02/01a0fe31-b8d8-7003-b81b-c29b2c8255de/security-1013/estimator-deps/node_modules/.pnpm/pdfjs-dist@6.2.108/node_modules/pdfjs-dist/legacy/build/pdf.mjs",
+      "../../../../../AppData/Local/Temp/jgc-tm-extras-dependencies/node_modules/.pnpm/tus-js-client@4.3.1/node_modules/tus-js-client/lib.esm/browser/index.js",
+      "../../../../../AppData/Local/Temp/jgc-tm-extras-dependencies/node_modules/.pnpm/pdfjs-dist@6.2.108/node_modules/pdfjs-dist/legacy/build/pdf.mjs",
       "lib/drawing-pdf.ts",
       "index.html",
       "lib/job-warranty-pdf.ts",
       "lib/rfi-pdf.ts",
       "lib/job-schedule-pdf.ts",
       "lib/job-accounting-workbook.ts",
-      "../../../../visualizations/2026/10/02/01a0fe31-b8d8-7003-b81b-c29b2c8255de/security-1013/estimator-deps/node_modules/.pnpm/tesseract.js@7.0.0/node_modules/tesseract.js/src/index.js",
+      "../../../../../AppData/Local/Temp/jgc-tm-extras-dependencies/node_modules/.pnpm/tesseract.js@7.0.0/node_modules/tesseract.js/src/index.js",
       "lib/quote-backup-pdf.ts",
       "lib/proposal-pdf.ts",
       "lib/purchase-order-pdf.ts"
     ],
     "css": [
-      "assets/index-C4OnX1TN.css"
+      "assets/index-B02ME9Cc.css"
     ]
   },
   "lib/drawing-pdf.ts": {
-    "file": "assets/drawing-pdf-B7_rM1yC.js",
+    "file": "assets/drawing-pdf-RclYfJnY.js",
     "name": "drawing-pdf",
     "src": "lib/drawing-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-CYXVB8x4.js"
+      "_es-DqQL7aoP.js"
     ]
   },
   "lib/job-accounting-workbook.ts": {
-    "file": "assets/job-accounting-workbook-nafjXhd6.js",
+    "file": "assets/job-accounting-workbook-BkoN60Yp.js",
     "name": "job-accounting-workbook",
     "src": "lib/job-accounting-workbook.ts",
     "isDynamicEntry": true
   },
   "lib/job-schedule-pdf.ts": {
-    "file": "assets/job-schedule-pdf-Cg-99aNY.js",
+    "file": "assets/job-schedule-pdf-DsAjwHBi.js",
     "name": "job-schedule-pdf",
     "src": "lib/job-schedule-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-CYXVB8x4.js"
+      "_es-DqQL7aoP.js"
     ]
   },
   "lib/job-warranty-pdf.ts": {
-    "file": "assets/job-warranty-pdf-CiV-Ntew.js",
+    "file": "assets/job-warranty-pdf-MUjx8j0n.js",
     "name": "job-warranty-pdf",
     "src": "lib/job-warranty-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-CYXVB8x4.js"
+      "_es-DqQL7aoP.js"
     ]
   },
   "lib/proposal-pdf.ts": {
-    "file": "assets/proposal-pdf-CJPmmDnV.js",
+    "file": "assets/proposal-pdf-DHOHTM9r.js",
     "name": "proposal-pdf",
     "src": "lib/proposal-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-CYXVB8x4.js"
+      "_es-DqQL7aoP.js"
     ]
   },
   "lib/purchase-order-pdf.ts": {
-    "file": "assets/purchase-order-pdf-xUZxTAiw.js",
+    "file": "assets/purchase-order-pdf-D0TcxIRO.js",
     "name": "purchase-order-pdf",
     "src": "lib/purchase-order-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-CYXVB8x4.js"
+      "_es-DqQL7aoP.js"
     ]
   },
   "lib/quote-backup-pdf.ts": {
-    "file": "assets/quote-backup-pdf-Bh4IoxyC.js",
+    "file": "assets/quote-backup-pdf-CqcWTm3G.js",
     "name": "quote-backup-pdf",
     "src": "lib/quote-backup-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-CYXVB8x4.js",
       "lib/purchase-order-pdf.ts",
-      "lib/proposal-pdf.ts"
+      "lib/proposal-pdf.ts",
+      "_es-DqQL7aoP.js"
     ]
   },
   "lib/rfi-pdf.ts": {
-    "file": "assets/rfi-pdf-jWfkZXMs.js",
+    "file": "assets/rfi-pdf-386uXKSL.js",
     "name": "rfi-pdf",
     "src": "lib/rfi-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-CYXVB8x4.js"
+      "_es-DqQL7aoP.js"
     ]
   }
 }
