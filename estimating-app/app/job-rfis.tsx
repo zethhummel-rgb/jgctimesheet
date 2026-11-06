@@ -1,9 +1,10 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import type { AppState, Job } from '../lib/estimator-data';
-import { blankRfi, nextRfiNumber, rfiCsv, rfiDetails, rfiLink, rfiOutstanding, rfiOverdue, rfiStatuses, rfiToday, saveRfi, validateRfi, type Rfi, type RfiDetails } from '../lib/rfi-workflow';
+import { blankRfi, nextRfiNumber, releasesDraftNumber, rfiCsv, rfiDetails, rfiLink, rfiOutstanding, rfiOverdue, rfiStatuses, rfiToday, saveRfi, validateRfi, type Rfi, type RfiDetails } from '../lib/rfi-workflow';
 import { photoRequest, preparePhoto, uploadSavedPhotos, type PhotoUpload, type RfiPhoto } from '../lib/rfi-photos';
 import { downloadFile as download, RfiPhotoExport, type PhotoDownload } from './rfi-photo-export';
-import { DocumentText, format } from './site-specific-entry';
+import { RfiQuestionToolbar } from './rfi-question-toolbar';
+import { DocumentText } from './site-specific-entry';
 import { safetyTextPlain } from '../lib/site-specific-rich-text';
 import { RfiQuickEdit, type RfiQuickField } from './rfi-quick-edit';
 import './job-rfis.css';
@@ -108,7 +109,8 @@ export function JobRfis({job,state,setState,actor,workspaceSaved}:{job:Job;state
     setQuick(null);setMessage(saved.number+' updated.');
   }
   function remove(r:Rfi) {
-    if(!workspaceSaved||!window.confirm(`Delete ${r.number} — ${r.subject}? This removes the RFI from the register and deletes its uploaded photos.`))return;
+    const numberNote=releasesDraftNumber({...r,deletedAt:'pending'})?'Its draft number can be used again.':'Its number stays reserved.';
+    if(!workspaceSaved||!window.confirm(`Delete ${r.number} — ${r.subject}? This removes the RFI from the register and deletes its uploaded photos. ${numberNote}`))return;
     const deletedAt=new Date().toISOString();
     setState(s=>({...s,jobs:s.jobs.map(j=>j.id===job.id?{...j,rfis:(j.rfis||[]).map(item=>item.id===r.id?{...item,deletedAt,deletedBy:actor,updatedAt:deletedAt}:item)}:j)}));
     setQuick(null);setMessage(r.number+' removed from the register.');
@@ -134,7 +136,7 @@ export function JobRfis({job,state,setState,actor,workspaceSaved}:{job:Job;state
         {input('sentDate','Sent date','date')}{input('dueDate','Response due date','date')}
         <p className="full rfi-hint">Open / Sent records the issue date. It does not send an email. Due dates are optional.</p>
         <div className="rfi-question full"><strong>Question / clarification request</strong>
-          <div className="rfi-font-tools" role="toolbar" aria-label="Question formatting">{[['bold','Bold',<b>B</b>],['italic','Italic',<i>I</i>],['underline','Underline',<u>U</u>],['hy','Highlight','Highlight'],['pt11','11 point','11 pt'],['pt14','14 point','14 pt'],['insertUnorderedList','Bulleted list','• List'],['insertOrderedList','Numbered list','1. List'],['clear','Clear formatting','Clear']].map(([command,label,icon])=><button key={String(command)} type="button" aria-label={String(label)} title={String(label)} onMouseDown={e=>e.preventDefault()} onClick={e=>format(String(command),e.currentTarget.closest('.rfi-question'))}>{icon}</button>)}</div>
+          <RfiQuestionToolbar/>
           <DocumentText aria-label="Question / clarification request" disabled={readonly||busy} value={editor.draft.questionRich??editor.draft.question} onChange={e=>{const rich=e.target.value;setEditor(old=>old?{...old,draft:{...old.draft,question:safetyTextPlain(rich),questionRich:rich}}:old);}}/>
           {errors.question&&<small className="rfi-error">{errors.question}</small>}</div>{input('references','Drawing / specification / detail references','text',true)}
         <div className="full">

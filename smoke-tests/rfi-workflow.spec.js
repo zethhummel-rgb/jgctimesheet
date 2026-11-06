@@ -17,3 +17,20 @@ test('RFI due dates, state validation, attachment security and CSV escaping',()=
  expect(w.validateRfi({...d,status:'Answered'}).answer).toBeTruthy();expect(w.validateRfi({...d,attachments:[{id:'a',label:'Bad',url:'javascript:alert(1)'}]}).attachments).toBeTruthy();expect(w.rfiLink('http://example.com')).toBe('');
  const r=w.saveRfi([],{...d,subject:'=1+1',question:'Line 1\nLine 2, "quoted"'},'Admin');const csv=w.rfiCsv('26144',[r]);expect(csv).toContain("'=1+1");expect(csv).toContain('""quoted""');
 });
+
+test('only a deleted draft with no issue history releases its number',()=>{
+ const draft=w.saveRfi([],{...w.blankRfi('Admin'),subject:'Test draft'},'Admin');
+ const deleted={...draft,deletedAt:new Date().toISOString()};
+ const first=w.saveRfi([deleted],{...w.blankRfi('Admin'),subject:'First real request'},'Admin');
+ expect(first.number).toBe('RFI-001');expect(first.id).not.toBe(deleted.id);
+ expect(w.rfiPersistenceError(state([deleted]),state([deleted,first]))).toBe('');
+ expect(w.nextRfiNumber([deleted,first])).toBe('RFI-002');
+ for(const record of [{...deleted,status:'Open / Sent'},{...deleted,sentDate:'2026-11-06'},
+  {...deleted,history:[{...deleted.history[0],details:{...draft,status:'Answered'}}]}]){
+  expect(w.nextRfiNumber([record])).toBe('RFI-002');
+  expect(w.rfiPersistenceError(state([record]),state([record,first]))).toContain('unique');
+ }
+ const other={...first,number:'RFI-002'};
+ expect(w.nextRfiNumber([deleted,other])).toBe('RFI-001');
+ expect(w.rfiPersistenceError(state([deleted]),state([draft]))).toContain('deleted');
+});

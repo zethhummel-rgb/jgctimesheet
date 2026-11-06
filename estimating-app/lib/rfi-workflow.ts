@@ -14,7 +14,18 @@ export const rfiOverdue = (r: RfiDetails, today=rfiToday()) => rfiOutstanding(r)
 export const rfiLink = (url: string) => { try {return new URL(url.trim()).protocol==='https:'?url.trim():'';}catch{return '';} };
 export function blankRfi(actor: string): RfiDetails {return {subject:'',createdDate:rfiToday(),sentDate:'',raisedBy:actor,sentTo:'',question:'',references:'',dueDate:'',status:'Draft',responder:'',responseDate:'',answer:'',attachments:[]};}
 export function rfiDetails(r: RfiDetails): RfiDetails {return {subject:r.subject,createdDate:r.createdDate,sentDate:r.sentDate,raisedBy:r.raisedBy,sentTo:r.sentTo,question:r.question,...(r.questionRich?{questionRich:r.questionRich}:{}),references:r.references,dueDate:r.dueDate,status:r.status,responder:r.responder,responseDate:r.responseDate,answer:r.answer,attachments:r.attachments.map(a=>({...a}))};}
-export function nextRfiNumber(records: Rfi[]) {return `RFI-${String(Math.max(0,...records.map(r=>Number(/^RFI-(\d+)$/.exec(r.number)?.[1])||0))+1).padStart(3,'0')}`;}
+export function releasesDraftNumber(r:Rfi) {
+  return Boolean(r.deletedAt && r.status==='Draft' && !r.sentDate && r.history?.length &&
+    r.history.every(event=>event.details.status==='Draft' && !event.details.sentDate));
+}
+export function nextRfiNumber(records:Rfi[]) {
+  const reserved=new Set(records.filter(r=>!releasesDraftNumber(r)).map(r=>r.number));
+  const available=records.filter(r=>releasesDraftNumber(r) && !reserved.has(r.number))
+    .map(r=>r.number).sort((a,b)=>a.localeCompare(b,'en',{numeric:true}));
+  if(available.length)return available[0];
+  const last=Math.max(0,...records.map(r=>Number(/^RFI-(\d+)$/.exec(r.number)?.[1])||0));
+  return `RFI-${String(last+1).padStart(3,'0')}`;
+}
 export function validateRfi(d: RfiDetails, previous?: Rfi, reopen=false, note=''): Record<string,string> {
   const errors:Record<string,string>={};
   if(!d.subject.trim())errors.subject='Subject is required.';
@@ -52,7 +63,12 @@ export function saveRfi(records:Rfi[], draft:RfiDetails, actor:string, previous?
 export function rfiPersistenceError(base:{jobs:{id:string;rfis?:Rfi[]}[]}|null,next:{jobs:{id:string;rfis?:Rfi[]}[]}):string {
   for(const job of next.jobs){
     const records=job.rfis||[],numbers=new Set<string>(),ids=new Set<string>();
-    for(const r of records){if(!/^RFI-\d+$/.test(r.number)||numbers.has(r.number)||ids.has(r.id))return 'RFI numbers must be unique within each job. Refresh the workspace before saving.';numbers.add(r.number);ids.add(r.id);}
+    for(const r of records){
+      const reserved=!releasesDraftNumber(r);
+      if(!/^RFI-\d+$/.test(r.number)||(reserved&&numbers.has(r.number))||ids.has(r.id))return 'RFI numbers must be unique within each job. Refresh the workspace before saving.';
+      if(reserved)numbers.add(r.number);
+      ids.add(r.id);
+    }
   }
   for(const job of base?.jobs||[])for(const old of job.rfis||[]){
     const r=next.jobs.find(j=>j.id===job.id)?.rfis?.find(r=>r.id===old.id);

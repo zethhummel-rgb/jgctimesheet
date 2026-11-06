@@ -17,7 +17,8 @@ export async function buildRfiPdf({job,state,records,register=false,logoBytes,ph
   function body(value:string,size=10){for(const l of wrap(value,508,size)){ensure(15);text(l,52,y,size);y-=15;}y-=8;}
   function section(title:string,value:string){ensure(48);page.drawRectangle({x:40,y:y-8,width:532,height:24,color:pale,borderColor:line,borderWidth:.6});text(title.toUpperCase(),50,y,9,true,green);y-=30;body(value||'Not recorded');}
   function caption(label:string) { ensure(42);text(label.toUpperCase(),40,y,9,true,green);y-=20; }
-  function question(r:Rfi) {
+  const extraFonts=new Map<StandardFonts,typeof font>();
+  async function question(r:Rfi) {
     const runs=r.questionRich?safetyTextRuns(r.questionRich):[{text:r.question,style:safetyTextDefault}];
     type Word={value:string;face:typeof font;size:number;underline:boolean;highlight:boolean};
     let row:Word[]=[],width=0;
@@ -34,7 +35,17 @@ export async function buildRfiPdf({job,state,records,register=false,logoBytes,ph
       y-=height;row=[];width=0;
     };
     for(const run of runs) {
-      const size=run.style.points||11,face=run.style.bold?(run.style.italic?boldItalic:bold):(run.style.italic?italic:font);
+      const size=run.style.points||11;
+      const variant=(run.style.bold?1:0)+(run.style.italic?2:0);
+      let face=[font,bold,italic,boldItalic][variant];
+      if(run.style.family!=='sans') {
+        const family=run.style.family==='serif'
+          ?[StandardFonts.TimesRoman,StandardFonts.TimesRomanBold,StandardFonts.TimesRomanItalic,StandardFonts.TimesRomanBoldItalic]
+          :[StandardFonts.Courier,StandardFonts.CourierBold,StandardFonts.CourierOblique,StandardFonts.CourierBoldOblique];
+        const name=family[variant];
+        if(!extraFonts.has(name))extraFonts.set(name,await doc.embedFont(name));
+        face=extraFonts.get(name)!;
+      }
       const put=(value:string)=>{row.push({value,face,size,underline:!!run.style.underline,highlight:!!run.style.highlight});width+=face.widthOfTextAtSize(value,size);};
       for(const part of clean(run.text).match(/\n|[^\S\n]+|[^\s]+/g)||[]) {
         if(part==='\n'){flush();continue;}
@@ -66,7 +77,7 @@ export async function buildRfiPdf({job,state,records,register=false,logoBytes,ph
       pair.forEach(([key],k)=>{const x=40+k*270;text(key.toUpperCase(),x,y,8,true,muted);lines[k].forEach((v,n)=>text(v,x,y-16-14*n,11));});y-=height;
     }
     y-=8;ensure(56);page.drawLine({start:{x:40,y},end:{x:572,y},color:line,thickness:.7});y-=22;
-    caption('Clarification requested');question(r);
+    caption('Clarification requested');await question(r);
     if(r.references.trim()){caption('Drawing and specification references');body(r.references);}
     if(r.attachments.length){caption('Supporting links');body(r.attachments.map(a=>a.label+'\n'+a.url).join('\n\n'));}
   }
