@@ -6,7 +6,7 @@ export interface AccountingSourceJob {
   invoiceReviewAt?: string | null;
   statusChangedAt: string | null; projectManager: string; jobType: string;
   customer: string; site: string; address: string; startDate: string | null;
-  targetEndDate: string | null; price: number | null; extras: number | null;
+  targetEndDate: string | null; price: number | null; extras: number | null; hasExtras?: boolean;
   jobDate?: string | null; subcontractors?: string | null;
   acceptedAt: string | null; customerPo: string; quoteReference: string;
 }
@@ -29,6 +29,9 @@ const key = (number: string) => number.trim().toLowerCase();
 const stable = (value: unknown): string => JSON.stringify(value, (_key, item) =>
   item && typeof item === "object" && !Array.isArray(item)
     ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
+function historicalExtras(value: AccountingCell | undefined) {
+  return typeof value === "number" ? value !== 0 : typeof value === "string" && /^yes$/i.test(value.trim());
+}
 const dateCell = (date: string | null): AccountingCell => date ? { date: date.slice(0, 10) } : null;
 const manager = (name: string) => /^(ZH|Zeth Hummel)$/i.test(name.trim()) ? "ZH" : /^(JV|Jeff Vandrish)$/i.test(name.trim()) ? "JV" : name;
 
@@ -45,7 +48,7 @@ export function planJobAccountingExport(preview: AccountingExportPreview): Accou
   for (const number of new Set([...master.keys(), ...current.keys(), ...oldRows.keys(), ...previous.keys(), ...baseline.keys()])) {
     const job = current.get(number), seed = baseline.get(number), before = previous.get(number), original = master.get(number), old = oldRows.get(number);
     // Legacy saved snapshots omit invoiceReviewAt; null is the same state.
-    const comparable = (row: AccountingSourceJob | undefined) => row ? { ...row, invoiceReviewAt: row.invoiceReviewAt ?? null, jobDate: row.jobDate ?? null, subcontractors: row.subcontractors ?? null } : null;
+    const comparable = (row: AccountingSourceJob | undefined) => row ? { ...row, hasExtras: row.hasExtras ?? historicalExtras(row.extras), invoiceReviewAt: row.invoiceReviewAt ?? null, jobDate: row.jobDate ?? null, subcontractors: row.subcontractors ?? null } : null;
     const changed = stable(comparable(job)) !== stable(comparable(before));
     // Compare against the last saved download, not the original import, so a
     // newly inactive job is green once and existing inactive jobs are yellow.
@@ -87,7 +90,6 @@ export function planJobAccountingExport(preview: AccountingExportPreview): Accou
       // extras, including estimates already present when tracking was enabled.
       // Imported-only jobs retain the pricing from the supplied master.
       if (job.price !== null || !original) cells[9] = job.price;
-      if (job.extras !== null || !original) cells[11] = job.extras;
       if (!original || !seed || job.customerPo !== seed.customerPo || job.quoteReference !== seed.quoteReference) cells[6] = job.customerPo || job.quoteReference || null;
       if (job.subcontractors) cells[12] = job.subcontractors;
       if (job.jobDate) cells[13] = dateCell(job.jobDate);
@@ -102,10 +104,11 @@ export function planJobAccountingExport(preview: AccountingExportPreview): Accou
       cells[8] = dateCell(retained.startDate);
       cells[9] = retained.price;
       cells[10] = retained.jobType;
-      cells[11] = retained.extras;
       cells[13] = dateCell(retained.acceptedAt);
       color = retained.cancelledAt ? "red" : retained.active ? "white" : "yellow";
     }
+    const hasExtras = source?.hasExtras ?? historicalExtras(source?.extras ?? old?.cells[11] ?? original?.cells[11]);
+    cells[11] = hasExtras ? "Yes" : null;
     if (!job) missingFromPortal++;
     rows.push({ jobNumber: String(cells[5]), color, cells, changed: Boolean(changed || initiallyColoured),
       change: newClosure ? job!.active ? "Project reopened" : job!.cancelledAt ? "Job cancelled" : job!.invoiceReviewAt ? "Closed - discuss invoicing" : before?.invoiceReviewAt ? "Discussion resolved - ready to invoice" : "Project closed" : initiallyColoured ? "Starting master workbook" : !job ? "Retained source row; not in current portal" : !before ? "New job" : changed ? "Job details updated" : ({ white: "Active project", green: "Ready to invoice", red: "Cancelled job", yellow: "Previously handed to accounting", blue: "Closed - discuss invoicing" }[color]),
