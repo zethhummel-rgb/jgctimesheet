@@ -8,6 +8,7 @@ import { normalizeSupplierSku } from "../lib/supplier-price-parser";
 import { mergeConcurrentEstimatorState } from "../lib/estimator-state-sync";
 import { jobImportNumberKey, validateJobImportRecords, type JobImportRecord } from "../lib/job-workbook-import";
 import { jobAccountingResponse } from "./job-accounting-api";
+import { rfiPhotosResponse } from "./rfi-photos-api";
 import { prepareJobCreation, type JobCreationDraft } from "../lib/job-creation";
 import type { Client } from "../lib/estimator-data";
 
@@ -1274,6 +1275,7 @@ async function route(client: any, input: RequestInfo | URL, init?: RequestInit) 
     return getSupplierCatalog(client, url);
   }
   if (url.pathname.endsWith("/api/job-costing")) return jobCostingResponse(client);
+  if (url.pathname.endsWith("/api/rfi-photos")) return rfiPhotosResponse(client, request, url);
   if (url.pathname.endsWith("/api/job-tm-extras")) {
     if (request.method === "GET") {
       const result = await client.rpc("get_job_tm_extras", { p_job_number: url.searchParams.get("jobNumber") || "" });

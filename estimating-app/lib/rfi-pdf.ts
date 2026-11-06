@@ -2,7 +2,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFPage } from 'pdf-lib';
 import type { AppState, Job } from './estimator-data';
 import { rfiOverdue, type Rfi, type RfiDetails } from './rfi-workflow';
 
-export async function buildRfiPdf({job,state,records,register=false,logoBytes}:{job:Job;state:AppState;records:Rfi[];register?:boolean;logoBytes:Uint8Array}) {
+export async function buildRfiPdf({job,state,records,register=false,logoBytes,photos=[]}:{job:Job;state:AppState;records:Rfi[];register?:boolean;logoBytes:Uint8Array;photos?:{name:string;jpeg:string}[]}) {
   const doc=await PDFDocument.create(),font=await doc.embedFont(StandardFonts.Helvetica),bold=await doc.embedFont(StandardFonts.HelveticaBold),logo=await doc.embedPng(logoBytes);
   const green=rgb(.04,.25,.18),ink=rgb(.09,.16,.19),muted=rgb(.32,.39,.4),line=rgb(.72,.77,.76),pale=rgb(.94,.97,.95);
   const clean=(v:unknown)=>String(v??'').replace(/[\u2013\u2014]/g,'-').replace(/[\u2018\u2019]/g,"'").replace(/[\u201c\u201d]/g,'"').replace(/\u2026/g,'...').normalize('NFKD').replace(/[^\x20-\x7e\n]/g,'');
@@ -14,7 +14,7 @@ export async function buildRfiPdf({job,state,records,register=false,logoBytes}:{
   function wrap(value:string,width=508,size=10){const result:string[]=[];for(const paragraph of clean(value).split('\n')){let current='';for(const ch of paragraph){if(font.widthOfTextAtSize(current+ch,size)>width){let cut=current.lastIndexOf(' ');if(cut>0){result.push(current.slice(0,cut));current=current.slice(cut+1)+ch;}else{result.push(current);current=ch;}}else current+=ch;}result.push(current);}return result;}
   function body(value:string,size=10){for(const l of wrap(value,508,size)){ensure(15);text(l,52,y,size);y-=15;}y-=8;}
   function section(title:string,value:string){ensure(48);page.drawRectangle({x:40,y:y-8,width:532,height:24,color:pale,borderColor:line,borderWidth:.6});text(title.toUpperCase(),50,y,9,true,green);y-=30;body(value||'Not recorded');}
-  function details(d:RfiDetails){section('Question / clarification requested',d.question||'Question not yet completed.');section('Drawing / specification / detail references',d.references||'None recorded.');section('Attachments / supporting documents',d.attachments.length?d.attachments.map(a=>`${a.label}\n${a.url}`).join('\n\n'):'No attachment links.');section('Response',d.answer?`Responder: ${d.responder||'Not recorded'}    Response date: ${d.responseDate||'Not recorded'}\n\n${d.answer}`:'Awaiting response.');}
+  function details(d:RfiDetails){section('Question / clarification requested',d.question||'Question not yet completed.');section('Drawing / specification / detail references',d.references||'None recorded.');if(d.attachments.length)section('Supporting links',d.attachments.map(a=>`${a.label}\n${a.url}`).join('\n\n'));section('Response',d.answer?`Responder: ${d.responder||'Not recorded'}    Response date: ${d.responseDate||'Not recorded'}\n\n${d.answer}`:'Awaiting response.');}
   newPage();body(`${client}${site?' - '+site:''}\n${address}\n${job.project}`,11);
   if(register){
     body(`${records.length} RFIs | ${records.filter(r=>r.status==='Open / Sent').length} outstanding | ${records.filter(r=>rfiOverdue(r)).length} overdue\nGenerated ${new Date().toLocaleDateString('en-CA')}`);
@@ -24,6 +24,14 @@ export async function buildRfiPdf({job,state,records,register=false,logoBytes}:{
     if(index)newPage();section(`${r.number} - ${r.status}`,r.subject);
     section('Request details',`Created: ${r.createdDate}    Sent: ${r.sentDate||'Not sent'}    Response due: ${r.dueDate||'Not set'}${rfiOverdue(r)?' - OVERDUE':''}\nRaised by: ${r.raisedBy}\nSent to: ${r.sentTo||'Not recorded'}\nFollow-up cycles: ${r.cycle}`);details(r);
     if(r.history.length>1){newPage();section(`${r.number} - correspondence history`,'Saved questions and answers in chronological order.');for(const h of r.history){section(`${h.action} | ${h.at.slice(0,10)}`,`${h.actor}\n${h.note||''}\nSubject: ${h.details.subject}\nStatus: ${h.details.status}\nCreated: ${h.details.createdDate} | Sent: ${h.details.sentDate||'-'} | Due: ${h.details.dueDate||'-'}\nRaised by: ${h.details.raisedBy} | Sent to: ${h.details.sentTo}`);details(h.details);}}
+  }
+  for (const [index, photo] of photos.entries()) {
+    newPage();
+    section(`${records[0].number} - Photo ${index + 1} of ${photos.length}`, photo.name);
+    const image = await doc.embedJpg(photo.jpeg);
+    const available = y - 52;
+    const size = image.scaleToFit(532, available);
+    page.drawImage(image, { x: (612-size.width)/2, y: 52+(available-size.height)/2, ...size });
   }
   const pages=doc.getPages();pages.forEach((p,i)=>{p.drawLine({start:{x:40,y:39},end:{x:572,y:39},color:line,thickness:.5});p.drawText(`JOHN GORDON CONSTRUCTION | Job ${clean(job.jobNumber)} | ${register?'RFI Register':clean(records[0]?.number||'RFI')}`,{x:40,y:25,size:8,font,color:muted});p.drawText(`${i+1} / ${pages.length}`,{x:532,y:25,size:8,font,color:muted});});
   doc.setTitle(register?`Job ${job.jobNumber} RFI Register`:`${records[0]?.number} - ${records[0]?.subject}`);doc.setAuthor(state.settings.companyName||'John Gordon Construction');return doc.save();
