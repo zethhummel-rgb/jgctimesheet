@@ -26,7 +26,7 @@ function selectionInfo(){
  const editor=activeEditor;if(!editor?.isConnected||!savedRange)return null;
  const before=savedRange.cloneRange();try{before.selectNodeContents(editor);before.setEnd(savedRange.startContainer,savedRange.startOffset);const length=()=>{const box=document.createElement('div');box.append(before.cloneContents());return safetyTextPlain(childrenValue(box)).length;};const start=length();before.setEnd(savedRange.endContainer,savedRange.endOffset);return {editor,start,end:length()};}catch{return null;}
 }
-function currentStyle(){const info=selectionInfo();if(!info)return safetyTextDefault;if(pending.has(info.editor)&&info.start===info.end)return pending.get(info.editor)!;let at=0;for(const run of safetyTextRuns(editorValue(info.editor))){at+=run.text.length;if(at>info.start)return run.style;}return safetyTextDefault;}
+function currentStyle(){const info=selectionInfo();if(!info)return safetyTextDefault;if(pending.has(info.editor)&&info.start===info.end)return pending.get(info.editor)!;let at=0;for(const run of safetyTextRuns(editorValue(info.editor))){at+=run.text.length;if(at>(info.start===info.end && info.start>0?info.start-1:info.start))return run.style;}return safetyTextDefault;}
 function replace(editor:HTMLElement,value:string,start:number,end:number){editor.innerHTML=safetyTextHtml(value);editor.focus();selectText(editor,start,end);editor.dispatchEvent(new Event('input',{bubbles:true}));remember(editor);}
 function history(editor:HTMLElement,redo=false){if(editor.contentEditable!=='true'||editor.closest('fieldset[disabled]'))return;const h=histories.get(editor),from=redo?h?.future:h?.past,to=redo?h?.past:h?.future;if(!h||!from?.length||!to)return;to.push(h.value);const value=from.pop()!;h.value=value;pending.delete(editor);replace(editor,value,safetyTextPlain(value).length,safetyTextPlain(value).length);}
 export function format(command:string,scope:HTMLElement|null){
@@ -50,6 +50,10 @@ export function format(command:string,scope:HTMLElement|null){
  else if(/^a[lcr]$/.test(command))patch.align=command==='ac'?'center':command==='ar'?'right':'left';
  else if(command.startsWith('in'))patch.indent=Math.min(3,Math.max(0,(style.indent||0)+(command==='in+'?1:-1)));
  else if(command.startsWith('ls'))patch.spacing=Number(command.slice(2))/10;
+ if(start===end && scope?.classList.contains('rfi-question') && command.startsWith('insert')) {
+  const prefix=command==='insertOrderedList'?'1. ':'• ';
+  editor.focus();document.execCommand('insertText',false,prefix);remember(editor);return;
+ }
  if(start===end){pending.set(editor,{...style,...patch});editor.focus();announce();return;}
  pending.delete(editor);
  let result=safetyEdit(value,start,end,patch);
@@ -59,6 +63,17 @@ export function format(command:string,scope:HTMLElement|null){
   const body=safetyList(middle.join(''),command==='insertOrderedList');result=left.join('')+body+right.join('');end=start+safetyTextPlain(body).length;
  }
  replace(editor,result,start,end);
+}
+export function questionToolbarState(scope:HTMLElement|null) {
+  const info=selectionInfo();
+  if(!info||!scope?.contains(info.editor))return {style:safetyTextDefault,undo:false,redo:false};
+  const history=histories.get(info.editor);
+  return {style:currentStyle(),undo:Boolean(history?.past.length),redo:Boolean(history?.future.length)};
+}
+export function rememberQuestionSelection(scope:HTMLElement|null) {
+  const editor=scope?.querySelector<HTMLElement>('[data-ss-rich-editor]');
+  if(editor && !editor.contains(savedRange?.commonAncestorContainer??null))editor.focus({preventScroll:true});
+  if(editor && document.activeElement===editor)remember(editor);
 }
 const colors=[['','Automatic'],['#172d24','Black'],['#145b3d','JGC green'],['#b42318','Red'],['#184e9e','Blue'],['#713ba4','Purple'],['#9a6700','Gold'],['#596579','Grey']];
 const highlights=[['','No highlight'],['yellow','Yellow'],['green','Green'],['#cce9ff','Blue'],['#fbd5e5','Pink'],['#ffdcb5','Orange']];
