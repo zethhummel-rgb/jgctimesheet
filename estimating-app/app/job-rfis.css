@@ -2,3 +2,12 @@
 
 .rfi-page>*{min-width:0}.rfi-page .data-table-wrap{max-width:100%;overflow-x:auto}.rfi-totals>div{min-width:0}.rfi-table th,.rfi-table td{padding:12px;text-align:left;border-bottom:1px solid var(--slate-200);overflow-wrap:anywhere}.rfi-table th{background:var(--green-100);color:var(--navy-900);font-size:.75rem}.rfi-page input,.rfi-page select,.rfi-page textarea{box-sizing:border-box;border:1px solid var(--slate-200);border-radius:6px;background:var(--jgc-estimator-surface);color:var(--navy-900);padding:10px;font:inherit}.rfi-page input:focus,.rfi-page select:focus,.rfi-page textarea:focus{outline:2px solid var(--green-600);outline-offset:1px}.rfi-page .rfi-fields [aria-invalid=true]{border:2px solid #bd3030}
 @media(max-width:760px){.rfi-page .rfi-table{min-width:0;width:100%;display:block}.rfi-table thead{display:none}.rfi-table tbody{display:grid;gap:12px}.rfi-table tr{display:block;border:1px solid var(--slate-200);border-radius:8px;padding:10px;background:var(--jgc-estimator-surface)}.rfi-table td{display:block;padding:8px 0;min-width:0}.rfi-table td:before{content:attr(data-label);display:block;font-size:.7rem;font-weight:700;color:var(--slate-500);margin-bottom:4px}.rfi-filters input{width:100%;flex-basis:100%}.rfi-fields>.field{min-width:0}}
+
+.rfi-cell-button {display:block;white-space:pre-line;text-align:left;background:transparent;border:0;color:var(--navy-900);text-decoration:underline;text-decoration-style:dotted;text-underline-offset:4px;padding:4px 0;cursor:pointer;font:inherit}
+.rfi-inline-edit {padding:16px;background:var(--slate-50);display:grid;gap:12px}
+.rfi-inline-fields {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:12px}
+.rfi-question {min-width:0}
+.rfi-font-tools {position:sticky;top:var(--jgc-rfi-sticky-offset,0px);z-index:2;display:flex;gap:3px;flex-wrap:wrap;background:var(--jgc-estimator-surface);border:1px solid var(--slate-200);border-radius:6px 6px 0 0;padding:5px;margin-top:7px}
+.rfi-font-tools button {background:transparent;color:var(--navy-900);border:0;border-radius:3px;min-width:34px;min-height:36px;font:inherit;cursor:pointer}
+.rfi-font-tools button:hover,.rfi-font-tools button:focus-visible {background:var(--green-100)}
+.rfi-question .ss-rich-editor {box-sizing:border-box;width:100%;min-height:9rem;white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;border:1px solid var(--slate-200);background:var(--jgc-estimator-surface);border-radius:0 0 6px 6px}
