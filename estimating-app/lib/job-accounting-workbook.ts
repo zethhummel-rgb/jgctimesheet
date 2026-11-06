@@ -71,9 +71,9 @@ export async function buildJobAccountingWorkbook(preview: AccountingExportPrevie
         const cell = sheet.getCell(number, col + 1);
         cell.value = col === 0 ? clientJobName(source.customer, value) : excelValue(value);
         cell.font = { name: "Arial", size: 10, color: { argb: "FF000000" } };
-        cell.alignment = { vertical: "bottom", wrapText: false, horizontal: col === 0 ? "left" : [9, 11].includes(col) ? "right" : "center" };
+        cell.alignment = { vertical: "bottom", wrapText: false, horizontal: col === 0 ? "left" : col === 9 ? "right" : "center" };
         if (col === 5 || col === 6) { cell.value = value == null ? null : String(value); cell.numFmt = "@"; }
-        if ([9, 11].includes(col)) cell.numFmt = '"$"#,##0.00;("$"#,##0.00)';
+        if (col === 9) cell.numFmt = '"$"#,##0.00;("$"#,##0.00)';
         if ([8, 13, 14].includes(col) && value && typeof value === "object") cell.numFmt = col === 13 ? "dddd mmmm d, yyyy" : "mmm d, yyyy";
       });
       for (let col = 1; col <= 16; col++) {

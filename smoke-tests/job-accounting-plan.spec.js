@@ -63,7 +63,7 @@ test("new canonical fields override reference only when changed; zero is not mis
   const p = fixture(); p.sourceSnapshot[0].price = 0; p.sourceSnapshot[0].extras = 45;
   p.sourceSnapshot[0].customerPo = "0000088";
   const row = plan(p).rows.find((r) => r.jobNumber === "26901");
-  expect(row.cells[9]).toBe(0); expect(row.cells[11]).toBe(45); expect(row.cells[6]).toBe("0000088");
+  expect(row.cells[9]).toBe(0); expect(row.cells[11]).toBe("Yes"); expect(row.cells[6]).toBe("0000088");
 });
 test("duplicate official numbers fail closed", () => {
   const p = fixture(); p.sourceSnapshot.push(p.sourceSnapshot[0]);
@@ -77,7 +77,7 @@ test("existing accepted-estimate pricing overrides the starting master without l
   }
   const rows = plan(p).rows;
   expect(rows.find((r) => r.jobNumber === "26901").cells[9]).toBe(2500);
-  expect(rows.find((r) => r.jobNumber === "26901").cells[11]).toBe(150);
+  expect(rows.find((r) => r.jobNumber === "26901").cells[11]).toBe("Yes");
   expect(rows.find((r) => r.jobNumber === "26902").cells[9]).toBe(1200);
 });
 test("only explicit status actions change the new marker; uploader logic remains independent", () => {

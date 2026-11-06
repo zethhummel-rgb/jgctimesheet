@@ -32,6 +32,10 @@ async function setup(page, options = {}) {
       if (master) master.cells[0] = jobName;
     }
   }
+  if (!options.reference) {
+    preview.sourceSnapshot[0].hasExtras = true;
+    preview.sourceSnapshot[1].hasExtras = false;
+  }
   const versions = [], logs = [], calls = [], resets = [];
   await page.route("**/api/job-accounting-export*", async (route) => {
     const req = route.request(), url = new URL(req.url());
@@ -122,6 +126,9 @@ test("real XLSX, exact old-version download, green-to-yellow and history leave j
   expect(sheet.getCell("A3").value).toBe("Client — Original 26901");
   expect(sheet.getCell("G3").value).toBe("000123");
   expect(sheet.getCell("J3").value).toBe(1200);
+  expect(sheet.getCell("L3").value).toBe("Yes");
+  expect(sheet.getCell("L4").value).toBeNull();
+  expect(sheet.getCell("L3").numFmt || "General").toBe("General");
   expect(sheet.getCell("A3").fill.fgColor.argb).toBe("FF92D050");
   expect(sheet.getCell("A4").fill.fgColor.argb).toBe("FFFFFF00");
   expect(sheet.getCell("A5").value).toBe("Client — Original 26904");
@@ -173,6 +180,9 @@ test("Excel first column includes client and master job title, with missing-name
   expect(sheet.getCell("A3").alignment.wrapText ?? false).toBe(false);
   expect(sheet.getCell("G3").value).toBe("000123");
   expect(sheet.getCell("J3").value).toBe(1200);
+  expect(sheet.getCell("L3").value).toBe("Yes");
+  expect(sheet.getCell("L4").value).toBeNull();
+  expect(sheet.getCell("L3").numFmt || "General").toBe("General");
   expect(sheet.getCell("A3").fill.fgColor.argb).toBe("FF92D050");
   expect(state.captures.jobInfo).toEqual([]); expect(state.captures.writes).toEqual([]);
 });
@@ -350,6 +360,11 @@ test("optional supplied-master QA preserves every reference cell and all year sh
     for (let c = 0; c < 16; c++) {
       if (c > 0 && c < 5) continue;
       const value = row.getCell(c + 1).value, wanted = source.cells[c];
+      if (c === 11) {
+        const recorded = typeof wanted === "number" ? wanted !== 0 : /^yes$/i.test(String(wanted ?? "").trim());
+        expect(value).toBe(recorded ? "Yes" : null);
+        continue;
+      }
       expect(value instanceof Date ? { date: value.toISOString().slice(0, 10) } : value ?? null).toEqual(wanted);
       expect(row.getCell(c + 1).formula).toBeUndefined();
     }

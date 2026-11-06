@@ -119,7 +119,7 @@ export function JobAccountingPanel({ workspaceSaved }: { workspaceSaved: boolean
       <p className="job-accounting-legend">{(Object.keys(labels) as Array<keyof typeof labels>).map((color) => <span key={color} className={`accounting-chip accounting-${color}`}>{labels[color]}</span>)}</p>
       <p>Existing inactive jobs are yellow. Newly inactive jobs are green on their first download, then yellow on the next. Yellow is not proof of invoicing; saved versions keep their original colours.</p>
       <p>Blue asks accounting to discuss invoicing on the first download. On later downloads it becomes yellow, just like green. Resetting starts those hand-offs fresh.</p>
-      <p>Pricing comes from the starting master, with accepted Estimate Desk pricing and approved extras used for linked jobs.</p>
+      <p>Extras shows Yes for jobs with a T&M Extra or an approved change order.</p>
       <div className="job-accounting-actions">
         {exportState && <span>Next download: V{exportState.nextVersion}</span>}
         <button className="button secondary compact" disabled={busy || !workspaceSaved || (!exportState?.latestExportId && !resetBody.current)} onClick={() => { setResetOpen(true); setConfirmation(""); }}>Reset downloads to V0</button>
