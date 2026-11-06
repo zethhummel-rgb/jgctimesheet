@@ -3,17 +3,17 @@ export type RfiStatus = typeof rfiStatuses[number];
 export interface RfiAttachment { id: string; label: string; url: string }
 export interface RfiDetails {
   subject: string; createdDate: string; sentDate: string; raisedBy: string; sentTo: string;
-  question: string; references: string; dueDate: string; status: RfiStatus;
+  question: string; questionRich?: string; references: string; dueDate: string; status: RfiStatus;
   responder: string; responseDate: string; answer: string; attachments: RfiAttachment[];
 }
 export interface RfiEvent { id: string; at: string; actor: string; action: string; note: string; details: RfiDetails }
-export interface Rfi extends RfiDetails { id: string; number: string; cycle: number; history: RfiEvent[]; createdAt: string; updatedAt: string }
+export interface Rfi extends RfiDetails { id: string; number: string; cycle: number; history: RfiEvent[]; createdAt: string; updatedAt: string; deletedAt?:string; deletedBy?:string }
 export const rfiToday = () => { const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 export const rfiOutstanding = (r: RfiDetails) => r.status === 'Open / Sent';
 export const rfiOverdue = (r: RfiDetails, today=rfiToday()) => rfiOutstanding(r) && Boolean(r.dueDate && r.dueDate<today);
 export const rfiLink = (url: string) => { try {return new URL(url.trim()).protocol==='https:'?url.trim():'';}catch{return '';} };
 export function blankRfi(actor: string): RfiDetails {return {subject:'',createdDate:rfiToday(),sentDate:'',raisedBy:actor,sentTo:'',question:'',references:'',dueDate:'',status:'Draft',responder:'',responseDate:'',answer:'',attachments:[]};}
-export function rfiDetails(r: RfiDetails): RfiDetails {return {subject:r.subject,createdDate:r.createdDate,sentDate:r.sentDate,raisedBy:r.raisedBy,sentTo:r.sentTo,question:r.question,references:r.references,dueDate:r.dueDate,status:r.status,responder:r.responder,responseDate:r.responseDate,answer:r.answer,attachments:r.attachments.map(a=>({...a}))};}
+export function rfiDetails(r: RfiDetails): RfiDetails {return {subject:r.subject,createdDate:r.createdDate,sentDate:r.sentDate,raisedBy:r.raisedBy,sentTo:r.sentTo,question:r.question,...(r.questionRich?{questionRich:r.questionRich}:{}),references:r.references,dueDate:r.dueDate,status:r.status,responder:r.responder,responseDate:r.responseDate,answer:r.answer,attachments:r.attachments.map(a=>({...a}))};}
 export function nextRfiNumber(records: Rfi[]) {return `RFI-${String(Math.max(0,...records.map(r=>Number(/^RFI-(\d+)$/.exec(r.number)?.[1])||0))+1).padStart(3,'0')}`;}
 export function validateRfi(d: RfiDetails, previous?: Rfi, reopen=false, note=''): Record<string,string> {
   const errors:Record<string,string>={};
@@ -56,6 +56,7 @@ export function rfiPersistenceError(base:{jobs:{id:string;rfis?:Rfi[]}[]}|null,n
   }
   for(const job of base?.jobs||[])for(const old of job.rfis||[]){
     const r=next.jobs.find(j=>j.id===job.id)?.rfis?.find(r=>r.id===old.id);
+    if(old.deletedAt && JSON.stringify(r)!==JSON.stringify(old))return 'This RFI was deleted. Refresh the register.';
     if(!r||r.number!==old.number||old.history.some(h=>!r.history.some(n=>n.id===h.id&&JSON.stringify(n)===JSON.stringify(h))))return 'RFI history changed in another browser. Copy your unsaved text, then refresh before editing; saved RFIs and answers cannot be overwritten.';
   }
   return '';

@@ -29,7 +29,9 @@ function selectionInfo(){
 function currentStyle(){const info=selectionInfo();if(!info)return safetyTextDefault;if(pending.has(info.editor)&&info.start===info.end)return pending.get(info.editor)!;let at=0;for(const run of safetyTextRuns(editorValue(info.editor))){at+=run.text.length;if(at>info.start)return run.style;}return safetyTextDefault;}
 function replace(editor:HTMLElement,value:string,start:number,end:number){editor.innerHTML=safetyTextHtml(value);editor.focus();selectText(editor,start,end);editor.dispatchEvent(new Event('input',{bubbles:true}));remember(editor);}
 function history(editor:HTMLElement,redo=false){if(editor.contentEditable!=='true'||editor.closest('fieldset[disabled]'))return;const h=histories.get(editor),from=redo?h?.future:h?.past,to=redo?h?.past:h?.future;if(!h||!from?.length||!to)return;to.push(h.value);const value=from.pop()!;h.value=value;pending.delete(editor);replace(editor,value,safetyTextPlain(value).length,safetyTextPlain(value).length);}
-function format(command:string,scope:HTMLElement|null){
+export function format(command:string,scope:HTMLElement|null){
+ const candidate=scope?.querySelector<HTMLElement>('[data-ss-rich-editor]');
+ if(scope?.classList.contains('rfi-question') && candidate && document.activeElement===candidate)remember(candidate);
  const info=selectionInfo();if(!info)return;const {editor}=info;
  if(!scope?.contains(editor)||editor.getAttribute('contenteditable')!=='true'||editor.closest('fieldset[disabled]'))return;
  if(command==='undo'||command==='redo'){history(editor,command==='redo');return;}
