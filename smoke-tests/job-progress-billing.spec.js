@@ -37,6 +37,9 @@ for (const width of [390,1366]) test(`progress billing stays active and records 
   Object.assign(rows[0],{exported_at:"2026-11-09T14:00:00Z",export_version:7,export_cycle:1,export_color:"orange"});
   await panel.getByRole("button",{name:"Refresh billing history"}).click();
   await expect(panel).toContainText("Included in export V7");
+  await page.getByRole("tab",{name:"Summary",exact:true}).click();
+  await expect(panel).toHaveCount(0);
+  await expect(page.getByRole("tabpanel",{name:"Summary",exact:true})).toContainText("Project details");
   await page.getByRole("button",{name:"← All jobs",exact:true}).click();
   await openDirectoryJob(page,"26903");
   await page.getByRole("tab",{name:"Progress Billing",exact:true}).click();

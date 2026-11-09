@@ -367,19 +367,21 @@ test("Job Control Centre exposes accessible tabs and a complete Summary", async 
 
   await jobTab(page, "Summary").focus();
   await jobTab(page, "Summary").press("ArrowRight");
-  await expect(jobTab(page, "Schedule")).toBeFocused();
-  await jobTab(page, "Schedule").press("ArrowRight");
+  await expect(jobTab(page, "Purchase Orders")).toBeFocused();
+  await jobTab(page, "Purchase Orders").press("ArrowRight");
+  await expect(jobTab(page, "Drawings")).toBeFocused();
+  await jobTab(page, "Drawings").press("ArrowLeft");
   await expect(jobTab(page, "Purchase Orders")).toBeFocused();
   await expect(jobTab(page, "Purchase Orders")).toHaveAttribute("aria-selected", "true");
   await expect(jobTab(page, "Purchase Orders")).toHaveAttribute("tabindex", "0");
   await expect(jobTab(page, "Summary")).toHaveAttribute("tabindex", "-1");
   await jobTab(page, "Purchase Orders").press("End");
-  await expect(jobTab(page, "Warranty")).toBeFocused();
-  await jobTab(page, "Warranty").press("Home");
+  await expect(jobTab(page, "Statistics / Other")).toBeFocused();
+  await jobTab(page, "Statistics / Other").press("Home");
   await expect(jobTab(page, "Summary")).toBeFocused();
   await jobTab(page, "Summary").press("ArrowLeft");
-  await expect(jobTab(page, "Warranty")).toBeFocused();
-  await jobTab(page, "Warranty").press("Home");
+  await expect(jobTab(page, "Statistics / Other")).toBeFocused();
+  await jobTab(page, "Statistics / Other").press("Home");
 
   await jobTab(page, "Shop Drawings").click();
   await expect(jobTab(page, "Shop Drawings")).toHaveAttribute("aria-selected", "true");
