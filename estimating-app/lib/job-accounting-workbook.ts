@@ -15,7 +15,7 @@ async function excelWriter(): Promise<any> {
   });
   return loading;
 }
-const colors = { white: "FFFFFFFF", green: "FF92D050", yellow: "FFFFFF00", red: "FFFF0000", blue: "FF9BC2E6" };
+const colors = { white: "FFFFFFFF", green: "FF92D050", yellow: "FFFFFF00", red: "FFFF0000", blue: "FF9BC2E6", orange: "FFF4B183" };
 const excelValue = (value: AccountingCell) => value && typeof value === "object" ? new Date(`${value.date.slice(0, 10)}T00:00:00Z`) : value;
 function clientJobName(customer: string, value: AccountingCell): string {
   const client = customer.trim();
@@ -28,7 +28,7 @@ function clientJobName(customer: string, value: AccountingCell): string {
   if (prefix === client.toLocaleLowerCase() && (!boundary || /[\s\-–—:]/.test(boundary))) return name;
   return `${client} — ${name}`;
 }
-const states = { white: "Active", green: "Closed - ready to invoice", yellow: "Previously handed to accounting", red: "Cancelled", blue: "Closed - discuss invoicing" };
+const states = { orange: "Progress billing requested", white: "Active", green: "Closed - ready to invoice", yellow: "Previously handed to accounting", red: "Cancelled", blue: "Closed - discuss invoicing" };
 // Measured from the supplied master: Arial 10 pt, 12.75 pt standard rows.
 // Keep entries single-line like that workbook; do not auto-grow the job list.
 const masterRowHeight = 12.75;
@@ -87,20 +87,21 @@ export async function buildJobAccountingWorkbook(preview: AccountingExportPrevie
     [
       `JGC Accounting Job List - ${versionLabel}. Starting reference: ${preview.sourceName}.`,
       "Green: closed, ready to invoice. Red: cancelled. White: active project (including unchanged jobs).",
+      "Orange: progress billing requested for this version only; an active job returns to white on the next version.",
       "Blue: closed - discuss invoicing with accounting. Blue and green become yellow on the next download.",
       "Yellow: existing inactive jobs or previously handed to accounting. Not confirmation of an invoice.",
       "This download does not replace or update the uploaded master list. Copy reviewed changes into the accounting master.",
       "Blank fields were not supplied. Date Completed is preserved from the master; closing a job does not invent a completion date.",
     ].forEach((line, index) => { sheet.mergeCells(footer + index, 1, footer + index, 16); const cell = sheet.getCell(footer + index, 1); cell.value = line; cell.font = { name: "Arial", size: 10, color: { argb: "FF000000" } }; cell.alignment = { wrapText: false, vertical: "bottom" }; sheet.getRow(footer + index).height = masterRowHeight; });
     sheet.pageSetup.printTitlesRow = "1:2";
-    sheet.pageSetup.printArea = `A1:P${footer + 5}`;
+    sheet.pageSetup.printArea = `A1:P${footer + 6}`;
     sheet.headerFooter.oddFooter = `&C${versionLabel} | Page &P of &N`;
   }
   const details = workbook.addWorksheet("Download details", { views: [{ state: "frozen", ySplit: 5 }], properties: { defaultRowHeight: masterRowHeight } });
   [12, 38, 39, 32, 32, 48, 18].forEach((width, index) => { details.getColumn(index + 1).width = width; });
   details.mergeCells("A1:G1"); details.getCell("A1").value = `Accounting job-list download - ${versionLabel}`;
   details.mergeCells("A2:G2"); details.getCell("A2").value = `Reference: ${preview.sourceName}. SHA-256: ${preview.sourceSha256}`;
-  details.mergeCells("A3:G3"); details.getCell("A3").value = `${plan.summary.total} jobs: ${plan.summary.white} active, ${plan.summary.green} ready to invoice, ${plan.summary.blue} discuss invoicing, ${plan.summary.yellow} previously handed off, ${plan.summary.red} cancelled. Saved versions never change.`;
+  details.mergeCells("A3:G3"); details.getCell("A3").value = `${plan.summary.total} jobs: ${plan.summary.white} active, ${plan.summary.orange} progress billing, ${plan.summary.green} ready to invoice, ${plan.summary.blue} discuss invoicing, ${plan.summary.yellow} previously handed off, ${plan.summary.red} cancelled. Saved versions never change.`;
   details.mergeCells("A4:G4"); details.getCell("A4").value = `All jobs are included. ${plan.summary.missingFromPortal} retained source rows are not in the portal. No job is deleted by this download.`;
   details.getRow(5).values = ["Job No", "Accounting status", "Change / source", "Client", "Site", "Address", "Target end date"];
   for (const row of plan.rows) details.addRow([row.jobNumber, states[row.color], row.change, row.customer || null, row.site || null, row.address || null, row.targetEndDate ? new Date(`${row.targetEndDate}T00:00:00Z`) : null]);

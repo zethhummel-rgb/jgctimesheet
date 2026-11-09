@@ -13,7 +13,7 @@ const pendingReset = {
 };
 const pending = { get: () => { try { return sessionStorage.getItem(pendingKey); } catch { return null; } }, set: (id: string) => { try { sessionStorage.setItem(pendingKey, id); } catch { /* History is still durable on the server. */ } }, clear: () => { try { sessionStorage.removeItem(pendingKey); } catch { /* Private-mode storage can be unavailable. */ } } };
 const when = (value: string) => new Date(value).toLocaleString("en-CA", { timeZone: "America/Toronto" });
-const labels = { white: "Active", green: "Ready to invoice", blue: "Discuss invoicing", yellow: "Previously handed off", red: "Cancelled" };
+const labels = { orange: "Progress billing", white: "Active", green: "Ready to invoice", blue: "Discuss invoicing", yellow: "Previously handed off", red: "Cancelled" };
 async function request(body?: Record<string, unknown>, query = "") {
   const response = await fetch(`/api/job-accounting-export${query}`, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : undefined);
   const result = await response.json().catch(() => ({}));
@@ -119,6 +119,7 @@ export function JobAccountingPanel({ workspaceSaved }: { workspaceSaved: boolean
       <p className="job-accounting-legend">{(Object.keys(labels) as Array<keyof typeof labels>).map((color) => <span key={color} className={`accounting-chip accounting-${color}`}>{labels[color]}</span>)}</p>
       <p>Existing inactive jobs are yellow. Newly inactive jobs are green on their first download, then yellow on the next. Yellow is not proof of invoicing; saved versions keep their original colours.</p>
       <p>Blue asks accounting to discuss invoicing on the first download. On later downloads it becomes yellow, just like green. Resetting starts those hand-offs fresh.</p>
+      <p>Orange requests progress billing once. The next new version returns an active job to white. Re-downloading a saved version keeps its original colours. Resetting download history does not repeat past progress-billing requests.</p>
       <p>Extras shows Yes for jobs with a T&M Extra or an approved change order.</p>
       <div className="job-accounting-actions">
         {exportState && <span>Next download: V{exportState.nextVersion}</span>}
@@ -143,7 +144,7 @@ export function JobAccountingPanel({ workspaceSaved }: { workspaceSaved: boolean
             <button className="button primary compact" disabled={busy || !workspaceSaved || !rows.length} onClick={() => void action(save)}>Create version {preview!.version} &amp; download</button>
           </>}
           <button className="button secondary compact" disabled={busy} onClick={() => { setPreview(null); setPlan(null); setSelected(null); }}>Close preview</button></div>
-        <p>{summary?.total ?? 0} rows · {summary?.green ?? 0} green · {summary?.blue ?? 0} blue · {summary?.yellow ?? 0} yellow · {summary?.red ?? 0} red · {summary?.white ?? 0} white</p>
+        <p>{summary?.total ?? 0} rows · {summary?.orange ?? 0} orange · {summary?.green ?? 0} green · {summary?.blue ?? 0} blue · {summary?.yellow ?? 0} yellow · {summary?.red ?? 0} red · {summary?.white ?? 0} white</p>
         <details className="job-accounting-row-preview" open={previewOpen} onToggle={(event) => setPreviewOpen(event.currentTarget.open)}>
         <summary>Preview job rows{selected ? " and download log" : ""}</summary>
         {preview && <p>{!preview.previousExportId ? `Starting colours from ${preview.sourceName}, with current job changes.` : "Creating a version records the accounting hand-off. Re-download an old version from history without advancing colours."} All accounting groups, years and managers are included regardless of the job-list filters.</p>}

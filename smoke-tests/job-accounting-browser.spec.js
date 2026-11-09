@@ -36,6 +36,7 @@ async function setup(page, options = {}) {
     preview.sourceSnapshot[0].hasExtras = true;
     preview.sourceSnapshot[1].hasExtras = false;
   }
+  if (options.progress) preview.sourceSnapshot[2].progressBillingRequestId = "billing-one";
   const versions = [], logs = [], calls = [], resets = [];
   await page.route("**/api/job-accounting-export*", async (route) => {
     const req = route.request(), url = new URL(req.url());
@@ -65,6 +66,7 @@ async function setup(page, options = {}) {
       const record = { id: body.id, cycle: preview.cycle, version: preview.version, file_name: helpers.accountingExportFilename(preview.version), file_sha256: body.fileSha256, file_base64: body.fileBase64, exported_by_name: "QA Administrator", exported_at: "2026-09-08T16:00:00Z", rows: planned.rows, summary: planned.summary };
       versions.push(record);
       preview = { ...preview, version: preview.version + 1, previousExportId: record.id, previousSnapshot: structuredClone(preview.sourceSnapshot), previousRows: structuredClone(planned.rows) };
+      if (options.progress) preview.sourceSnapshot.forEach(job => { job.progressBillingRequestId = null; });
       if (options.lostSaveResponse && versions.length === 1) return route.abort("connectionfailed");
       return route.fulfill({ json: { record } });
     }
@@ -435,3 +437,22 @@ for (const width of [1440, 390]) {
     expect(await page.evaluate(() => document.body.scrollWidth <= innerWidth)).toBe(true);
   });
 }
+
+test("progress billing produces an orange XLSX row once, then white, with exact historical re-download", async ({ page }, testInfo) => {
+  const state = await setup(page,{progress:true});
+  for (const version of [1,2]) {
+    const file = await create(page,version);
+    await file.saveAs(testInfo.outputPath(`progress-billing-v${version}.xlsx`));
+    const book = new ExcelJS.Workbook(); await book.xlsx.load(fs.readFileSync(await file.path()));
+    const sheet = book.getWorksheet("2026");
+    for(let c=1;c<=16;c++) expect(sheet.getCell(5,c).fill.fgColor.argb).toBe(version===1 ? "FFF4B183" : "FFFFFFFF");
+    expect(sheet.getCell("F5").value).toBe("26904");
+    expect(state.versions[version-1].summary.orange).toBe(version===1 ? 1 : 0);
+  }
+  await page.locator(".job-accounting-history > summary").click();
+  const waiting = page.waitForEvent("download");
+  await page.getByRole("button",{name:"Download v1",exact:true}).click();
+  expect(fs.readFileSync(await (await waiting).path()).equals(Buffer.from(state.versions[0].file_base64,"base64"))).toBe(true);
+  expect(state.versions).toHaveLength(2);
+  expect(state.captures.jobInfo).toEqual([]);
+});

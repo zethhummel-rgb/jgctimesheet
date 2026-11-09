@@ -205,3 +205,35 @@ test("legacy snapshots retain a previously excluded job even if it is no longer 
 });
 
 test('portal-only job exports selling price, PO, subcontractors and creation date',()=>{const preview=fixture();preview.sourceSnapshot.push(job('26999',{price:1500,extras:0,customerPo:'PO-NEW',subcontractors:'Yes',jobDate:'2026-09-18'}));const row=plan(preview).rows.find(r=>r.jobNumber==='26999');expect(row.cells[9]).toBe(1500);expect(row.cells[6]).toBe('PO-NEW');expect(row.cells[12]).toBe('Yes');expect(row.cells[13]).toEqual({date:'2026-09-18'});});
+
+
+test("progress billing is orange while pending, then white, and a later request is orange again", () => {
+  let p = fixture(); const row = () => plan(p).rows.find(r => r.jobNumber === "26904");
+  const job = p.sourceSnapshot.find(j => j.jobNumber === "26904");
+  job.progressBillingRequestId = "billing-one";
+  expect(row()).toMatchObject({color:"orange",change:"Progress billing requested"});
+  expect(plan(p).summary.orange).toBe(1);
+  const saved = plan(p);
+  expect(row().color).toBe("orange"); // previews do not consume anything
+  p = next(p,saved.rows); p.sourceSnapshot.find(j => j.jobNumber === "26904").progressBillingRequestId = null;
+  expect(row().color).toBe("white");
+  expect(saved.rows.find(r => r.jobNumber === "26904").color).toBe("orange");
+  p.sourceSnapshot.find(j => j.jobNumber === "26904").progressBillingRequestId = "billing-two";
+  expect(row().color).toBe("orange");
+});
+test("closure and cancellation take priority over pending progress billing", () => {
+  for (const status of ["green","blue","red"]) {
+    const p = fixture(), job = p.sourceSnapshot.find(j => j.jobNumber === "26904");
+    Object.assign(job,{active:false,progressBillingRequestId:"billing",statusChangedAt:"2026-09-10T12:00:00Z"});
+    if (status === "blue") job.invoiceReviewAt = job.statusChangedAt;
+    if (status === "red") job.cancelledAt = job.statusChangedAt;
+    expect(plan(p).rows.find(r => r.jobNumber === "26904").color).toBe(status);
+  }
+});
+test("legacy snapshots with no billing field remain comparable and missing rows do not stay orange", () => {
+  const p = fixture(); p.sourceSnapshot[2].progressBillingRequestId = null;
+  expect(plan(p).rows.find(r => r.jobNumber === "26904").changed).toBe(false);
+  p.sourceSnapshot[2].progressBillingRequestId = "billing";
+  const q = next(p,plan(p).rows); q.sourceSnapshot = q.sourceSnapshot.filter(j => j.jobNumber !== "26904");
+  expect(plan(q).rows.find(r => r.jobNumber === "26904").color).toBe("white");
+});
