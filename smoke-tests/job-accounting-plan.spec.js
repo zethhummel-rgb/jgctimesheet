@@ -237,3 +237,27 @@ test("legacy snapshots with no billing field remain comparable and missing rows 
   const q = next(p,plan(p).rows); q.sourceSnapshot = q.sourceSnapshot.filter(j => j.jobNumber !== "26904");
   expect(plan(q).rows.find(r => r.jobNumber === "26904").color).toBe("white");
 });
+
+test("closure dates use Toronto, keep completion separate and never infer historical dates", () => {
+  const { closedJobDate } = loaded.exports;
+  expect(closedJobDate("2026-11-09T02:30:00Z")).toBe("2026-11-08");
+  expect(closedJobDate("2026-07-09T03:30:00Z")).toBe("2026-07-08");
+  expect(closedJobDate("not a date")).toBe("");
+  const p = fixture();
+  p.sourceSnapshot[0].closedAt = "2026-11-09T02:30:00Z";
+  p.masterRows[0].cells[14] = { date: "2026-10-29" };
+  p.sourceSnapshot[1].targetEndDate = "2026-10-01";
+  p.sourceSnapshot[1].statusChangedAt = "2026-11-09T18:00:00Z";
+  p.sourceSnapshot[2].closedAt = "2026-11-08T14:00:00Z";
+  const first = plan(p);
+  expect(first.rows.find(r => r.jobNumber === "26901")).toMatchObject({ closedDate: "2026-11-08" });
+  expect(first.rows.find(r => r.jobNumber === "26901").cells[14]).toEqual({ date: "2026-10-29" });
+  expect(first.rows.find(r => r.jobNumber === "26902").closedDate).toBe("");
+  expect(first.rows.find(r => r.jobNumber === "26904").closedDate).toBe("");
+  const second = next(p, first.rows);
+  expect(plan(second).rows.find(r => r.jobNumber === "26901").closedDate).toBe("2026-11-08");
+  second.sourceSnapshot = second.sourceSnapshot.filter(r => r.jobNumber !== "26901");
+  expect(plan(second).rows.find(r => r.jobNumber === "26901").closedDate).toBe("2026-11-08");
+  p.sourceSnapshot[0].cancelledAt = "2026-11-09T15:00:00Z";
+  expect(plan(p).rows.find(r => r.jobNumber === "26901").closedDate).toBe("");
+});

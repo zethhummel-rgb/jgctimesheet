@@ -102,7 +102,8 @@ function jobInfoResponse(job, body) {
     ...(typeof body.active === "boolean" ? {
       cancelledAt: body.cancelled ? fixtureDate : "",
       invoiceReviewAt: body.invoiceReview ? fixtureDate : "",
-    } : { cancelledAt: job.cancelledAt, invoiceReviewAt: job.invoiceReviewAt }),
+      closedAt: body.active || body.cancelled ? "" : job.closedAt || fixtureDate,
+    } : { cancelledAt: job.cancelledAt, invoiceReviewAt: job.invoiceReviewAt, closedAt: job.closedAt }),
   };
 }
 

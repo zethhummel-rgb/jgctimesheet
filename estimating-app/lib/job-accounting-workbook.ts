@@ -49,13 +49,13 @@ export async function buildJobAccountingWorkbook(preview: AccountingExportPrevie
   }
   for (const [year, rows] of [...groups].sort(([a], [b]) => b.localeCompare(a))) {
     const sheet = workbook.addWorksheet(year, { views: [{ state: "frozen", ySplit: 2 }], properties: { defaultRowHeight: masterRowHeight }, pageSetup: { orientation: "landscape", paperSize: 5, fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
-    const widths = [8.43, 8.43, 8.43, 8.43, 17.71, 10, 17, 10, 12, 14, 12, 12, 9, 32, 15, 9];
+    const widths = [8.43, 8.43, 8.43, 8.43, 17.71, 10, 17, 10, 12, 14, 12, 12, 9, 32, 15, 9, 16];
     widths.forEach((width, index) => { sheet.getColumn(index + 1).width = width; });
     sheet.mergeCells("A1:E2");
     sheet.getCell("A1").value = "Client / Job Name";
-    const headings = ["Job No", "PO No", "Est By", "Start", "Price", "Type", "Extras", "Subs", "Date", "Date Completed", "NEW"];
+    const headings = ["Job No", "PO No", "Est By", "Start", "Price", "Type", "Extras", "Subs", "Date", "Date Completed", "NEW", "Date Closed"];
     headings.forEach((label, index) => { const column = index + 6; sheet.mergeCells(1, column, 2, column); sheet.getCell(1, column).value = label; });
-    for (let r = 1; r <= 2; r++) for (let c = 1; c <= 16; c++) {
+    for (let r = 1; r <= 2; r++) for (let c = 1; c <= 17; c++) {
       const cell = sheet.getCell(r, c);
       cell.font = { name: "Arial", size: 10, color: { argb: "FF000000" } };
       cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
@@ -65,7 +65,7 @@ export async function buildJobAccountingWorkbook(preview: AccountingExportPrevie
     for (let index = 0; index < rows.length; index++) {
       const source = rows[index], number = index + 3;
       sheet.mergeCells(number, 1, number, 5);
-      source.cells.forEach((value, col) => {
+      [...source.cells.slice(0,16), source.closedDate ? { date: source.closedDate } : null].forEach((value, col) => {
         // Job names span A:E; merged slave cells must not overwrite the name.
         if (col > 0 && col < 5) return;
         const cell = sheet.getCell(number, col + 1);
@@ -74,9 +74,9 @@ export async function buildJobAccountingWorkbook(preview: AccountingExportPrevie
         cell.alignment = { vertical: "bottom", wrapText: false, horizontal: col === 0 ? "left" : col === 9 ? "right" : "center" };
         if (col === 5 || col === 6) { cell.value = value == null ? null : String(value); cell.numFmt = "@"; }
         if (col === 9) cell.numFmt = '"$"#,##0.00;("$"#,##0.00)';
-        if ([8, 13, 14].includes(col) && value && typeof value === "object") cell.numFmt = col === 13 ? "dddd mmmm d, yyyy" : "mmm d, yyyy";
+        if ([8, 13, 14, 16].includes(col) && value && typeof value === "object") cell.numFmt = col === 13 ? "dddd mmmm d, yyyy" : "mmm d, yyyy";
       });
-      for (let col = 1; col <= 16; col++) {
+      for (let col = 1; col <= 17; col++) {
         const cell = sheet.getCell(number, col);
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: colors[source.color] } };
         cell.border = { bottom: { style: "dotted", color: { argb: "FF595959" } }, right: { style: "dotted", color: { argb: "FF595959" } } };
@@ -91,10 +91,10 @@ export async function buildJobAccountingWorkbook(preview: AccountingExportPrevie
       "Blue: closed - discuss invoicing with accounting. Blue and green become yellow on the next download.",
       "Yellow: existing inactive jobs or previously handed to accounting. Not confirmation of an invoice.",
       "This download does not replace or update the uploaded master list. Copy reviewed changes into the accounting master.",
-      "Blank fields were not supplied. Date Completed is preserved from the master; closing a job does not invent a completion date.",
-    ].forEach((line, index) => { sheet.mergeCells(footer + index, 1, footer + index, 16); const cell = sheet.getCell(footer + index, 1); cell.value = line; cell.font = { name: "Arial", size: 10, color: { argb: "FF000000" } }; cell.alignment = { wrapText: false, vertical: "bottom" }; sheet.getRow(footer + index).height = masterRowHeight; });
+      "Date Completed stays as supplied. Date Closed records a Portal closure in Toronto time; unknown historical dates stay blank.",
+    ].forEach((line, index) => { sheet.mergeCells(footer + index, 1, footer + index, 17); const cell = sheet.getCell(footer + index, 1); cell.value = line; cell.font = { name: "Arial", size: 10, color: { argb: "FF000000" } }; cell.alignment = { wrapText: false, vertical: "bottom" }; sheet.getRow(footer + index).height = masterRowHeight; });
     sheet.pageSetup.printTitlesRow = "1:2";
-    sheet.pageSetup.printArea = `A1:P${footer + 6}`;
+    sheet.pageSetup.printArea = `A1:Q${footer + 6}`;
     sheet.headerFooter.oddFooter = `&C${versionLabel} | Page &P of &N`;
   }
   const details = workbook.addWorksheet("Download details", { views: [{ state: "frozen", ySplit: 5 }], properties: { defaultRowHeight: masterRowHeight } });

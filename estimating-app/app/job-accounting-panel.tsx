@@ -120,6 +120,7 @@ export function JobAccountingPanel({ workspaceSaved }: { workspaceSaved: boolean
       <p>Existing inactive jobs are yellow. Newly inactive jobs are green on their first download, then yellow on the next. Yellow is not proof of invoicing; saved versions keep their original colours.</p>
       <p>Blue asks accounting to discuss invoicing on the first download. On later downloads it becomes yellow, just like green. Resetting starts those hand-offs fresh.</p>
       <p>Orange requests progress billing once. The next new version returns an active job to white. Re-downloading a saved version keeps its original colours. Resetting download history does not repeat past progress-billing requests.</p>
+      <p>Date Closed records when the job was closed in the Portal, using Toronto time. Unknown historical closure dates stay blank.</p>
       <p>Extras shows Yes for jobs with a T&M Extra or an approved change order.</p>
       <div className="job-accounting-actions">
         {exportState && <span>Next download: V{exportState.nextVersion}</span>}
