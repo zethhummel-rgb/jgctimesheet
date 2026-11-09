@@ -197,17 +197,17 @@ type QuoteTab = "details" | "estimate" | "breakdown" | "review" | "divisions" | 
 type JobTab = "progress-billing" | "tm-extras" | "summary" | "schedule" | "purchase-orders" | "changes" | "shop-drawings" | "rfis" | "statistics" | "drawings" | "job-board" | "warranty";
 const jobTabs: readonly { key: JobTab; label: string }[] = [
   { key: "summary", label: "Summary" },
-  { key: "schedule", label: "Schedule" },
   { key: "purchase-orders", label: "Purchase Orders" },
+  { key: "drawings", label: "Drawings" },
+  { key: "shop-drawings", label: "Shop Drawings" },
+  { key: "schedule", label: "Schedule" },
   { key: "changes", label: "CCNs / Change Orders" },
   { key: "tm-extras", label: "T&M Extras" },
-  { key: "progress-billing", label: "Progress Billing" },
-  { key: "shop-drawings", label: "Shop Drawings" },
   { key: "rfis", label: "RFIs" },
-  { key: "statistics", label: "Statistics / Other" },
-  { key: "drawings", label: "Drawings" },
   { key: "job-board", label: "Safety" },
+  { key: "progress-billing", label: "Progress Billing" },
   { key: "warranty", label: "Warranty" },
+  { key: "statistics", label: "Statistics / Other" },
 ];
 type SaveStatus = "loading" | "saved" | "saving" | "offline" | "error";
 function initialJobTab(job: Job | undefined): JobTab {
@@ -5727,13 +5727,12 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
   const [shopDrawingError, setShopDrawingError] = useState(false);
   const jobTabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   useEffect(() => {
-    if (tab !== "progress-billing") return;
     const button = jobTabRefs.current[jobTabs.findIndex(item => item.key === tab)];
     const nav = button?.parentElement;
     if (!button || !nav) return;
     const itemRect = button.getBoundingClientRect(), navRect = nav.getBoundingClientRect();
     if (itemRect.left < navRect.left) nav.scrollLeft += itemRect.left - navRect.left - 8;
-    else if (itemRect.right > navRect.right) nav.scrollLeft += itemRect.right - navRect.right + 8;
+    else if (itemRect.right > navRect.right) nav.scrollLeft += itemRect.left - navRect.left - 8;
   }, [job?.id, tab]);
 
   useEffect(() => {
@@ -6371,7 +6370,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           >{label}</button>)}
         </nav>
         <div className="job-tab-panel" id={jobTabPanelId} role="tabpanel" aria-labelledby={`${jobTabsBaseId}-tab-${tab}`}>
-        {tab === "progress-billing" && <JobProgressBilling key={job.id} jobId={job.portalJobId || ""} active={job.status === "Active"} canManage={currentEstimator.isAdmin} revision={billingRevision} requesting={billingSaving} onRequest={() => void flagProgressBilling(job)} />}
+        {tab === "progress-billing" && <JobProgressBilling key={`billing-${job.id}`} jobId={job.portalJobId || ""} active={job.status === "Active"} canManage={currentEstimator.isAdmin} revision={billingRevision} requesting={billingSaving} onRequest={() => void flagProgressBilling(job)} />}
         {tab === "summary" && <>
         {currentEstimator.isAdmin && quotedJobCost(job, linkedQuote) !== null && <section className="panel job-quoted-cost" aria-label="Quoted price">
           <div><span className="eyebrow">QUOTED PRICE</span><p>Customer quoted price · before tax</p></div>
@@ -6684,11 +6683,11 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           </table></div> : <div className="empty-state compact-empty shop-drawing-empty"><span>SD</span><h3>{shopDrawings.length ? `No ${shopDrawingFilter.toLocaleLowerCase()} drawings match` : "No shop drawings entered"}</h3><p>{shopDrawings.length ? "Change the filter or search to see another register item." : "Add the required submissions for this job. OneDrive files stay in their existing folders."}</p>{!shopDrawings.length && <button className="button secondary compact" type="button" onClick={startNewShopDrawing}>＋ Add first drawing</button>}</div>}
           <p className="shop-drawing-footnote">Internal by default. Employee sharing is available only for Approved or Approved as noted current revisions and replaces the existing employee job-list document button.</p>
         </section>}
-        <JobDrawings key={job.id} job={job} actor={currentEstimator.name} active={tab === "drawings"} />
+        <JobDrawings key={`drawings-${job.id}`} job={job} actor={currentEstimator.name} active={tab === "drawings"} />
         <JobSafety key={`safety-${job.id}`} job={job} active={tab === "job-board"} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />
-        {tab === "warranty" && <JobWarrantyPage key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />}
-        {tab === "tm-extras" && <JobTmExtras key={job.id} job={job} />}
-        {tab === "rfis" && <JobRfis key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />}
+        {tab === "warranty" && <JobWarrantyPage key={`warranty-${job.id}`} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />}
+        {tab === "tm-extras" && <JobTmExtras key={`extras-${job.id}`} job={job} />}
+        {tab === "rfis" && <JobRfis key={`rfis-${job.id}`} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />}
         <div className="schedule-tab" hidden={tab !== "schedule"}><JobSchedule key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} /></div>
         {tab === "statistics" && <>
           <section className="job-kpi-grid job-operational-costs" aria-label="Job costs to date">

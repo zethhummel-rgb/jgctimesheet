@@ -1,6 +1,6 @@
 {
   "../../../../../AppData/Local/Temp/jgc-tm-extras-dependencies/node_modules/.pnpm/pdfjs-dist@6.2.108/node_modules/pdfjs-dist/legacy/build/pdf.mjs": {
-    "file": "assets/pdf-04_HcVeW.js",
+    "file": "assets/pdf-DDCuKi6a.js",
     "name": "pdf",
     "src": "../../../../../AppData/Local/Temp/jgc-tm-extras-dependencies/node_modules/.pnpm/pdfjs-dist@6.2.108/node_modules/pdfjs-dist/legacy/build/pdf.mjs",
     "isDynamicEntry": true,
@@ -9,7 +9,7 @@
     ]
   },
   "../../../../../AppData/Local/Temp/jgc-tm-extras-dependencies/node_modules/.pnpm/tesseract.js@7.0.0/node_modules/tesseract.js/src/index.js": {
-    "file": "assets/src-Bgo9utQA.js",
+    "file": "assets/src-BmXoQWQH.js",
     "name": "src",
     "src": "../../../../../AppData/Local/Temp/jgc-tm-extras-dependencies/node_modules/.pnpm/tesseract.js@7.0.0/node_modules/tesseract.js/src/index.js",
     "isDynamicEntry": true,
@@ -18,7 +18,7 @@
     ]
   },
   "../../../../../AppData/Local/Temp/jgc-tm-extras-dependencies/node_modules/.pnpm/tus-js-client@4.3.1/node_modules/tus-js-client/lib.esm/browser/index.js": {
-    "file": "assets/browser-Cdb8OGk3.js",
+    "file": "assets/browser-CJVIYzdf.js",
     "name": "browser",
     "src": "../../../../../AppData/Local/Temp/jgc-tm-extras-dependencies/node_modules/.pnpm/tus-js-client@4.3.1/node_modules/tus-js-client/lib.esm/browser/index.js",
     "isDynamicEntry": true,
@@ -26,15 +26,15 @@
       "index.html"
     ]
   },
-  "_es-BMuJ46L0.js": {
-    "file": "assets/es-BMuJ46L0.js",
+  "_es-BXEJh2Mm.js": {
+    "file": "assets/es-BXEJh2Mm.js",
     "name": "es",
     "imports": [
       "index.html"
     ]
   },
   "index.html": {
-    "file": "assets/index-BvJX37Hk.js",
+    "file": "assets/index-DpiMVmyf.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
@@ -57,13 +57,13 @@
     ]
   },
   "lib/drawing-pdf.ts": {
-    "file": "assets/drawing-pdf-DTsoS5XB.js",
+    "file": "assets/drawing-pdf-DbLhfN5j.js",
     "name": "drawing-pdf",
     "src": "lib/drawing-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-BMuJ46L0.js"
+      "_es-BXEJh2Mm.js"
     ]
   },
   "lib/job-accounting-workbook.ts": {
@@ -73,47 +73,47 @@
     "isDynamicEntry": true
   },
   "lib/job-schedule-pdf.ts": {
-    "file": "assets/job-schedule-pdf-Z1VoLT1y.js",
+    "file": "assets/job-schedule-pdf-BRMWe-Uv.js",
     "name": "job-schedule-pdf",
     "src": "lib/job-schedule-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-BMuJ46L0.js"
+      "_es-BXEJh2Mm.js"
     ]
   },
   "lib/job-warranty-pdf.ts": {
-    "file": "assets/job-warranty-pdf-Ca10nWSn.js",
+    "file": "assets/job-warranty-pdf-_EkjSO7B.js",
     "name": "job-warranty-pdf",
     "src": "lib/job-warranty-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-BMuJ46L0.js"
+      "_es-BXEJh2Mm.js"
     ]
   },
   "lib/proposal-pdf.ts": {
-    "file": "assets/proposal-pdf-DexrQP9h.js",
+    "file": "assets/proposal-pdf-BoAmiTql.js",
     "name": "proposal-pdf",
     "src": "lib/proposal-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-BMuJ46L0.js"
+      "_es-BXEJh2Mm.js"
     ]
   },
   "lib/purchase-order-pdf.ts": {
-    "file": "assets/purchase-order-pdf-C2nlyfKk.js",
+    "file": "assets/purchase-order-pdf-Bw6Cz2oW.js",
     "name": "purchase-order-pdf",
     "src": "lib/purchase-order-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-BMuJ46L0.js"
+      "_es-BXEJh2Mm.js"
     ]
   },
   "lib/quote-backup-pdf.ts": {
-    "file": "assets/quote-backup-pdf-BvDZoU1o.js",
+    "file": "assets/quote-backup-pdf-C9Fu5USK.js",
     "name": "quote-backup-pdf",
     "src": "lib/quote-backup-pdf.ts",
     "isDynamicEntry": true,
@@ -121,17 +121,17 @@
       "index.html",
       "lib/purchase-order-pdf.ts",
       "lib/proposal-pdf.ts",
-      "_es-BMuJ46L0.js"
+      "_es-BXEJh2Mm.js"
     ]
   },
   "lib/rfi-pdf.ts": {
-    "file": "assets/rfi-pdf-C9qaCpQO.js",
+    "file": "assets/rfi-pdf-BfNxQCNo.js",
     "name": "rfi-pdf",
     "src": "lib/rfi-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-BMuJ46L0.js"
+      "_es-BXEJh2Mm.js"
     ]
   }
 }
