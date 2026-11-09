@@ -4,6 +4,7 @@ export type AccountingColor = "white" | "green" | "yellow" | "red" | "blue" | "o
 export interface AccountingSourceJob {
   jobNumber: string; jobName: string; active: boolean; cancelledAt: string | null;
   invoiceReviewAt?: string | null;
+  closedAt?: string | null;
   progressBillingRequestId?: string | null;
   statusChangedAt: string | null; projectManager: string; jobType: string;
   customer: string; site: string; address: string; startDate: string | null;
@@ -14,6 +15,7 @@ export interface AccountingSourceJob {
 export interface AccountingMasterRow { jobNumber: string; color: AccountingColor; cells: AccountingCell[] }
 export interface AccountingExportRow extends AccountingMasterRow {
   changed: boolean; change: string; customer: string; site: string; address: string; targetEndDate: string;
+  closedDate?: string;
 }
 export interface AccountingExportPreview {
   cycle: number;
@@ -33,6 +35,15 @@ const stable = (value: unknown): string => JSON.stringify(value, (_key, item) =>
 function historicalExtras(value: AccountingCell | undefined) {
   return typeof value === "number" ? value !== 0 : typeof value === "string" && /^yes$/i.test(value.trim());
 }
+/** The closure timestamp is server-recorded; accounting dates use Toronto. */
+export function closedJobDate(value?: string | null): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
+  const part = (type: string) => parts.find(item => item.type === type)?.value ?? "";
+  return [part("year"),part("month"),part("day")].join("-");
+}
 const dateCell = (date: string | null): AccountingCell => date ? { date: date.slice(0, 10) } : null;
 const manager = (name: string) => /^(ZH|Zeth Hummel)$/i.test(name.trim()) ? "ZH" : /^(JV|Jeff Vandrish)$/i.test(name.trim()) ? "JV" : name;
 
@@ -49,7 +60,7 @@ export function planJobAccountingExport(preview: AccountingExportPreview): Accou
   for (const number of new Set([...master.keys(), ...current.keys(), ...oldRows.keys(), ...previous.keys(), ...baseline.keys()])) {
     const job = current.get(number), seed = baseline.get(number), before = previous.get(number), original = master.get(number), old = oldRows.get(number);
     // Legacy saved snapshots omit invoiceReviewAt; null is the same state.
-    const comparable = (row: AccountingSourceJob | undefined) => row ? { ...row, hasExtras: row.hasExtras ?? historicalExtras(row.extras), invoiceReviewAt: row.invoiceReviewAt ?? null, progressBillingRequestId: row.progressBillingRequestId ?? null, jobDate: row.jobDate ?? null, subcontractors: row.subcontractors ?? null } : null;
+    const comparable = (row: AccountingSourceJob | undefined) => row ? { ...row, hasExtras: row.hasExtras ?? historicalExtras(row.extras), invoiceReviewAt: row.invoiceReviewAt ?? null, progressBillingRequestId: row.progressBillingRequestId ?? null, closedAt: row.closedAt ?? null, jobDate: row.jobDate ?? null, subcontractors: row.subcontractors ?? null } : null;
     const changed = stable(comparable(job)) !== stable(comparable(before));
     // Compare against the last saved download, not the original import, so a
     // newly inactive job is green once and existing inactive jobs are yellow.
@@ -112,7 +123,8 @@ export function planJobAccountingExport(preview: AccountingExportPreview): Accou
     const hasExtras = source?.hasExtras ?? historicalExtras(source?.extras ?? old?.cells[11] ?? original?.cells[11]);
     cells[11] = hasExtras ? "Yes" : null;
     if (!job) missingFromPortal++;
-    rows.push({ jobNumber: String(cells[5]), color, cells, changed: Boolean(changed || initiallyColoured),
+    const closedDate = source ? (!source.active && !source.cancelledAt ? closedJobDate(source.closedAt) : "") : old?.closedDate ?? "";
+    rows.push({ jobNumber: String(cells[5]), color, cells, closedDate, changed: Boolean(changed || initiallyColoured),
       change: color === "orange" ? "Progress billing requested" : newClosure ? job!.active ? "Project reopened" : job!.cancelledAt ? "Job cancelled" : job!.invoiceReviewAt ? "Closed - discuss invoicing" : before?.invoiceReviewAt ? "Discussion resolved - ready to invoice" : "Project closed" : initiallyColoured ? "Starting master workbook" : !job ? "Retained source row; not in current portal" : !before ? "New job" : changed ? "Job details updated" : ({ orange: "Progress billing requested", white: "Active project", green: "Ready to invoice", red: "Cancelled job", yellow: "Previously handed to accounting", blue: "Closed - discuss invoicing" }[color]),
       customer: source?.customer ?? old?.customer ?? "", site: source?.site ?? old?.site ?? "", address: source?.address ?? old?.address ?? "", targetEndDate: source?.targetEndDate ?? old?.targetEndDate ?? "" });
   }

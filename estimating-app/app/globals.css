@@ -2060,13 +2060,46 @@ html.accounting-download-embed, html.accounting-download-embed body { min-height
 .job-status-dot { display:inline-block; width:10px; height:10px; border-radius:50%; border:1px solid currentColor; }
 .job-status-dot.is-active { background:#168345; color:#168345; }
 .job-status-dot.is-inactive { background:#c63838; color:#c63838; }
-.job-status-menu { position:relative; }
-.job-status-menu > summary { cursor:pointer; white-space:nowrap; padding:4px 7px; font-size:12px; min-height:28px; list-style:none; }
-.job-status-menu-options { display:flex; flex-direction:column; gap:3px; padding-top:4px; }
+/* One consistent control size; retain each action's existing colour. */
+.job-status-menu { position: relative; width: 184px; max-width: 100%; }
+.job-status-menu > summary.button {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; min-height: 36px; padding: 8px 12px; border-radius: 8px;
+  cursor: pointer; white-space: nowrap; font-size: 12px; line-height: 1.3;
+  list-style: none;
+}
+.job-status-menu > summary::-webkit-details-marker { display: none; }
+.job-status-menu > summary::after {
+  content: ""; width: 6px; height: 6px; flex: 0 0 6px;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+.job-status-menu[open] > summary::after { transform: translateY(2px) rotate(225deg); }
+.job-status-menu-options {
+  display: grid; gap: 6px; margin-top: 6px; padding: 8px;
+  border: 1px solid var(--slate-200); border-radius: 10px;
+  background: var(--slate-50);
+}
+.job-directory-page .job-status-menu-options > .button {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; min-height: 36px; height: 36px; margin: 0;
+  padding: 6px 8px; border-radius: 7px;
+  font-size: 12px; font-weight: 700; line-height: 1.3; white-space: nowrap;
+}
+.job-status-menu > summary:focus-visible,
+.job-status-menu-options > .button:focus-visible {
+  outline: 2px solid var(--green-700); outline-offset: 2px;
+}
 @media(max-width:760px) {
  .job-directory-page.job-view-list .jobs-table td[data-label="Customer PO/WO #"] { grid-column:2 / 4; grid-row:5; }
  .job-directory-page.job-view-list .jobs-table td[data-label="Customer PO/WO #"]::before { display:inline; content:"Customer PO/WO #: "; }
- .job-status-menu > summary { min-height:44px; }
+ .job-status-menu { width: 136px; }
+ .job-status-menu > summary.button { min-height: 44px; }
+ .job-directory-page.job-view-list .jobs-table td[data-label="Change status"]:has(.job-status-menu[open]) {
+   grid-column: 1 / -1; grid-row: 6; justify-self: stretch; width: 100%; padding-top: 6px;
+ }
+ .job-directory-page .job-status-menu[open] { width: 100%; }
+ .job-directory-page .job-status-menu-options > .button { min-height: 44px; height: 44px; }
 }
 
 @media(min-width:761px) {

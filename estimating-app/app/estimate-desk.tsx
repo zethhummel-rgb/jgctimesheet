@@ -1,3 +1,4 @@
+import { closedJobDate } from "../lib/job-accounting-export";
 import { JobProgressBilling, requestProgressBilling } from "./job-progress-billing";
 import { JobDrawings } from "./job-drawings";
 import { JobSafety } from "./job-safety";
@@ -6258,7 +6259,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "The official job status could not be saved.");
       if (result.job?.id !== target.portalJobId || result.job.active !== (status === "Active") || (cancelled && !result.job.cancelledAt) || Boolean(result.job.invoiceReviewAt) !== invoiceReview) throw new Error("The official job status could not be confirmed. Refresh the job list before trying again.");
-      setState((current) => ({ ...current, jobs: current.jobs.map((item) => item.portalJobId === target.portalJobId ? { ...item, status, portalActive: result.job.active, cancelledAt: result.job.cancelledAt || "", invoiceReviewAt: result.job.invoiceReviewAt || "", archivedAt: status === "Archived" ? (item.archivedAt || new Date().toISOString()) : "" } : item) }));
+      setState((current) => ({ ...current, jobs: current.jobs.map((item) => item.portalJobId === target.portalJobId ? { ...item, status, portalActive: result.job.active, cancelledAt: result.job.cancelledAt || "", invoiceReviewAt: result.job.invoiceReviewAt || "", closedAt: result.job.closedAt || "", archivedAt: status === "Archived" ? (item.archivedAt || new Date().toISOString()) : "" } : item) }));
       setStatusMessage(status === "Active" ? `Job ${target.jobNumber} is now active and available in the shared job list.` : `Job ${target.jobNumber} is now ${cancelled ? "cancelled" : invoiceReview ? "closed — discuss invoicing with accounting (blue)" : "inactive"}. Find it under Inactive; its history and linked records are retained.`);
     } catch (error) { setStatusMessage(error instanceof Error ? error.message : "The official job status could not be saved."); }
     finally { statusRequestPending.current = false; setStatusSavingJobId(""); }
@@ -6350,7 +6351,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
       <div className="page-stack job-detail-page">
         <div className="quote-topline job-topline">
           <button className="back-button" onClick={onBack}>← All jobs</button>
-          <div className="quote-identity"><div><span className="eyebrow">JOB {job.jobNumber} · {quoteReference}</span><h1>{job.project}</h1><p>{job.portalCustomer || clientName(state, job.clientId)} · {(job.portalSiteName ?? linkedQuote?.site ?? job.portalAddress) || "No location"} · {job.jobType || "Type not set"} · PM {jobManagerIdentity(job.projectManager).label || "Unassigned"}</p>{(job.startDate || job.targetEndDate) && <p className="job-header-dates">{job.startDate && <span>Start date: {shortDate(job.startDate)}</span>}{job.targetEndDate && <span>Completion date: {shortDate(job.targetEndDate)}</span>}</p>}</div><StatusPill status={jobDisplayStatus(job)} /></div>
+          <div className="quote-identity"><div><span className="eyebrow">JOB {job.jobNumber} · {quoteReference}</span><h1>{job.project}</h1><p>{job.portalCustomer || clientName(state, job.clientId)} · {(job.portalSiteName ?? linkedQuote?.site ?? job.portalAddress) || "No location"} · {job.jobType || "Type not set"} · PM {jobManagerIdentity(job.projectManager).label || "Unassigned"}</p>{(job.startDate || job.targetEndDate || job.closedAt) && <p className="job-header-dates">{job.startDate && <span>Start date: {shortDate(job.startDate)}</span>}{job.targetEndDate && <span>Completion date: {shortDate(job.targetEndDate)}</span>}{job.closedAt && <span>Date closed: {shortDate(closedJobDate(job.closedAt))}</span>}</p>}</div><StatusPill status={jobDisplayStatus(job)} /></div>
           <div className="job-action-stack"><div className="quote-primary-actions">{linkedQuote && <button className="button secondary" onClick={() => onOpenQuote(job.quoteId, "history")}>Open accepted quote</button>}<button className="button primary" onClick={() => onAddCost(job.id)}>＋ Add actual</button></div>{renderJobStatusAction(job, true)}</div>
         </div>
         {statusMessage && <div className="estimating-boundary-note" role="status">{statusMessage}</div>}

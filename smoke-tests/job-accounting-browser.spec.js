@@ -7,6 +7,10 @@ const ExcelJS = require("../vendor/exceljs.min.js");
 async function setup(page, options = {}) {
   const captures = await serveDirectory(page, directoryState());
   let preview = fixture();
+  if (options.closedDates) {
+    preview.sourceSnapshot[0].closedAt = "2026-11-09T02:30:00Z";
+    preview.masterRows.find(r => r.jobNumber === "26901").cells[14] = { date: "2026-10-29" };
+  }
   if (options.discussion) preview.sourceSnapshot[0] = { ...preview.sourceSnapshot[0], invoiceReviewAt: "2026-09-08T18:00:00Z", statusChangedAt: "2026-09-08T18:00:00Z" };
   if (options.reference) preview = { ...preview, ...options.reference, sourceSnapshot: [], baselineSnapshot: [], previousSnapshot: [] };
   if (options.inactiveCoverage) {
@@ -100,7 +104,7 @@ test("blue is handed off once then yellow in real XLSX versions; saved blue byte
     await file.saveAs(testInfo.outputPath(`accounting-blue-v${version}.xlsx`));
     const book = new ExcelJS.Workbook(); await book.xlsx.load(fs.readFileSync(await file.path()));
     const sheet = book.getWorksheet("2026");
-    for (let col = 1; col <= 16; col++) expect(sheet.getCell(3, col).fill.fgColor.argb).toBe(version === 1 ? "FF9BC2E6" : "FFFFFF00");
+    for (let col = 1; col <= 17; col++) expect(sheet.getCell(3, col).fill.fgColor.argb).toBe(version === 1 ? "FF9BC2E6" : "FFFFFF00");
     expect(sheet.getRow(3).height).toBe(12.75);
     expect(sheet.getCell("A3").font).toMatchObject({ name: "Arial", size: 10, color: { argb: "FF000000" } });
     expect(book.getWorksheet("Download details").getCell("B7").value).toBe(version === 1 ? "Closed - discuss invoicing" : "Previously handed to accounting");
@@ -454,5 +458,32 @@ test("progress billing produces an orange XLSX row once, then white, with exact 
   await page.getByRole("button",{name:"Download v1",exact:true}).click();
   expect(fs.readFileSync(await (await waiting).path()).equals(Buffer.from(state.versions[0].file_base64,"base64"))).toBe(true);
   expect(state.versions).toHaveLength(2);
+  expect(state.captures.jobInfo).toEqual([]);
+});
+
+test("downloaded Excel appends Date Closed, preserves Date Completed and old download bytes", async ({ page }, testInfo) => {
+  const state = await setup(page, { closedDates: true });
+  for (const version of [1, 2]) {
+    const download = await create(page, version);
+    await download.saveAs(testInfo.outputPath("closure-date-v" + version + ".xlsx"));
+    const book = new ExcelJS.Workbook();
+    await book.xlsx.load(fs.readFileSync(await download.path()));
+    for (const year of ["2026", "2025"]) {
+      expect(book.getWorksheet(year).getCell("Q1").value).toBe("Date Closed");
+      expect(book.getWorksheet(year).pageSetup.printArea).toMatch(/^A1:Q/);
+    }
+    const sheet = book.getWorksheet("2026");
+    expect(sheet.getCell("O3").value.toISOString().slice(0,10)).toBe("2026-10-29");
+    expect(sheet.getCell("Q3").value.toISOString().slice(0,10)).toBe("2026-11-08");
+    expect(sheet.getCell("Q3").numFmt).toBe("mmm d, yyyy");
+    expect(sheet.getCell("Q3").fill).toEqual(sheet.getCell("P3").fill);
+    expect(sheet.getCell("Q4").value).toBeNull();
+    expect(sheet.getCell("Q5").value).toBeNull();
+    expect(book.getWorksheet("2025").getCell("Q3").value).toBeNull();
+  }
+  await page.locator(".job-accounting-history > summary").click();
+  const old = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download v1", exact: true }).click();
+  expect(fs.readFileSync(await (await old).path()).equals(Buffer.from(state.versions[0].file_base64, "base64"))).toBe(true);
   expect(state.captures.jobInfo).toEqual([]);
 });

@@ -33,6 +33,7 @@ export interface PortalJobOption {
   active: boolean;
   cancelledAt?: string;
   invoiceReviewAt?: string;
+  closedAt?: string;
   documentLink?: string;
   documentLinkLabel?: string;
 }
@@ -217,11 +218,12 @@ function portalJobOption(row: Record<string, any>): PortalJobOption {
     documentLink: String(row.document_link ?? ""),
     cancelledAt: row.active ? "" : String(row.cancelled_at ?? ""),
     invoiceReviewAt: row.active || row.cancelled_at ? "" : String(row.invoice_review_at ?? ""),
+    closedAt: row.active || row.cancelled_at ? "" : String(row.closed_at ?? ""),
     documentLinkLabel: String(row.document_link_label ?? ""),
   };
 }
 
-const PORTAL_JOB_FIELDS = "id,job_number,job_name,customer,address,site_name,last_imported_at,job_type,project_manager,start_date,target_end_date,active,cancelled_at,invoice_review_at,document_link,document_link_label,updated_at,removed_from_import_at,archive_until";
+const PORTAL_JOB_FIELDS = "id,job_number,job_name,customer,address,site_name,last_imported_at,job_type,project_manager,start_date,target_end_date,active,cancelled_at,invoice_review_at,closed_at,document_link,document_link_label,updated_at,removed_from_import_at,archive_until";
 
 async function loadPortalJobRows(client: any) {
   const result = await loadPortalStatisticPages(() => client
@@ -884,6 +886,7 @@ function syncPortalData(state: AppState, vendors: Vendor[], portalJobs: PortalJo
       portalActive: portal.active,
       cancelledAt: archived ? (portal.cancelledAt ?? "") : "",
       invoiceReviewAt: archived && !portal.cancelledAt ? (portal.invoiceReviewAt ?? "") : "",
+      closedAt: archived && !portal.cancelledAt ? (portal.closedAt ?? "") : "",
       portalLastSyncedAt: new Date().toISOString(),
       portalJobName: portal.jobName,
       portalCustomer: portal.customer,

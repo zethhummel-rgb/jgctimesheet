@@ -404,3 +404,20 @@ test("statistics separate WO-only labour, include manual POs and never mix match
 });
 
 test('portal-only entry rejects Excel import even for administrators without writes',async()=>{const {api,browser}=loadApi();const client=mockClient({jobs:[]});api.installEstimatorApiBridge(client);const result=await request(browser,'job-import',{action:'apply',records:[importRow('26999')]});expect(result.status).toBe(403);expect(client.writes).toBe(0);expect(client.calls).toEqual([]);});
+
+test("canonical closure timestamp survives details and overrides stale workspace dates", async () => {
+  const { api, browser } = loadApi();
+  const closedAt = "2026-11-09T02:30:00Z";
+  const client = mockClient({ jobs: [job("closed", "26995", { active: false, closed_at: closedAt })] });
+  api.installEstimatorApiBridge(client);
+  const edit = await request(browser, "job-info", { portalJobId: "closed", customer: "New customer", closedAt: "2000-01-01" }, "PATCH");
+  expect(edit.status).toBe(200);
+  expect(edit.body.job.closedAt).toBe(closedAt);
+  expect(client.calls.filter(c => c.operation === "update").every(c => !("closed_at" in c.payload))).toBe(true);
+  const canonical = (await request(browser, "jobs", undefined, "GET")).body.jobs;
+  const state = { jobs: [{ id: "local", jobNumber: "26995", portalJobId: "closed", closedAt: "2000-01-01", status: "Archived" }] };
+  expect(api.synchronizePortalJobs(state, canonical).jobs[0].closedAt).toBe(closedAt);
+  client.tables.jobs[0].active = true; // Stale data is cleared even if a legacy client returned it.
+  const reopened = (await request(browser, "jobs", undefined, "GET")).body.jobs;
+  expect(api.synchronizePortalJobs(state, reopened).jobs[0].closedAt).toBe("");
+});
