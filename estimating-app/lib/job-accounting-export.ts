@@ -1,9 +1,10 @@
 /** Accounting hand-off only. Never read by the operational job importer. */
 export type AccountingCell = string | number | null | { date: string };
-export type AccountingColor = "white" | "green" | "yellow" | "red" | "blue";
+export type AccountingColor = "white" | "green" | "yellow" | "red" | "blue" | "orange";
 export interface AccountingSourceJob {
   jobNumber: string; jobName: string; active: boolean; cancelledAt: string | null;
   invoiceReviewAt?: string | null;
+  progressBillingRequestId?: string | null;
   statusChangedAt: string | null; projectManager: string; jobType: string;
   customer: string; site: string; address: string; startDate: string | null;
   targetEndDate: string | null; price: number | null; extras: number | null; hasExtras?: boolean;
@@ -23,7 +24,7 @@ export interface AccountingExportPreview {
 }
 export interface AccountingExportPlan {
   rows: AccountingExportRow[];
-  summary: { total: number; green: number; yellow: number; red: number; white: number; blue: number; changed: number; reviewInactive: number; missingFromPortal: number };
+  summary: { total: number; green: number; yellow: number; red: number; white: number; blue: number; orange: number; changed: number; reviewInactive: number; missingFromPortal: number };
 }
 const key = (number: string) => number.trim().toLowerCase();
 const stable = (value: unknown): string => JSON.stringify(value, (_key, item) =>
@@ -48,7 +49,7 @@ export function planJobAccountingExport(preview: AccountingExportPreview): Accou
   for (const number of new Set([...master.keys(), ...current.keys(), ...oldRows.keys(), ...previous.keys(), ...baseline.keys()])) {
     const job = current.get(number), seed = baseline.get(number), before = previous.get(number), original = master.get(number), old = oldRows.get(number);
     // Legacy saved snapshots omit invoiceReviewAt; null is the same state.
-    const comparable = (row: AccountingSourceJob | undefined) => row ? { ...row, hasExtras: row.hasExtras ?? historicalExtras(row.extras), invoiceReviewAt: row.invoiceReviewAt ?? null, jobDate: row.jobDate ?? null, subcontractors: row.subcontractors ?? null } : null;
+    const comparable = (row: AccountingSourceJob | undefined) => row ? { ...row, hasExtras: row.hasExtras ?? historicalExtras(row.extras), invoiceReviewAt: row.invoiceReviewAt ?? null, progressBillingRequestId: row.progressBillingRequestId ?? null, jobDate: row.jobDate ?? null, subcontractors: row.subcontractors ?? null } : null;
     const changed = stable(comparable(job)) !== stable(comparable(before));
     // Compare against the last saved download, not the original import, so a
     // newly inactive job is green once and existing inactive jobs are yellow.
@@ -61,7 +62,7 @@ export function planJobAccountingExport(preview: AccountingExportPreview): Accou
     const explicitStatus = Boolean(job && (!seed || job.statusChangedAt !== seed.statusChangedAt || job.cancelledAt !== seed.cancelledAt || (job.invoiceReviewAt ?? null) !== (seed.invoiceReviewAt ?? null)));
     let color: AccountingColor = old?.color ?? original?.color ?? "yellow";
     if (job) {
-      color = job.active ? "white"
+      color = job.active ? (job.progressBillingRequestId ? "orange" : "white")
         : job.cancelledAt ? "red"
         : job.invoiceReviewAt ? "blue"
         : !explicitStatus && original?.color === "red" ? "red"
@@ -69,6 +70,7 @@ export function planJobAccountingExport(preview: AccountingExportPreview): Accou
         : newlyInactive ? "green" : "yellow";
     }
     // Retained historical rows also advance after their first hand-off.
+    if (!job && color === "orange") color = "white";
     if ((color === "green" || color === "blue") && !first && !newClosure && old && (old.color === color || old.color === "yellow")) color = "yellow";
     const initiallyColoured = first && original && original.color !== "white";
     // Every project belongs in each download, even when unchanged.
@@ -111,11 +113,11 @@ export function planJobAccountingExport(preview: AccountingExportPreview): Accou
     cells[11] = hasExtras ? "Yes" : null;
     if (!job) missingFromPortal++;
     rows.push({ jobNumber: String(cells[5]), color, cells, changed: Boolean(changed || initiallyColoured),
-      change: newClosure ? job!.active ? "Project reopened" : job!.cancelledAt ? "Job cancelled" : job!.invoiceReviewAt ? "Closed - discuss invoicing" : before?.invoiceReviewAt ? "Discussion resolved - ready to invoice" : "Project closed" : initiallyColoured ? "Starting master workbook" : !job ? "Retained source row; not in current portal" : !before ? "New job" : changed ? "Job details updated" : ({ white: "Active project", green: "Ready to invoice", red: "Cancelled job", yellow: "Previously handed to accounting", blue: "Closed - discuss invoicing" }[color]),
+      change: color === "orange" ? "Progress billing requested" : newClosure ? job!.active ? "Project reopened" : job!.cancelledAt ? "Job cancelled" : job!.invoiceReviewAt ? "Closed - discuss invoicing" : before?.invoiceReviewAt ? "Discussion resolved - ready to invoice" : "Project closed" : initiallyColoured ? "Starting master workbook" : !job ? "Retained source row; not in current portal" : !before ? "New job" : changed ? "Job details updated" : ({ orange: "Progress billing requested", white: "Active project", green: "Ready to invoice", red: "Cancelled job", yellow: "Previously handed to accounting", blue: "Closed - discuss invoicing" }[color]),
       customer: source?.customer ?? old?.customer ?? "", site: source?.site ?? old?.site ?? "", address: source?.address ?? old?.address ?? "", targetEndDate: source?.targetEndDate ?? old?.targetEndDate ?? "" });
   }
   rows.sort((a, b) => a.jobNumber.localeCompare(b.jobNumber, "en-CA", { numeric: true }));
-  return { rows, summary: { total: rows.length, green: rows.filter((r) => r.color === "green").length,
+  return { rows, summary: { total: rows.length, orange: rows.filter((r) => r.color === "orange").length, green: rows.filter((r) => r.color === "green").length,
     yellow: rows.filter((r) => r.color === "yellow").length, red: rows.filter((r) => r.color === "red").length,
     white: rows.filter((r) => r.color === "white").length, blue: rows.filter((r) => r.color === "blue").length, changed: rows.filter((r) => r.changed).length, reviewInactive: 0, missingFromPortal } };
 }

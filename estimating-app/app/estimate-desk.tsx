@@ -1,3 +1,4 @@
+import { JobProgressBilling, requestProgressBilling } from "./job-progress-billing";
 import { JobDrawings } from "./job-drawings";
 import { JobSafety } from "./job-safety";
 import { JobWarrantyPage } from "./job-warranty";
@@ -192,13 +193,14 @@ const navItems: { key: ViewKey; label: string }[] = [
 const tabBarItems = navItems.slice(0, 4);
 
 type QuoteTab = "details" | "estimate" | "breakdown" | "review" | "divisions" | "proposal" | "purchase-orders" | "history";
-type JobTab = "tm-extras" | "summary" | "schedule" | "purchase-orders" | "changes" | "shop-drawings" | "rfis" | "statistics" | "drawings" | "job-board" | "warranty";
+type JobTab = "progress-billing" | "tm-extras" | "summary" | "schedule" | "purchase-orders" | "changes" | "shop-drawings" | "rfis" | "statistics" | "drawings" | "job-board" | "warranty";
 const jobTabs: readonly { key: JobTab; label: string }[] = [
   { key: "summary", label: "Summary" },
   { key: "schedule", label: "Schedule" },
   { key: "purchase-orders", label: "Purchase Orders" },
   { key: "changes", label: "CCNs / Change Orders" },
   { key: "tm-extras", label: "T&M Extras" },
+  { key: "progress-billing", label: "Progress Billing" },
   { key: "shop-drawings", label: "Shop Drawings" },
   { key: "rfis", label: "RFIs" },
   { key: "statistics", label: "Statistics / Other" },
@@ -5692,6 +5694,10 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
   const [jobInfoMessage, setJobInfoMessage] = useState("");
   const [jobInfoError, setJobInfoError] = useState(false);
   const [statusSavingJobId, setStatusSavingJobId] = useState("");
+  const [billingSaving, setBillingSaving] = useState(false);
+  const [billingRevision, setBillingRevision] = useState(0);
+  const billingPending = useRef(false);
+  const billingRequestIds = useRef<Record<string,string>>({});
   const statusSaving = Boolean(statusSavingJobId);
   const statusRequestPending = useRef(false);
   const [statusMessage, setStatusMessage] = useState("");
@@ -5719,6 +5725,16 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
   const [shopDrawingMessage, setShopDrawingMessage] = useState("");
   const [shopDrawingError, setShopDrawingError] = useState(false);
   const jobTabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  useEffect(() => {
+    if (tab !== "progress-billing") return;
+    const button = jobTabRefs.current[jobTabs.findIndex(item => item.key === tab)];
+    const nav = button?.parentElement;
+    if (!button || !nav) return;
+    const itemRect = button.getBoundingClientRect(), navRect = nav.getBoundingClientRect();
+    if (itemRect.left < navRect.left) nav.scrollLeft += itemRect.left - navRect.left - 8;
+    else if (itemRect.right > navRect.right) nav.scrollLeft += itemRect.right - navRect.right + 8;
+  }, [job?.id, tab]);
+
   useEffect(() => {
     setDocumentLinkDraft("");
     setDocumentLinkLabelDraft("");
@@ -6247,14 +6263,29 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
     } catch (error) { setStatusMessage(error instanceof Error ? error.message : "The official job status could not be saved."); }
     finally { statusRequestPending.current = false; setStatusSavingJobId(""); }
   };
+  const flagProgressBilling = async (target: Job) => {
+    if (!target.portalJobId || billingPending.current || statusRequestPending.current) return;
+    billingPending.current = true; setBillingSaving(true); setStatusMessage("");
+    const requestId = billingRequestIds.current[target.id] ||= crypto.randomUUID();
+    try {
+      await requestProgressBilling(target.portalJobId,requestId);
+      delete billingRequestIds.current[target.id];
+      setBillingRevision(value => value + 1);
+      if (!job || job.id !== target.id) onOpen(target.id);
+      setTab("progress-billing");
+      setStatusMessage("Progress billing request saved. The job remains active.");
+    } catch(e) { setStatusMessage(e instanceof Error ? e.message : "Progress billing could not be saved."); }
+    finally { billingPending.current = false; setBillingSaving(false); }
+  };
   const renderJobStatusAction = (item: Job, header = false) => {
     const label = item.status === "Active" ? "Close Project" : "Make active";
-    const action = (text: string, cancel = false, review = false) => <button key={text} type="button" className={`button secondary ${header ? "compact job-header-status-button" : "compact job-status-action"}${cancel ? " job-cancel-action" : ""}${review ? " job-invoice-review-action" : ""}`} aria-label={`${text} — job ${item.jobNumber}`} aria-busy={statusSavingJobId === item.id} disabled={!item.portalJobId || statusSaving} title={!item.portalJobId ? "Link this job to the Portal before changing its status." : undefined} onClick={(event) => { event.stopPropagation(); void setJobStatus(item.id, cancel || review ? "Archived" : item.status === "Active" ? "Archived" : "Active", cancel, review); }}>{statusSavingJobId === item.id ? "Saving…" : text}</button>;
+    const action = (text: string, cancel = false, review = false) => <button key={text} type="button" className={`button secondary ${header ? "compact job-header-status-button" : "compact job-status-action"}${cancel ? " job-cancel-action" : ""}${review ? " job-invoice-review-action" : ""}`} aria-label={`${text} — job ${item.jobNumber}`} aria-busy={statusSavingJobId === item.id} disabled={!item.portalJobId || statusSaving || billingSaving} title={!item.portalJobId ? "Link this job to the Portal before changing its status." : undefined} onClick={(event) => { event.stopPropagation(); void setJobStatus(item.id, cancel || review ? "Archived" : item.status === "Active" ? "Archived" : "Active", cancel, review); }}>{statusSavingJobId === item.id ? "Saving…" : text}</button>;
+    const billingAction = currentEstimator.isAdmin && item.status === "Active" ? <button type="button" className="button secondary compact job-progress-action" aria-label={`Progress Billing - job ${item.jobNumber}`} disabled={!item.portalJobId || statusSaving || billingSaving} onClick={(event) => { event.stopPropagation(); void flagProgressBilling(item); }}>{billingSaving ? "Saving..." : "Progress Billing"}</button> : null;
     const closeAction = action(label);
     const cancelAction = !item.cancelledAt ? action("Cancel Project", true) : null;
     const reviewAction = !item.cancelledAt && !item.invoiceReviewAt ? action("Close — Discuss Invoice", false, true) : null;
-    if (!header) return <details className="job-status-menu" onClick={(event) => event.stopPropagation()}><summary className="button secondary compact">Change Status</summary><div className="job-status-menu-options">{closeAction}{cancelAction}{reviewAction}</div></details>;
-    return <div className={`job-status-actions${header ? " job-header-status-actions" : ""}`} role="group" aria-label={`Job ${item.jobNumber} status actions`}>{header ? <>{cancelAction}{closeAction}{reviewAction}</> : <>{closeAction}{cancelAction}</>}</div>;
+    if (!header) return <details className="job-status-menu" onClick={(event) => event.stopPropagation()}><summary className="button secondary compact">Change Status</summary><div className="job-status-menu-options">{closeAction}{cancelAction}{reviewAction}{billingAction}</div></details>;
+    return <div className={`job-status-actions${header ? " job-header-status-actions" : ""}`} role="group" aria-label={`Job ${item.jobNumber} status actions`}>{header ? <>{cancelAction}{closeAction}{reviewAction}{billingAction}</> : <>{closeAction}{cancelAction}</>}</div>;
   };
   if (job) {
     const documentLinks = job.documentLinks ?? [];
@@ -6339,6 +6370,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           >{label}</button>)}
         </nav>
         <div className="job-tab-panel" id={jobTabPanelId} role="tabpanel" aria-labelledby={`${jobTabsBaseId}-tab-${tab}`}>
+        {tab === "progress-billing" && <JobProgressBilling key={job.id} jobId={job.portalJobId || ""} active={job.status === "Active"} canManage={currentEstimator.isAdmin} revision={billingRevision} requesting={billingSaving} onRequest={() => void flagProgressBilling(job)} />}
         {tab === "summary" && <>
         {currentEstimator.isAdmin && quotedJobCost(job, linkedQuote) !== null && <section className="panel job-quoted-cost" aria-label="Quoted price">
           <div><span className="eyebrow">QUOTED PRICE</span><p>Customer quoted price · before tax</p></div>

@@ -1,3 +1,4 @@
+import { jobProgressBillingResponse } from "./job-progress-billing-api";
 import { rfiPersistenceError } from "../lib/rfi-workflow";
 import { schedulePersistenceError } from "../lib/job-schedule";
 import { warrantyPersistenceError } from "../lib/job-warranty";
@@ -1296,6 +1297,7 @@ async function route(client: any, input: RequestInfo | URL, init?: RequestInit) 
   if (url.pathname.endsWith("/api/job-create")) return createPortalJob(client, request);
   if (url.pathname.endsWith("/api/jobs")) return jobsResponse(client, request);
   if (url.pathname.endsWith("/api/job-import")) return EXCEL_JOB_IMPORT_ENABLED ? jobImportResponse(client, request) : json({ error: "Excel job upload is turned off. Use New job." }, 403);
+  if (url.pathname.endsWith("/api/job-progress-billing")) return jobProgressBillingResponse(client, request);
   if (url.pathname.endsWith("/api/job-accounting-export")) return jobAccountingResponse(client, request);
   if (url.pathname.endsWith("/api/job-documents")) return mutatePortalJobDocuments(client, request);
   if (url.pathname.endsWith("/api/vendors")) return mutatePortalVendor(client, request);
