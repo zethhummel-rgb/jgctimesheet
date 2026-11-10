@@ -397,3 +397,40 @@ for(const theme of ['light','dark'])for(const width of [390,1440])test(`a saved 
  if(width>900)for(const label of ['Page 2','Page 3'])expect(await page.getByRole('button',{name:label,exact:true}).locator('canvas').evaluate(c=>c.height)).toBeLessThanOrEqual(440);
  await pageNumber.fill('1');await pageNumber.press('Enter');await expect(page.locator('.drawing-page-problem')).toHaveCount(0);await expect.poll(()=>sheet.evaluate(c=>c.width)).toBeGreaterThan(0);
 });
+test('CCITT scanner upload displays every page and keeps the original PDF intact',async({page},info)=>{
+ test.setTimeout(60000);
+ const s=await store();await setup(page,s);
+ if(process.env.JGC_PDF_FORCE_FALLBACK)await page.route('**/pdf-decoders/jbig2.wasm',route=>route.abort('failed'));
+ const bytes=process.env.JGC_PDF_QA_FILE?fs.readFileSync(process.env.JGC_PDF_QA_FILE):await require('./fixtures/ccitt-pdf').ccittPdf();
+ const original=Buffer.from(bytes),sourceDoc=await PDFDocument.load(bytes),pages=sourceDoc.getPageCount();
+ let stored;
+ await page.route('https://drawings.example.test/storage/**',async route=>{
+  if(route.request().method()==='POST'){
+   const req=route.request(),body=req.postDataBuffer();
+   if((req.headers()['content-type']||'').startsWith('multipart/form-data')){
+    const form=await new Request(req.url(),{method:'POST',headers:req.headers(),body}).formData();
+    for(const value of form.values())if(value instanceof Blob)stored=Buffer.from(await value.arrayBuffer());
+   }else stored=body;
+   return route.fulfill({json:{Key:'ok'}});
+  }
+  return route.fulfill({contentType:'application/pdf',body:bytes});
+ });
+ await page.locator('.drawing-heading input[type=file]').setInputFiles({name:'Scanned declaration.pdf',mimeType:'application/pdf',buffer:bytes});
+ await expect(page.getByLabel('Drawing title')).toHaveValue('Scanned declaration');
+ expect(stored.equals(original)).toBe(true);
+ for(let n=1;n<=pages;n++){
+  await page.getByRole('button',{name:'Page '+n,exact:true}).click();
+  await expect(page.getByLabel('Page number',{exact:true})).toHaveValue(String(n));
+  await expect.poll(()=>page.locator('.drawing-sheet canvas').evaluate(c=>{
+   if(!c.width||!c.height)return 0;
+   const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+   let dark=0;for(let i=0;i<d.length;i+=16)if(d[i]<100&&d[i+3]>0)dark++;return dark;
+  })).toBeGreaterThan(100);
+  await page.locator('.drawing-sheet').screenshot({path:info.outputPath('scanned-page-'+n+'.png')});
+ }
+ expect(bytes.equals(original)).toBe(true);
+ const pending=page.waitForEvent('download');
+ await page.getByRole('button',{name:'Download marked PDF'}).click();
+ const file=await pending;await file.saveAs(info.outputPath('scanner-export.pdf'));
+ expect((await PDFDocument.load(fs.readFileSync(await file.path()))).getPageCount()).toBe(pages);
+});

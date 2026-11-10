@@ -1,3 +1,4 @@
+import { pdfDecoderOptions } from '../lib/pdf-decoder-options';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Job } from '../lib/estimator-data';
 import { sitePlanDate, type SafetyAttachment } from '../lib/site-specific';
@@ -25,7 +26,7 @@ function DocumentPreview({ job, item, onClose }: { job: Job; item: SafetyAttachm
         const engine = await import('pdfjs-dist/legacy/build/pdf.mjs');
         engine.GlobalWorkerOptions.workerSrc = './supplier-import/pdf.worker.min.mjs';
         if (!active) return;
-        task = engine.getDocument({ data: bytes, maxImageSize: 16_000_000 });
+        task = engine.getDocument({ ...pdfDecoderOptions, data: bytes, maxImageSize: 16_000_000 });
         const loaded = await task.promise; if (!active) { void task.destroy(); return; } setPdf(loaded); setCount(loaded.numPages);
       }
       if (active) { objectUrl = URL.createObjectURL(blob); setUrl(objectUrl); }

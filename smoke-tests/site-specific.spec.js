@@ -603,3 +603,24 @@ for(const theme of ['light','dark'])for(const width of [390,1440])test(`single-f
  await select.selectOption('other');await expect(page.getByRole('region',{name:'Other documents',exact:true})).toContainText('JGC policy');await saved(page);expect(store.getState().jobs[0].siteSpecific.attachments.find(a=>a.id==='policy').libraryCategory).toBe('other');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 });
+
+test('CCITT scanner document previews all pages and is included in the combined site-specific PDF',async({page},info)=>{
+ test.setTimeout(60000);
+ const seed=fixture(),plan=model.createSitePlan(seed.jobs[0],'QA');plan.updatedAt=new Date().toISOString();
+ plan.attachments=[{id:'board:qa-policy',kind:'board',boardId:'qa-board',documentId:'qa-policy',title:'Scanned declaration',included:true,fileName:'scan.pdf',fileType:'application/pdf'}];seed.jobs[0].siteSpecific=plan;
+ const bytes=process.env.JGC_PDF_QA_FILE?fs.readFileSync(process.env.JGC_PDF_QA_FILE):await require('./fixtures/ccitt-pdf').ccittPdf();
+ await setup(page,{seed});await client(page,{policy:bytes.toString('base64'),cert:bytes.toString('base64')});await showPage(page,'attachments');
+ await page.getByRole('button',{name:'Preview Scanned declaration',exact:true}).click();
+ const dialog=page.getByRole('dialog');
+ for(let n=1;n<=3;n++){
+  if(n>1)await dialog.getByRole('button',{name:'Next',exact:true}).click();
+  await expect(dialog.getByText('Page '+n+' of 3',{exact:true})).toBeVisible({timeout:20000});
+  await expect(dialog.locator('canvas')).toBeVisible();
+  await dialog.screenshot({path:info.outputPath('scanner-preview-'+n+'.png')});
+ }
+ await dialog.getByRole('button',{name:'Close preview',exact:true}).click();await saved(page);
+ const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download PDF',exact:true}).click();
+ const file=await pending;await file.saveAs(info.outputPath('scanner-site-specific.pdf'));
+ const {PDFDocument}=require('../estimating-app/node_modules/pdf-lib'),doc=await PDFDocument.load(fs.readFileSync(await file.path()));
+ expect(doc.getPageCount()).toBeGreaterThan(3);
+});

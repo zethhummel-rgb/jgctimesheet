@@ -1,3 +1,4 @@
+import { pdfDecoderOptions } from '../lib/pdf-decoder-options';
 import { useEffect, useId, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 import type { PDFDocumentProxy, PageViewport } from 'pdfjs-dist';
@@ -11,7 +12,7 @@ import './job-drawings.css';
 const phoneQuery='(max-width: 600px), (max-width: 1000px) and (max-height: 500px)';
 let engine: ReturnType<typeof importEngine> | undefined;
 async function importEngine() { const pdf = await import('pdfjs-dist/legacy/build/pdf.mjs'); pdf.GlobalWorkerOptions.workerSrc = './supplier-import/pdf.worker.min.mjs'; return pdf; }
-async function openPdf(bytes: Uint8Array) { await validatePdfIsolated(bytes);engine ??= importEngine(); const pdf = await engine; return pdf.getDocument({ data: bytes.slice() }).promise; }
+async function openPdf(bytes: Uint8Array) { await validatePdfIsolated(bytes);engine ??= importEngine(); const pdf = await engine; return pdf.getDocument({ ...pdfDecoderOptions, data: bytes.slice() }).promise; }
 // Checked before a PDF is stored, so a booby-trapped file never reaches the shared drawing list.
 async function checkDrawingPdf(bytes: Uint8Array) {
   const pdf = await openPdf(bytes);
