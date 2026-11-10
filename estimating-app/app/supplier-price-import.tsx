@@ -1,3 +1,4 @@
+import { pdfDecoderOptions } from '../lib/pdf-decoder-options';
 import {DOCUMENT_LIMITS, documentDeadline, imageBudget} from '../lib/document-budget';
 import {parseMaterialWorkbookIsolated,validatePdfIsolated} from '../lib/document-worker-client';
 "use client";
@@ -79,7 +80,7 @@ async function readSupplierPdf(file: File, onProgress: (value: number, message: 
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   pdfjs.GlobalWorkerOptions.workerSrc = "./supplier-import/pdf.worker.min.mjs";
   const bytes=new Uint8Array(await file.arrayBuffer());await validatePdfIsolated(bytes);
-  const loadingTask = pdfjs.getDocument({ data: bytes, maxImageSize:16_000_000 });
+  const loadingTask = pdfjs.getDocument({ ...pdfDecoderOptions, data: bytes, maxImageSize:16_000_000 });
   const entireDeadline=setTimeout(()=>{cancelled.current=true;void loadingTask.destroy();},180_000);
   try {
   const pdf = await documentDeadline(loadingTask.promise,30000,()=>loadingTask.destroy());

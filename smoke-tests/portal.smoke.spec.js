@@ -842,6 +842,16 @@ test("service worker installs and controls the portal", async ({ browser }) => {
     await mockPortalServices(controlledPage);
     await controlledPage.goto("/home.html?smoke-controlled=1", { waitUntil: "domcontentloaded" });
     await expect.poll(() => controlledPage.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
+    await context.setOffline(true);
+    for (const asset of ["jbig2.wasm", "jbig2_nowasm_fallback.js"]) {
+      const cached = await controlledPage.evaluate(async asset => {
+        const response = await fetch("./estimating/supplier-import/pdf-decoders/" + asset);
+        return { ok: response.ok, bytes: (await response.arrayBuffer()).byteLength };
+      }, asset);
+      expect(cached.ok).toBe(true);
+      expect(cached.bytes).toBeGreaterThan(100000);
+    }
+    await context.setOffline(false);
     await controlledPage.close();
     await expectNoRuntimeErrors(errors, "service-worker registration");
     await expectNoRuntimeErrors(controlledErrors, "service-worker controlled page");

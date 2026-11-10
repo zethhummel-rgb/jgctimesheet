@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "1063";
+const JGC_RELEASE_ID = "1064";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -17,6 +17,8 @@ const JGC_APP_SHELL = [
   "./estimating/jgc-warranty-logo-v1.png",
   "./estimating/jgc-warranty-signature-v1.png",
   "./estimating/supplier-import/pdf.worker.min.mjs",
+  "./estimating/supplier-import/pdf-decoders/jbig2.wasm",
+  "./estimating/supplier-import/pdf-decoders/jbig2_nowasm_fallback.js",
   "./portal-readability.css?v=2",
   "./safety-report-tools.js?v=1",
   "./safety-report-tools.css?v=1",
@@ -206,22 +208,22 @@ const JGC_APP_SHELL = [
   "./icon-180.png?v=4",
   "./icon-192.png?v=4",
   "./icon-512.png?v=4",
-  "./estimating/assets/browser-CJVIYzdf.js",
-  "./estimating/assets/document-worker-C9NC81n7.js",
-  "./estimating/assets/drawing-pdf-DbLhfN5j.js",
-  "./estimating/assets/es-BXEJh2Mm.js",
+  "./estimating/assets/browser-nUuaXgvx.js",
+  "./estimating/assets/document-worker-CYquVNAV.js",
+  "./estimating/assets/drawing-pdf-yEYr6H0W.js",
+  "./estimating/assets/es-5YPJN486.js",
   "./estimating/assets/index-C2E_OWAy.css",
-  "./estimating/assets/index-DpiMVmyf.js",
+  "./estimating/assets/index-DUT4aAay.js",
   "./estimating/assets/job-accounting-workbook-Dy-oQ8d1.js",
-  "./estimating/assets/job-schedule-pdf-BRMWe-Uv.js",
-  "./estimating/assets/job-warranty-pdf-_EkjSO7B.js",
+  "./estimating/assets/job-schedule-pdf-BAoCKr5a.js",
+  "./estimating/assets/job-warranty-pdf-CGIWwbNl.js",
   "./estimating/assets/pdf-Bs__3tTL.js",
-  "./estimating/assets/pdf-DDCuKi6a.js",
-  "./estimating/assets/proposal-pdf-BoAmiTql.js",
-  "./estimating/assets/purchase-order-pdf-Bw6Cz2oW.js",
-  "./estimating/assets/quote-backup-pdf-C9Fu5USK.js",
-  "./estimating/assets/rfi-pdf-BfNxQCNo.js",
-  "./estimating/assets/src-BmXoQWQH.js"
+  "./estimating/assets/pdf-DfxJdrok.js",
+  "./estimating/assets/proposal-pdf-DtgccT4Q.js",
+  "./estimating/assets/purchase-order-pdf-C8S7yAWC.js",
+  "./estimating/assets/quote-backup-pdf-DXn4FK4X.js",
+  "./estimating/assets/rfi-pdf-T5BnYXqv.js",
+  "./estimating/assets/src-Do8G8InD.js"
 ];
 
 function isJgcCacheableResponse(response) {

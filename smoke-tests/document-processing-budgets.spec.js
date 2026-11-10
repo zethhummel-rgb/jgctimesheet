@@ -28,3 +28,27 @@ test('ASCII85 handles partial groups and zero shorthand while rejecting malforme
  for(const bad of ['!~>','uuuuu~>','!z~>','!!!!!','!!!!!~x','!!!!!~>x','v~>'])expect(()=>decode(Buffer.from(bad),()=>{})).toThrow('too complex');
  expect(()=>decode(Buffer.from('z'.repeat(4*1024*1024+1)+'~>'),()=>{})).toThrow('too complex');
 });
+
+test('CCITT scanned PDFs are allowed with bounded one-bit image dimensions and decoder settings',async()=>{
+ const bytes=await require('./fixtures/ccitt-pdf').ccittPdf(),budget=load('pdf-input-budget').preflightPdf(bytes);
+ expect(budget.imagePixels).toBe(3*64*64);
+ expect(budget.decodedBytes).toBeGreaterThanOrEqual(3*64*64/8);
+ for(const filter of ['/Filter /CCITTFaxDecode','/Filter [/CCF]']){
+  expect(()=>load('pdf-input-budget').preflightPdf(streamPdf(Buffer.from([0]),filter,'/Subtype /Image /Width 1728 /Height 10 /BitsPerComponent 1'))).not.toThrow();
+ }
+});
+test('CCITT decoder dimensions, indirect values and duplicate parameters cannot bypass image budgets',()=>{
+ const base='/Subtype /Image /Width 64 /Height 64 /BitsPerComponent 1';
+ for(const params of ['<< /Columns 100000 /Rows 64 >>','<< /Columns 64 /Rows 100000 >>','<< /Columns 64 /Rows -1 >>','<< /Columns 64 /Rows 64 0 R >>','<< /Columns 64 /Columns 64 /Rows 64 >>','<< /Columns 64 /Rows 64 /K -2 >>','1 0 R']){
+  expect(()=>load('pdf-input-budget').preflightPdf(streamPdf(Buffer.from([0]),'/Filter /CCITTFaxDecode',base+' /DecodeParms '+params))).toThrow('too complex');
+ }
+ for(const dictionary of [base.replace('/Image','/Form'),base.replace('/BitsPerComponent 1','/BitsPerComponent 8'),base.replace('/Width 64','/Width 100000'),base+' /DecodeParms << /Columns 64 >> /DecodeParms << /Columns 64 >>']){
+  expect(()=>load('pdf-input-budget').preflightPdf(streamPdf(Buffer.from([0]),'/Filter /CCITTFaxDecode',dictionary))).toThrow();
+ }
+ expect(()=>load('pdf-input-budget').preflightPdf(streamPdf(Buffer.from([0]),'/Filter [/CCITTFaxDecode /FlateDecode]',base))).toThrow();
+});
+test('CCITT pixels and estimated decoded bytes count toward combined document budgets',()=>{
+ const bytes=streamPdf(Buffer.from([0]),'/Filter /CCITTFaxDecode','/Subtype /Image /Width 64 /Height 64 /BitsPerComponent 1 /DecodeParms [<< /K -1 /Columns 64 /Rows 64 >>]');
+ expect(()=>load('pdf-input-budget').preflightPdf(bytes,{decodedBytes:80*1024*1024,objects:0})).toThrow('too complex');
+ expect(()=>load('pdf-input-budget').preflightPdf(bytes,{decodedBytes:0,objects:0,imagePixels:60_000_000})).toThrow('too complex');
+});

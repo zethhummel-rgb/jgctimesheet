@@ -6,6 +6,32 @@ export type PdfInputBudget={decodedBytes:number;objects:number;imagePixels?:numb
 const tooComplex=()=>new Error('This PDF is too complex to process. Save a flattened copy or split it into smaller documents.');
 const whitespace=/[\s\0]/;
 function visibleDictionary(text:string){let result='',literal=0,hex=false,comment=false,escaped=false;for(let n=0;n<text.length;n++){const c=text[n];if(comment){if(c==='\r'||c==='\n'){comment=false;result+=' ';}continue;}if(literal){if(escaped){escaped=false;continue;}if(c==='\\'){escaped=true;continue;}if(c==='(')literal++;if(c===')')literal--;continue;}if(hex){if(c==='>')hex=false;continue;}if(c==='%'){comment=true;continue;}if(c==='('){literal=1;result+='()';continue;}if(c==='<'&&text[n+1]!=='<'&&text[n-1]!=='<'){hex=true;result+='<>';continue;}result+=c;}return result.replace(/#([0-9a-f]{2})/gi,(_,v:string)=>String.fromCharCode(parseInt(v,16)));}
+// CCITT is a one-bit scanned image, not an arbitrary content/object decoder.
+// Bound its bitmap and decoder row/column parameters before handing it to PDF.js.
+function ccittDecodedSize(dictionary:string,width:number,height:number) {
+ const integer=(text:string,name:string,fallback?:number):number=>{
+  const keys=[...text.matchAll(/\/([A-Za-z]+)(?=[\s<>\/\[\]])/g)].filter(m=>m[1]===name);
+  if(!keys.length){if(fallback!==undefined)return fallback;throw tooComplex();}
+  if(keys.length!==1)throw tooComplex();
+  const rest=text.slice(keys[0].index!+keys[0][0].length);
+  const value=rest.match(/^\s+([+-]?\d+)(?=\s|[<>\/\[\]]|$)/);
+  if(!value||/^\s+\d+\s+R\b/.test(rest.slice(value[0].length)))throw tooComplex();
+  const number=Number(value[1]);if(!Number.isSafeInteger(number))throw tooComplex();return number;
+ };
+ if(integer(dictionary,'Width')!==width||integer(dictionary,'Height')!==height||integer(dictionary,'BitsPerComponent')!==1)throw tooComplex();
+ const parameters=[...dictionary.matchAll(/\/(?:DecodeParms|DP)(?=[\s<>/\[\]])/g)];
+ if(parameters.length>1)throw tooComplex();
+ let params='';
+ if(parameters.length){
+  const tail=dictionary.slice(parameters[0].index!+parameters[0][0].length);
+  const match=tail.match(/^\s*(?:<<([^<>]*)>>|\[\s*<<([^<>]*)>>\s*\])(?=\s|[/>]|$)/);
+  if(!match)throw tooComplex();
+  params=match[1]??match[2];
+ }
+ const columns=integer(params,'Columns',1728),rows=integer(params,'Rows',0),mode=integer(params,'K',0);
+ if(columns!==width||(rows!==0&&rows!==height)||mode < -1||mode>height)throw tooComplex();
+ return Math.ceil(width/8)*height;
+}
 // Inspect physical stream boundaries before a PDF parser can inflate object/content streams.
 // Stream dictionaries and indirect lengths are read without decoding any PDF stream.
 export function preflightPdf(bytes:Uint8Array,budget:PdfInputBudget={decodedBytes:0,objects:0},maxTokens?:number) {
@@ -43,11 +69,18 @@ export function preflightPdf(bytes:Uint8Array,budget:PdfInputBudget={decodedByte
   const filters=[...dictionary.matchAll(/\/Filter\s*(\/\w+|\[[^\]]*\])/g)].map(m=>m[1]);
   if(filters.length>1)throw tooComplex();
   const filter=filters[0]?.replace(/[\[\]\s]/g,'')||'';
+  const ccitt=filter==='/CCITTFaxDecode'||filter==='/CCF';
   const ascii85Flate=/^\/(?:ASCII85Decode|A85)\/(?:FlateDecode|Fl)$/.test(filter);
-  if(!ascii85Flate&&!['','/FlateDecode','/Fl','/DCTDecode','/DCT'].includes(filter))throw tooComplex();
+  if(!ascii85Flate&&!ccitt&&!['','/FlateDecode','/Fl','/DCTDecode','/DCT'].includes(filter))throw tooComplex();
+  if(ccitt&&!/\/Subtype\s*\/Image\b/.test(dictionary))throw tooComplex();
   if(/\/Subtype\s*\/Image\b/.test(dictionary)){
    const width=Number(dictionary.match(/\/Width\s+(\d+)/)?.[1]),height=Number(dictionary.match(/\/Height\s+(\d+)/)?.[1]);
    imageBudget(width,height);
+   if(ccitt){
+    const decoded=ccittDecodedSize(dictionary,width,height);
+    budget.decodedBytes+=decoded;
+    if(decoded>16*1024*1024||budget.decodedBytes>80*1024*1024)throw tooComplex();
+   }
    budget.imagePixels=(budget.imagePixels||0)+width*height;if(budget.imagePixels>DOCUMENT_LIMITS.totalImagePixels)throw tooComplex();
    if(filter==='/DCTDecode'||filter==='/DCT'){const size=imageDimensions(bytes.subarray(n,end),'image/jpeg');imageBudget(size.width,size.height);if(size.width!==width||size.height!==height)throw tooComplex();}
   }
