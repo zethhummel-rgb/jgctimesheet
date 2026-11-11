@@ -1077,3 +1077,67 @@ test("Shop Drawings exports the full revision log as a shareable Excel workbook"
   const cellValues = sheet.getRows(1, 7).flatMap(row => row.values.filter(value => typeof value === "string"));
   expect(cellValues.join(" ")).not.toMatch(/INTERNAL NOTES|example.com/);
 });
+
+test("Shop Drawings previews each JBIG2 sheet and exports the entire transmittal", async ({ page }, info) => {
+  test.setTimeout(60000);
+  const fs = require("node:fs/promises");
+  const path = require("node:path");
+  const { PDFDocument } = require("../estimating-app/node_modules/pdf-lib");
+  const supplied = process.env.JGC_TEST_REVIEWED_SHOP_PDF;
+  const buffer = supplied ? await fs.readFile(supplied) : await require("./fixtures/jbig2-pdf").jbig2Pdf();
+  const source = await PDFDocument.load(buffer);
+  const state = jobControlState();
+  state.jobs[0].shopDrawings = [{
+    id: "jbig2-drawing", number: "SD-002", title: "Breakers-EDB36060", revision: 0, status: "Approved",
+    consultant: "Field reviewer", revisions: [], createdAt: "2026-09-01T12:00:00Z", updatedAt: "2026-09-01T12:00:00Z",
+  }];
+  await serveJobControl(page, state, { savedStates: [], statisticsRequests: [], portalDocumentUpdates: [] });
+  await page.goto("/estimating/index.html?dev=1");
+  await openJob(page);
+  await jobTab(page, "Shop Drawings").click();
+  await page.evaluate(() => {
+    let entry, pdf;
+    window.showSaveFilePicker = undefined;
+    window.createJgcSupabaseClient = () => ({
+      rpc: async (name, args) => {
+        if (name !== "manage_shop_transmittal") return { data: null, error: null };
+        if (args.operation === "list") return { data: entry?.ready_at ? [entry] : [], error: null };
+        if (args.operation === "reserve") entry = { ...args.details, id: args.transmittal_id, has_pdf: false };
+        if (args.operation === "publish") {
+          if (pdf?.size !== entry.byte_count) throw new Error("Transmittal bytes did not match");
+          entry = { ...entry, ready_at: "2026-11-11T15:00:00Z", has_pdf: true };
+        }
+        return { data: entry, error: null };
+      },
+      storage: { from: () => ({ upload: async (_path, file) => { pdf = file; return { data: {}, error: null }; } }) },
+    });
+  });
+
+  await jobPanel(page, "Shop Drawings").getByRole("button", { name: "Review PDF" }).click();
+  const view = page.getByRole("dialog", { name: "Review shop drawing" });
+  await view.locator("input[type=file]").setInputFiles({
+    name: supplied ? path.basename(supplied) : "Synthetic JBIG2 scan.pdf", mimeType: "application/pdf", buffer,
+  });
+  for (let n = 1; n <= source.getPageCount(); n++) {
+    if (n > 1) await view.getByRole("button", { name: "Next sheet" }).click();
+    await expect(view.getByRole("button", { name: "Place review stamp on sheet " + n })).toBeEnabled({ timeout: 20000 });
+    const ink = await view.locator(".shop-review-sheet canvas").evaluate(canvas => {
+      const rgba = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+      let dark = 0;
+      for (let i = 0; i < rgba.length; i += 4) if (rgba[i] < 100 && rgba[i + 1] < 100 && rgba[i + 2] < 100 && rgba[i + 3] > 0) dark++;
+      return dark;
+    });
+    expect(ink, "sheet " + n + " rendered with visible content").toBeGreaterThan(1000);
+  }
+  await view.getByRole("button", { name: "Save transmittal", exact: true }).click();
+  const pending = page.waitForEvent("download");
+  await view.getByRole("button", { name: "Download PDF", exact: true }).click({ timeout: 20000 });
+  const download = await pending;
+  expect(download.suggestedFilename()).toBe("SD-002- Breakers-EDB36060.pdf");
+  const result = info.outputPath("reviewed-transmittal.pdf");
+  await download.saveAs(result);
+  const output = await PDFDocument.load(await fs.readFile(result));
+  expect(output.getPageCount()).toBe(source.getPageCount() + 1);
+  expect(output.getPages().slice(1).map(sheet => [sheet.getSize(), sheet.getRotation().angle]))
+    .toEqual(source.getPages().map(sheet => [sheet.getSize(), sheet.getRotation().angle]));
+});
