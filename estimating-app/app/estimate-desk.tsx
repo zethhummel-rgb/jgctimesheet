@@ -1,6 +1,7 @@
 import { closedJobDate } from "../lib/job-accounting-export";
 import { JobProgressBilling, requestProgressBilling } from "./job-progress-billing";
 import { JobDrawings } from "./job-drawings";
+import { permanentlyDeleteDrawing } from "../src/drawing-deletion";
 import { JobSafety } from "./job-safety";
 import { JobWarrantyPage } from "./job-warranty";
 import { JobLabourCostBreakdown, JobTmExtras } from "./job-tm-extras";
@@ -5540,6 +5541,7 @@ type ShopDrawingEditorState = null | {
   draft: ShopDrawingDraft;
   original: string;
   originalRecord: string;
+  file?: File;
 };
 
 const shopDrawingStatuses: ShopDrawingStatus[] = [
@@ -5655,7 +5657,7 @@ function shopDrawingIsSharedWithEmployees(job: Job, drawing: ShopDrawing) {
   return drawing.sharedWithEmployees === true
     && Boolean(sharedUrl)
     && sharedUrl === drawingUrl
-    && sharedLabel === `${drawing.number} · ${drawing.title}`.toLocaleLowerCase("en-CA");
+    && [`${drawing.number} · ${drawing.title}`, `${drawing.number} · ${drawing.title}`.slice(0, 100)].some(label => sharedLabel === label.trim().toLocaleLowerCase("en-CA"));
 }
 
 function JobsPage({ state, setState, currentEstimator, directoryActionTarget, workspaceSaved, onNewJob, job, tab, setTab, onOpen, onBack, onAddCost, onCreateChangeNotice, onOpenQuote, onCreatePurchaseOrder, onEditPurchaseOrder, onDownloadPurchaseOrder, portalLabourActuals, jobCostingStatus, jobCostingMessage, onRefreshJobCosting }: {
@@ -5721,7 +5723,8 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
   const [statisticsMessage, setStatisticsMessage] = useState("");
   const statisticsRequest = useRef(0);
   const [shopDrawingEditor, setShopDrawingEditor] = useState<ShopDrawingEditorState>(null);
-  const [reviewDrawingId, setReviewDrawingId] = useState<string | null>(null);
+  const [shopDrawingReview, setShopDrawingReview] = useState<{ id: string; file?: File } | null>(null);
+  const shopDrawingFileInput = useRef<HTMLInputElement>(null);
   const [shopDrawingFilter, setShopDrawingFilter] = useState<"Open" | "All" | "Approved">("All");
   const [shopDrawingSearch, setShopDrawingSearch] = useState("");
   const [shopDrawingAction, setShopDrawingAction] = useState<"saving" | "sharing" | "unsharing" | "deleting" | null>(null);
@@ -5752,6 +5755,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
     setStatisticsStatus("idle");
     setStatisticsMessage("");
     setShopDrawingEditor(null);
+    setShopDrawingReview(null);
     setShopDrawingFilter("All");
     setShopDrawingSearch("");
     setShopDrawingAction(null);
@@ -5952,20 +5956,29 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
     setShopDrawingEditor((current) => current ? { ...current, draft: { ...current.draft, [field]: value } } : current);
   };
 
-  const clearEmployeeJobListLink = async () => {
+  const clearEmployeeJobListLink = async (matchCurrent = false) => {
     if (!job?.portalJobId) throw new Error("This drawing cannot be removed from the employee job list until the job is linked to the Portal.");
     const response = await fetch("/api/job-documents", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ portalJobId: job.portalJobId, documentLink: "", documentLinkLabel: "" }),
+      body: JSON.stringify({
+        portalJobId: job.portalJobId, documentLink: "", documentLinkLabel: "",
+        ...(matchCurrent ? { expectedLink: job.documentLink, expectedLabel: job.documentLinkLabel ?? "" } : {}),
+      }),
     });
-    const result = await response.json().catch(() => ({})) as { error?: string };
+    const result = await response.json().catch(() => ({})) as { error?: string; documentLink?: string; documentLinkLabel?: string };
     if (!response.ok) throw new Error(result.error || "The employee job-list link could not be cleared.");
+    return { documentLink: result.documentLink ?? "", documentLinkLabel: result.documentLinkLabel ?? "" };
   };
 
   const saveShopDrawing = async () => {
     if (!job || !shopDrawingEditor || shopDrawingAction) return;
-    const draft = shopDrawingEditor.draft;
+    const { draft, file } = shopDrawingEditor;
+    if (file && shopDrawingEditor.mode === "edit" && JSON.stringify(draft) === shopDrawingEditor.original && shopDrawingEditor.drawingId) {
+      setShopDrawingReview({ id: shopDrawingEditor.drawingId, file });
+      setShopDrawingEditor(null);
+      return;
+    }
     const title = draft.title.trim();
     const number = draft.number.trim();
     const secureLink = secureExternalHref(draft.oneDriveUrl);
@@ -6052,6 +6065,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           ...(mustUnshare ? { documentLink: "", documentLinkLabel: "" } : {}),
         }),
       }));
+      if (file) setShopDrawingReview({ id: savedDrawing.id, file });
       setShopDrawingEditor(null);
       setShopDrawingMessage(shopDrawingEditor.mode === "revision"
         ? `${savedDrawing.number} Revision ${savedDrawing.revision} saved. The previous revision remains in history.`
@@ -6130,17 +6144,32 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
     }
   };
 
-  const deleteShopDrawing = (drawing: ShopDrawing) => {
-    if (!job || shopDrawingAction || drawing.revision > 0 || drawing.revisions.length > 0 || drawing.status !== "Required" || Boolean(drawing.history?.length) || Boolean(drawing.oneDriveUrl) || Boolean(drawing.submittedDate)) return;
+  const deleteShopDrawing = async (drawing: ShopDrawing) => {
+    if (!job || !workspaceSaved || shopDrawingAction) return;
+    if (!window.confirm(`Permanently delete ${drawing.number} and its revision and transmittal history? Any PDFs still in the portal for this drawing will be deleted. OneDrive files will stay in OneDrive.`)) return;
     setShopDrawingAction("deleting");
-    setState((current) => ({
-      ...current,
-      jobs: current.jobs.map((item) => item.id === job.id ? { ...item, shopDrawings: (item.shopDrawings ?? []).filter((candidate) => candidate.id !== drawing.id) } : item),
-    }));
-    setShopDrawingEditor(null);
-    setShopDrawingMessage(`${drawing.number} deleted. Drawings with submission history are closed instead of deleted.`);
     setShopDrawingError(false);
-    setShopDrawingAction(null);
+    setShopDrawingMessage("");
+    try {
+      await permanentlyDeleteDrawing({
+        target: "shop", jobId: job.id, drawingId: drawing.id, expected: drawing.updatedAt || drawing.createdAt || "",
+      });
+      const sharedLink = shopDrawingIsSharedWithEmployees(job, drawing) ? await clearEmployeeJobListLink(true) : {};
+      setState((current) => ({
+        ...current,
+        jobs: current.jobs.map((item) => item.id === job.id ? {
+          ...item, ...sharedLink,
+          shopDrawings: (item.shopDrawings ?? []).filter((candidate) => candidate.id !== drawing.id),
+        } : item),
+      }));
+      setShopDrawingEditor(null);
+      setShopDrawingMessage(`${drawing.number} deleted.`);
+    } catch (error) {
+      setShopDrawingError(true);
+      setShopDrawingMessage(error instanceof Error ? error.message : "The shop drawing could not be deleted. Please retry.");
+    } finally {
+      setShopDrawingAction(null);
+    }
   };
 
   const saveJobInfo = async () => {
@@ -6307,7 +6336,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
       const haystack = `${drawing.number} ${drawing.title} ${drawing.division} ${drawing.vendorName} ${drawing.consultant} ${drawing.status} ${drawing.responsibility}`.toLocaleLowerCase("en-CA");
       return haystack.includes(normalizedDrawingSearch);
     });
-    const reviewDrawing = shopDrawings.find((drawing) => drawing.id === reviewDrawingId);
+    const reviewDrawing = shopDrawings.find((drawing) => drawing.id === shopDrawingReview?.id);
     const editorDrawing = shopDrawingEditor?.drawingId ? shopDrawings.find((drawing) => drawing.id === shopDrawingEditor.drawingId) ?? null : null;
     const editorHasChanges = shopDrawingEditor ? JSON.stringify(shopDrawingEditor.draft) !== shopDrawingEditor.original : false;
     const sharedDocumentLinkId = sharedJobDocumentLinkId(job);
@@ -6633,7 +6662,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           {shopDrawingEditor && <section className="shop-drawing-editor" aria-label={shopDrawingEditor.mode === "create" ? "New shop drawing" : `Edit ${shopDrawingEditor.draft.number}`}>
             <div className="shop-drawing-editor-heading">
               <div><span className="eyebrow">{shopDrawingEditor.mode === "revision" ? "NEW REVISION" : shopDrawingEditor.mode === "create" ? "NEW REGISTER ITEM" : "CURRENT REVISION"}</span><h3>{shopDrawingEditor.mode === "revision" ? `${shopDrawingEditor.draft.number} · Revision ${(editorDrawing?.revision ?? 0) + 1}` : shopDrawingEditor.mode === "create" ? "Add a required submission" : `${shopDrawingEditor.draft.number} · Revision ${editorDrawing?.revision ?? 0}`}</h3><p>Opening this record does not create a revision. A revision is added only when a new revision is saved.</p></div>
-              <button className="icon-close" type="button" aria-label="Close shop drawing editor" onClick={() => setShopDrawingEditor(null)}>×</button>
+              <button className="icon-close" type="button" aria-label="Close shop drawing editor" disabled={Boolean(shopDrawingAction)} onClick={() => setShopDrawingEditor(null)}>×</button>
             </div>
             <datalist id={`shop-drawing-vendors-${job.id}`}>{state.vendors.filter((vendor) => vendor.status === "Active").map((vendor) => <option key={vendor.id} value={vendor.name} />)}</datalist>
             <div className="form-grid three-column shop-drawing-form">
@@ -6650,6 +6679,17 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
               <label className="field"><span>Reviewer due date</span><input aria-label="Reviewer due date" type="date" min={shopDrawingEditor.draft.submittedDate || undefined} value={shopDrawingEditor.draft.dueDate} onChange={(event) => updateShopDrawingDraft("dueDate", event.target.value)} /></label>
               <label className="field"><span>Reviewed / returned date</span><input aria-label="Reviewed date" type="date" value={shopDrawingEditor.draft.returnedDate} onChange={(event) => updateShopDrawingDraft("returnedDate", event.target.value)} /></label>
               <label className="field"><span>Required onsite</span><input aria-label="Required onsite date" type="date" value={shopDrawingEditor.draft.requiredOnsiteDate} onChange={(event) => updateShopDrawingDraft("requiredOnsiteDate", event.target.value)} /></label>
+              <div className="field full">
+                <label className="field"><span>Shop drawing PDF <small>Optional</small></span><input ref={shopDrawingFileInput} key={shopDrawingEditor.mode + ":" + shopDrawingEditor.drawingId} type="file" accept=".pdf,application/pdf" disabled={Boolean(shopDrawingAction)} onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  setShopDrawingEditor(current => current ? { ...current, file } : current);
+                }} /></label>
+                <small>Choose a PDF to stamp and create a transmittal after saving the drawing details.</small>
+                {shopDrawingEditor.file && <button className="button secondary compact shop-drawing-clear-file" type="button" disabled={Boolean(shopDrawingAction)} onClick={() => {
+                  if (shopDrawingFileInput.current) shopDrawingFileInput.current.value = "";
+                  setShopDrawingEditor(current => current ? { ...current, file: undefined } : current);
+                }}>Clear selected PDF</button>}
+              </div>
               <label className="field full"><span>Current revision OneDrive link <small>Optional</small></span><input aria-label="Current revision OneDrive link" type="url" inputMode="url" value={shopDrawingEditor.draft.oneDriveUrl} onChange={(event) => updateShopDrawingDraft("oneDriveUrl", event.target.value)} placeholder="https://...sharepoint.com/..." /></label>
               <label className="field full"><span>Reviewer comments / required corrections</span><textarea aria-label="Reviewer comments" rows={3} value={shopDrawingEditor.draft.reviewComments} onChange={(event) => updateShopDrawingDraft("reviewComments", event.target.value)} placeholder="Record the review decision, approval notes or corrections needed" /></label>
               <label className="field full"><span>Approved-for-use file link</span><input aria-label="Approved-for-use file link" type="url" value={shopDrawingEditor.draft.approvedFileUrl} onChange={(event) => updateShopDrawingDraft("approvedFileUrl", event.target.value)} placeholder="https://...sharepoint.com/.../SD-001-R0-reviewed.pdf" /><small>Optional stamped / marked-up file. When approved, leave blank to use the current revision file. An unapproved revision is never shown as approved for use.</small></label>
@@ -6657,10 +6697,10 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
             </div>
             <div className="shop-drawing-editor-actions">
               <div>
-                {editorDrawing && shopDrawingEditor.mode === "edit" && <button className="button warning" type="button" onClick={() => startShopDrawingRevision(editorDrawing)}>Start next revision</button>}
-                {editorDrawing && editorDrawing.status === "Required" && editorDrawing.revision === 0 && editorDrawing.revisions.length === 0 && !editorDrawing.history?.length && !editorDrawing.oneDriveUrl && !editorDrawing.submittedDate && <button className="button danger-ghost" type="button" onClick={() => { if (window.confirm(`Delete ${editorDrawing.number}?`)) deleteShopDrawing(editorDrawing); }}>Delete</button>}
+                {editorDrawing && shopDrawingEditor.mode === "edit" && <button className="button warning" type="button" disabled={Boolean(shopDrawingAction)} onClick={() => startShopDrawingRevision(editorDrawing)}>Start next revision</button>}
+                {editorDrawing && shopDrawingEditor.mode === "edit" && <button className="button danger-ghost" type="button" disabled={!workspaceSaved || Boolean(shopDrawingAction)} onClick={() => void deleteShopDrawing(editorDrawing)}>{shopDrawingAction === "deleting" ? "Deleting…" : "Delete shop drawing"}</button>}
               </div>
-              <div><button className="button secondary" type="button" onClick={() => setShopDrawingEditor(null)}>Cancel</button><button className="button primary" type="button" onClick={() => void saveShopDrawing()} disabled={Boolean(shopDrawingAction) || (shopDrawingEditor.mode === "edit" && !editorHasChanges)}>{shopDrawingAction === "saving" ? "Saving…" : shopDrawingEditor.mode === "revision" ? "Save new revision" : "Save drawing"}</button></div>
+              <div><button className="button secondary" type="button" disabled={Boolean(shopDrawingAction)} onClick={() => setShopDrawingEditor(null)}>Cancel</button><button className="button primary" type="button" onClick={() => void saveShopDrawing()} disabled={Boolean(shopDrawingAction) || (shopDrawingEditor.mode === "edit" && !editorHasChanges && !shopDrawingEditor.file)}>{shopDrawingAction === "saving" ? "Saving…" : shopDrawingEditor.file ? "Save and review PDF" : shopDrawingEditor.mode === "revision" ? "Save new revision" : "Save drawing"}</button></div>
             </div>
             {editorDrawing && <ShopDrawingHistory drawing={editorDrawing} />}
           </section>}
@@ -6676,8 +6716,8 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
               <td data-label="Dates / reviewer"><dl className="shop-register-dates">{[["Requested",drawing.requestedDate],["Received",drawing.receivedDate],["Submitted",drawing.submittedDate],["Reviewed",drawing.returnedDate]].map(([label,value]) => <div key={label}><dt>{label}</dt><dd>{value ? shortDate(value) : "—"}</dd></div>)}</dl><small>{drawing.consultant || "Reviewer not entered"}{drawing.dueDate ? ` · Due ${shortDate(drawing.dueDate)}` : ""}</small></td>
               <td data-label="Approved for use">{approvedHref ? <a className="button primary compact shop-approved-file" href={approvedHref} target="_blank" rel="noreferrer">Approved file · Rev {drawing.revision} ↗</a> : <span className="shop-not-approved">Not approved for use</span>}</td>
               <td className="shop-drawing-action-cell"><div className="shop-drawing-row-actions">
-                <button className="button secondary compact" type="button" onClick={() => openShopDrawing(drawing)}>Open / edit</button>
-                <button className="button secondary compact" type="button" onClick={() => setReviewDrawingId(drawing.id)}>Review PDF</button>
+                <button className="button secondary compact" type="button" disabled={Boolean(shopDrawingAction)} onClick={() => openShopDrawing(drawing)}>Open / edit</button>
+                <button className="button secondary compact" type="button" disabled={Boolean(shopDrawingAction)} onClick={() => setShopDrawingReview({ id: drawing.id })}>Review PDF</button>
                 {href && <a className="button secondary compact" href={href} target="_blank" rel="noreferrer">Current file ↗</a>}
                 {sharedWithEmployees
                   ? <button className="button secondary compact" type="button" onClick={() => void unshareShopDrawing(drawing)} disabled={Boolean(shopDrawingAction)}>{shopDrawingAction === "unsharing" ? "Removing…" : "Remove from employee job list"}</button>
@@ -6685,7 +6725,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
               </div></td>
             </tr>; })}</tbody>
           </table></div> : <div className="empty-state compact-empty shop-drawing-empty"><span>SD</span><h3>{shopDrawings.length ? `No ${shopDrawingFilter.toLocaleLowerCase()} drawings match` : "No shop drawings entered"}</h3><p>{shopDrawings.length ? "Change the filter or search to see another register item." : "Add the required submissions for this job. OneDrive files stay in their existing folders."}</p>{!shopDrawings.length && <button className="button secondary compact" type="button" onClick={startNewShopDrawing}>＋ Add first drawing</button>}</div>}
-          {reviewDrawing && <ShopDrawingTransmittal key={reviewDrawing.id + ":" + reviewDrawing.revision} job={job} drawing={reviewDrawing} actor={currentEstimator.name} clientName={state.clients.find((client) => client.id === job.clientId)?.name ?? ""} workspaceSaved={workspaceSaved} onClose={() => setReviewDrawingId(null)} />}
+          {reviewDrawing && <ShopDrawingTransmittal key={reviewDrawing.id + ":" + reviewDrawing.revision} job={job} drawing={reviewDrawing} actor={currentEstimator.name} clientName={state.clients.find((client) => client.id === job.clientId)?.name ?? ""} workspaceSaved={workspaceSaved} initialFile={shopDrawingReview?.file} onClose={() => setShopDrawingReview(null)} />}
           <p className="shop-drawing-footnote">Internal by default. Employee sharing is available only for Approved or Approved as noted current revisions and replaces the existing employee job-list document button.</p>
         </section>}
         <JobDrawings key={`drawings-${job.id}`} job={job} actor={currentEstimator.name} active={tab === "drawings"} />

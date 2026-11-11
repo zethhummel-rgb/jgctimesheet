@@ -434,3 +434,52 @@ test('CCITT scanner upload displays every page and keeps the original PDF intact
  const file=await pending;await file.saveAs(info.outputPath('scanner-export.pdf'));
  expect((await PDFDocument.load(fs.readFileSync(await file.path()))).getPageCount()).toBe(pages);
 });
+
+test('permanent drawing deletion removes the original and resumes after a storage error', async ({ page }) => {
+  const s = await store();
+  await setup(page, s);
+  const events = [];
+  let pending = false, deleted = false, failed = false;
+  await page.route('https://drawings.example.test/rest/v1/job_drawings**', route => {
+    if (route.request().method() === 'GET') return route.fulfill({ json: deleted ? [] : [s.row] });
+    return route.fallback();
+  });
+  await page.route('https://drawings.example.test/rest/v1/rpc/manage_drawing_deletion', route => {
+    const request = route.request().postDataJSON();
+    expect(request).toMatchObject({ target: 'drawing', job_key: 'job', drawing_key: s.row.id, expected: '1' });
+    events.push(request.action);
+    if (request.action === 'prepare') {
+      pending = true;
+      return route.fulfill({ json: [s.row.object_path] });
+    }
+    expect(pending && failed).toBe(true);
+    deleted = true;
+    return route.fulfill({ json: [] });
+  });
+  await page.route('https://drawings.example.test/storage/v1/object/job-drawings', route => {
+    if (route.request().method() !== 'DELETE') return route.fallback();
+    expect(route.request().postDataJSON()).toEqual({ prefixes: [s.row.object_path] });
+    expect(pending).toBe(true);
+    events.push('remove PDF');
+    if (!failed) {
+      failed = true;
+      return route.fulfill({ status: 403, json: { message: 'Synthetic storage error' } });
+    }
+    return route.fulfill({ json: [{ name: s.row.object_path }] });
+  });
+
+  const remove = page.getByRole('button', { name: 'Delete drawing', exact: true });
+  page.once('dialog', dialog => dialog.dismiss());
+  await remove.click();
+  expect(events).toEqual([]);
+  page.once('dialog', dialog => dialog.accept());
+  await remove.click();
+  await expect(page.getByRole('alert')).toContainText('Synthetic storage error');
+  await expect(page.getByLabel('Select drawing')).toContainText('deletion pending');
+  await page.getByRole('button', { name: 'Finish deleting' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Drawing deleted' })).toBeVisible();
+  expect(events).toEqual(['prepare', 'remove PDF', 'prepare', 'remove PDF', 'finish']);
+  await page.getByLabel('Show removed drawings').check();
+  await page.getByRole('button', { name: 'Refresh drawings' }).click();
+  await expect(page.getByLabel('Select drawing').locator('option')).toHaveCount(1);
+});

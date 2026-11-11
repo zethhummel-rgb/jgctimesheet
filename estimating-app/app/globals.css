@@ -447,6 +447,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .form-grid.three-column { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .form-grid.three-column .full-two { grid-column: span 2; }
 .shop-drawing-form { padding-block: 17px; }
+.shop-drawing-clear-file { align-self: flex-start; }
 .shop-drawing-editor-actions { padding: 13px 18px; display: flex; align-items: center; justify-content: space-between; gap: 14px; border-top: 1px solid var(--slate-200); background: #fff; }
 .shop-drawing-editor-actions > div { display: flex; flex-wrap: wrap; gap: 8px; }
 .shop-drawing-editor-actions .button.primary:disabled { opacity: 1; border-color: #a6c7b8; background: #c8dbd2; color: var(--navy-900); }

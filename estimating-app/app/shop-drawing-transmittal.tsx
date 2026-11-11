@@ -86,12 +86,13 @@ function ReviewSheet({ source, page, stamp, placement, disabled, onPlace, onErro
   </div>;
 }
 
-export function ShopDrawingTransmittal({ job, drawing, actor, clientName, workspaceSaved, onClose }: {
+export function ShopDrawingTransmittal({ job, drawing, actor, clientName, workspaceSaved, initialFile, onClose }: {
   job: Job;
   drawing: ShopDrawing;
   actor: string;
   clientName: string;
   workspaceSaved: boolean;
+  initialFile?: File;
   onClose: () => void;
 }) {
   const scope = useMemo(() => ({ jobId: job.id, drawingId: drawing.id }), [job.id, drawing.id]);
@@ -173,6 +174,11 @@ export function ShopDrawingTransmittal({ job, drawing, actor, clientName, worksp
     setRenderError('');
     setSource({ name: file.name.slice(0, 250), bytes, pdf });
   }
+
+  useEffect(() => {
+    if (initialFile) void run('Opening PDF…', () => openFile(initialFile));
+    // The parent mounts this review for one file and drawing revision.
+  }, [initialFile]);
 
   async function save() {
     if (!source) return;
