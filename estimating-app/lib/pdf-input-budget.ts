@@ -1,3 +1,4 @@
+import { jbig2ImageBudget } from './pdf-jbig2';
 import {decodePdfAscii85} from './pdf-ascii85';
 import {Unzlib} from 'fflate';
 import {DOCUMENT_LIMITS,imageBudget,imageDimensions} from './document-budget';
@@ -6,19 +7,20 @@ export type PdfInputBudget={decodedBytes:number;objects:number;imagePixels?:numb
 const tooComplex=()=>new Error('This PDF is too complex to process. Save a flattened copy or split it into smaller documents.');
 const whitespace=/[\s\0]/;
 function visibleDictionary(text:string){let result='',literal=0,hex=false,comment=false,escaped=false;for(let n=0;n<text.length;n++){const c=text[n];if(comment){if(c==='\r'||c==='\n'){comment=false;result+=' ';}continue;}if(literal){if(escaped){escaped=false;continue;}if(c==='\\'){escaped=true;continue;}if(c==='(')literal++;if(c===')')literal--;continue;}if(hex){if(c==='>')hex=false;continue;}if(c==='%'){comment=true;continue;}if(c==='('){literal=1;result+='()';continue;}if(c==='<'&&text[n+1]!=='<'&&text[n-1]!=='<'){hex=true;result+='<>';continue;}result+=c;}return result.replace(/#([0-9a-f]{2})/gi,(_,v:string)=>String.fromCharCode(parseInt(v,16)));}
+const directInteger=(text:string,name:string,fallback?:number):number=>{
+ const keys=[...text.matchAll(/\/([A-Za-z]+)(?=[\s<>\/\[\]])/g)].filter(m=>m[1]===name);
+ if(!keys.length){if(fallback!==undefined)return fallback;throw tooComplex();}
+ if(keys.length!==1)throw tooComplex();
+ const rest=text.slice(keys[0].index!+keys[0][0].length);
+ const value=rest.match(/^\s+([+-]?\d+)(?=\s|[<>\/\[\]]|$)/);
+ if(!value||/^\s+\d+\s+R\b/.test(rest.slice(value[0].length)))throw tooComplex();
+ const number=Number(value[1]);if(!Number.isSafeInteger(number))throw tooComplex();return number;
+};
+
 // CCITT is a one-bit scanned image, not an arbitrary content/object decoder.
 // Bound its bitmap and decoder row/column parameters before handing it to PDF.js.
 function ccittDecodedSize(dictionary:string,width:number,height:number) {
- const integer=(text:string,name:string,fallback?:number):number=>{
-  const keys=[...text.matchAll(/\/([A-Za-z]+)(?=[\s<>\/\[\]])/g)].filter(m=>m[1]===name);
-  if(!keys.length){if(fallback!==undefined)return fallback;throw tooComplex();}
-  if(keys.length!==1)throw tooComplex();
-  const rest=text.slice(keys[0].index!+keys[0][0].length);
-  const value=rest.match(/^\s+([+-]?\d+)(?=\s|[<>\/\[\]]|$)/);
-  if(!value||/^\s+\d+\s+R\b/.test(rest.slice(value[0].length)))throw tooComplex();
-  const number=Number(value[1]);if(!Number.isSafeInteger(number))throw tooComplex();return number;
- };
- if(integer(dictionary,'Width')!==width||integer(dictionary,'Height')!==height||integer(dictionary,'BitsPerComponent')!==1)throw tooComplex();
+ if(directInteger(dictionary,'Width')!==width||directInteger(dictionary,'Height')!==height||directInteger(dictionary,'BitsPerComponent')!==1)throw tooComplex();
  const parameters=[...dictionary.matchAll(/\/(?:DecodeParms|DP)(?=[\s<>/\[\]])/g)];
  if(parameters.length>1)throw tooComplex();
  let params='';
@@ -28,7 +30,7 @@ function ccittDecodedSize(dictionary:string,width:number,height:number) {
   if(!match)throw tooComplex();
   params=match[1]??match[2];
  }
- const columns=integer(params,'Columns',1728),rows=integer(params,'Rows',0),mode=integer(params,'K',0);
+ const columns=directInteger(params,'Columns',1728),rows=directInteger(params,'Rows',0),mode=directInteger(params,'K',0);
  if(columns!==width||(rows!==0&&rows!==height)||mode < -1||mode>height)throw tooComplex();
  return Math.ceil(width/8)*height;
 }
@@ -64,24 +66,37 @@ export function preflightPdf(bytes:Uint8Array,budget:PdfInputBudget={decodedByte
   const lengthToken=dictionary.match(/\/Length\s+(\d+)(?:\s+(\d+)\s+R)?\b/);
   const length=lengthToken?.[2]?lengths.get(lengthToken[1]+' '+lengthToken[2]):Number(lengthToken?.[1]);
   if(!Number.isSafeInteger(length)||length!<0||n+length!>bytes.length)throw tooComplex();
-  const end=n+length!;if(!/^\s*endstream\b/.test(text.slice(end,end+32)))throw tooComplex();
+  const end=n+length!;
+  // The stream length ends at the payload. Some writers pad the delimiter
+  // with multiple line breaks, so find the endstream token past that padding.
+  let terminator=end;
+  while(terminator<text.length&&whitespace.test(text[terminator]))terminator++;
+  if(!/^endstream\b/.test(text.slice(terminator,terminator+10)))throw tooComplex();
   // Only explicitly bounded decoders are allowed; unknown chains still fail closed.
   const filters=[...dictionary.matchAll(/\/Filter\s*(\/\w+|\[[^\]]*\])/g)].map(m=>m[1]);
   if(filters.length>1)throw tooComplex();
   const filter=filters[0]?.replace(/[\[\]\s]/g,'')||'';
   const ccitt=filter==='/CCITTFaxDecode'||filter==='/CCF';
+  const jbig2=filter==='/JBIG2Decode';
   const ascii85Flate=/^\/(?:ASCII85Decode|A85)\/(?:FlateDecode|Fl)$/.test(filter);
-  if(!ascii85Flate&&!ccitt&&!['','/FlateDecode','/Fl','/DCTDecode','/DCT'].includes(filter))throw tooComplex();
-  if(ccitt&&!/\/Subtype\s*\/Image\b/.test(dictionary))throw tooComplex();
+  if(!ascii85Flate&&!ccitt&&!jbig2&&!['','/FlateDecode','/Fl','/DCTDecode','/DCT'].includes(filter))throw tooComplex();
+  if((ccitt||jbig2)&&!/\/Subtype\s*\/Image\b/.test(dictionary))throw tooComplex();
   if(/\/Subtype\s*\/Image\b/.test(dictionary)){
    const width=Number(dictionary.match(/\/Width\s+(\d+)/)?.[1]),height=Number(dictionary.match(/\/Height\s+(\d+)/)?.[1]);
    imageBudget(width,height);
-   if(ccitt){
-    const decoded=ccittDecodedSize(dictionary,width,height);
-    budget.decodedBytes+=decoded;
-    if(decoded>16*1024*1024||budget.decodedBytes>80*1024*1024)throw tooComplex();
+   let pixels=width*height,decoded=0;
+   if(ccitt) decoded=ccittDecodedSize(dictionary,width,height);
+   if(jbig2){
+    // Unvalidated JBIG2Globals could introduce dictionary streams and extra allocations.
+    if(/\/(?:DecodeParms|DP)\b/.test(dictionary)||directInteger(dictionary,'Width')!==width||
+      directInteger(dictionary,'Height')!==height||directInteger(dictionary,'BitsPerComponent')!==1)throw tooComplex();
+    const scan=jbig2ImageBudget(bytes.subarray(n,end),width,height);
+    pixels=scan.pixels;
+    decoded=scan.decodedBytes;
    }
-   budget.imagePixels=(budget.imagePixels||0)+width*height;if(budget.imagePixels>DOCUMENT_LIMITS.totalImagePixels)throw tooComplex();
+   budget.decodedBytes+=decoded;
+   if(decoded>16*1024*1024||budget.decodedBytes>80*1024*1024)throw tooComplex();
+   budget.imagePixels=(budget.imagePixels||0)+pixels;if(budget.imagePixels>DOCUMENT_LIMITS.totalImagePixels)throw tooComplex();
    if(filter==='/DCTDecode'||filter==='/DCT'){const size=imageDimensions(bytes.subarray(n,end),'image/jpeg');imageBudget(size.width,size.height);if(size.width!==width||size.height!==height)throw tooComplex();}
   }
   // Count lexical tokens while streaming, before PDF.js can allocate an operator list.
@@ -94,7 +109,7 @@ export function preflightPdf(bytes:Uint8Array,budget:PdfInputBudget={decodedByte
    if(ascii85Flate){decodePdfAscii85(bytes.subarray(n,end),chunk=>{budget.decodedBytes+=chunk.length;if(budget.decodedBytes>80*1024*1024)throw tooComplex();inflate.push(chunk,false);});inflate.push(new Uint8Array(),true);}
    else for(let offset=n;offset<end;offset+=512)inflate.push(bytes.subarray(offset,Math.min(end,offset+512)),offset+512>=end);
   }else if(!filter){budget.decodedBytes+=length!;if(budget.decodedBytes>80*1024*1024)throw tooComplex();countTokens(bytes.subarray(n,end));}
-  objects.lastIndex=end+9;
+  objects.lastIndex=terminator+9;
  }
  return budget;
 }

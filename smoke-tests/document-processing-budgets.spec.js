@@ -52,3 +52,49 @@ test('CCITT pixels and estimated decoded bytes count toward combined document bu
  expect(()=>load('pdf-input-budget').preflightPdf(bytes,{decodedBytes:80*1024*1024,objects:0})).toThrow('too complex');
  expect(()=>load('pdf-input-budget').preflightPdf(bytes,{decodedBytes:0,objects:0,imagePixels:60_000_000})).toThrow('too complex');
 });
+
+test('embedded JBIG2 generic scan pages count towards the image and decoded-byte budgets', async () => {
+  const { jbig2Pdf } = require('./fixtures/jbig2-pdf');
+  const pdf = await jbig2Pdf(), { preflightPdf } = load('pdf-input-budget');
+  const budget = preflightPdf(pdf);
+  expect(budget.imagePixels).toBe(3 * 2 * 64 * 64);
+  expect(budget.decodedBytes).toBeGreaterThanOrEqual(3 * 2 * 64 * 64 / 8);
+  expect(() => preflightPdf(pdf, { decodedBytes: 80 * 1024 * 1024, objects: 0 })).toThrow('too complex');
+  expect(() => preflightPdf(pdf, { decodedBytes: 0, objects: 0, imagePixels: 60_000_000 })).toThrow('too complex');
+});
+
+test('JBIG2 rejects large internal bitmaps, references, stripes, and truncated segments', () => {
+  const { jbig2Image } = require('./fixtures/jbig2-pdf');
+  const { preflightPdf } = load('pdf-input-budget');
+  const dict = '/Subtype /Image /Width 64 /Height 64 /BitsPerComponent 1';
+  const filter = '/Filter /JBIG2Decode';
+  const stream = image => streamPdf(image, filter, dict);
+  const changes = [
+    bytes => bytes.writeUInt32BE(0xffffffff, 15), // page height
+    bytes => bytes.writeUInt16BE(0x8000, 28), // page striping
+    bytes => bytes[35] = 0x20, // referenced segment count
+    bytes => bytes.writeUInt32BE(0xffffffff, 37), // unknown segment length
+    bytes => bytes.writeUInt32BE(0x7fffffff, 41), // region width
+    bytes => bytes.writeUInt32BE(64, 53), // region Y beyond the page
+    bytes => bytes[58] = 0x10, // unsupported coding extension
+  ];
+  for (const change of changes) {
+    const image = jbig2Image();
+    change(image);
+    expect(() => preflightPdf(stream(image))).toThrow('too complex');
+  }
+  const image = jbig2Image();
+  expect(() => preflightPdf(stream(image.subarray(0, -1)))).toThrow('too complex');
+  expect(() => preflightPdf(streamPdf(image, filter, dict + ' /DecodeParms << /JBIG2Globals 9 0 R >>'))).toThrow('too complex');
+  expect(() => preflightPdf(streamPdf(image, filter, dict.replace('/Image', '/Form')))).toThrow('too complex');
+});
+
+test('valid PDF stream lengths accept line breaks before endstream', () => {
+  const { preflightPdf } = load('pdf-input-budget');
+  const compressed = zlibSync(Buffer.from('q 1 0 0 1 0 0 cm Q'));
+  const padding = '\r\n'.repeat(40);
+  const head = Buffer.from('%PDF-1.6\n1 0 obj\n<< /Length ' + compressed.length + ' /Filter /FlateDecode >>\nstream\n');
+  const tail = Buffer.from(padding + 'endstream\nendobj\n%%EOF');
+  expect(preflightPdf(Buffer.concat([head, compressed, tail])).objects).toBe(1);
+  expect(() => preflightPdf(Buffer.concat([head, compressed, Buffer.from('unexpected'), tail]))).toThrow('too complex');
+});
