@@ -1,7 +1,7 @@
 import type { Job, ShopDrawing } from './estimator-data';
 import { excelWriter } from './job-accounting-workbook';
 import { downloadFile } from './save-pdf-to-device';
-import { drawingRecord } from './shop-drawing-workflow';
+import { shopDrawingRevisionEntries } from './shop-drawing-workflow';
 
 const columns = [
   ['SD number', 11], ['Rev.', 6], ['Version', 9], ['Description', 32],
@@ -90,25 +90,19 @@ export async function downloadShopDrawingLog(job: Job, client: string) {
 
   const drawings = [...(job.shopDrawings ?? [])].sort((a, b) => a.number.localeCompare(b.number, 'en-CA', { numeric: true }));
   drawings.forEach((drawing, index) => {
-    const previous = [...drawing.revisions].sort((a, b) => b.revision - a.revision);
-    const rows = [
-      values(drawing.number, drawing.revision, true, drawing),
-      ...previous.map(revision => {
-        const snapshot = drawingRecord(revision.snapshot);
-        return values(cellText(snapshot.number) || drawing.number, revision.revision, false, snapshot);
-      }),
-    ];
-    rows.forEach((rowValues, revisionIndex) => {
+    shopDrawingRevisionEntries(drawing).forEach(({ revision, current, record }) => {
+      const rowValues = values(drawing.number, revision, current, record);
       const row = sheet.addRow(rowValues);
       const background = index % 2 === 0 ? white : 'FFF2F7F4';
       let lines = 1;
       for (const [columnIndex, [, width]] of columns.entries()) {
         const cell = row.getCell(columnIndex + 1);
         const value = rowValues[columnIndex];
-        cell.font = { name: 'Arial', size: 10, bold: revisionIndex === 0 && columnIndex < 3, color: { argb: ink } };
+        cell.font = { name: 'Arial', size: 10, bold: current && columnIndex < 3, color: { argb: ink } };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: background } };
         cell.border = { bottom: { style: 'thin', color: { argb: border } } };
         cell.alignment = { vertical: 'middle', horizontal: columnIndex === 1 || columnIndex >= 7 ? 'center' : 'left', wrapText: true };
+        if (columnIndex === 1) cell.numFmt = '"Rev"0';
         if (value instanceof Date) cell.numFmt = 'mmm d, yy';
         if (typeof value === 'string') lines = Math.max(lines, wrapLineCount(value, Math.max(3, width - 2)));
       }

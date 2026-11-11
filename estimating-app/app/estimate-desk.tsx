@@ -8,8 +8,8 @@ import { JobLabourCostBreakdown, JobTmExtras } from "./job-tm-extras";
 import { JobRfis } from "./job-rfis";
 import { JobSchedule } from "./job-schedule";
 import { ShopDrawingTransmittal } from "./shop-drawing-transmittal";
-import { ShopDrawingHistory } from "./shop-drawing-history";
-import { approvedDrawingFile, drawingHistory, drawingSnapshot, validateDrawing } from "../lib/shop-drawing-workflow";
+import { ShopDrawingHistory, ShopDrawingRevisionLog } from "./shop-drawing-history";
+import { approvedDrawingFile, drawingHistory, drawingSnapshot, shopDrawingNumberLocked, shopDrawingRevisionLabel, validateDrawing } from "../lib/shop-drawing-workflow";
 import type { JobCreationDraft } from "../lib/job-creation";
 import { EXCEL_JOB_IMPORT_ENABLED } from "../src/portal-api";
 "use client";
@@ -5725,6 +5725,13 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
   const [shopDrawingEditor, setShopDrawingEditor] = useState<ShopDrawingEditorState>(null);
   const [shopDrawingReview, setShopDrawingReview] = useState<{ id: string; file?: File } | null>(null);
   const shopDrawingFileInput = useRef<HTMLInputElement>(null);
+  const shopDrawingEditorTitle = useRef<HTMLHeadingElement>(null);
+  const [expandedShopDrawingId, setExpandedShopDrawingId] = useState<string | null>(null);
+  useEffect(() => {
+    if (tab !== "shop-drawings" || shopDrawingEditor?.mode !== "revision") return;
+    shopDrawingEditorTitle.current?.scrollIntoView({ block: "start" });
+    shopDrawingEditorTitle.current?.focus({ preventScroll: true });
+  }, [tab, shopDrawingEditor?.mode, shopDrawingEditor?.drawingId]);
   const [shopDrawingFilter, setShopDrawingFilter] = useState<"Open" | "All" | "Approved">("All");
   const [shopDrawingSearch, setShopDrawingSearch] = useState("");
   const [shopDrawingAction, setShopDrawingAction] = useState<"saving" | "sharing" | "unsharing" | "deleting" | "downloading" | null>(null);
@@ -5756,6 +5763,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
     setStatisticsMessage("");
     setShopDrawingEditor(null);
     setShopDrawingReview(null);
+    setExpandedShopDrawingId(null);
     setShopDrawingFilter("All");
     setShopDrawingSearch("");
     setShopDrawingAction(null);
@@ -5934,6 +5942,14 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
   };
 
   const startShopDrawingRevision = (drawing: ShopDrawing) => {
+    if (shopDrawingEditor?.mode === "revision" && shopDrawingEditor.drawingId === drawing.id) {
+      shopDrawingEditorTitle.current?.scrollIntoView({ block: "start" });
+      shopDrawingEditorTitle.current?.focus({ preventScroll: true });
+      return;
+    }
+    if (shopDrawingEditor && (shopDrawingEditor.file || JSON.stringify(shopDrawingEditor.draft) !== shopDrawingEditor.original)) {
+      if (!window.confirm("Discard unsaved changes and open the next revision? Save the current drawing first to keep those changes.")) return;
+    }
     const draft = {
       ...shopDrawingDraftFrom(drawing),
       status: "Requested from vendor" as const,
@@ -6012,7 +6028,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
     setShopDrawingError(false);
     setShopDrawingMessage("");
     try {
-      if (mustUnshare) await clearEmployeeJobListLink();
+      const documentLinkUpdate = mustUnshare ? await clearEmployeeJobListLink(true) : {};
       const now = new Date().toISOString();
       const vendor = state.vendors.find((item) => item.name.trim().toLocaleLowerCase("en-CA") === draft.vendorName.trim().toLocaleLowerCase("en-CA"));
       const common = {
@@ -6062,13 +6078,13 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           shopDrawings: shopDrawingEditor.mode === "create"
             ? [...(item.shopDrawings ?? []), savedDrawing]
             : (item.shopDrawings ?? []).map((drawing) => drawing.id === savedDrawing.id ? savedDrawing : drawing),
-          ...(mustUnshare ? { documentLink: "", documentLinkLabel: "" } : {}),
+          ...documentLinkUpdate,
         }),
       }));
       if (file) setShopDrawingReview({ id: savedDrawing.id, file });
       setShopDrawingEditor(null);
       setShopDrawingMessage(shopDrawingEditor.mode === "revision"
-        ? `${savedDrawing.number} Revision ${savedDrawing.revision} saved. The previous revision remains in history.`
+        ? `${shopDrawingRevisionLabel(savedDrawing.number, savedDrawing.revision)} saved. The previous revision remains in history.`
         : shopDrawingEditor.mode === "create"
           ? `${savedDrawing.number} added to the register.`
           : `${savedDrawing.number} updated without creating a revision.`);
@@ -6350,7 +6366,9 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
     const visibleShopDrawings = shopDrawings.filter((drawing) => {
       if (shopDrawingFilter === "Open" && !isOpenShopDrawing(drawing.status)) return false;
       if (shopDrawingFilter === "Approved" && !isApprovedShopDrawing(drawing.status)) return false;
-      const haystack = `${drawing.number} ${drawing.title} ${drawing.division} ${drawing.vendorName} ${drawing.consultant} ${drawing.status} ${drawing.responsibility}`.toLocaleLowerCase("en-CA");
+      const revisions = [drawing.revision, ...drawing.revisions.map(revision => revision.revision)];
+      const references = revisions.map(revision => shopDrawingRevisionLabel(drawing.number, revision)).join(" ");
+      const haystack = `${references} ${drawing.title} ${drawing.division} ${drawing.vendorName} ${drawing.consultant} ${drawing.status} ${drawing.responsibility}`.toLocaleLowerCase("en-CA");
       return haystack.includes(normalizedDrawingSearch);
     });
     const reviewDrawing = shopDrawings.find((drawing) => drawing.id === shopDrawingReview?.id);
@@ -6681,12 +6699,16 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
 
           {shopDrawingEditor && <section className="shop-drawing-editor" aria-label={shopDrawingEditor.mode === "create" ? "New shop drawing" : `Edit ${shopDrawingEditor.draft.number}`}>
             <div className="shop-drawing-editor-heading">
-              <div><span className="eyebrow">{shopDrawingEditor.mode === "revision" ? "NEW REVISION" : shopDrawingEditor.mode === "create" ? "NEW REGISTER ITEM" : "CURRENT REVISION"}</span><h3>{shopDrawingEditor.mode === "revision" ? `${shopDrawingEditor.draft.number} · Revision ${(editorDrawing?.revision ?? 0) + 1}` : shopDrawingEditor.mode === "create" ? "Add a required submission" : `${shopDrawingEditor.draft.number} · Revision ${editorDrawing?.revision ?? 0}`}</h3><p>Opening this record does not create a revision. A revision is added only when a new revision is saved.</p></div>
+              <div>
+                <span className="eyebrow">{shopDrawingEditor.mode === "revision" ? "NEW REVISION" : shopDrawingEditor.mode === "create" ? "NEW REGISTER ITEM" : "CURRENT REVISION"}</span>
+                <h3 ref={shopDrawingEditorTitle} tabIndex={-1}>{shopDrawingEditor.mode === "create" ? "Add a required submission" : shopDrawingRevisionLabel(shopDrawingEditor.draft.number, (editorDrawing?.revision ?? 0) + Number(shopDrawingEditor.mode === "revision"))}</h3>
+                {shopDrawingEditor.mode === "revision" && <p>Saving this revision preserves the prior submission, its review decision, comments and file links.</p>}
+              </div>
               <button className="icon-close" type="button" aria-label="Close shop drawing editor" disabled={Boolean(shopDrawingAction)} onClick={() => setShopDrawingEditor(null)}>×</button>
             </div>
             <datalist id={`shop-drawing-vendors-${job.id}`}>{state.vendors.filter((vendor) => vendor.status === "Active").map((vendor) => <option key={vendor.id} value={vendor.name} />)}</datalist>
             <div className="form-grid three-column shop-drawing-form">
-              <label className="field"><span>SD number *</span><input aria-label="SD number" value={shopDrawingEditor.draft.number} onChange={(event) => updateShopDrawingDraft("number", event.target.value)} maxLength={30} /></label>
+              <label className="field"><span>SD number *</span><input aria-label="SD number" value={shopDrawingEditor.draft.number} onChange={(event) => updateShopDrawingDraft("number", event.target.value)} readOnly={Boolean(editorDrawing && shopDrawingNumberLocked(editorDrawing, shopDrawingEditor.mode === "revision"))} maxLength={30} /></label>
               <label className="field full-two"><span>Description *</span><input aria-label="Shop drawing description" value={shopDrawingEditor.draft.title} onChange={(event) => updateShopDrawingDraft("title", event.target.value)} placeholder="Doors and hardware schedule" maxLength={180} /></label>
               <label className="field"><span>Division / trade</span><select aria-label="Shop drawing division" value={shopDrawingEditor.draft.division} onChange={(event) => updateShopDrawingDraft("division", event.target.value)}><option value="">Select division</option>{constructionDivisions.map((division) => <option key={division} value={division}>{division}</option>)}</select></label>
               <label className="field"><span>Vendor / fabricator</span><input aria-label="Shop drawing vendor" list={`shop-drawing-vendors-${job.id}`} value={shopDrawingEditor.draft.vendorName} onChange={(event) => updateShopDrawingDraft("vendorName", event.target.value)} placeholder="Vendor name" /></label>
@@ -6717,7 +6739,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
             </div>
             <div className="shop-drawing-editor-actions">
               <div>
-                {editorDrawing && shopDrawingEditor.mode === "edit" && <button className="button warning" type="button" disabled={Boolean(shopDrawingAction)} onClick={() => startShopDrawingRevision(editorDrawing)}>Start next revision</button>}
+                {editorDrawing && shopDrawingEditor.mode === "edit" && <button className="button warning" type="button" disabled={Boolean(shopDrawingAction)} onClick={() => startShopDrawingRevision(editorDrawing)}>{editorDrawing.status === "Revise and resubmit" ? "Revise and resubmit" : "Start next revision"}</button>}
                 {editorDrawing && shopDrawingEditor.mode === "edit" && <button className="button danger-ghost" type="button" disabled={!workspaceSaved || Boolean(shopDrawingAction)} onClick={() => void deleteShopDrawing(editorDrawing)}>{shopDrawingAction === "deleting" ? "Deleting…" : "Delete shop drawing"}</button>}
               </div>
               <div><button className="button secondary" type="button" disabled={Boolean(shopDrawingAction)} onClick={() => setShopDrawingEditor(null)}>Cancel</button><button className="button primary" type="button" onClick={() => void saveShopDrawing()} disabled={Boolean(shopDrawingAction) || (shopDrawingEditor.mode === "edit" && !editorHasChanges && !shopDrawingEditor.file)}>{shopDrawingAction === "saving" ? "Saving…" : shopDrawingEditor.file ? "Save and review PDF" : shopDrawingEditor.mode === "revision" ? "Save new revision" : "Save drawing"}</button></div>
@@ -6727,8 +6749,19 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
 
           {visibleShopDrawings.length > 0 ? <div className="data-table-wrap"><table className="data-table shop-drawing-table">
             <thead><tr><th>SD / revision</th><th>Description / trade</th><th>Vendor</th><th>Status</th><th>Ball in court</th><th>Dates / reviewer</th><th>Approved for use</th><th><span className="sr-only">Actions</span></th></tr></thead>
-            <tbody>{visibleShopDrawings.map((drawing) => { const dateState = shopDrawingDateState(drawing); const href = secureExternalHref(drawing.oneDriveUrl); const sharedWithEmployees = shopDrawingIsSharedWithEmployees(job, drawing); const approvedHref = secureExternalHref(approvedDrawingFile(drawing)); return <tr key={drawing.id} className={`${dateState ? `is-${dateState}` : ""} ${sharedWithEmployees ? "is-shared" : ""}`}>
-              <td data-label="SD / revision"><strong>{drawing.number}</strong><small>Current · Revision {drawing.revision}{sharedWithEmployees ? " · Employee link" : ""}</small><small>{drawing.revision} revision {drawing.revision === 1 ? "cycle" : "cycles"}</small></td>
+            <tbody>{visibleShopDrawings.map((drawing) => {
+              const dateState = shopDrawingDateState(drawing);
+              const href = secureExternalHref(drawing.oneDriveUrl);
+              const sharedWithEmployees = shopDrawingIsSharedWithEmployees(job, drawing);
+              const approvedHref = secureExternalHref(approvedDrawingFile(drawing));
+              const expanded = expandedShopDrawingId === drawing.id;
+              return <Fragment key={drawing.id}>
+            <tr className={`shop-drawing-register-row ${dateState ? `is-${dateState}` : ""} ${sharedWithEmployees ? "is-shared" : ""}`}>
+              <td data-label="SD / revision">
+                <strong>{shopDrawingRevisionLabel(drawing.number, drawing.revision)}</strong>
+                {sharedWithEmployees && <small>Employee link</small>}
+                {drawing.revisions.length > 0 && <button type="button" className="button secondary compact shop-revision-toggle" aria-expanded={expanded} onClick={() => setExpandedShopDrawingId(expanded ? null : drawing.id)}>Revisions ({drawing.revisions.length + 1})</button>}
+              </td>
               <td data-label="Description / trade"><strong>{drawing.title}</strong><small>{drawing.division || "Division not entered"}{drawing.consultant ? ` · ${drawing.consultant}` : ""}</small></td>
               <td data-label="Vendor">{drawing.vendorName || "—"}</td>
               <td data-label="Status"><span className={`shop-drawing-status status-${drawing.status.toLocaleLowerCase("en-CA").replace(/[^a-z]+/g, "-")}`}>{drawing.status}</span>{dateState && <small className={`shop-drawing-date-flag ${dateState}`}>{dateState === "overdue" ? "Overdue" : "Due within 7 days"}</small>}</td>
@@ -6737,13 +6770,18 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
               <td data-label="Approved for use">{approvedHref ? <a className="button primary compact shop-approved-file" href={approvedHref} target="_blank" rel="noreferrer">Approved file · Rev {drawing.revision} ↗</a> : <span className="shop-not-approved">Not approved for use</span>}</td>
               <td className="shop-drawing-action-cell"><div className="shop-drawing-row-actions">
                 <button className="button secondary compact" type="button" disabled={Boolean(shopDrawingAction)} onClick={() => openShopDrawing(drawing)}>Open / edit</button>
+                {drawing.status === "Revise and resubmit" && <button className="button warning compact" type="button" disabled={Boolean(shopDrawingAction)} onClick={() => startShopDrawingRevision(drawing)}>Revise and resubmit</button>}
                 <button className="button secondary compact" type="button" disabled={Boolean(shopDrawingAction)} onClick={() => setShopDrawingReview({ id: drawing.id })}>Review PDF</button>
                 {href && <a className="button secondary compact" href={href} target="_blank" rel="noreferrer">Current file ↗</a>}
                 {sharedWithEmployees
                   ? <button className="button secondary compact" type="button" onClick={() => void unshareShopDrawing(drawing)} disabled={Boolean(shopDrawingAction)}>{shopDrawingAction === "unsharing" ? "Removing…" : "Remove from employee job list"}</button>
                   : isApprovedShopDrawing(drawing.status) && approvedHref && <button className="button primary compact" type="button" onClick={() => void shareShopDrawing(drawing)} disabled={!job.portalJobId || !workspaceSaved || Boolean(shopDrawingAction)}>{shopDrawingAction === "sharing" ? "Sharing…" : "Share to employee job list"}</button>}
               </div></td>
-            </tr>; })}</tbody>
+            </tr>
+            {expanded && <tr className="shop-drawing-log-row"><td colSpan={8}>
+              <section aria-label={`Revision log for ${drawing.number}`}><ShopDrawingRevisionLog drawing={drawing} includeCurrent /></section>
+            </td></tr>}
+            </Fragment>; })}</tbody>
           </table></div> : <div className="empty-state compact-empty shop-drawing-empty"><span>SD</span><h3>{shopDrawings.length ? `No ${shopDrawingFilter.toLocaleLowerCase()} drawings match` : "No shop drawings entered"}</h3><p>{shopDrawings.length ? "Change the filter or search to see another register item." : "Add the required submissions for this job. OneDrive files stay in their existing folders."}</p>{!shopDrawings.length && <button className="button secondary compact" type="button" onClick={startNewShopDrawing}>＋ Add first drawing</button>}</div>}
           {reviewDrawing && <ShopDrawingTransmittal key={reviewDrawing.id + ":" + reviewDrawing.revision} job={job} drawing={reviewDrawing} actor={currentEstimator.name} clientName={state.clients.find((client) => client.id === job.clientId)?.name ?? ""} workspaceSaved={workspaceSaved} initialFile={shopDrawingReview?.file} onClose={() => setShopDrawingReview(null)} />}
           <p className="shop-drawing-footnote">Internal by default. Employee sharing is available only for Approved or Approved as noted current revisions and replaces the existing employee job-list document button.</p>
