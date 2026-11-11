@@ -917,3 +917,78 @@ test("Shop Drawings saves a stamped transmittal and clears the file only after a
   await expect(view.getByText(/To Pat Client.*Test Reviewer/)).toBeVisible();
   await expect(view.getByRole("button", { name: "Download PDF", exact: true })).toHaveCount(0);
 });
+
+test("shop drawing details can create a drawing with a PDF and permanently delete a shared register entry", async ({ page }) => {
+  const { PDFDocument } = require("../estimating-app/node_modules/pdf-lib");
+  const state = jobControlState();
+  const job = state.jobs[0];
+  const link = "https://example.com/approved-sd-032.pdf";
+  job.documentLink = link;
+  job.documentLinkLabel = "SD-032 · Approved anchors";
+  job.shopDrawings = [{
+    id: "delete-shop", number: "SD-032", title: "Approved anchors", revision: 3,
+    status: "Approved", consultant: "Pat Client", revisions: [], sharedWithEmployees: true,
+    approvedFileUrl: link, createdAt: "2026-10-01T12:00:00Z", updatedAt: "2026-10-03T12:00:00Z",
+  }];
+  const captures = { savedStates: [], statisticsRequests: [], portalDocumentUpdates: [] };
+  await serveJobControl(page, state, captures);
+  await page.goto("/estimating/index.html?dev=1");
+  await openJob(page);
+  await jobTab(page, "Shop Drawings").click();
+  await page.evaluate(() => {
+    const events = [];
+    window.__drawingDeletion = events;
+    window.createJgcSupabaseClient = () => ({
+      rpc: async (name, body) => {
+        if (name === "manage_shop_transmittal" && body.operation === "list") return { data: [], error: null };
+        if (name !== "manage_drawing_deletion" || body.target !== "shop" ||
+            body.job_key !== "job-control" || body.drawing_key !== "delete-shop" ||
+            body.expected !== "2026-10-03T12:00:00Z") throw new Error("Incorrect drawing deletion scope");
+        events.push(body.action);
+        return { data: body.action === "prepare" ? ["approved-test.pdf"] : [], error: null };
+      },
+      storage: { from: bucket => ({
+        remove: async paths => {
+          events.push([bucket, ...paths]);
+          return { data: [], error: null };
+        },
+      }) },
+    });
+  });
+
+  const panel = jobPanel(page, "Shop Drawings");
+  const existing = panel.getByRole("row").filter({ hasText: "SD-032" });
+  await existing.getByRole("button", { name: "Open / edit" }).click();
+  const editor = panel.getByRole("region", { name: "Edit SD-032" });
+  await expect(editor.getByLabel(/Shop drawing PDF/)).toBeVisible();
+  const deleteButton = editor.getByRole("button", { name: "Delete shop drawing" });
+  page.once("dialog", dialog => dialog.dismiss());
+  await deleteButton.click();
+  await expect(existing).toBeVisible();
+  expect(await page.evaluate(() => window.__drawingDeletion)).toEqual([]);
+  page.once("dialog", dialog => dialog.accept());
+  await deleteButton.click();
+  await expect(existing).toHaveCount(0);
+  await expect.poll(() => captures.savedStates.at(-1)?.jobs[0].shopDrawings).toEqual([]);
+  expect(await page.evaluate(() => window.__drawingDeletion)).toEqual([
+    "prepare", ["shop-drawing-transmittals", "approved-test.pdf"], "finish",
+  ]);
+  expect(captures.portalDocumentUpdates).toContainEqual(expect.objectContaining({
+    portalJobId: "portal-job-control", expectedLink: link, expectedLabel: "SD-032 · Approved anchors", documentLink: "",
+  }));
+
+  const pdf = await PDFDocument.create();
+  pdf.addPage([612, 792]).drawText("SHOP DRAWING TEST SHEET", { x: 80, y: 650 });
+  const buffer = Buffer.from(await pdf.save());
+  await panel.getByRole("button", { name: "New shop drawing" }).click();
+  await panel.getByLabel("Shop drawing description").fill("Wall framing");
+  await panel.getByLabel("Shop drawing consultant").fill("Field reviewer");
+  await panel.getByLabel(/Shop drawing PDF/).setInputFiles({ name: "Wall framing.pdf", mimeType: "application/pdf", buffer });
+  await panel.getByRole("button", { name: "Save and review PDF" }).click();
+  const review = page.getByRole("dialog", { name: "Review shop drawing" });
+  await expect(review.getByText("Wall framing.pdf · 1 sheet")).toBeVisible();
+  await expect(review.getByLabel("Transmitted to")).toHaveValue("Field reviewer");
+  await expect(review.getByRole("button", { name: "Place review stamp on sheet 1" })).toBeEnabled();
+  await review.getByRole("button", { name: "Close", exact: true }).click();
+  await expect.poll(() => captures.savedStates.at(-1)?.jobs[0].shopDrawings[0]?.title).toBe("Wall framing");
+});

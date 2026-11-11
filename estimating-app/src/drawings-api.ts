@@ -1,5 +1,5 @@
 import { DRAWING_MAX_BYTES, DRAWING_MAX_MB, emptyDrawing, validateContent, type DrawingContent } from '../lib/drawing-model';
-export type DrawingRecord = { id: string; job_id: string; title: string; file_name: string; object_path: string; revision: number; content: DrawingContent; created_at: string; updated_at: string };
+export type DrawingRecord = { id: string; job_id: string; title: string; file_name: string; object_path: string; revision: number; content: DrawingContent; created_at: string; updated_at: string; deleting_at?: string | null };
 function client(): any {
   const factory = (window as Window & { createJgcSupabaseClient?: () => any }).createJgcSupabaseClient;
   if (!factory) throw new Error('Sign in to the Portal to open shared drawings.');

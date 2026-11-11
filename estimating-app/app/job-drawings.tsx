@@ -1,3 +1,4 @@
+import { permanentlyDeleteDrawing } from "../src/drawing-deletion";
 import { openDrawingPdf } from '../lib/open-drawing-pdf';
 import { useEffect, useId, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { createPortal } from 'react-dom';
@@ -102,20 +103,80 @@ export function JobDrawings({job,actor,active}:{job:Job;actor:string;active:bool
     zoomAnchor.current=null;
   },[viewport,sourcePage]);
   useEffect(()=>()=>{void pdf?.loadingTask.destroy().catch(()=>{});},[pdf]);
+  const closeDrawing = () => {
+    generation.current++;
+    setFull('none');
+    setPdf(null);
+    setRecord(null);
+    recordRef.current = null;
+    source.current = null;
+    setSelected('');
+    setDraft([]);
+    reportSave('');
+  };
+
   const open=async(r:DrawingRecord,bytes?:Uint8Array)=>{
     if(dirty.current||saving.current){await flush();if(dirty.current||saving.current){setError('Wait for saving to finish, or recover your unsaved markups before switching drawings.');return;}}
+    if (r.deleting_at) {
+      closeDrawing();
+      setError('');
+      setTitle(r.title);
+      setRecord(r);
+      recordRef.current = r;
+      return;
+    }
     const token=++generation.current;setBusy(true);setError('');
     try { const data=bytes??await loadDrawing(r), doc=await openDrawingPdf(data),c=validateContent(r.content);if(token!==generation.current){void doc.loadingTask.destroy();return;}const tooMany=drawingPageCountProblem(doc.numPages);if(tooMany){void doc.loadingTask.destroy();throw new Error(tooMany);}drawingPageOrder(c,doc.numPages);if(c.marks.some(m=>m.page>doc.numPages))throw new Error('A markup references a missing PDF page.');const previous=pdf;setPdf(doc);if(previous)void previous.loadingTask.destroy();source.current=data;recordRef.current=r;current.current={content:c,title:r.title};dirty.current=false;blocked.current=false;setRecord(r);setTitle(r.title);setContent(c);setPage(1);setRotation(0);const first=await doc.getPage(drawingPageOrder(c,doc.numPages)[0]),v=first.getViewport({scale:1});setZoom(Math.min(1.5,Math.max(.2,((stage.current?.clientWidth||850)-40)/v.width)));history.current=[];future.current=[];setHistoryTick(x=>x+1);setDraft([]);setSelected('');setReference([]);setFiles([]);scrollEdge.current='top';reportSave('All drawing changes saved');
       const local=localStorage.getItem('jgc-drawing-recovery-'+r.id);
       if(local){const recovered=JSON.parse(local);if(window.confirm('Unsaved markups from an interrupted session were found. Restore them?')){const restored=validateContent(recovered.content);drawingPageOrder(restored,doc.numPages);current.current={content:restored,title:recovered.title};setContent(restored);setTitle(recovered.title);dirty.current=true;if(recovered.baseRevision!==r.revision){blocked.current=true;reportSave('Not saved');setError('The shared drawing changed after this recovery draft. Recover unsaved markups before reloading the shared drawing.');}else{reportSave('Unsaved drawing changes');timer.current=setTimeout(()=>void flush(),600);}}} }
-    catch(e){setError(e instanceof Error?e.message:'Could not open PDF.');}finally{if(token===generation.current)setBusy(false);}
+    catch (error) {
+      if (token === generation.current) {
+        closeDrawing();
+        setRecord(r);
+        recordRef.current = r;
+        setTitle(r.title);
+        setError(error instanceof Error ? error.message : 'Could not open PDF.');
+        setBusy(false);
+      }
+    } finally {
+      if (token === generation.current) setBusy(false);
+    }
   };
   const upload=async(file?:File)=>{if(!file)return;if(dirty.current||saving.current){setError('Save the current drawing before uploading another.');return;}uploading.current=true;setBusy(true);setError('');try{if(file.size>DRAWING_MAX_BYTES)throw new Error(`Choose a PDF no larger than ${DRAWING_MAX_MB} MB.`);const data=new Uint8Array(await file.arrayBuffer());await checkDrawingPdf(data);setUploadProgress(0);const result=await addDrawing(job.id,file,setUploadProgress);setRecords(items=>[result.record,...items]);await open(result.record,result.bytes);}catch(e){setError(e instanceof Error?e.message:'Upload failed. Refresh the register to check for an incomplete upload before retrying.');}finally{uploading.current=false;setBusy(false);setUploadProgress(null);}};
   const setRemoved=async(removed:boolean)=>{
     if(!record||busy||blocked.current)return;if(removed&&!window.confirm(`Remove "${title}" from this job's drawing list? You can restore it using Show removed drawings.`))return;
     await flush();if(dirty.current||saving.current){setError('Wait for drawing changes to save before changing the drawing list.');return;}
     change({...current.current.content,archived:removed});await flush();if(dirty.current||saving.current)return;
-    if(removed){if(document.fullscreenElement)await document.exitFullscreen();setFull('none');setPdf(null);setRecord(null);recordRef.current=null;source.current=null;setSelected('');setDraft([]);}
+    if (removed) {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      closeDrawing();
+    }
+  };
+  const deleteDrawing = async () => {
+    if (!record || busy || blocked.current || saving.current) return;
+    if (!record.deleting_at && !window.confirm('Permanently delete "' + record.title + '" and its original PDF and markups?')) return;
+    setBusy(true);
+    setError('');
+    try {
+      await flush();
+      if (dirty.current || saving.current || !recordRef.current) return;
+      const current = recordRef.current;
+      await permanentlyDeleteDrawing({ target: 'drawing', jobId: job.id, drawingId: current.id, expected: String(current.revision) }, () => {
+        const pending = { ...current, deleting_at: current.deleting_at || new Date().toISOString() };
+        closeDrawing();
+        setTitle(pending.title);
+        setRecord(pending);
+        recordRef.current = pending;
+        setRecords(rows => rows.map(row => row.id === pending.id ? pending : row));
+      });
+      setRecords(rows => rows.filter(row => row.id !== current.id));
+      closeDrawing();
+      reportSave('Drawing deleted');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Could not delete the drawing.');
+    } finally {
+      setBusy(false);
+    }
   };
   const point=(event:{clientX:number;clientY:number},allowSnap=true):Point=>{const box=canvas.current!.getBoundingClientRect();const [x,y]=viewport!.convertToPdfPoint((event.clientX-box.left)*viewport!.width/box.width,(event.clientY-box.top)*viewport!.height/box.height);const raw={x,y},found=allowSnap&&snap&&tool!=='pen'?snapPoint(raw,lines,8/zoom):{point:raw,snapped:false};setSnapAt(found.snapped?found.point:null);return found.point;};
   const append=(kind:Mark['kind'],points:Point[])=>{if(blocked.current)return;const mark:Mark={id:crypto.randomUUID(),page:sourcePage,kind,points,color:kind==='stamp'?'#b31a1f':color,text:'',...(kind==='stamp'?{stamp:{...stamp}}:{}),...(isMeasurement(kind)&&current.current.content.scales[String(sourcePage)]?{calibration:{unit:current.current.content.scales[String(sourcePage)].unit,unitsPerPoint:current.current.content.scales[String(sourcePage)].unitsPerPoint}}:{}),...(kind==='distance'?{dimensionOffset:0}:{}),author:actor,createdAt:new Date().toISOString(),layer,rotation:viewport?.rotation??0};change({...current.current.content,marks:[...current.current.content.marks,mark]});setSelected(mark.id);setDraft([]);if(['callout','text','stamp'].includes(kind))setTool('select');};
@@ -317,7 +378,7 @@ export function JobDrawings({job,actor,active}:{job:Job;actor:string;active:bool
   return <section className="job-drawings" hidden={!active} aria-label="Job drawings">
     <header className="drawing-heading"><div><span className="eyebrow">JGC · DRAWING WORKSPACE</span><h2>Drawings</h2><p>Review, measure and record as-built changes for Job {job.jobNumber}. PDFs up to {DRAWING_MAX_MB} MB.</p></div><label className={`button primary ${busy?'disabled':''}`}>＋ Upload PDF<input type="file" accept="application/pdf,.pdf" disabled={busy||blocked.current} onChange={e=>{void upload(e.target.files?.[0]);e.target.value='';}}/></label></header>
     {error&&<div className="drawing-notice" role="alert"><p>{error}</p>{record&&<div><button className="button secondary compact" disabled={busy||saving.current} onClick={()=>{blocked.current=false;void flush();}}>Retry saving</button><button className="button secondary compact" disabled={busy||saving.current} onClick={()=>{if(dirty.current&&!window.confirm('Reload will discard unsaved markups. Download Recover unsaved markups first if you need to keep them. Continue?'))return;localStorage.removeItem('jgc-drawing-recovery-'+recordRef.current?.id);dirty.current=false;blocked.current=false;void listDrawings(job.id).then(rows=>{setRecords(rows);const latest=rows.find(r=>r.id===record.id);if(latest)void open(latest);}).catch(e=>setError(e.message));}}>Reload saved drawing</button><button className="button secondary compact" onClick={()=>download(JSON.stringify({drawingId:record.id,fileName:record.file_name,...current.current.content},null,2),'JGC unsaved markups.json','application/json')}>Recover unsaved markups</button></div>}</div>}
-    <div className="drawing-register"><label>Drawing<select aria-label="Select drawing" value={record?.id??''} disabled={busy||saving.current} onChange={e=>{const r=records.find(r=>r.id===e.target.value);if(r)void open(r);}}><option value="">Choose a drawing…</option>{visibleRecords.map(r=><option key={r.id} value={r.id}>{r.title}{r.content.archived?' (removed)':''}</option>)}</select></label><button className="button secondary compact" disabled={busy||saving.current} onClick={()=>{void (async()=>{await flush();if(dirty.current||saving.current)return;setBusy(true);try{const rows=await listDrawings(job.id);setRecords(rows);const latest=rows.find(r=>r.id===record?.id);if(latest)await open(latest);}catch(e){setError((e as Error).message);}finally{setBusy(false);}})();}}>Refresh drawings</button><label className="drawing-removed-filter"><input type="checkbox" checked={showRemoved} onChange={e=>setShowRemoved(e.target.checked)}/>Show removed drawings</label>{record&&<button className="button secondary compact drawing-remove" disabled={busy||blocked.current||saving.current} onClick={()=>void setRemoved(!content.archived)}>{content.archived?'Restore drawing':'Remove drawing'}</button>}<span role="status">{busy?(uploadProgress!==null?`Uploading drawing · ${uploadProgress}%`:'Working…'):saveStatus||`${visibleRecords.length} shared drawing${visibleRecords.length===1?'':'s'}`}</span></div>
+    <div className="drawing-register"><label>Drawing<select aria-label="Select drawing" value={record?.id??''} disabled={busy||saving.current} onChange={e=>{const r=records.find(r=>r.id===e.target.value);if(r)void open(r);}}><option value="">Choose a drawing…</option>{visibleRecords.map(r=><option key={r.id} value={r.id}>{r.title}{r.deleting_at?' (deletion pending)':r.content.archived?' (removed)':''}</option>)}</select></label><button className="button secondary compact" disabled={busy||saving.current} onClick={()=>{void (async()=>{await flush();if(dirty.current||saving.current)return;setBusy(true);try{const rows=await listDrawings(job.id);setRecords(rows);const latest=rows.find(r=>r.id===record?.id);if(latest)await open(latest);else if(record)closeDrawing();}catch(e){setError((e as Error).message);}finally{setBusy(false);}})();}}>Refresh drawings</button><label className="drawing-removed-filter"><input type="checkbox" checked={showRemoved} onChange={e=>setShowRemoved(e.target.checked)}/>Show removed drawings</label>{record&&pdf&&!record.deleting_at&&<button className="button secondary compact drawing-remove" disabled={busy||blocked.current||saving.current} onClick={()=>void setRemoved(!content.archived)}>{content.archived?'Restore drawing':'Remove drawing'}</button>}{record&&<button className="button danger-ghost compact" type="button" disabled={busy||blocked.current||saving.current} onClick={()=>void deleteDrawing()}>{record.deleting_at?'Finish deleting':'Delete drawing'}</button>}<span role="status">{busy?(uploadProgress!==null?`Uploading drawing · ${uploadProgress}%`:'Working…'):saveStatus||`${visibleRecords.length} shared drawing${visibleRecords.length===1?'':'s'}`}</span></div>
     {!pdf?<div className="drawing-empty"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l4 4v16H6zM14 2v5h5M9 12h6M9 16h6"/></svg><h3>{busy?'Opening drawing…':'Your Job drawings, together'}</h3><p>Upload a PDF or choose a saved drawing. The original stays intact; markups are saved separately and included in your marked PDF export.</p></div>:<>
       <div className="drawing-document-title"><input aria-label="Drawing title" value={title} disabled={busy||blocked.current} onChange={e=>{setTitle(e.target.value);current.current={...current.current,title:e.target.value};dirty.current=true;stash();reportSave('Unsaved drawing changes');clearTimeout(timer.current);timer.current=setTimeout(()=>void flush(),600);}}/><span>{record?.file_name} · Shared with JGC admins</span></div>
       {full==='window'?createPortal(viewerContent,document.body):viewerContent}{organizerContent&&createPortal(organizerContent,document.fullscreenElement===viewer.current&&viewer.current?viewer.current:document.body)}

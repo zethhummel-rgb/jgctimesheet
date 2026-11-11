@@ -791,16 +791,25 @@ async function mutatePortalJobDocuments(client: any, request: Request) {
   const documentLinkLabel = String(body.documentLinkLabel ?? "").trim().slice(0, 100);
   if (!portalJobId) return json({ error: "This estimator job is not linked to a Portal job." }, 400);
   if (requestedLink && !documentLink) return json({ error: "Paste a secure https:// OneDrive folder link." }, 400);
-  const result = await client
+  let update = client
     .from("jobs")
     .update({
       document_link: documentLink || null,
       document_link_label: documentLink ? (documentLinkLabel || "Open OneDrive Folder") : null,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", portalJobId)
-    .select("id,document_link,document_link_label")
-    .single();
+    .eq("id", portalJobId);
+  const compareLink = !requestedLink && typeof body.expectedLink === "string" && typeof body.expectedLabel === "string";
+  if (compareLink) {
+    update = update.eq("document_link", body.expectedLink);
+    update = body.expectedLabel ? update.eq("document_link_label", body.expectedLabel) : update.is("document_link_label", null);
+  }
+  const selected = update.select("id,document_link,document_link_label");
+  let result = compareLink ? await selected.maybeSingle() : await selected.single();
+  if (compareLink && !result.data && !result.error) {
+    result = await client.from("jobs").select("id,document_link,document_link_label").eq("id", portalJobId).maybeSingle();
+  }
+  if (!result.data && !result.error) return json({ error: "The Portal job could not be found." }, 404);
   if (result.error) throw new Error(result.error.message || "The project document folder could not be saved.");
   return json({
     saved: true,

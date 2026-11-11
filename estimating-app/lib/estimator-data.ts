@@ -1318,6 +1318,7 @@ export function normalizeAppState(state: AppState): AppState {
                 return "";
               }
             })();
+            const approvedFileUrl = typeof drawing.approvedFileUrl === "string" && /^https:\/\//i.test(drawing.approvedFileUrl) ? drawing.approvedFileUrl : "";
             return {
               ...drawing,
               id: typeof drawing.id === "string" && drawing.id ? drawing.id : `shop-drawing-${job.id}-${index + 1}`,
@@ -1338,10 +1339,10 @@ export function normalizeAppState(state: AppState): AppState {
               requiredOnsiteDate: typeof drawing.requiredOnsiteDate === "string" ? drawing.requiredOnsiteDate : "",
               oneDriveUrl: secureUrl,
               reviewComments: typeof drawing.reviewComments === "string" ? drawing.reviewComments : "",
-              approvedFileUrl: typeof drawing.approvedFileUrl === "string" && /^https:\/\//i.test(drawing.approvedFileUrl) ? drawing.approvedFileUrl : "",
+              approvedFileUrl,
               history: Array.isArray(drawing.history) ? drawing.history.filter((event) => event && typeof event.id === "string" && typeof event.snapshot === "string").map((event) => ({ ...event, recordedAt: typeof event.recordedAt === "string" ? event.recordedAt : drawing.updatedAt || drawing.createdAt || "", actor: typeof event.actor === "string" ? event.actor : "", action: typeof event.action === "string" ? event.action : "Recorded update" })) : [],
               notes: typeof drawing.notes === "string" ? drawing.notes : "",
-              sharedWithEmployees: drawing.sharedWithEmployees === true && Boolean(secureUrl),
+              sharedWithEmployees: drawing.sharedWithEmployees === true && Boolean(secureUrl || approvedFileUrl),
               revisions: Array.isArray(drawing.revisions)
                 ? drawing.revisions.map((revision, revisionIndex) => ({
                     id: typeof revision.id === "string" && revision.id ? revision.id : `shop-drawing-revision-${drawing.id || index + 1}-${revisionIndex + 1}`,
