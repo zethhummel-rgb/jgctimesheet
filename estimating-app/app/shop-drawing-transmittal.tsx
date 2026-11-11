@@ -1,4 +1,4 @@
-import { drawingRecord, shopDrawingPdfFilename } from "../lib/shop-drawing-workflow";
+import { drawingRecord, shopDrawingPdfFilename, shopDrawingRevisionLabel } from "../lib/shop-drawing-workflow";
 import { useEffect, useId, useMemo, useRef, useState, type MouseEvent } from 'react';
 import type { PDFDocumentProxy, PageViewport, RenderTask } from 'pdfjs-dist';
 import type { Job, ShopDrawing } from '../lib/estimator-data';
@@ -246,10 +246,17 @@ export function ShopDrawingTransmittal({ job, drawing, actor, clientName, worksp
     const legacyFilename = entry.reference.replace(/[^a-z0-9._-]+/gi, '-') + '-Transmittal.pdf';
     const revision = drawing.revisions.find(item => item.revision === entry.revision);
     const snapshot = revision ? drawingRecord(revision.snapshot) : {};
-    const filename = entry.filename === legacyFilename ? shopDrawingPdfFilename({
-      number: typeof snapshot.number === 'string' && snapshot.number ? snapshot.number : drawing.number,
-      title: typeof snapshot.title === 'string' && snapshot.title ? snapshot.title : drawing.title,
-    }) : entry.filename;
+    const originalNumber = typeof snapshot.number === 'string' && snapshot.number ? snapshot.number : drawing.number;
+    const previousPrefix = shopDrawingPdfFilename({ number: originalNumber, title: '' }).slice(0, -4) + '- ';
+    let filename = entry.filename;
+    if (filename === legacyFilename) {
+      filename = shopDrawingPdfFilename({
+        number: drawing.number, revision: entry.revision,
+        title: typeof snapshot.title === 'string' && snapshot.title ? snapshot.title : drawing.title,
+      });
+    } else if (entry.revision > 0 && filename.startsWith(previousPrefix)) {
+      filename = shopDrawingPdfFilename({ number: drawing.number, revision: entry.revision, title: filename.slice(previousPrefix.length) });
+    }
     if (await savePdfToDevice(blob, filename)) await clear(entry.id);
     else setPendingConfirmation({ id: entry.id, confirmed: false });
   }
@@ -257,7 +264,7 @@ export function ShopDrawingTransmittal({ job, drawing, actor, clientName, worksp
   const waiting = !!busy;
   return <dialog ref={dialog} className="shop-review-dialog" aria-labelledby={heading} onCancel={event => { event.preventDefault(); close(); }}>
     <header className="shop-review-header">
-      <div><h2 id={heading}>Review shop drawing</h2><p>{drawing.number} · Revision {drawing.revision} · {drawing.title}</p></div>
+      <div><h2 id={heading}>Review shop drawing</h2><p>{shopDrawingRevisionLabel(drawing.number, drawing.revision)} · {drawing.title}</p></div>
       <button type="button" className="button secondary" onClick={close} disabled={waiting}>Close</button>
     </header>
     <div className="shop-review-body">

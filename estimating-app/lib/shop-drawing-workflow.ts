@@ -12,6 +12,23 @@ export function drawingRecord(snapshot: string): Partial<ShopDrawing> {
   try { const value = JSON.parse(snapshot); return value && typeof value === "object" && !Array.isArray(value) ? value as Partial<ShopDrawing> : {}; } catch { return {}; }
 }
 
+export function shopDrawingRevisionLabel(number: string, revision: number) {
+  return number + "-Rev" + revision;
+}
+
+export function shopDrawingRevisionEntries(drawing: ShopDrawing) {
+  return [
+    { id: drawing.id, revision: drawing.revision, current: true, record: drawing as Partial<ShopDrawing> },
+    ...drawing.revisions.slice().sort((a, b) => b.revision - a.revision).map(revision => ({
+      id: revision.id, revision: revision.revision, current: false, record: drawingRecord(revision.snapshot),
+    })),
+  ];
+}
+
+export function shopDrawingNumberLocked(drawing: ShopDrawing, newRevision: boolean) {
+  return newRevision || drawing.revision > 0 || Boolean(drawing.revisions?.length);
+}
+
 export function drawingHistory(previous: ShopDrawing | null | undefined, next: ShopDrawing, actor: string): ShopDrawingEvent[] {
   const history = [...(previous?.history ?? [])];
   if (previous && !history.length) history.push({
@@ -27,6 +44,9 @@ export function drawingHistory(previous: ShopDrawing | null | undefined, next: S
 }
 
 export function validateDrawing(draft: Partial<ShopDrawing>, previous?: ShopDrawing | null, newRevision = false): string {
+  if (previous && shopDrawingNumberLocked(previous, newRevision) && draft.number?.trim() !== previous.number.trim()) {
+    return "Use the existing shop drawing number for this revision.";
+  }
   const hasReview = ["Approved", "Approved as noted", "Revise and resubmit", "Rejected"].includes(draft.status || "");
   const sent = draft.status === "Submitted for review" || draft.status === "Under review";
   if (draft.status === "Requested from vendor" && !draft.requestedDate) return "Requested date is required.";
@@ -38,8 +58,8 @@ export function validateDrawing(draft: Partial<ShopDrawing>, previous?: ShopDraw
   const dates = [draft.requestedDate, draft.receivedDate, draft.submittedDate, draft.returnedDate].filter(Boolean) as string[];
   if (dates.some((date, i) => i > 0 && date < dates[i - 1])) return "Check the dates: requested, received, submitted and reviewed must follow that order.";
   if (draft.submittedDate && draft.dueDate && draft.dueDate < draft.submittedDate) return "The reviewer due date cannot be before submission.";
-  if (previous && !newRevision && previous.oneDriveUrl && draft.oneDriveUrl !== previous.oneDriveUrl) return "This revision's file is preserved. Use Start next revision to replace it.";
-  if (previous && !newRevision && previous.approvedFileUrl && draft.approvedFileUrl !== previous.approvedFileUrl) return "The approved-for-use file is preserved. Use Start next revision for a replacement.";
+  if (previous && !newRevision && previous.oneDriveUrl && draft.oneDriveUrl !== previous.oneDriveUrl) return "This revision's file is preserved. Create a new revision to replace it.";
+  if (previous && !newRevision && previous.approvedFileUrl && draft.approvedFileUrl !== previous.approvedFileUrl) return "The approved-for-use file is preserved. Create a new revision for a replacement.";
   if (previous && newRevision) {
     const oldFiles = [previous, ...previous.revisions.map(r => drawingRecord(r.snapshot))].flatMap(r => [r.oneDriveUrl, r.approvedFileUrl]).filter(Boolean);
     if ([draft.oneDriveUrl, draft.approvedFileUrl].some(link => link && oldFiles.includes(link))) return "Use a separate file link for the new revision. Earlier revision files must stay available.";
@@ -47,9 +67,11 @@ export function validateDrawing(draft: Partial<ShopDrawing>, previous?: ShopDraw
   return "";
 }
 
-export function shopDrawingPdfFilename(drawing: Pick<ShopDrawing, 'number' | 'title'>) {
+export function shopDrawingPdfFilename(drawing: Pick<ShopDrawing, 'number' | 'title'> & Partial<Pick<ShopDrawing, 'revision'>>) {
   const description = drawing.title.trim().replace(/\.pdf$/i, '');
-  const name = (description ? drawing.number.trim() + '- ' + description : drawing.number.trim())
+  const number = drawing.number.trim();
+  const reference = drawing.revision ? shopDrawingRevisionLabel(number, drawing.revision) : number;
+  const name = (description ? reference + '- ' + description : reference)
     .replace(/[<>:"/\\|?*\x00-\x1f\x7f]/g, '-')
     .replace(/\s+/g, ' ');
   return Array.from(name).slice(0, 176).join('').replace(/[. ]+$/, '') + '.pdf';

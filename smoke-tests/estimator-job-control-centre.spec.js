@@ -420,15 +420,15 @@ test("Shop Drawings tracks status, saves revisions only on command, and shares o
   const drawingHref = "https://jgc.sharepoint.com/sites/projects/Shared%20Documents/26144/Shop%20Drawings/SD-001-R0.pdf";
   await panel.getByLabel("Current revision OneDrive link").fill(drawingHref);
   await panel.getByRole("button", { name: "Save drawing" }).click();
-  const row = panel.locator(".shop-drawing-table tbody tr").filter({ hasText: "SD-001" });
+  const row = panel.locator(".shop-drawing-register-row").filter({ hasText: "SD-001" });
   await expect(row).toContainText("Structural steel connection details");
-  await expect(row).toContainText("Revision 0");
+  await expect(row).toContainText("SD-001-Rev0");
   await expect(row).toContainText("Overdue");
   await expect(row).not.toContainText("Share to employee job list");
 
   await row.getByRole("button", { name: "Open / edit" }).click();
   await panel.getByRole("button", { name: "Close shop drawing editor" }).click();
-  await expect(row).toContainText("Revision 0");
+  await expect(row).toContainText("SD-001-Rev0");
 
   await row.getByRole("button", { name: "Open / edit" }).click();
   await panel.getByLabel("Shop drawing status").selectOption("Approved as noted");
@@ -450,19 +450,19 @@ test("Shop Drawings tracks status, saves revisions only on command, and shares o
   await panel.getByRole("button", { name: "Save drawing" }).click();
   await expect.poll(() => captures.portalDocumentUpdates.length).toBe(2);
   expect(captures.portalDocumentUpdates[1]).toEqual(expect.objectContaining({ documentLink: "", documentLinkLabel: "" }));
-  await expect(row).toContainText("Revision 0");
+  await expect(row).toContainText("SD-001-Rev0");
   await expect(row).not.toContainText("Employee link");
 
-  await row.getByRole("button", { name: "Open / edit" }).click();
-  await panel.getByRole("button", { name: "Start next revision" }).click();
-  await expect(panel.getByRole("heading", { name: /Revision 1/ })).toBeVisible();
+  await row.getByRole("button", { name: "Revise and resubmit", exact: true }).click();
+  await expect(panel.getByRole("heading", { name: "SD-001-Rev1" })).toBeFocused();
+  await expect(panel.getByLabel("SD number")).toHaveValue("SD-001");
+  await expect(panel.getByLabel("SD number")).toHaveJSProperty("readOnly", true);
   await panel.getByRole("button", { name: "Cancel" }).click();
-  await expect(row).toContainText("Revision 0");
+  await expect(row).toContainText("SD-001-Rev0");
 
-  await row.getByRole("button", { name: "Open / edit" }).click();
-  await panel.getByRole("button", { name: "Start next revision" }).click();
+  await row.getByRole("button", { name: "Revise and resubmit", exact: true }).click();
   await panel.getByRole("button", { name: "Save new revision" }).click();
-  await expect(row).toContainText("Revision 1");
+  await expect(row).toContainText("SD-001-Rev1");
   await row.getByRole("button", { name: "Open / edit" }).click();
   await expect(panel.getByText("Revision history (1)")).toBeVisible();
 
@@ -667,7 +667,7 @@ test("Shop drawing review workflow preserves two revisions, decisions, files and
   await panel.getByLabel('Shop drawing description').fill('Mechanical equipment submittal');
   await panel.getByLabel('Requested from vendor date').fill('2026-09-01');
   await panel.getByRole('button',{name:'Save drawing',exact:true}).click();
-  const row=panel.locator('.shop-drawing-table tbody tr').filter({hasText:'SD-001'});
+  const row=panel.locator('.shop-drawing-register-row').filter({hasText:'SD-001'});
   const edit=async()=>row.getByRole('button',{name:'Open / edit'}).click();
   const save=async()=>panel.getByRole('button',{name:'Save drawing',exact:true}).click();
   const file=rev=>`https://jgc.sharepoint.com/drawings/SD-001-Rev${rev}.pdf`;
@@ -679,24 +679,39 @@ test("Shop drawing review workflow preserves two revisions, decisions, files and
   await edit();await panel.getByLabel('Shop drawing status').selectOption('Revise and resubmit');await panel.getByLabel('Reviewed date').fill('2026-09-04');await save();
   await expect(panel.getByRole('status')).toContainText('Reviewer comments are required');
   await panel.getByLabel('Reviewer comments').fill('Revise bracket spacing to 24 inches.');await save();
-  await edit();await panel.getByLabel('Current revision OneDrive link').fill(file(1));await save();await expect(panel.getByRole('status')).toContainText('Start next revision');
-  await panel.getByRole('button',{name:'Close shop drawing editor'}).click();await edit();await panel.getByRole('button',{name:'Start next revision'}).click();
+  await edit();await panel.getByLabel('Current revision OneDrive link').fill(file(1));await save();await expect(panel.getByRole('status')).toContainText('Create a new revision');
+  await panel.getByRole('button',{name:'Close shop drawing editor'}).click();await row.getByRole('button',{name:'Revise and resubmit',exact:true}).click();
   await panel.getByLabel('Requested from vendor date').fill('2026-09-05');await panel.getByLabel('Current revision OneDrive link').fill(file(0));await panel.getByRole('button',{name:'Save new revision'}).click();await expect(panel.getByRole('status')).toContainText('separate file link');
-  await panel.getByLabel('Current revision OneDrive link').fill(file(1));await panel.getByRole('button',{name:'Save new revision'}).click();await expect(row).toContainText('1 revision cycle');
+  await panel.getByLabel('Current revision OneDrive link').fill(file(1));await panel.getByRole('button',{name:'Save new revision'}).click();await expect(row).toContainText('SD-001-Rev1');
   await edit();await panel.getByLabel('Shop drawing status').selectOption('Approved as noted');await panel.getByLabel('Reviewed date').fill('2026-09-08');await panel.getByLabel('Reviewer comments').fill('Approved with fastener note A.');
   const stamped='https://jgc.sharepoint.com/drawings/SD-001-Rev1-reviewed.pdf';await panel.getByLabel('Approved-for-use file link').fill(stamped);await save();
   await expect(row.getByRole('link',{name:/Approved file/})).toHaveAttribute('href',stamped);
   await row.getByRole('button',{name:'Share to employee job list'}).click();expect(captures.portalDocumentUpdates.at(-1).documentLink).toBe(stamped);
   await edit();await panel.getByRole('button',{name:'Start next revision'}).click();await panel.getByRole('button',{name:'Save new revision'}).click();
-  await expect(row).toContainText('2 revision cycles');await expect(row).toContainText('Not approved for use');expect(captures.portalDocumentUpdates.at(-1).documentLink).toBe('');
+  await expect(row).toContainText('SD-001-Rev2');await expect(row).toContainText('Not approved for use');expect(captures.portalDocumentUpdates.at(-1).documentLink).toBe('');
   await expect.poll(()=>captures.savedStates.at(-1)?.jobs.find(j=>j.id==='job-control')?.shopDrawings[0].revision).toBe(2);
   const drawing=captures.savedStates.at(-1).jobs.find(j=>j.id==='job-control').shopDrawings[0];
   expect(drawing.revisions).toHaveLength(2);expect(JSON.parse(drawing.revisions[0].snapshot)).toMatchObject({oneDriveUrl:file(0),reviewComments:'Revise bracket spacing to 24 inches.',status:'Revise and resubmit'});
   expect(JSON.parse(drawing.revisions[1].snapshot)).toMatchObject({oneDriveUrl:file(1),approvedFileUrl:stamped,reviewComments:'Approved with fastener note A.'});
   expect(drawing.history.map(h=>h.action)).toContain('Submitted for review → Under review');expect(drawing.history.length).toBeGreaterThanOrEqual(8);
-  await page.reload();await openJob(page);await jobTab(page,'Shop Drawings').click();await expect(row).toContainText('Revision 2');await edit();
+  await page.reload();await openJob(page);await jobTab(page,'Shop Drawings').click();await expect(row).toContainText('SD-001-Rev2');
+  await row.getByRole('button',{name:'Revisions (3)',exact:true}).click();
+  const log = panel.getByRole('region',{name:'Revision log for SD-001'});
+  await expect(log.locator('article header strong')).toHaveText(['SD-001-Rev2', 'SD-001-Rev1', 'SD-001-Rev0']);
+  await expect(log.getByText('Superseded · Revise and resubmit')).toBeVisible();
+  await expect(log.getByRole('link',{name:'Open Rev 0 submission'})).toHaveAttribute('href',file(0));
+  await expect(log.getByRole('link',{name:'Open archived review file'})).toHaveAttribute('href',stamped);
+  await expect(log).toContainText('Revise bracket spacing to 24 inches.');
+  await expect(log).toContainText('Approved with fastener note A.');
+  await page.setViewportSize({width:390,height:844});
+  await expect(log).toBeVisible();
+  expect(await log.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+  await row.getByRole('button',{name:'Revisions (3)',exact:true}).click();
+  await page.setViewportSize({width:1440,height:1000});
+  await edit();
+  await expect(panel.getByLabel('SD number')).toHaveJSProperty('readOnly', true);
   await panel.getByText('Revision history (2)',{exact:true}).click();await expect(panel.getByRole('link',{name:'Open Rev 0 submission'})).toHaveAttribute('href',file(0));await expect(panel.getByRole('link',{name:'Open archived review file'})).toHaveAttribute('href',stamped);
-  await expect(panel.locator('.shop-revision-record').first()).toContainText('Revise bracket spacing to 24 inches.');
+  await expect(panel.locator('.shop-revision-record').filter({hasText:'SD-001-Rev0'})).toContainText('Revise bracket spacing to 24 inches.');
   await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:testInfo.outputPath('shop-drawing-history-desktop.png'),fullPage:true});
   await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:testInfo.outputPath('shop-drawing-history-mobile.png'),fullPage:true});
   await panel.getByRole('button',{name:'Close shop drawing editor'}).click();await page.setViewportSize({width:1440,height:1000});await page.evaluate(()=>window.scrollTo(0,0));expect(await panel.locator('.data-table-wrap').evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);await page.screenshot({path:testInfo.outputPath('shop-drawing-register.png'),fullPage:true});
@@ -722,7 +737,7 @@ test('Shop drawing saves and reloads without a file link, with a link added late
  // Requested defaults to today; fix it before the received date so the order holds on any run date.
  await panel.getByLabel('Requested from vendor date').fill('2026-09-20');await panel.getByLabel('Received from vendor date').fill('2026-09-23');
  await expect(panel.getByLabel('Current revision OneDrive link')).toHaveValue('');await panel.getByRole('button',{name:'Save drawing',exact:true}).click();
- const row=panel.locator('.shop-drawing-table tbody tr').filter({hasText:'SD-001'});await expect(row).toContainText('Received from vendor');
+ const row=panel.locator('.shop-drawing-register-row').filter({hasText:'SD-001'});await expect(row).toContainText('Received from vendor');
  await row.getByRole('button',{name:'Open / edit'}).click();await panel.getByLabel('Shop drawing status').selectOption('Approved');await panel.getByLabel('Shop drawing consultant').fill('Client');await panel.getByLabel('Reviewed date').fill('2026-09-23');await panel.getByRole('button',{name:'Save drawing',exact:true}).click();
  await expect.poll(()=>captures.savedStates.at(-1)?.jobs.find(j=>j.id==='job-control')?.shopDrawings[0]?.status).toBe('Approved');
  await page.reload();await openJob(page);await jobTab(page,'Shop Drawings').click();await expect(row).toContainText('Approved');await expect(row.getByRole('link',{name:/Approved file/})).toHaveCount(0);
@@ -884,7 +899,7 @@ test("Shop Drawings saves a stamped transmittal and clears the file only after a
   // Older saved transmittals also get the drawing number and description when downloaded.
   await page.evaluate(() => {
     const entry = [...window.__shopTransmittals.records.values()][0];
-    if (entry.filename !== "SD-021- Canopy steel connection details.pdf") throw new Error("Wrong stored filename");
+    if (entry.filename !== "SD-021-Rev2- Canopy steel connection details.pdf") throw new Error("Wrong stored filename");
     entry.filename = entry.reference + "-Transmittal.pdf";
   });
 
@@ -900,7 +915,7 @@ test("Shop Drawings saves a stamped transmittal and clears the file only after a
   const downloadEvent = page.waitForEvent("download");
   await view.getByRole("button", { name: "Download PDF", exact: true }).click();
   const download = await downloadEvent;
-  expect(download.suggestedFilename()).toBe("SD-021- Canopy steel connection details.pdf");
+  expect(download.suggestedFilename()).toBe("SD-021-Rev2- Canopy steel connection details.pdf");
   const path = info.outputPath("transmittal.pdf");
   await download.saveAs(path);
   await expect(view.getByRole("button", { name: "PDF saved — clear from portal" })).toBeVisible();
@@ -930,7 +945,7 @@ test("Shop Drawings saves a stamped transmittal and clears the file only after a
   await view.getByRole("button", { name: "Save transmittal", exact: true }).click();
   await expect(view.getByText("No review stamp", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => [...window.__shopTransmittals.records.values()].at(-1))).toMatchObject({
-    filename: "SD-021- Canopy steel connection details.pdf",
+    filename: "SD-021-Rev2- Canopy steel connection details.pdf",
     stamped_pages: [], reviewer: null, review_date: null, review_status: null,
   });
   const noStampDownload = page.waitForEvent("download");
@@ -1035,7 +1050,7 @@ test("Shop Drawings exports the full revision log as a shareable Excel workbook"
       submittedDate: "2026-09-05", returnedDate: "2026-09-12", notes: "INTERNAL NOTES",
       oneDriveUrl: "https://example.com/private.pdf",
       revisions: [{ id: "snapshot", revision: 0, snapshot: JSON.stringify({
-        number: "SD-002", title: "Original canopy connection", status: "Revise and resubmit",
+        number: "SD-099", title: "Original canopy connection", status: "Revise and resubmit",
         receivedDate: "2026-09-02", returnedDate: "2026-09-03",
       }) }],
       createdAt: "2026-09-01T12:00:00.000Z", updatedAt: "2026-09-12T12:00:00.000Z",
@@ -1064,6 +1079,8 @@ test("Shop Drawings exports the full revision log as a shareable Excel workbook"
   expect(sheet.getRows(5, 3).map(row => row.values.slice(1, 4))).toEqual([
     ["SD-002", 1, "Current"], ["SD-002", 0, "Prior"], ["SD-010", 0, "Current"],
   ]);
+  expect(sheet.getCell("B5").numFmt).toBe('"Rev"0');
+  expect(sheet.getCell("B6").numFmt).toBe('"Rev"0');
   expect(sheet.getCell("D6").value).toBe("Original canopy connection");
   expect(sheet.getCell("G6").value).toBe("Revise and resubmit");
   expect(sheet.getCell("E5").value).toBe("=literal vendor");

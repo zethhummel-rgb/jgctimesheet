@@ -20,3 +20,12 @@ test('file links are optional at every shop drawing review stage',()=>{
   expect(validateDrawing(draft),status).toBe('');expect(approvedDrawingFile(draft)).toBe('');
  }
 });
+
+test('revision saves retain the drawing number while the original can still be corrected', () => {
+ const original = {number:'SD-001', revision:0, revisions:[]};
+ const corrected = {...original, number:'SD-002'};
+ expect(validateDrawing(corrected, original)).toBe('');
+ expect(validateDrawing(corrected, original, true)).toContain('existing shop drawing number');
+ expect(validateDrawing(corrected, {...original, revision:1})).toContain('existing shop drawing number');
+ expect(validateDrawing({...original, number:' SD-001 '}, original, true)).toBe('');
+});

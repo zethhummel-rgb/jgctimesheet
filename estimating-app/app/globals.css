@@ -2141,10 +2141,14 @@ html.accounting-download-embed, html.accounting-download-embed body { min-height
 .shop-review-history { border-top:1px solid var(--slate-200); margin-top:18px; padding-top:8px; }
 .shop-review-history summary { cursor:pointer; font-weight:700; padding:12px 0; color:var(--navy-950); }
 .shop-review-history p { font-size:12px; line-height:1.5; color:var(--slate-700); }
-.shop-review-history .shop-revision-record { display:block; margin:8px 0; padding:16px; border:1px solid var(--slate-200); border-radius:8px; background:var(--white); }
+.shop-revision-log .shop-revision-record { display:block; overflow-wrap:anywhere; margin:8px 0; padding:16px; border:1px solid var(--slate-200); border-radius:8px; background:var(--white); }
+.shop-drawing-editor-heading h3 { scroll-margin-top: 120px; }
+.shop-drawing-table .shop-revision-toggle { margin-top: 8px; white-space: normal; }
+.shop-drawing-table .shop-drawing-log-row > td { padding: 8px 16px; background: var(--slate-50); }
+.shop-revision-log .shop-revision-record p { margin: 8px 0; font-size: 12px; line-height: 1.5; }
 .shop-revision-record header { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; }
 .shop-revision-record header span { color:var(--slate-600); font-size:12px; }
-.shop-review-dates { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; font-size:12px; margin:14px 0; }
+.shop-review-dates { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; font-size:12px; margin:14px 0; }
 .shop-review-dates dt { color:var(--slate-600); } .shop-review-dates dd { margin:4px 0 0; font-weight:600; color:var(--navy-950); }
 .shop-history-comment { white-space:pre-wrap; overflow-wrap:anywhere; }
 .shop-history-links { display:flex; flex-wrap:wrap; gap:12px; }
@@ -2160,6 +2164,11 @@ html.accounting-download-embed, html.accounting-download-embed body { min-height
 .shop-review-history .shop-drawing-history>p { margin:12px; }
 @media(min-width:761px) { .job-detail-page .shop-drawing-table { min-width:0; table-layout:fixed; } .shop-drawing-table th,.shop-drawing-table td { white-space:normal; overflow-wrap:anywhere; padding:12px 8px; } .shop-drawing-table th:nth-child(1) { width:9%; } .shop-drawing-table th:nth-child(2) { width:16%; } .shop-drawing-table th:nth-child(3) { width:9%; } .shop-drawing-table th:nth-child(4) { width:12%; } .shop-drawing-table th:nth-child(5) { width:9%; } .shop-drawing-table th:nth-child(6) { width:18%; } .shop-drawing-table th:nth-child(7) { width:14%; } .shop-drawing-table th:nth-child(8) { width:13%; } .shop-drawing-table .shop-approved-file { min-width:0; } .shop-drawing-table .shop-drawing-row-actions .button { white-space:normal; } }
 
+@media (max-width: 760px) {
+  .shop-drawing-table .shop-drawing-log-row > td { display: block; padding: 4px 10px; }
+  .shop-drawing-table .shop-drawing-log-row > td::before { display: none; }
+  .shop-revision-log .shop-history-links .button { white-space: normal; }
+}
 .shop-drawing-action-cell .shop-drawing-row-actions { min-width:0; flex-direction:column; align-items:stretch; }
 .shop-drawing-table .shop-register-dates { min-width:0; }
 
