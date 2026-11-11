@@ -1,3 +1,4 @@
+import { drawingRecord, shopDrawingPdfFilename } from "../lib/shop-drawing-workflow";
 import { useEffect, useId, useMemo, useRef, useState, type MouseEvent } from 'react';
 import type { PDFDocumentProxy, PageViewport, RenderTask } from 'pdfjs-dist';
 import type { Job, ShopDrawing } from '../lib/estimator-data';
@@ -185,16 +186,20 @@ export function ShopDrawingTransmittal({ job, drawing, actor, clientName, worksp
     if (!workspaceSaved) throw new Error('Wait for the shop drawing register to finish saving.');
     let draft = prepared;
     if (!draft) {
-      if (!sheetNumbers.length || !recipient.trim() || !stamp.reviewer.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(stamp.date)) {
-        throw new Error('Enter a recipient, reviewer and review date, then place the stamp on at least one sheet.');
+      const hasStamp = sheetNumbers.length > 0;
+      const reviewer = stamp.reviewer.trim();
+      if (!recipient.trim()) throw new Error('Enter the transmittal recipient.');
+      if (hasStamp && (!reviewer || !/^\d{4}-\d{2}-\d{2}$/.test(stamp.date))) {
+        throw new Error('Enter the reviewer and review date for the stamp.');
       }
       const id = crypto.randomUUID();
       const reference = drawing.number + '-R' + drawing.revision + '-' + id.slice(0, 8).toUpperCase();
       const details: Omit<TransmittalDetails, 'byte_count'> = {
         revision: drawing.revision, drawing_updated_at: drawing.updatedAt || drawing.createdAt || '',
-        reference, filename: reference.replace(/[^a-z0-9._-]+/gi, '-') + '-Transmittal.pdf',
-        source_name: source.name, recipient: recipient.trim(), reviewer: stamp.reviewer.trim(),
-        review_status: stamp.status, review_date: stamp.date, transmittal_date: shopDate(), notes: notes.trim(),
+        reference, filename: shopDrawingPdfFilename(drawing),
+        source_name: source.name, recipient: recipient.trim(), reviewer: hasStamp ? reviewer : null,
+        review_status: hasStamp ? stamp.status : null, review_date: hasStamp ? stamp.date : null,
+        transmittal_date: shopDate(), notes: notes.trim(),
         page_count: source.pdf.numPages, stamped_pages: sheetNumbers,
       };
       const content = emptyDrawing();
@@ -204,7 +209,7 @@ export function ShopDrawingTransmittal({ job, drawing, actor, clientName, worksp
         return {
           id: crypto.randomUUID(), page: sheet, kind: 'stamp', points: [{ x, y }], color: '#b31a1f', text: '',
           rotation: placement.viewport.rotation, author: actor, createdAt: new Date().toISOString(), layer: 'Review',
-          stamp: { ...stamp, reviewer: details.reviewer, width: box.width / placement.userUnit },
+          stamp: { ...stamp, reviewer, width: box.width / placement.userUnit },
         };
       });
       const { shopDrawingTransmittalPdf } = await import('../lib/shop-drawing-transmittal-pdf');
@@ -238,7 +243,14 @@ export function ShopDrawingTransmittal({ job, drawing, actor, clientName, worksp
 
   async function download(entry: ShopTransmittal) {
     const blob = recentPdf.current?.id === entry.id ? recentPdf.current.blob : await downloadTransmittal(entry);
-    if (await savePdfToDevice(blob, entry.filename)) await clear(entry.id);
+    const legacyFilename = entry.reference.replace(/[^a-z0-9._-]+/gi, '-') + '-Transmittal.pdf';
+    const revision = drawing.revisions.find(item => item.revision === entry.revision);
+    const snapshot = revision ? drawingRecord(revision.snapshot) : {};
+    const filename = entry.filename === legacyFilename ? shopDrawingPdfFilename({
+      number: typeof snapshot.number === 'string' && snapshot.number ? snapshot.number : drawing.number,
+      title: typeof snapshot.title === 'string' && snapshot.title ? snapshot.title : drawing.title,
+    }) : entry.filename;
+    if (await savePdfToDevice(blob, filename)) await clear(entry.id);
     else setPendingConfirmation({ id: entry.id, confirmed: false });
   }
 
@@ -274,11 +286,11 @@ export function ShopDrawingTransmittal({ job, drawing, actor, clientName, worksp
               <span>Sheet {page} of {source.pdf.numPages}</span>
               <button type="button" className="button secondary compact" disabled={page >= source.pdf.numPages || waiting} onClick={() => { setRenderError(''); setPage(page + 1); }}>Next sheet</button>
             </div>
-            <p>Tap or click the sheet to place or move the review stamp.</p>
+            <p>To add a review stamp, tap or click the sheet. You can save without a stamp.</p>
             {renderError && <p role="alert">{renderError}</p>}
             <ReviewSheet key={page} source={source} page={page} stamp={stamp} placement={placements[page]} disabled={waiting || !!prepared} onError={setRenderError} onPlace={value => setPlacements(previous => ({ ...previous, [page]: value }))} />
             <div className="shop-review-toolbar">
-              <span>{sheetNumbers.length ? 'Stamped sheets: ' + sheetNumbers.join(', ') : 'Place a stamp to save a transmittal.'}</span>
+              <span>{sheetNumbers.length ? 'Stamped sheets: ' + sheetNumbers.join(', ') : 'No stamp placed'}</span>
               {placements[page] && <button type="button" className="button secondary compact" disabled={waiting || !!prepared} onClick={() => setPlacements(previous => {
                 const next = { ...previous };
                 delete next[page];
@@ -306,9 +318,9 @@ export function ShopDrawingTransmittal({ job, drawing, actor, clientName, worksp
         {entries.map(entry => <article key={entry.id} className="shop-review-history-item">
           <div>
             <strong>{entry.reference}</strong>
-            <p>Revision {entry.revision} · {entry.transmittal_date} · {entry.review_status}</p>
-            <p>To {entry.recipient} · Reviewed by {entry.reviewer}</p>
-            <p>Stamped sheets: {entry.stamped_pages.join(', ')}</p>
+            <p>Revision {entry.revision} · {entry.transmittal_date}{entry.review_status ? ' · ' + entry.review_status : ''}</p>
+            <p>To {entry.recipient}{entry.reviewer ? ' · Reviewed by ' + entry.reviewer : ''}</p>
+            <p>{entry.stamped_pages.length ? 'Stamped sheets: ' + entry.stamped_pages.join(', ') : 'No review stamp'}</p>
             {entry.notes && <p className="shop-review-notes">{entry.notes}</p>}
           </div>
           <div className="shop-review-history-actions">
