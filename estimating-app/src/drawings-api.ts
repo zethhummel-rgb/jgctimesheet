@@ -13,8 +13,8 @@ export async function loadDrawing(record: DrawingRecord): Promise<Uint8Array> {
   const blob: Blob = checked(await client().storage.from('job-drawings').download(record.object_path));
   return new Uint8Array(await blob.arrayBuffer());
 }
-async function uploadOriginal(c:any,id:string,file:File,onProgress:(percent:number)=>void) {
-  if(file.size<=6*1024*1024){checked(await c.storage.from('job-drawings').upload(`${id}/original.pdf`,file,{contentType:'application/pdf',upsert:false}));onProgress(100);return;}
+export async function uploadDrawingPdf(c:any,bucket:string,path:string,file:File,onProgress:(percent:number)=>void) {
+  if(file.size<=6*1024*1024){checked(await c.storage.from(bucket).upload(path,file,{contentType:'application/pdf',upsert:false}));onProgress(100);return;}
   const {data,error}=await c.auth.getSession();if(error||!data.session?.access_token)throw new Error('Sign in again before uploading this drawing.');
   const {Upload}=await import('tus-js-client'),url=new URL(c.supabaseUrl);
   if(url.hostname.endsWith('.supabase.co')&&!url.hostname.endsWith('.storage.supabase.co'))url.hostname=url.hostname.replace('.supabase.co','.storage.supabase.co');
@@ -22,7 +22,7 @@ async function uploadOriginal(c:any,id:string,file:File,onProgress:(percent:numb
     const upload=new Upload(file,{
       endpoint:`${url.origin}/storage/v1/upload/resumable`,chunkSize:6*1024*1024,retryDelays:[0,1000,3000,5000],storeFingerprintForResuming:false,
       headers:{'x-upsert':'false'},
-      metadata:{bucketName:'job-drawings',objectName:`${id}/original.pdf`,contentType:'application/pdf',cacheControl:'3600'},
+      metadata:{bucketName:bucket,objectName:path,contentType:'application/pdf',cacheControl:'3600'},
       // XHR appends repeated headers. Set Authorization once per request here, never in both hooks.
       onBeforeRequest:async request=>{const fresh=await c.auth.getSession();if(fresh.error||!fresh.data.session?.access_token)throw new Error('Sign in again before uploading this drawing.');request.setHeader('authorization',`Bearer ${fresh.data.session.access_token}`);},
       onProgress:(sent,total)=>onProgress(Math.round(sent/total*100)),
@@ -37,7 +37,7 @@ export async function addDrawing(jobId: string, file: File, onProgress:(percent:
   if (!new TextDecoder().decode(bytes.slice(0, 1024)).includes('%PDF-')) throw new Error('Choose a valid PDF drawing.');
   const c = client(), id = crypto.randomUUID();
   // Immutable original: never upsert or replace an uploaded source PDF.
-  await uploadOriginal(c,id,file,onProgress);
+  await uploadDrawingPdf(c,'job-drawings',id+'/original.pdf',file,onProgress);
   const record: DrawingRecord = checked(await c.from('job_drawings').insert({ id, job_id: jobId, title: file.name.replace(/\.pdf$/i, ''), file_name: file.name, content: emptyDrawing() }).select().single());
   return { record, bytes };
 }

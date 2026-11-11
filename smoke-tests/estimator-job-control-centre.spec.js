@@ -790,3 +790,130 @@ test('RFI numbering, complete question PDF, answers, reopen history and exports 
  page.once('dialog',dialog=>dialog.dismiss());await second.getByRole('button',{name:'Delete',exact:true}).click();await expect(second).toBeVisible();page.once('dialog',dialog=>dialog.accept());await second.getByRole('button',{name:'Delete',exact:true}).click();await expect(second).toHaveCount(0);await expect.poll(()=>captures.savedStates.at(-1)?.jobs.find(j=>j.id==='job-control')?.rfis?.[1]?.deletedAt).toBeTruthy();
  await page.screenshot({path:testInfo.outputPath('rfi-register.png'),fullPage:true});await panel.getByRole('button',{name:'Open RFI',exact:true}).first().click();await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.screenshot({path:testInfo.outputPath('rfi-mobile.png'),fullPage:true});
 });
+
+// The app uses its normal storage and RPC clients against an isolated in-browser service.
+test("Shop Drawings saves a stamped transmittal and clears the file only after a saved download", async ({ page }, info) => {
+  test.setTimeout(45000);
+  const fs = require("node:fs/promises");
+  const { PDFDocument, PDFName, degrees } = require("../estimating-app/node_modules/pdf-lib");
+  const state = jobControlState();
+  state.jobs[0].shopDrawings = [{
+    id: "sd-review", number: "SD-021", title: "Canopy steel connection details", revision: 2,
+    status: "Under review", vendorName: "Eastern Welding", consultant: "Pat Client", revisions: [],
+    createdAt: "2026-09-01T12:00:00.000Z", updatedAt: "2026-09-03T12:00:00.000Z",
+  }];
+  await serveJobControl(page, state, { savedStates: [], statisticsRequests: [], portalDocumentUpdates: [] });
+  await page.goto("/estimating/index.html?dev=1");
+  await openJob(page);
+  await jobTab(page, "Shop Drawings").click();
+
+  await page.evaluate(() => {
+    const records = new Map(), objects = new Map();
+    const operations = [];
+    window.__shopTransmittals = { records, objects, operations };
+    window.createJgcSupabaseClient = () => ({
+      rpc: async (name, args) => {
+        if (name !== "manage_shop_transmittal") return { data: null, error: null };
+        const { operation, transmittal_id: id, job_key, drawing_key, details } = args;
+        operations.push(operation);
+        if (job_key !== "job-control" || drawing_key !== "sd-review") throw new Error("Incorrect transmittal scope");
+        const summary = row => ({ ...row, has_pdf: objects.has(row.id + ".pdf") });
+        if (operation === "list") return { data: Array.from(records.values(), summary), error: null };
+        if (operation === "reserve" && !records.has(id)) records.set(id, { ...details, id, ready_at: null, downloaded_at: null, abandoned_at: null });
+        const row = records.get(id);
+        if (operation === "publish") {
+          if (objects.get(id + ".pdf")?.size !== row.byte_count) throw new Error("Incomplete upload");
+          row.ready_at = "2026-11-11T13:00:00.000Z";
+        }
+        if (operation === "confirm") row.downloaded_at = "2026-11-11T13:15:00.000Z";
+        return { data: summary(row), error: null };
+      },
+      storage: { from: bucket => {
+        if (bucket !== "shop-drawing-transmittals") throw new Error("Unexpected storage bucket");
+        return {
+          upload: async (path, file, opts) => {
+            if (opts.upsert || objects.has(path)) throw new Error("Expected immutable PDF");
+            operations.push("upload");
+            objects.set(path, file);
+            return { data: { path }, error: null };
+          },
+          download: async path => ({ data: objects.get(path), error: null }),
+          remove: async ([path]) => {
+            if (!records.get(path.slice(0, -4)).downloaded_at) throw new Error("PDF removed before confirmation");
+            operations.push("remove");
+            objects.delete(path);
+            return { data: [], error: null };
+          },
+        };
+      } },
+    });
+  });
+
+  const source = await PDFDocument.create();
+  source.addPage([612, 792]).drawText("SHEET ONE - CONNECTION PLAN", { x: 80, y: 650, size: 16 });
+  const rotated = source.addPage([612, 792]);
+  rotated.setCropBox(30, 40, 540, 700);
+  rotated.setRotation(degrees(90));
+  rotated.drawText("SHEET TWO - CONNECTION DETAIL", { x: 80, y: 580, size: 16 });
+  const buffer = Buffer.from(await source.save());
+  const view = page.getByRole("dialog", { name: "Review shop drawing" });
+  const open = async () => {
+    await jobPanel(page, "Shop Drawings").getByRole("button", { name: "Review PDF" }).click();
+    await expect(view).toBeVisible();
+  };
+  await open();
+  await view.locator("input[type=file]").setInputFiles({ name: "Canopy connection details.pdf", mimeType: "application/pdf", buffer });
+  await view.getByRole("button", { name: "Next sheet" }).click();
+  await view.getByLabel("Stamp review status").selectOption("Reviewed as noted");
+  await view.getByLabel("Stamp reviewer").fill("Test Reviewer");
+  await view.getByLabel("Stamp date").fill("2026-11-11");
+  await view.getByLabel("Transmittal notes").fill("Confirm the field dimensions before fabrication.");
+  await view.getByRole("button", { name: "Place review stamp on sheet 2" }).click({ position: { x: 50, y: 70 } });
+  await expect(view.locator(".shop-review-stamp")).toBeVisible();
+  await page.screenshot({ path: info.outputPath("review-desktop.png") });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await view.locator(".shop-review-stamp").scrollIntoViewIfNeeded();
+  expect(await view.evaluate(el => el.scrollWidth)).toBeLessThanOrEqual(await view.evaluate(el => el.clientWidth + 1));
+  await page.screenshot({ path: info.outputPath("review-mobile.png") });
+
+  await view.getByRole("button", { name: "Save transmittal", exact: true }).click();
+  await expect(view.getByText("Transmittal saved. Download the PDF from history below.")).toBeVisible({ timeout: 15000 });
+  await expect(view.getByRole("button", { name: "Download PDF", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => window.__shopTransmittals.operations)).toEqual(["list", "reserve", "upload", "publish"]);
+
+  // Close and reopen to exercise the stored PDF path instead of the creator's in-memory copy.
+  await view.getByRole("button", { name: "Close", exact: true }).click();
+  await open();
+  await page.evaluate(() => { window.showSaveFilePicker = async () => { throw new DOMException("Cancelled", "AbortError"); }; });
+  await view.getByRole("button", { name: "Download PDF", exact: true }).click();
+  await expect(view.getByRole("alert")).toContainText("Save cancelled");
+  expect(await page.evaluate(() => window.__shopTransmittals.objects.size)).toBe(1);
+
+  await page.evaluate(() => { window.showSaveFilePicker = undefined; });
+  const downloadEvent = page.waitForEvent("download");
+  await view.getByRole("button", { name: "Download PDF", exact: true }).click();
+  const download = await downloadEvent;
+  expect(download.suggestedFilename()).toMatch(/^SD-021-R2-[A-F0-9]{8}-Transmittal\.pdf$/);
+  const path = info.outputPath("transmittal.pdf");
+  await download.saveAs(path);
+  await expect(view.getByRole("button", { name: "PDF saved — clear from portal" })).toBeVisible();
+  expect(await page.evaluate(() => window.__shopTransmittals.objects.size)).toBe(1);
+  const output = await PDFDocument.load(await fs.readFile(path));
+  expect(output.getTitle()).toMatch(/Shop Drawing Transmittal - SD-021-R2/);
+  expect(output.getPageCount()).toBe(3);
+  expect(output.getPage(1).node.Annots()?.size() ?? 0).toBe(0);
+  expect(output.getPage(2).getRotation().angle).toBe(90);
+  expect(output.getPage(2).getCropBox()).toEqual({ x: 30, y: 40, width: 540, height: 700 });
+  expect(output.getPage(2).node.Annots().size()).toBe(1);
+  const annotation = output.context.lookup(output.getPage(2).node.Annots().get(0));
+  expect(annotation.lookup(PDFName.of("Contents")).decodeText()).toContain("Reviewed by: Test Reviewer");
+  await view.getByRole("button", { name: "PDF saved — clear from portal" }).click();
+  await expect(view.getByText("Downloaded · PDF cleared")).toBeVisible();
+  expect(await page.evaluate(() => window.__shopTransmittals.objects.size)).toBe(0);
+  await view.getByRole("button", { name: "Close", exact: true }).click();
+  await open();
+  await expect(view.getByText("Downloaded · PDF cleared")).toBeVisible();
+  await expect(view.getByText(/Revision 2.*Reviewed as noted/)).toBeVisible();
+  await expect(view.getByText(/To Pat Client.*Test Reviewer/)).toBeVisible();
+  await expect(view.getByRole("button", { name: "Download PDF", exact: true })).toHaveCount(0);
+});

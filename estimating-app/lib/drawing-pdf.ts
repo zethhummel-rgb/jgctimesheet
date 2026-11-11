@@ -16,7 +16,7 @@ async function stampPdf(stamp: ReviewStamp): Promise<Uint8Array> {
   return pdf.save();
 }
 
-export async function markedDrawingPdf(source: Uint8Array, content: DrawingContent, pages?: number[]): Promise<Uint8Array> {
+export async function markedDrawingPdf(source: Uint8Array, content: DrawingContent, pages?: number[], prepend?: (pdf: PDFDocument) => Promise<void>): Promise<Uint8Array> {
   const pdf = await PDFDocument.load(source.slice()), font = await pdf.embedFont(StandardFonts.Helvetica),allOrder=drawingPageOrder(content,pdf.getPageCount());
   sanitizeDrawingPdf(pdf);
   if (pages && (!pages.length || new Set(pages).size !== pages.length || pages.some(n => !allOrder.includes(n)))) throw new Error('Choose valid drawing pages to download.');
@@ -66,8 +66,10 @@ export async function markedDrawingPdf(source: Uint8Array, content: DrawingConte
     }
     if (label && mark.kind!=='distance'&&mark.kind!=='text') page.drawText(supported(label),{ x: pts[0].x, y: pts[0].y, size: 10, lineHeight: 12, font, color, rotate: degrees(rotation) });
   }
-  const output=await PDFDocument.create();for(const p of await output.copyPages(pdf,order.map(n=>n-1)))output.addPage(p);
+  const output=await PDFDocument.create();
   output.setTitle(pdf.getTitle()??'JGC Drawing');output.setSubject('JGC drawing markups / as-built record');
+  await prepend?.(output);
+  for(const p of await output.copyPages(pdf,order.map(n=>n-1)))output.addPage(p);
   return output.save();
 }
 

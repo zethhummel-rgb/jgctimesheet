@@ -1,18 +1,9 @@
+import { savePdfToDevice } from '../lib/save-pdf-to-device';
+export { downloadFile } from '../lib/save-pdf-to-device';
 import { useEffect, useRef, useState } from 'react';
 import { photoRequest } from '../lib/rfi-photos';
 
 export interface PhotoDownload { rfi: string; ids: string[]; blob: Blob; filename: string }
-export function downloadFile(data: Blob, filename: string) {
-  const url = URL.createObjectURL(data);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
-}
-type SavePicker = (options: { suggestedName: string }) => Promise<{
-  createWritable(): Promise<{ write(data: Blob): Promise<void>; close(): Promise<void> }>
-}>;
 export function RfiPhotoExport({ item, done }: { item: PhotoDownload; done: (message: string) => void }) {
   const [phase, setPhase] = useState<'ready'|'confirm'|'saved'>('ready');
   const [busy, setBusy] = useState(false);
@@ -29,24 +20,8 @@ export function RfiPhotoExport({ item, done }: { item: PhotoDownload; done: (mes
     setError('');
     try {
       if (phase !== 'ready') { await clearSaved(); return; }
-      const picker = (window as Window & { showSaveFilePicker?: SavePicker }).showSaveFilePicker;
-      if (picker) {
-        try {
-          const handle = await picker.call(window, { suggestedName: item.filename });
-          const writer = await handle.createWritable();
-          await writer.write(item.blob);
-          await writer.close();
-        } catch (failure) {
-          if (!(failure instanceof DOMException && failure.name === 'SecurityError')) throw failure;
-          downloadFile(item.blob, item.filename);
-          setPhase('confirm');
-          return;
-        }
-        await clearSaved();
-      } else {
-        downloadFile(item.blob, item.filename);
-        setPhase('confirm');
-      }
+      if (await savePdfToDevice(item.blob, item.filename)) await clearSaved();
+      else setPhase('confirm');
     } catch (failure) {
       setError(failure instanceof DOMException && failure.name === 'AbortError' ? 'Save cancelled. Your photos are still available.' : failure instanceof Error ? failure.message : 'Please retry.');
     } finally { setBusy(false); }
