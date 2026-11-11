@@ -107,10 +107,12 @@ async function addCover(pdf: PDFDocument, cover: Cover) {
     row([['Drawing number', cover.drawingNumber], ['Revision', String(details.revision)]]);
     row([['Description', cover.title]]);
     if (cover.vendor) row([['Vendor / fabricator', cover.vendor]]);
-    section('JGC REVIEW');
-    row([['Review decision', details.review_status], ['Review date', details.review_date]]);
-    row([['Reviewed by', details.reviewer], ['Drawing sheets attached', String(details.page_count)]]);
-    row([['Source PDF', details.source_name]]);
+    row([['Source PDF', details.source_name], ['Drawing sheets attached', String(details.page_count)]]);
+    if (details.review_status && details.review_date && details.reviewer) {
+      section('JGC REVIEW');
+      row([['Review decision', details.review_status], ['Review date', details.review_date]]);
+      row([['Reviewed by', details.reviewer]]);
+    }
     if (details.notes) {
       section('TRANSMITTAL NOTES');
       for (const text of wrap(details.notes, normal, 11, width)) {

@@ -420,6 +420,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .job-shop-drawing-summary-facts .danger strong { color: var(--red-700); }
 
 .shop-drawing-panel { overflow: hidden; border-top: 3px solid var(--green-600); }
+.shop-drawing-heading-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .shop-drawing-heading p { max-width: 850px; }
 .shop-drawing-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); border-block: 1px solid var(--slate-200); background: var(--slate-50); }
 .shop-drawing-kpis > div { min-height: 82px; padding: 13px 16px; display: flex; flex-direction: column; justify-content: center; border-left: 1px solid var(--slate-200); }

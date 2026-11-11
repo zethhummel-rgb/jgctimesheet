@@ -5727,7 +5727,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
   const shopDrawingFileInput = useRef<HTMLInputElement>(null);
   const [shopDrawingFilter, setShopDrawingFilter] = useState<"Open" | "All" | "Approved">("All");
   const [shopDrawingSearch, setShopDrawingSearch] = useState("");
-  const [shopDrawingAction, setShopDrawingAction] = useState<"saving" | "sharing" | "unsharing" | "deleting" | null>(null);
+  const [shopDrawingAction, setShopDrawingAction] = useState<"saving" | "sharing" | "unsharing" | "deleting" | "downloading" | null>(null);
   const [shopDrawingMessage, setShopDrawingMessage] = useState("");
   const [shopDrawingError, setShopDrawingError] = useState(false);
   const jobTabRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -6139,6 +6139,23 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
     } catch (error) {
       setShopDrawingError(true);
       setShopDrawingMessage(error instanceof Error ? error.message : "The drawing could not be removed from the employee job list.");
+    } finally {
+      setShopDrawingAction(null);
+    }
+  };
+
+  const exportShopDrawingLog = async () => {
+    if (!job?.shopDrawings?.length || shopDrawingAction) return;
+    setShopDrawingAction("downloading");
+    setShopDrawingError(false);
+    setShopDrawingMessage("");
+    try {
+      const { downloadShopDrawingLog } = await import("../lib/shop-drawing-workbook");
+      const client = job.portalCustomer || state.clients.find(item => item.id === job.clientId)?.name || "";
+      await downloadShopDrawingLog(job, client);
+    } catch (error) {
+      setShopDrawingError(true);
+      setShopDrawingMessage(error instanceof Error ? error.message : "The shop drawing log could not be downloaded.");
     } finally {
       setShopDrawingAction(null);
     }
@@ -6639,7 +6656,10 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
         {tab === "shop-drawings" && <section className="panel shop-drawing-panel">
           <div className="panel-heading shop-drawing-heading">
             <div><span className="eyebrow">SUBMISSION CONTROL</span><h2>Shop Drawing register</h2><p>Track each submission from request through review and approval. Keep a separate OneDrive file for every revision; do not overwrite earlier files.</p></div>
-            <button className="button primary" type="button" onClick={startNewShopDrawing} disabled={Boolean(shopDrawingAction)}>＋ New shop drawing</button>
+            <div className="shop-drawing-heading-actions">
+              <button className="button secondary" type="button" onClick={() => void exportShopDrawingLog()} disabled={!shopDrawings.length || Boolean(shopDrawingAction)}>{shopDrawingAction === "downloading" ? "Preparing Excel…" : "Download log (.xlsx)"}</button>
+              <button className="button primary" type="button" onClick={startNewShopDrawing} disabled={Boolean(shopDrawingAction)}>＋ New shop drawing</button>
+            </div>
           </div>
           <div className="shop-drawing-kpis" aria-label="Shop drawing register summary">
             <div><span>Open</span><strong>{shopDrawingMetrics.open}</strong></div>

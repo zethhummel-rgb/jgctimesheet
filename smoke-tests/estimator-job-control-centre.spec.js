@@ -881,6 +881,13 @@ test("Shop Drawings saves a stamped transmittal and clears the file only after a
   await expect(view.getByRole("button", { name: "Download PDF", exact: true })).toBeVisible();
   expect(await page.evaluate(() => window.__shopTransmittals.operations)).toEqual(["list", "reserve", "upload", "publish"]);
 
+  // Older saved transmittals also get the drawing number and description when downloaded.
+  await page.evaluate(() => {
+    const entry = [...window.__shopTransmittals.records.values()][0];
+    if (entry.filename !== "SD-021- Canopy steel connection details.pdf") throw new Error("Wrong stored filename");
+    entry.filename = entry.reference + "-Transmittal.pdf";
+  });
+
   // Close and reopen to exercise the stored PDF path instead of the creator's in-memory copy.
   await view.getByRole("button", { name: "Close", exact: true }).click();
   await open();
@@ -893,7 +900,7 @@ test("Shop Drawings saves a stamped transmittal and clears the file only after a
   const downloadEvent = page.waitForEvent("download");
   await view.getByRole("button", { name: "Download PDF", exact: true }).click();
   const download = await downloadEvent;
-  expect(download.suggestedFilename()).toMatch(/^SD-021-R2-[A-F0-9]{8}-Transmittal\.pdf$/);
+  expect(download.suggestedFilename()).toBe("SD-021- Canopy steel connection details.pdf");
   const path = info.outputPath("transmittal.pdf");
   await download.saveAs(path);
   await expect(view.getByRole("button", { name: "PDF saved — clear from portal" })).toBeVisible();
@@ -916,6 +923,26 @@ test("Shop Drawings saves a stamped transmittal and clears the file only after a
   await expect(view.getByText(/Revision 2.*Reviewed as noted/)).toBeVisible();
   await expect(view.getByText(/To Pat Client.*Test Reviewer/)).toBeVisible();
   await expect(view.getByRole("button", { name: "Download PDF", exact: true })).toHaveCount(0);
+  await view.locator("input[type=file]").setInputFiles({ name: "Unstamped.pdf", mimeType: "application/pdf", buffer });
+  await expect(view.getByRole("button", { name: "Place review stamp on sheet 1" })).toBeEnabled();
+  await view.getByLabel("Stamp reviewer").fill("");
+  await view.getByLabel("Stamp date").fill("");
+  await view.getByRole("button", { name: "Save transmittal", exact: true }).click();
+  await expect(view.getByText("No review stamp", { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => [...window.__shopTransmittals.records.values()].at(-1))).toMatchObject({
+    filename: "SD-021- Canopy steel connection details.pdf",
+    stamped_pages: [], reviewer: null, review_date: null, review_status: null,
+  });
+  const noStampDownload = page.waitForEvent("download");
+  await view.getByRole("button", { name: "Download PDF", exact: true }).click();
+  const noStamp = await noStampDownload;
+  const noStampPath = info.outputPath("transmittal-unstamped.pdf");
+  await noStamp.saveAs(noStampPath);
+  const noStampOutput = await PDFDocument.load(await fs.readFile(noStampPath));
+  expect(noStampOutput.getPageCount()).toBe(3);
+  expect(noStampOutput.getPages().slice(1).map(sheet => sheet.node.Annots()?.size() ?? 0)).toEqual([0, 0]);
+  await view.getByRole("button", { name: "PDF saved — clear from portal" }).click();
+  await expect.poll(() => page.evaluate(() => window.__shopTransmittals.objects.size)).toBe(0);
 });
 
 test("shop drawing details can create a drawing with a PDF and permanently delete a shared register entry", async ({ page }) => {
@@ -991,4 +1018,62 @@ test("shop drawing details can create a drawing with a PDF and permanently delet
   await expect(review.getByRole("button", { name: "Place review stamp on sheet 1" })).toBeEnabled();
   await review.getByRole("button", { name: "Close", exact: true }).click();
   await expect.poll(() => captures.savedStates.at(-1)?.jobs[0].shopDrawings[0]?.title).toBe("Wall framing");
+});
+
+test("Shop Drawings exports the full revision log as a shareable Excel workbook", async ({ page }, info) => {
+  const ExcelJS = require("../vendor/exceljs.min.js");
+  const state = jobControlState();
+  const { jobs: [job] } = state;
+  job.shopDrawings = [
+    {
+      id: "closed-drawing", number: "SD-010", title: "Existing reinforcement detail", revision: 0,
+      status: "Closed", revisions: [], createdAt: "2026-09-01T12:00:00.000Z", updatedAt: "2026-09-05T12:00:00.000Z",
+    },
+    {
+      id: "approved-drawing", number: "SD-002", title: "Canopy anchors and stainless steel connection schedule", revision: 1,
+      status: "Approved", vendorName: "=literal vendor", consultant: "Pat Client", requestedDate: "2026-09-01",
+      submittedDate: "2026-09-05", returnedDate: "2026-09-12", notes: "INTERNAL NOTES",
+      oneDriveUrl: "https://example.com/private.pdf",
+      revisions: [{ id: "snapshot", revision: 0, snapshot: JSON.stringify({
+        number: "SD-002", title: "Original canopy connection", status: "Revise and resubmit",
+        receivedDate: "2026-09-02", returnedDate: "2026-09-03",
+      }) }],
+      createdAt: "2026-09-01T12:00:00.000Z", updatedAt: "2026-09-12T12:00:00.000Z",
+    },
+  ];
+  await serveJobControl(page, state, { savedStates: [], statisticsRequests: [], portalDocumentUpdates: [] });
+  await page.goto("/estimating/index.html?dev=1");
+  await openJob(page);
+  await jobTab(page, "Shop Drawings").click();
+  const panel = jobPanel(page, "Shop Drawings");
+  await panel.getByRole("button", { name: "Approved", exact: true }).click();
+  await expect(panel.getByRole("row").filter({ hasText: "SD-010" })).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const download = page.waitForEvent("download");
+  await panel.getByRole("button", { name: "Download log (.xlsx)", exact: true }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe("Job 26144 - Shop Drawing Log.xlsx");
+  const path = info.outputPath(file.suggestedFilename());
+  await file.saveAs(path);
+
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(await require("node:fs/promises").readFile(path));
+  const sheet = workbook.getWorksheet("Shop Drawing Log");
+  expect(sheet.getCell("A2").value).toBe("Job 26144 · Brockville Canopy Renewal Contract");
+  expect(sheet.getCell("A3").value).toContain("Via Rail Canada");
+  expect(sheet.getRows(5, 3).map(row => row.values.slice(1, 4))).toEqual([
+    ["SD-002", 1, "Current"], ["SD-002", 0, "Prior"], ["SD-010", 0, "Current"],
+  ]);
+  expect(sheet.getCell("D6").value).toBe("Original canopy connection");
+  expect(sheet.getCell("G6").value).toBe("Revise and resubmit");
+  expect(sheet.getCell("E5").value).toBe("=literal vendor");
+  expect(sheet.getCell("H5").value.toISOString()).toBe("2026-09-01T00:00:00.000Z");
+  expect(sheet.getCell("L6").value.toISOString()).toBe("2026-09-03T00:00:00.000Z");
+  expect(sheet.getCell("J7").value).toBeNull();
+  expect(sheet.rowCount).toBe(7);
+  expect(sheet.autoFilter).toBe("A4:L7");
+  expect(sheet.views[0]).toMatchObject({ state: "frozen", ySplit: 4 });
+  expect(sheet.pageSetup).toMatchObject({ orientation: "landscape", fitToWidth: 1, printArea: "A1:L7", printTitlesRow: "1:4" });
+  const cellValues = sheet.getRows(1, 7).flatMap(row => row.values.filter(value => typeof value === "string"));
+  expect(cellValues.join(" ")).not.toMatch(/INTERNAL NOTES|example.com/);
 });

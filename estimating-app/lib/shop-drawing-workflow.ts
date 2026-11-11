@@ -46,3 +46,11 @@ export function validateDrawing(draft: Partial<ShopDrawing>, previous?: ShopDraw
   }
   return "";
 }
+
+export function shopDrawingPdfFilename(drawing: Pick<ShopDrawing, 'number' | 'title'>) {
+  const description = drawing.title.trim().replace(/\.pdf$/i, '');
+  const name = (description ? drawing.number.trim() + '- ' + description : drawing.number.trim())
+    .replace(/[<>:"/\\|?*\x00-\x1f\x7f]/g, '-')
+    .replace(/\s+/g, ' ');
+  return Array.from(name).slice(0, 176).join('').replace(/[. ]+$/, '') + '.pdf';
+}

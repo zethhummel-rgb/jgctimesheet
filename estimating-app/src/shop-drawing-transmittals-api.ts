@@ -9,9 +9,9 @@ export interface TransmittalDetails {
   filename: string;
   source_name: string;
   recipient: string;
-  reviewer: string;
-  review_status: string;
-  review_date: string;
+  reviewer: string | null;
+  review_status: string | null;
+  review_date: string | null;
   transmittal_date: string;
   notes: string;
   page_count: number;

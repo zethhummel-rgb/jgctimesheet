@@ -1,12 +1,12 @@
 import { type AccountingCell, type AccountingExportPlan, type AccountingExportPreview } from "./job-accounting-export";
 
 let loading: Promise<any> | null = null;
-async function excelWriter(): Promise<any> {
+export async function excelWriter(): Promise<any> {
   const host = window as Window & { ExcelJS?: any };
   if (host.ExcelJS) return host.ExcelJS;
   if (!loading) loading = new Promise((resolve, reject) => {
     const script = document.createElement("script");
-    const failed = () => { clearTimeout(timer); script.remove(); loading = null; reject(new Error("The Excel writer could not load. No download version was saved. Please retry.")); };
+    const failed = () => { clearTimeout(timer); script.remove(); loading = null; reject(new Error("The Excel writer could not load. Please retry.")); };
     const timer = setTimeout(failed, 20_000);
     script.src = new URL("../vendor/exceljs.min.js?v=1", window.location.href).href;
     script.onload = () => { clearTimeout(timer); host.ExcelJS ? resolve(host.ExcelJS) : failed(); };
