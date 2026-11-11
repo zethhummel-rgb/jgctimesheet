@@ -1,4 +1,4 @@
-import { pdfDecoderOptions } from '../lib/pdf-decoder-options';
+import { openDrawingPdf } from '../lib/open-drawing-pdf';
 import { useEffect, useId, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 import type { PDFDocumentProxy, PageViewport } from 'pdfjs-dist';
@@ -6,16 +6,13 @@ import type { Job } from '../lib/estimator-data';
 import { calibrate, commentLines, dimensionGeometry, drawingPageCountProblem, drawingPageOrder, drawingPageSizeProblem, reorderDrawingPages, thumbnailScale, DRAWING_MAX_BYTES, DRAWING_MAX_MB, emptyDrawing, isMeasurement, measurement, replacePageScale, scaleReferenceLabel, validateContent, type DrawingContent, type Mark, type MeasurementUnit, type Point, type Scale, type ReviewStamp } from '../lib/drawing-model';
 import { addDrawing, listDrawings, loadDrawing, saveDrawing, type DrawingRecord } from '../src/drawings-api';
 import { snapPoint, type Segment } from '../lib/drawing-snap';
-import { drawingSegmentsIsolated, validatePdfIsolated } from '../lib/document-worker-client';
+import { drawingSegmentsIsolated } from '../lib/document-worker-client';
 import { DrawingIcon, ReviewStampGraphic, StampFields } from './drawing-controls';
 import './job-drawings.css';
 const phoneQuery='(max-width: 600px), (max-width: 1000px) and (max-height: 500px)';
-let engine: ReturnType<typeof importEngine> | undefined;
-async function importEngine() { const pdf = await import('pdfjs-dist/legacy/build/pdf.mjs'); pdf.GlobalWorkerOptions.workerSrc = './supplier-import/pdf.worker.min.mjs'; return pdf; }
-async function openPdf(bytes: Uint8Array) { await validatePdfIsolated(bytes);engine ??= importEngine(); const pdf = await engine; return pdf.getDocument({ ...pdfDecoderOptions, data: bytes.slice() }).promise; }
 // Checked before a PDF is stored, so a booby-trapped file never reaches the shared drawing list.
 async function checkDrawingPdf(bytes: Uint8Array) {
-  const pdf = await openPdf(bytes);
+  const pdf = await openDrawingPdf(bytes);
   try {
     const tooMany = drawingPageCountProblem(pdf.numPages); if (tooMany) throw new Error(tooMany);
     for (let n = 1; n <= pdf.numPages; n++) { const size = (await pdf.getPage(n)).getViewport({ scale: 1 }), problem = drawingPageSizeProblem(size.width, size.height, n); if (problem) throw new Error(problem); }
@@ -108,7 +105,7 @@ export function JobDrawings({job,actor,active}:{job:Job;actor:string;active:bool
   const open=async(r:DrawingRecord,bytes?:Uint8Array)=>{
     if(dirty.current||saving.current){await flush();if(dirty.current||saving.current){setError('Wait for saving to finish, or recover your unsaved markups before switching drawings.');return;}}
     const token=++generation.current;setBusy(true);setError('');
-    try { const data=bytes??await loadDrawing(r), doc=await openPdf(data),c=validateContent(r.content);if(token!==generation.current){void doc.loadingTask.destroy();return;}const tooMany=drawingPageCountProblem(doc.numPages);if(tooMany){void doc.loadingTask.destroy();throw new Error(tooMany);}drawingPageOrder(c,doc.numPages);if(c.marks.some(m=>m.page>doc.numPages))throw new Error('A markup references a missing PDF page.');const previous=pdf;setPdf(doc);if(previous)void previous.loadingTask.destroy();source.current=data;recordRef.current=r;current.current={content:c,title:r.title};dirty.current=false;blocked.current=false;setRecord(r);setTitle(r.title);setContent(c);setPage(1);setRotation(0);const first=await doc.getPage(drawingPageOrder(c,doc.numPages)[0]),v=first.getViewport({scale:1});setZoom(Math.min(1.5,Math.max(.2,((stage.current?.clientWidth||850)-40)/v.width)));history.current=[];future.current=[];setHistoryTick(x=>x+1);setDraft([]);setSelected('');setReference([]);setFiles([]);scrollEdge.current='top';reportSave('All drawing changes saved');
+    try { const data=bytes??await loadDrawing(r), doc=await openDrawingPdf(data),c=validateContent(r.content);if(token!==generation.current){void doc.loadingTask.destroy();return;}const tooMany=drawingPageCountProblem(doc.numPages);if(tooMany){void doc.loadingTask.destroy();throw new Error(tooMany);}drawingPageOrder(c,doc.numPages);if(c.marks.some(m=>m.page>doc.numPages))throw new Error('A markup references a missing PDF page.');const previous=pdf;setPdf(doc);if(previous)void previous.loadingTask.destroy();source.current=data;recordRef.current=r;current.current={content:c,title:r.title};dirty.current=false;blocked.current=false;setRecord(r);setTitle(r.title);setContent(c);setPage(1);setRotation(0);const first=await doc.getPage(drawingPageOrder(c,doc.numPages)[0]),v=first.getViewport({scale:1});setZoom(Math.min(1.5,Math.max(.2,((stage.current?.clientWidth||850)-40)/v.width)));history.current=[];future.current=[];setHistoryTick(x=>x+1);setDraft([]);setSelected('');setReference([]);setFiles([]);scrollEdge.current='top';reportSave('All drawing changes saved');
       const local=localStorage.getItem('jgc-drawing-recovery-'+r.id);
       if(local){const recovered=JSON.parse(local);if(window.confirm('Unsaved markups from an interrupted session were found. Restore them?')){const restored=validateContent(recovered.content);drawingPageOrder(restored,doc.numPages);current.current={content:restored,title:recovered.title};setContent(restored);setTitle(recovered.title);dirty.current=true;if(recovered.baseRevision!==r.revision){blocked.current=true;reportSave('Not saved');setError('The shared drawing changed after this recovery draft. Recover unsaved markups before reloading the shared drawing.');}else{reportSave('Unsaved drawing changes');timer.current=setTimeout(()=>void flush(),600);}}} }
     catch(e){setError(e instanceof Error?e.message:'Could not open PDF.');}finally{if(token===generation.current)setBusy(false);}

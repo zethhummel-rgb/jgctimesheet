@@ -6,6 +6,7 @@ import { JobWarrantyPage } from "./job-warranty";
 import { JobLabourCostBreakdown, JobTmExtras } from "./job-tm-extras";
 import { JobRfis } from "./job-rfis";
 import { JobSchedule } from "./job-schedule";
+import { ShopDrawingTransmittal } from "./shop-drawing-transmittal";
 import { ShopDrawingHistory } from "./shop-drawing-history";
 import { approvedDrawingFile, drawingHistory, drawingSnapshot, validateDrawing } from "../lib/shop-drawing-workflow";
 import type { JobCreationDraft } from "../lib/job-creation";
@@ -5720,6 +5721,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
   const [statisticsMessage, setStatisticsMessage] = useState("");
   const statisticsRequest = useRef(0);
   const [shopDrawingEditor, setShopDrawingEditor] = useState<ShopDrawingEditorState>(null);
+  const [reviewDrawingId, setReviewDrawingId] = useState<string | null>(null);
   const [shopDrawingFilter, setShopDrawingFilter] = useState<"Open" | "All" | "Approved">("All");
   const [shopDrawingSearch, setShopDrawingSearch] = useState("");
   const [shopDrawingAction, setShopDrawingAction] = useState<"saving" | "sharing" | "unsharing" | "deleting" | null>(null);
@@ -6305,6 +6307,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
       const haystack = `${drawing.number} ${drawing.title} ${drawing.division} ${drawing.vendorName} ${drawing.consultant} ${drawing.status} ${drawing.responsibility}`.toLocaleLowerCase("en-CA");
       return haystack.includes(normalizedDrawingSearch);
     });
+    const reviewDrawing = shopDrawings.find((drawing) => drawing.id === reviewDrawingId);
     const editorDrawing = shopDrawingEditor?.drawingId ? shopDrawings.find((drawing) => drawing.id === shopDrawingEditor.drawingId) ?? null : null;
     const editorHasChanges = shopDrawingEditor ? JSON.stringify(shopDrawingEditor.draft) !== shopDrawingEditor.original : false;
     const sharedDocumentLinkId = sharedJobDocumentLinkId(job);
@@ -6674,6 +6677,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
               <td data-label="Approved for use">{approvedHref ? <a className="button primary compact shop-approved-file" href={approvedHref} target="_blank" rel="noreferrer">Approved file · Rev {drawing.revision} ↗</a> : <span className="shop-not-approved">Not approved for use</span>}</td>
               <td className="shop-drawing-action-cell"><div className="shop-drawing-row-actions">
                 <button className="button secondary compact" type="button" onClick={() => openShopDrawing(drawing)}>Open / edit</button>
+                <button className="button secondary compact" type="button" onClick={() => setReviewDrawingId(drawing.id)}>Review PDF</button>
                 {href && <a className="button secondary compact" href={href} target="_blank" rel="noreferrer">Current file ↗</a>}
                 {sharedWithEmployees
                   ? <button className="button secondary compact" type="button" onClick={() => void unshareShopDrawing(drawing)} disabled={Boolean(shopDrawingAction)}>{shopDrawingAction === "unsharing" ? "Removing…" : "Remove from employee job list"}</button>
@@ -6681,6 +6685,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
               </div></td>
             </tr>; })}</tbody>
           </table></div> : <div className="empty-state compact-empty shop-drawing-empty"><span>SD</span><h3>{shopDrawings.length ? `No ${shopDrawingFilter.toLocaleLowerCase()} drawings match` : "No shop drawings entered"}</h3><p>{shopDrawings.length ? "Change the filter or search to see another register item." : "Add the required submissions for this job. OneDrive files stay in their existing folders."}</p>{!shopDrawings.length && <button className="button secondary compact" type="button" onClick={startNewShopDrawing}>＋ Add first drawing</button>}</div>}
+          {reviewDrawing && <ShopDrawingTransmittal key={reviewDrawing.id + ":" + reviewDrawing.revision} job={job} drawing={reviewDrawing} actor={currentEstimator.name} clientName={state.clients.find((client) => client.id === job.clientId)?.name ?? ""} workspaceSaved={workspaceSaved} onClose={() => setReviewDrawingId(null)} />}
           <p className="shop-drawing-footnote">Internal by default. Employee sharing is available only for Approved or Approved as noted current revisions and replaces the existing employee job-list document button.</p>
         </section>}
         <JobDrawings key={`drawings-${job.id}`} job={job} actor={currentEstimator.name} active={tab === "drawings"} />
