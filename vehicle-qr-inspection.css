@@ -12,7 +12,6 @@
     --input-text: var(--jgc-color-text-dark);
     --fail: var(--jgc-color-danger);
     --warn: var(--jgc-color-warning);
-    --na: var(--jgc-color-surface-soft);
 }
 
 * { box-sizing: border-box; }
@@ -282,20 +281,57 @@ button.secondary {
 }
 
 button.delete-button,
-button.choice-defect.is-selected,
 button.severity-major.is-selected {
     background: var(--fail);
 }
 
-button.choice-pass.is-selected,
 button.severity-minor.is-selected {
     background: var(--jgc-color-brand-600);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--jgc-color-success) 42%, transparent);
 }
 
-button.choice-na.is-selected {
-    background: var(--na);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--jgc-color-input-border) 34%, transparent);
+.choice-row > button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--jgc-space-2);
+    min-height: var(--jgc-control-height);
+    border: 1px solid var(--jgc-color-input-border);
+    background: color-mix(in srgb, var(--jgc-color-input-border) 20%, var(--jgc-color-input));
+    color: var(--input-text);
+    font-family: inherit;
+    font-size: var(--jgc-font-size-md);
+}
+
+.choice-row > button[aria-pressed="true"] {
+    border-color: transparent;
+    color: var(--jgc-color-on-brand);
+}
+
+.choice-row > button[aria-pressed="true"]::before {
+    content: "";
+    width: 10px;
+    height: 6px;
+    border-inline-start: 2px solid currentColor;
+    border-block-end: 2px solid currentColor;
+    transform: translateY(-1px) rotate(-45deg);
+}
+
+.choice-row > .choice-pass[aria-pressed="true"] {
+    background: var(--jgc-color-badge-success);
+}
+
+.choice-row > .choice-defect[aria-pressed="true"] {
+    background: var(--jgc-color-danger);
+}
+
+.choice-row > .choice-na[aria-pressed="true"] {
+    background: var(--jgc-color-badge-info);
+}
+
+.choice-row > button:focus-visible {
+    outline: 2px solid var(--jgc-color-badge-info);
+    outline-offset: 2px;
 }
 
 button:disabled {

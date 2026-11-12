@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.json?v=7">
 <link rel="stylesheet" href="jgc-design-system.css?v=14" data-jgc-design-system="14">
 <link rel="stylesheet" href="qr-inspection-design-system.css?v=2">
-<link rel="stylesheet" href="vehicle-qr-inspection.css?v=1">
+<link rel="stylesheet" href="vehicle-qr-inspection.css?v=2">
 </head>
 <body class="qr-inspection-page vehicle-qr-inspection jgc-page jgc-system-page">
 <main class="page-shell qr-inspection-shell jgc-page-shell">
@@ -511,10 +511,10 @@ function renderInspectionItems() {
                 <article class="inspection-card${response.result ? " " + pageEscape(response.result) : ""}" data-response-key="${pageEscape(key)}">
                     <h4><span class="item-number">${pageEscape(item.code)}</span><span>${pageEscape(item.label)}</span></h4>
                     ${item.help ? `<div class="item-help">${pageEscape(item.help)}</div>` : ""}
-                    <div class="choice-row">
-                        <button type="button" class="choice-pass ${response.result === "pass" ? "is-selected" : ""}" onclick="setItemResult('${pageEscape(key)}','pass')">Pass</button>
-                        <button type="button" class="choice-defect ${response.result === "defect" ? "is-selected" : ""}" onclick="setItemResult('${pageEscape(key)}','defect')">Defect</button>
-                        <button type="button" class="choice-na ${response.result === "na" ? "is-selected" : ""}" onclick="setItemResult('${pageEscape(key)}','na')">N/A</button>
+                    <div class="choice-row" role="group" aria-label="${pageEscape(item.label)} result">
+                        <button type="button" class="choice-pass" aria-pressed="${response.result === "pass"}" onclick="setItemResult('${pageEscape(key)}','pass',this)">Pass</button>
+                        <button type="button" class="choice-defect" aria-pressed="${response.result === "defect"}" onclick="setItemResult('${pageEscape(key)}','defect',this)">Defect</button>
+                        <button type="button" class="choice-na" aria-pressed="${response.result === "na"}" onclick="setItemResult('${pageEscape(key)}','na',this)">N/A</button>
                     </div>
                     <div class="defect-panel">
                         <div>
@@ -538,7 +538,8 @@ function renderInspectionItems() {
     updateProgress();
 }
 
-function setItemResult(key, result) {
+function setItemResult(key, result, button) {
+    const restoreFocus = button === document.activeElement;
     state.responses[key] = state.responses[key] || {};
     state.responses[key].result = result;
     if (result !== "defect") {
@@ -548,6 +549,9 @@ function setItemResult(key, result) {
         state.responses[key].severity = state.responses[key].severity || "minor";
     }
     renderInspectionItems();
+    if (restoreFocus) {
+        document.querySelector(`[data-response-key="${CSS.escape(key)}"] .choice-${result}`)?.focus({ preventScroll: true });
+    }
 }
 
 function setItemSeverity(key, severity) {
