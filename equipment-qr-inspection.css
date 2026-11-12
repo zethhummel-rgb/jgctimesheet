@@ -325,17 +325,17 @@ button:disabled {
     background: color-mix(in srgb, var(--jgc-color-text) 6%, transparent);
 }
 
-.choice-button.is-selected {
+.choice-button.is-selected:where(:not(.inspection-result-button)) {
     background: var(--jgc-color-badge-info);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--jgc-color-info) 55%, transparent);
 }
 
-.choice-button.choice-f.is-selected {
+.choice-button.choice-f.is-selected:where(:not(.inspection-result-button)) {
     background: var(--fail);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--jgc-color-danger) 45%, transparent);
 }
 
-.choice-button.choice-na.is-selected {
+.choice-button.choice-na.is-selected:where(:not(.inspection-result-button)) {
     background: var(--na);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--jgc-color-input-border) 34%, transparent);
 }
