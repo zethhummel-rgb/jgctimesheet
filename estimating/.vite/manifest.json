@@ -1,6 +1,6 @@
 {
   "../../../../../AppData/Local/Temp/jgc-tm-extras-dependencies/node_modules/.pnpm/pdfjs-dist@6.2.108/node_modules/pdfjs-dist/legacy/build/pdf.mjs": {
-    "file": "assets/pdf-DP4Y8oOm.js",
+    "file": "assets/pdf-fM1a7agb.js",
     "name": "pdf",
     "src": "../../../../../AppData/Local/Temp/jgc-tm-extras-dependencies/node_modules/.pnpm/pdfjs-dist@6.2.108/node_modules/pdfjs-dist/legacy/build/pdf.mjs",
     "isDynamicEntry": true,
@@ -9,7 +9,7 @@
     ]
   },
   "../../../../../AppData/Local/Temp/jgc-tm-extras-dependencies/node_modules/.pnpm/tesseract.js@7.0.0/node_modules/tesseract.js/src/index.js": {
-    "file": "assets/src-BTN3Bou8.js",
+    "file": "assets/src-BgRMjHPA.js",
     "name": "src",
     "src": "../../../../../AppData/Local/Temp/jgc-tm-extras-dependencies/node_modules/.pnpm/tesseract.js@7.0.0/node_modules/tesseract.js/src/index.js",
     "isDynamicEntry": true,
@@ -18,7 +18,7 @@
     ]
   },
   "../../../../../AppData/Local/Temp/jgc-tm-extras-dependencies/node_modules/.pnpm/tus-js-client@4.3.1/node_modules/tus-js-client/lib.esm/browser/index.js": {
-    "file": "assets/browser-D_kbW8U1.js",
+    "file": "assets/browser-Czc7VQAk.js",
     "name": "browser",
     "src": "../../../../../AppData/Local/Temp/jgc-tm-extras-dependencies/node_modules/.pnpm/tus-js-client@4.3.1/node_modules/tus-js-client/lib.esm/browser/index.js",
     "isDynamicEntry": true,
@@ -26,15 +26,15 @@
       "index.html"
     ]
   },
-  "_es-C7Vkkwxz.js": {
-    "file": "assets/es-C7Vkkwxz.js",
+  "_es-xbd2HXkb.js": {
+    "file": "assets/es-xbd2HXkb.js",
     "name": "es",
     "imports": [
       "index.html"
     ]
   },
   "index.html": {
-    "file": "assets/index-CONAwPLn.js",
+    "file": "assets/index-CsyIsq18.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
@@ -59,13 +59,13 @@
     ]
   },
   "lib/drawing-pdf.ts": {
-    "file": "assets/drawing-pdf-DiZ-vLOs.js",
+    "file": "assets/drawing-pdf-DgldFGYk.js",
     "name": "drawing-pdf",
     "src": "lib/drawing-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-C7Vkkwxz.js"
+      "_es-xbd2HXkb.js"
     ]
   },
   "lib/job-accounting-workbook.ts": {
@@ -75,47 +75,47 @@
     "isDynamicEntry": true
   },
   "lib/job-schedule-pdf.ts": {
-    "file": "assets/job-schedule-pdf-CyF1Tfan.js",
+    "file": "assets/job-schedule-pdf-BROc3QKL.js",
     "name": "job-schedule-pdf",
     "src": "lib/job-schedule-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-C7Vkkwxz.js"
+      "_es-xbd2HXkb.js"
     ]
   },
   "lib/job-warranty-pdf.ts": {
-    "file": "assets/job-warranty-pdf-_z5Pcozk.js",
+    "file": "assets/job-warranty-pdf-B7BIbjR6.js",
     "name": "job-warranty-pdf",
     "src": "lib/job-warranty-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-C7Vkkwxz.js"
+      "_es-xbd2HXkb.js"
     ]
   },
   "lib/proposal-pdf.ts": {
-    "file": "assets/proposal-pdf-LXkzxp8X.js",
+    "file": "assets/proposal-pdf-DG2QwAJy.js",
     "name": "proposal-pdf",
     "src": "lib/proposal-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-C7Vkkwxz.js"
+      "_es-xbd2HXkb.js"
     ]
   },
   "lib/purchase-order-pdf.ts": {
-    "file": "assets/purchase-order-pdf-DiTr6aTK.js",
+    "file": "assets/purchase-order-pdf-CMUieadX.js",
     "name": "purchase-order-pdf",
     "src": "lib/purchase-order-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-C7Vkkwxz.js"
+      "_es-xbd2HXkb.js"
     ]
   },
   "lib/quote-backup-pdf.ts": {
-    "file": "assets/quote-backup-pdf-Z80QbNT4.js",
+    "file": "assets/quote-backup-pdf-CyuyV898.js",
     "name": "quote-backup-pdf",
     "src": "lib/quote-backup-pdf.ts",
     "isDynamicEntry": true,
@@ -123,31 +123,31 @@
       "index.html",
       "lib/purchase-order-pdf.ts",
       "lib/proposal-pdf.ts",
-      "_es-C7Vkkwxz.js"
+      "_es-xbd2HXkb.js"
     ]
   },
   "lib/rfi-pdf.ts": {
-    "file": "assets/rfi-pdf-Cwc0T9tQ.js",
+    "file": "assets/rfi-pdf-CB8qIXum.js",
     "name": "rfi-pdf",
     "src": "lib/rfi-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-C7Vkkwxz.js"
+      "_es-xbd2HXkb.js"
     ]
   },
   "lib/shop-drawing-transmittal-pdf.ts": {
-    "file": "assets/shop-drawing-transmittal-pdf-BBWb54yX.js",
+    "file": "assets/shop-drawing-transmittal-pdf-D181ExG4.js",
     "name": "shop-drawing-transmittal-pdf",
     "src": "lib/shop-drawing-transmittal-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "lib/drawing-pdf.ts",
-      "_es-C7Vkkwxz.js"
+      "_es-xbd2HXkb.js"
     ]
   },
   "lib/shop-drawing-workbook.ts": {
-    "file": "assets/shop-drawing-workbook-Clid-TOk.js",
+    "file": "assets/shop-drawing-workbook-DqjWfv8O.js",
     "name": "shop-drawing-workbook",
     "src": "lib/shop-drawing-workbook.ts",
     "isDynamicEntry": true,

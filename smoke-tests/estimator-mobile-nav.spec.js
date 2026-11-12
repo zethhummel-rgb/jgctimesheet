@@ -1068,15 +1068,15 @@ test("same-vendor subcontractor quotes combine into one job purchase order", asy
 
   const combinedPoRows = page.locator(".po-source-table tbody tr").filter({ hasText: /PAINT-(DEMO|MATERIALS-18)/ });
   await expect(combinedPoRows).toHaveCount(2);
-  await expect(combinedPoRows.nth(0)).toContainText("26124");
-  await expect(combinedPoRows.nth(1)).toContainText("26124");
+  await expect(combinedPoRows.nth(0)).toContainText("26124-001");
+  await expect(combinedPoRows.nth(1)).toContainText("26124-001");
   await expect(combinedPoRows.nth(0)).toContainText("Revision 0");
   await expect(combinedPoRows.nth(0)).toContainText("Final");
   await expect(page.locator(".subcontract-po-panel .po-count-chip")).toHaveText("1 PO");
 
   await expect(combinedPoRows.nth(0).locator(".po-revision-history")).toHaveCount(0);
   await combinedPoRows.nth(0).getByRole("button", { name: "Edit PO" }).click();
-  let revisionDialog = page.getByRole("dialog", { name: /Edit PO 26124 · Revision 0/ });
+  let revisionDialog = page.getByRole("dialog", { name: /Edit PO 26124-001 · Revision 0/ });
   await expect(revisionDialog).toContainText("Closing without saving leaves Revision 0 final and unchanged");
   await expect(revisionDialog.getByRole("button", { name: "No changes to save" })).toBeDisabled();
   await revisionDialog.locator("form footer").getByRole("button", { name: "Close" }).click();
@@ -1085,7 +1085,7 @@ test("same-vendor subcontractor quotes combine into one job purchase order", asy
   await expect(combinedPoRows.nth(0).locator(".po-revision-history")).toHaveCount(0);
 
   await combinedPoRows.nth(0).getByRole("button", { name: "Edit PO" }).click();
-  revisionDialog = page.getByRole("dialog", { name: /Edit PO 26124 · Revision 0/ });
+  revisionDialog = page.getByRole("dialog", { name: /Edit PO 26124-001 · Revision 0/ });
   await revisionDialog.getByLabel("PO instructions / notes").fill("Revised combined subcontractor authorization.");
   await expect(revisionDialog).toContainText("Save creates Revision 1");
   await revisionDialog.getByRole("button", { name: "Save as Revision 1" }).click();

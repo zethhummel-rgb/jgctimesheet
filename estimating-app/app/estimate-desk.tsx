@@ -78,6 +78,7 @@ import {
 import { proposalCostBreakdownLineOptions, proposalCostBreakdownRows, selectedProposalCostBreakdownCategories, selectedProposalCostBreakdownLineIds } from "../lib/proposal-cost-breakdown";
 import { mergeConcurrentEstimatorState } from "../lib/estimator-state-sync";
 import { nextAvailableQuoteNumber } from "../lib/quote-numbering";
+import { nextSubcontractPurchaseOrderNumber } from "../lib/subcontract-po-numbering";
 import { purchaseOrderVendorAddress } from "../lib/purchase-order-vendor";
 import { DeskHeaderContext, DeskTile, useDeskHeader, useIsPhone, type DeskHeader } from "./desk-shell";
 
@@ -1211,6 +1212,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   const pendingSave = useRef<AppState | null>(null);
   const lastSavedSnapshot = useRef("");
   const savedQuoteNumbers = useRef(new Map<string, string>());
+  const savedPurchaseOrderNumbers = useRef(new Map<string, string>());
   const isQuoteNumberConfirmed = (quote: Quote) => !currentEstimator.id || currentEstimator.id === "local-qa"
     || isChangeNotice(quote) || savedQuoteNumbers.current.get(quote.id) === quote.number;
   const latestState = useRef(state);
@@ -1260,6 +1262,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       if (result.merged && result.state) {
         const remoteState = normalizeAppState(result.state);
         const newerLocalState = pendingSave.current;
+        savedPurchaseOrderNumbers.current = new Map(remoteState.jobs.flatMap(job => (job.purchaseOrders ?? []).map(order => [order.id, order.number] as const)));
         savedQuoteNumbers.current = new Map(remoteState.quotes.map(quote => [quote.id, quote.number]));
         lastSavedSnapshot.current = JSON.stringify(remoteState);
         if (newerLocalState) {
@@ -1271,6 +1274,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
           setState(remoteState);
         }
       } else {
+        savedPurchaseOrderNumbers.current = new Map(stateToSave.jobs.flatMap(job => (job.purchaseOrders ?? []).map(order => [order.id, order.number] as const)));
         savedQuoteNumbers.current = new Map(stateToSave.quotes.map(quote => [quote.id, quote.number]));
         lastSavedSnapshot.current = JSON.stringify(stateToSave);
       }
@@ -1301,6 +1305,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       .then((payload) => {
         if (!active) return;
         const loadedState = normalizeAppState(payload.state);
+        savedPurchaseOrderNumbers.current = new Map(loadedState.jobs.flatMap(job => (job.purchaseOrders ?? []).map(order => [order.id, order.number] as const)));
         savedQuoteNumbers.current = new Map(loadedState.quotes.map(quote => [quote.id, quote.number]));
         lastSavedSnapshot.current = JSON.stringify(loadedState);
         setState(loadedState);
@@ -1968,6 +1973,10 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
     const sourceJob = state.jobs.find((job) => job.id === jobId);
     const sourcePurchaseOrder = sourceJob?.purchaseOrders?.find((purchaseOrder) => purchaseOrder.id === purchaseOrderId);
     if (!sourceJob || !sourcePurchaseOrder || sourcePurchaseOrder.status === "Void") return;
+    if (currentEstimator.id && currentEstimator.id !== "local-qa" && savedPurchaseOrderNumbers.current.get(sourcePurchaseOrder.id) !== sourcePurchaseOrder.number) {
+      window.alert("The purchase order is still saving. Please wait until it is saved before editing.");
+      return;
+    }
     setPurchaseOrderEditor({ jobId, purchaseOrderId });
   };
 
@@ -1976,6 +1985,10 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
     const job = current.jobs.find((item) => item.id === jobId);
     const purchaseOrder = job?.purchaseOrders?.find((item) => item.id === purchaseOrderId);
     if (!job || !purchaseOrder) return;
+    if (currentEstimator.id && currentEstimator.id !== "local-qa" && savedPurchaseOrderNumbers.current.get(purchaseOrder.id) !== purchaseOrder.number) {
+      window.alert("The purchase order is still saving. Please wait until it is saved before downloading.");
+      return;
+    }
     const finalizedAt = new Date().toISOString();
     const printable = purchaseOrder.status === "Draft"
       ? { ...purchaseOrder, status: "Issued" as const, finalizedAt, updatedAt: finalizedAt }
@@ -3043,7 +3056,7 @@ function PurchaseOrderModal({ state, authorizingName, job, quote, sourceLine, pu
   const now = new Date().toISOString();
   const initial: PurchaseOrder = purchaseOrder ? { ...purchaseOrder, vendorAddress: purchaseOrderVendorAddress(state.vendors, purchaseOrder) } : {
     id: uid("po"),
-    number: job.jobNumber,
+    number: nextSubcontractPurchaseOrderNumber(job),
     revision: 0,
     status: "Issued",
     sourceQuoteId: sourceLine ? quote?.id ?? "" : "",
@@ -3220,7 +3233,7 @@ function PurchaseOrderModal({ state, authorizingName, job, quote, sourceLine, pu
               setError("");
             }}><option value="">Enter supplier details below</option>{state.vendors.map((vendor) => <option key={vendor.id} value={vendor.id}>{vendor.name}</option>)}</select></label>}
             <div className="form-grid four-column">
-              <label className="field"><span>JGC PO number <b>*</b></span><input name="po-number" autoFocus aria-invalid={Boolean(error && invalidField === "po-number")} aria-describedby={error && invalidField === "po-number" ? "po-validation-error" : undefined} value={draft.number} onChange={(event) => { update("number", event.target.value); setError(""); }} /></label>
+              <label className="field"><span>JGC PO number <b>*</b></span><input name="po-number" readOnly={!purchaseOrder} autoFocus aria-invalid={Boolean(error && invalidField === "po-number")} aria-describedby={error && invalidField === "po-number" ? "po-validation-error" : undefined} value={draft.number} onChange={(event) => { update("number", event.target.value); setError(""); }} /></label>
               <label className="field"><span>PO date</span><input type="date" value={draft.issueDate} onChange={(event) => update("issueDate", event.target.value)} /></label>
               <div className="field po-lifecycle-field"><span>Status</span><strong>{lifecycleStatus}</strong></div>
               <label className="field"><span>Vendor quote #{draft.lines.length > 1 ? "s" : ""}</span><input value={draft.vendorQuoteNumber} onChange={(event) => update("vendorQuoteNumber", event.target.value)} placeholder="e.g. Q25-130" /></label>
