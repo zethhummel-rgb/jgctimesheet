@@ -4,8 +4,8 @@ const path = require("path");
 
 const portalRoot = path.resolve(__dirname, "..");
 const pages = [
-  { file: "equipment-inspection.html", css: "equipment-qr-inspection.css", version: 1 },
-  { file: "vehicle-inspection.html", css: "vehicle-qr-inspection.css", version: 2 }
+  { file: "equipment-inspection.html", css: "equipment-qr-inspection.css", version: 2 },
+  { file: "vehicle-inspection.html", css: "vehicle-qr-inspection.css", version: 3 }
 ];
 
 test("QR inspection screens use centralized token-only styling", async () => {
@@ -19,6 +19,7 @@ test("QR inspection screens use centralized token-only styling", async () => {
 
     expect(source).toContain('jgc-design-system.css?v=14');
     expect(source).toContain('qr-inspection-design-system.css?v=2');
+    expect(source).toContain('inspection-result-buttons.css?v=1');
     expect(source).toContain(`${page.css}?v=${page.version}`);
     expect(source).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
     expect(screenMarkup).not.toMatch(/<style\b/i);
@@ -29,8 +30,9 @@ test("QR inspection screens use centralized token-only styling", async () => {
 
   const serviceWorker = fs.readFileSync(path.join(portalRoot, "service-worker.js"), "utf8");
   expect(serviceWorker).toContain('"./qr-inspection-design-system.css?v=2"');
-  expect(serviceWorker).toContain('"./equipment-qr-inspection.css?v=1"');
-  expect(serviceWorker).toContain('"./vehicle-qr-inspection.css?v=2"');
+  expect(serviceWorker).toContain('"./inspection-result-buttons.css?v=1"');
+  expect(serviceWorker).toContain('"./equipment-qr-inspection.css?v=2"');
+  expect(serviceWorker).toContain('"./vehicle-qr-inspection.css?v=3"');
 });
 
 for (const viewport of [
@@ -136,6 +138,43 @@ for (const [theme, mode] of [["dark", "QR"], ["light", "manual"]]) {
       await trailer.screenshot({ path: info.outputPath(`trailer-selection-${theme}.png`) });
     } finally {
       await context.close();
+    }
+  });
+}
+
+for (const [inspectionType, theme] of [["Aerial Lifts", "light"], ["Fork Lift", "dark"]]) {
+  test(`Equipment QR result colours work for ${inspectionType} on mobile`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(value => localStorage.setItem("jgcPortalTheme", value), theme);
+    await page.route("https://xnrljkkszoimegfivlya.supabase.co/**", route => {
+      const endpoint = new URL(route.request().url()).pathname.split("/").pop();
+      return route.fulfill({
+        json: endpoint === "get_public_equipment_inspection" ? {
+          equipment_name: "Test equipment",
+          equipment_identification: "TEST-1",
+          inspection_type: inspectionType,
+          employees: [{ worker_key: "test inspector", display_name: "Test Inspector" }]
+        } : []
+      });
+    });
+    await page.goto("/equipment-inspection.html?token=test");
+    await expect(page.locator("html")).toHaveAttribute("data-jgc-theme", theme);
+    const item = page.locator(".inspection-item").first();
+    const options = [
+      ["Pass", "P", "rgb(17, 106, 53)"],
+      ["Fail", "F", "rgb(199, 42, 34)"],
+      ["N/A", "NA", "rgb(21, 84, 119)"]
+    ];
+    const grey = await item.getByRole("button", { name: "Pass", exact: true }).evaluate(button => getComputedStyle(button).backgroundColor);
+    for (const [name, value, fill] of options) {
+      const button = item.getByRole("button", { name, exact: true });
+      await expect(button).toHaveCSS("background-color", grey);
+      await button.click();
+      await expect(button).toHaveAttribute("aria-pressed", "true");
+      await expect(button).toHaveAttribute("data-choice", value);
+      await expect(button).toHaveCSS("background-color", fill);
+      await expect(item.locator('[aria-pressed="true"]')).toHaveCount(1);
+      await expect(page.locator("#progressText")).toHaveText(/^1 of \d+ completed$/);
     }
   });
 }

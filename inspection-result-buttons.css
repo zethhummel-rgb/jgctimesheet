@@ -1,0 +1,49 @@
+/* Shared result buttons for vehicle, trailer, lift and forklift checklists. */
+.inspection-result-button[data-inspection-result] {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--jgc-space-2);
+    min-height: var(--jgc-control-height);
+    border: 1px solid var(--jgc-color-input-border);
+    background: color-mix(in srgb, var(--jgc-color-input-border) 20%, var(--jgc-color-input));
+    color: var(--jgc-color-text-dark);
+    font-family: inherit;
+    font-size: var(--jgc-font-size-md);
+}
+
+.inspection-result-button[data-inspection-result="pass"] {
+    --inspection-result-fill: var(--jgc-color-badge-success);
+}
+
+.inspection-result-button[data-inspection-result="fail"] {
+    --inspection-result-fill: var(--jgc-color-danger);
+}
+
+.inspection-result-button[data-inspection-result="na"] {
+    --inspection-result-fill: var(--jgc-color-badge-info);
+}
+
+.inspection-result-button[aria-pressed="true"],
+.inspection-source-choice input:checked + .inspection-result-button {
+    border-color: transparent;
+    background: var(--inspection-result-fill);
+    color: var(--jgc-color-on-brand);
+}
+
+.inspection-result-button[aria-pressed="true"]::before,
+.inspection-source-choice input:checked + .inspection-result-button::before {
+    content: "";
+    flex: 0 0 auto;
+    width: 10px;
+    height: 6px;
+    border-inline-start: 2px solid currentColor;
+    border-block-end: 2px solid currentColor;
+    transform: translateY(-1px) rotate(-45deg);
+}
+
+button.inspection-result-button:focus-visible,
+.inspection-source-choice input:focus-visible + .inspection-result-button {
+    outline: 2px solid var(--jgc-color-badge-info);
+    outline-offset: 2px;
+}

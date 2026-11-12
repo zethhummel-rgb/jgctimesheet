@@ -395,20 +395,20 @@
   font-weight: 700;
 }
 
-.specialty-inspection-page .inspection-source-choice.is-selected .inspection-source-choice-button {
+.specialty-inspection-page .inspection-source-choice.is-selected .inspection-source-choice-button:where(:not(.inspection-result-button)) {
   color: var(--jgc-color-on-brand);
   background: var(--jgc-color-brand-700);
   border-color: var(--jgc-color-brand-500);
 }
 
-.specialty-inspection-page .inspection-source-choice.choice-fail.is-selected .inspection-source-choice-button,
-.specialty-inspection-page .inspection-source-choice.choice-uns.is-selected .inspection-source-choice-button,
-.specialty-inspection-page .inspection-source-choice.choice-defective.is-selected .inspection-source-choice-button {
+.specialty-inspection-page .inspection-source-choice.choice-fail.is-selected .inspection-source-choice-button:where(:not(.inspection-result-button)),
+.specialty-inspection-page .inspection-source-choice.choice-uns.is-selected .inspection-source-choice-button:where(:not(.inspection-result-button)),
+.specialty-inspection-page .inspection-source-choice.choice-defective.is-selected .inspection-source-choice-button:where(:not(.inspection-result-button)) {
   background: var(--jgc-color-danger);
   border-color: var(--jgc-color-danger-dark);
 }
 
-.specialty-inspection-page .inspection-source-choice.choice-na.is-selected .inspection-source-choice-button {
+.specialty-inspection-page .inspection-source-choice.choice-na.is-selected .inspection-source-choice-button:where(:not(.inspection-result-button)) {
   background: var(--jgc-color-input-border);
   border-color: var(--jgc-color-text-muted);
 }
@@ -528,20 +528,20 @@
     font-weight: 700;
   }
 
-  .specialty-inspection-page .inspection-choice-button.is-selected {
+  .specialty-inspection-page .inspection-choice-button.is-selected:where(:not(.inspection-result-button)) {
     color: var(--jgc-color-on-brand);
     background: var(--jgc-color-brand-700);
     border-color: var(--jgc-color-brand-500);
   }
 
-  .specialty-inspection-page .inspection-choice-button.choice-fail.is-selected,
-  .specialty-inspection-page .inspection-choice-button.choice-uns.is-selected,
-  .specialty-inspection-page .inspection-choice-button.choice-defective.is-selected {
+  .specialty-inspection-page .inspection-choice-button.choice-fail.is-selected:where(:not(.inspection-result-button)),
+  .specialty-inspection-page .inspection-choice-button.choice-uns.is-selected:where(:not(.inspection-result-button)),
+  .specialty-inspection-page .inspection-choice-button.choice-defective.is-selected:where(:not(.inspection-result-button)) {
     background: var(--jgc-color-danger);
     border-color: var(--jgc-color-danger-dark);
   }
 
-  .specialty-inspection-page .inspection-choice-button.choice-na.is-selected {
+  .specialty-inspection-page .inspection-choice-button.choice-na.is-selected:where(:not(.inspection-result-button)) {
     background: var(--jgc-color-input-border);
     border-color: var(--jgc-color-text-muted);
   }

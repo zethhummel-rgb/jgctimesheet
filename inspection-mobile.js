@@ -66,6 +66,19 @@
         return "";
     }
 
+    function useResultAppearance(element, label) {
+        if (!document.body.hasAttribute("data-inspection-result-colours")) {
+            return "";
+        }
+
+        const result = choiceClass(label).match(/^choice-(pass|fail|na)\b/)?.[1];
+        if (result) {
+            element.classList.add("inspection-result-button");
+            element.dataset.inspectionResult = result;
+        }
+        return result || "";
+    }
+
     function displayChoiceLabel(label) {
         const key = normalize(label).replace(/[^a-z0-9]+/g, "-");
 
@@ -175,6 +188,9 @@
             button.className = "inspection-source-choice-button";
             button.setAttribute("aria-hidden", "true");
             button.textContent = displayChoiceLabel(label);
+            if (useResultAppearance(button, label) && !input.hasAttribute("aria-label")) {
+                input.setAttribute("aria-label", label);
+            }
 
             input.insertAdjacentElement("beforebegin", wrapper);
             wrapper.appendChild(input);
@@ -229,6 +245,8 @@
                 syncChoiceButtons(tile, buttons);
                 updateInspectionProgress();
             });
+            const result = useResultAppearance(button, control.label);
+            if (result) button.textContent = { pass: "Pass", fail: "Fail", na: "N/A" }[result];
             grid.appendChild(button);
             control.input.addEventListener("change", () => {
                 syncChoiceButtons(tile, buttons);
