@@ -314,7 +314,9 @@ function isUntouchedDraftQuote(quote: Quote, state: AppState) {
   return quote.status === "Draft"
     && quote.revision === 0
     && !quote.demo
-    && !quote.documentKind
+    && (!quote.documentKind || quote.documentKind === "Quote")
+    && !quote.jobId
+    && !state.jobs.some((job) => job.quoteId === quote.id)
     && !quote.clientId
     && !quote.site.trim()
     && !(quote.address ?? "").trim()
@@ -331,6 +333,25 @@ function isUntouchedDraftQuote(quote: Quote, state: AppState) {
     && quote.proposalClosingScopeRemoved === false
     && (quote.proposalNotes ?? "") === defaultProposalNotes()
     && quote.terms === state.settings.proposalTerms
+    && !quote.sentAt
+    && !quote.wonAt
+    && !quote.acceptedBy
+    && !quote.lostReason
+    && (!quote.ownerName || quote.preparedBy === quote.ownerName)
+    && quote.quoteDate === quote.createdAt?.slice(0, 10)
+    && Number.isFinite(Date.parse(quote.quoteDate))
+    && Number.isFinite(state.settings.defaultValidityDays)
+    && quote.validUntil === addDays(quote.quoteDate, state.settings.defaultValidityDays)
+    && quote.quoteType === "Fixed Price"
+    && (quote.customerQuoteType ?? "Proposal Quote") === "Proposal Quote"
+    && quote.taxName === state.settings.taxName
+    && quote.taxRate === state.settings.taxRate
+    && quote.defaultMarkup === state.settings.defaultMarkup
+    && quote.targetMargin === state.settings.targetMargin
+    && quote.depositPercent === 0
+    && (quote.proposalStyle ?? "jgc-classic") === (state.settings.defaultProposalStyle ?? "jgc-classic")
+    && (quote.proposalTaxDisplay ?? "extra") === (state.settings.defaultProposalTaxDisplay ?? "extra")
+    && !quote.proposalShowCostBreakdown
     && quote.lines.length === 0
     && quote.revisions.length === 0;
 }
@@ -339,7 +360,9 @@ function removeUntouchedDraftQuote(state: AppState, quoteId: string) {
   const quote = state.quotes.find((item) => item.id === quoteId);
   if (!quote || !isUntouchedDraftQuote(quote, state)) return state;
   const sequence = quoteSequenceNumber(quote, state.settings.quotePrefix);
-  const shouldReuseNumber = sequence !== null && state.settings.nextQuoteNumber === sequence + 1;
+  const shouldReuseNumber = sequence !== null
+    && state.settings.nextQuoteNumber === sequence + 1
+    && !state.quotes.some((item) => item.id !== quote.id && item.number === quote.number);
   return {
     ...state,
     settings: shouldReuseNumber ? { ...state.settings, nextQuoteNumber: sequence } : state.settings,
@@ -1453,7 +1476,9 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   };
 
   const createQuote = () => {
-    const reusableBlankDraft = state.quotes.find((quote) => isUntouchedDraftQuote(quote, state));
+    const reusableBlankDraft = state.quotes.find((quote) =>
+      quoteBelongsToEstimator(quote, currentEstimator) && isUntouchedDraftQuote(quote, state)
+    );
     if (reusableBlankDraft) {
       setSelectedQuoteId(reusableBlankDraft.id);
       setQuoteTab("details");

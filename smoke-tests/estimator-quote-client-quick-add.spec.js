@@ -1,4 +1,5 @@
 const { test, expect } = require("@playwright/test");
+const { mockCreation } = require("./fixtures/job-creation-service");
 
 async function openNewQuote(page) {
   await page.goto("/estimating/index.html?dev=1");
@@ -106,14 +107,56 @@ test("existing clients can receive new sites and attention contacts from quote s
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
 });
 
-test("untouched blank quotes close without consuming the next quote number", async ({ page }) => {
+test("untouched blank quotes still close and release their number after a reload", async ({ page }) => {
   await page.setViewportSize({ width: 1365, height: 900 });
+  const service = await mockCreation(page);
   await openNewQuote(page);
-  const firstNumber = await currentQuoteNumber(page);
+  const number = await currentQuoteNumber(page);
+  const savedQuote = () => service.getState().quotes.find(quote => quote.number === number && quote.status === "Draft");
+  await expect.poll(savedQuote).toBeTruthy();
 
+  await page.goto("/estimating/index.html?dev=1&quote=" + encodeURIComponent(savedQuote().id));
+  await expect(page.locator(".quote-identity")).toContainText(number);
   await page.locator(".back-button").click();
-  await expect(page.locator(".quote-identity")).toHaveCount(0);
+  await expect.poll(savedQuote).toBeUndefined();
 
   await page.getByRole("button", { name: "New quote", exact: true }).click();
-  await expect.poll(() => currentQuoteNumber(page)).toBe(firstNumber);
+  await expect.poll(() => currentQuoteNumber(page)).toBe(number);
+  await expect.poll(savedQuote).toBeTruthy();
+
+  const blank = savedQuote();
+  const finished = { ...blank, id: "existing-finished-quote", status: "Finished", project: "Finished project" };
+  service.getState().quotes.push(finished);
+  await page.goto("/estimating/index.html?dev=1&quote=" + encodeURIComponent(blank.id));
+  await expect(page.locator(".quote-identity")).toContainText(number);
+  await page.locator(".back-button").click();
+  await expect.poll(savedQuote).toBeUndefined();
+  expect(service.getState().quotes.find(quote => quote.id === finished.id)).toEqual(expect.objectContaining(finished));
+  await page.getByRole("button", { name: "New quote", exact: true }).click();
+  expect(await currentQuoteNumber(page)).not.toBe(number);
+});
+
+test("quotes with work entered keep their drafts without a client", async ({ page }) => {
+  await page.setViewportSize({ width: 1365, height: 900 });
+  const service = await mockCreation(page);
+  await openNewQuote(page);
+  const number = await currentQuoteNumber(page);
+  const savedQuote = () => service.getState().quotes.find(quote => quote.number === number);
+
+  await page.getByLabel("Customer document").selectOption("Budget Quote");
+  await expect.poll(() => savedQuote()?.customerQuoteType).toBe("Budget Quote");
+  await page.goto("/estimating/index.html?dev=1&quote=" + encodeURIComponent(savedQuote().id));
+  await expect(page.locator(".quote-identity")).toContainText(number);
+  await page.locator(".back-button").click();
+  await page.getByRole("button", { name: "New quote", exact: true }).click();
+  const nextNumber = await currentQuoteNumber(page);
+  expect(nextNumber).not.toBe(number);
+  await expect.poll(() => savedQuote()?.customerQuoteType).toBe("Budget Quote");
+  await page.getByPlaceholder("e.g. Office renovation — Phase 1").fill("Work scoped without a client");
+  const savedProject = () => service.getState().quotes.find(quote => quote.number === nextNumber);
+  await expect.poll(() => savedProject()?.project).toBe("Work scoped without a client");
+  await page.locator(".back-button").click();
+  await page.goto("/estimating/index.html?dev=1&quote=" + encodeURIComponent(savedProject().id));
+  await page.getByRole("tab", { name: /Details/ }).click();
+  await expect(page.getByPlaceholder("e.g. Office renovation — Phase 1")).toHaveValue("Work scoped without a client");
 });
