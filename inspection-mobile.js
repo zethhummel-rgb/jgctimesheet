@@ -76,7 +76,7 @@
             element.classList.add("inspection-result-button");
             element.dataset.inspectionResult = result;
         }
-        return result || "";
+        return result ? { pass: "Pass", fail: "Fail", na: "N/A" }[result] : "";
     }
 
     function displayChoiceLabel(label) {
@@ -245,8 +245,7 @@
                 syncChoiceButtons(tile, buttons);
                 updateInspectionProgress();
             });
-            const result = useResultAppearance(button, control.label);
-            if (result) button.textContent = { pass: "Pass", fail: "Fail", na: "N/A" }[result];
+            button.textContent = useResultAppearance(button, control.label) || button.textContent;
             grid.appendChild(button);
             control.input.addEventListener("change", () => {
                 syncChoiceButtons(tile, buttons);
@@ -272,15 +271,17 @@
         const buttons = originalButtons.map((sourceButton) => {
             const label = text(sourceButton.textContent);
             const value = sourceButton.getAttribute("onclick")?.match(/'([^']+)'/)?.[1] || label;
-            const button = makeButton(displayChoiceLabel(value), choiceClass(value), () => {
-                sourceButton.click();
-                syncChoiceButtons(tile, buttons);
-                updateInspectionProgress();
-            });
+            const resultLabel = useResultAppearance(sourceButton, value);
+            if (resultLabel) sourceButton.setAttribute("aria-label", resultLabel);
+            sourceButton.setAttribute("aria-pressed", String(text(hidden.value) === value));
+
+            const button = makeButton(resultLabel || displayChoiceLabel(value), choiceClass(value), () => sourceButton.click());
+            useResultAppearance(button, value);
             grid.appendChild(button);
             return { button, source: hidden, label: value };
         });
 
+        hidden.addEventListener("change", () => syncChoiceButtons(tile, buttons));
         syncChoiceButtons(tile, buttons);
         tile.appendChild(grid);
         return tile;

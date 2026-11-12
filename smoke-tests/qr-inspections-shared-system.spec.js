@@ -142,7 +142,7 @@ for (const [theme, mode] of [["dark", "QR"], ["light", "manual"]]) {
   });
 }
 
-for (const [inspectionType, theme] of [["Aerial Lifts", "light"], ["Fork Lift", "dark"]]) {
+for (const [inspectionType, theme] of [["Aerial Lifts", "light"], ["Fork Lift", "dark"], ["Tele Handler", "light"]]) {
   test(`Equipment QR result colours work for ${inspectionType} on mobile`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.addInitScript(value => localStorage.setItem("jgcPortalTheme", value), theme);

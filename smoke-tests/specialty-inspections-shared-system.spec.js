@@ -74,7 +74,9 @@ test("specialty inspection forms use one token-only shared visual source", async
     expect(source, `${file} must not load the legacy portal stylesheet`).not.toContain('href="styles.css');
     expect(source, `${file} must not load the legacy inspection mobile stylesheet`).not.toContain("inspection-mobile.css");
     expect(source).toContain('jgc-design-system.css?v=14');
-    expect(source).toContain('specialty-inspection-design-system.css?v=5');
+    expect(source).toContain('specialty-inspection-design-system.css?v=6');
+    expect(source).toContain('inspection-result-buttons.css?v=1');
+    expect(source).toContain('inspection-mobile.js?v=8');
     expect(source).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   }
 
@@ -83,7 +85,7 @@ test("specialty inspection forms use one token-only shared visual source", async
   expect(featureCss, "Specialty-only CSS must use centralized design tokens").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
   const releaseId = Number(serviceWorker.match(/JGC_RELEASE_ID = "(\d+)"/)?.[1] || 0);
   expect(releaseId).toBeGreaterThanOrEqual(762);
-  expect(serviceWorker).toContain('"./specialty-inspection-design-system.css?v=5"');
+  expect(serviceWorker).toContain('"./specialty-inspection-design-system.css?v=6"');
 });
 
 for (const viewport of [
@@ -128,16 +130,56 @@ for (const viewport of [
   }
 }
 
-test("harness pass and fail states remain synchronized", async ({ page }) => {
-  await installState(page);
+test("Harness result colours and safety status stay synchronized on phone and desktop", async ({ page }, info) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await installState(page, "light");
   await page.goto("/harness.html", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("html")).toHaveAttribute("data-jgc-theme", "light");
   const firstGroup = page.locator(".status-group").first();
-  await firstGroup.locator(".fail").click();
-  await expect(page.locator("#inspectionStatus")).toHaveText("HARNESS FAILED INSPECTION - REMOVE FROM SERVICE");
-  await expect(page.locator("#inspectionStatus")).toHaveClass(/is-failed/);
-  await firstGroup.locator(".pass").click();
-  await expect(page.locator("#inspectionStatus")).toHaveText("HARNESS FIT FOR SERVICE");
-  await expect(page.locator("#inspectionStatus")).not.toHaveClass(/is-failed/);
+  const response = firstGroup.locator('input[type="hidden"]');
+  const tile = page.locator(".inspection-tile").first();
+  const banner = page.locator("#inspectionStatus");
+  const pass = tile.getByRole("button", { name: "Pass", exact: true });
+  const fail = tile.getByRole("button", { name: "Fail", exact: true });
+  const na = tile.getByRole("button", { name: "N/A", exact: true });
+  const grey = await pass.evaluate(button => getComputedStyle(button).backgroundColor);
+  for (const button of [pass, fail, na]) {
+    await expect(button).toHaveAttribute("aria-pressed", "false");
+    await expect(button).toHaveCSS("background-color", grey);
+  }
+
+  await fail.click();
+  await expect(response).toHaveValue("FAIL");
+  await expect(fail).toHaveAttribute("aria-pressed", "true");
+  await expect(fail).toHaveCSS("background-color", "rgb(199, 42, 34)");
+  await expect(banner).toHaveText("HARNESS FAILED INSPECTION - REMOVE FROM SERVICE");
+  await expect(banner).toHaveClass(/is-failed/);
+  await tile.screenshot({ path: info.outputPath("harness-fail.png") });
+
+  await na.click();
+  await expect(response).toHaveValue("NA");
+  await expect(fail).toHaveCSS("background-color", grey);
+  await expect(na).toHaveAttribute("aria-pressed", "true");
+  await expect(na).toHaveCSS("background-color", "rgb(21, 84, 119)");
+  await expect(page.locator(".inspection-progress-count")).toHaveText(/^1 of \d+ completed$/);
+  await expect(banner).not.toHaveClass(/is-failed/);
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const desktopPass = firstGroup.getByRole("button", { name: "Pass", exact: true });
+  const desktopNa = firstGroup.getByRole("button", { name: "N/A", exact: true });
+  await expect(desktopNa).toHaveCSS("background-color", "rgb(21, 84, 119)");
+  await expect(desktopPass).toHaveCSS("background-color", grey);
+  await desktopPass.press("Space");
+  await expect(desktopPass).toHaveCSS("background-color", "rgb(17, 106, 53)");
+  await expect(desktopPass).toHaveAttribute("aria-pressed", "true");
+  await expect(desktopNa).toHaveCSS("background-color", grey);
+  await expect(response).toHaveValue("PASS");
+  await expect(banner).toHaveText("HARNESS FIT FOR SERVICE");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(pass).toHaveAttribute("aria-pressed", "true");
+  await expect(pass).toHaveCSS("background-color", "rgb(17, 106, 53)");
+  await expect(na).toHaveCSS("background-color", grey);
 });
 
 test("specialty inspection print layout hides portal-only controls", async ({ page }) => {
@@ -154,9 +196,10 @@ test("specialty inspection print layout hides portal-only controls", async ({ pa
 
 for (const [file, theme, values] of [
   ["aerial-lifts.html", "dark", ["P", "F", "N/A"]],
-  ["forklift.html", "light", ["SAT", "UNS", "N/A"]]
+  ["forklift.html", "light", ["SAT", "UNS", "N/A"]],
+  ["tele-handler.html", "dark", ["P", "F", "NA"]]
 ]) {
-  test(`Lift and forklift result colours sync between phone and desktop on ${file}`, async ({ page }, info) => {
+  test(`Inspection result colours sync between phone and desktop on ${file}`, async ({ page }, info) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await installState(page, theme);
     await page.goto("/" + file, { waitUntil: "domcontentloaded" });

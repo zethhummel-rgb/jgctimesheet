@@ -290,23 +290,9 @@
   min-height: var(--jgc-control-height);
   margin: 0;
   padding: var(--jgc-space-2);
-  color: var(--jgc-color-on-brand);
-  border: 2px solid transparent;
   border-radius: var(--jgc-radius-sm);
   font-weight: 700;
   touch-action: manipulation;
-  opacity: 0.68;
-}
-
-.specialty-inspection-page .status-btn.pass { background: var(--jgc-color-badge-success); }
-.specialty-inspection-page .status-btn.fail { background: var(--jgc-color-danger); }
-.specialty-inspection-page .status-btn.na { background: color-mix(in srgb, var(--jgc-color-input-border) 80%, var(--jgc-color-text-dark)); }
-
-.specialty-inspection-page .status-btn.selected {
-  border-color: var(--jgc-color-warning);
-  opacity: 1;
-  transform: scale(1.03);
-  box-shadow: var(--jgc-shadow-sm);
 }
 
 .specialty-inspection-page #inspectionStatus {
