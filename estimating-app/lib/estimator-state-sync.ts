@@ -63,6 +63,10 @@ function mergeValue(path: string, base: MergeValue, local: MergeValue, remote: M
   if (same(local, base)) return remote;
   if (same(remote, base)) return local;
 
+  if (path === "settings.nextQuoteNumber" && typeof local === "number" && typeof remote === "number") {
+    return Math.max(local, remote);
+  }
+
   // A revision, its decision and its audit entries form one unit. Never combine
   // two reviewers' competing edits or two separately created "next" revisions.
   if (/\.(?:shopDrawings|rfis)\[[^\]]+\]$/.test(path) || /\.(?:schedule(?:Draft)?|warranty|siteSpecific)$/.test(path)) {

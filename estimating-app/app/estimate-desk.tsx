@@ -77,6 +77,7 @@ import {
 } from "../lib/estimator-data";
 import { proposalCostBreakdownLineOptions, proposalCostBreakdownRows, selectedProposalCostBreakdownCategories, selectedProposalCostBreakdownLineIds } from "../lib/proposal-cost-breakdown";
 import { mergeConcurrentEstimatorState } from "../lib/estimator-state-sync";
+import { nextAvailableQuoteNumber } from "../lib/quote-numbering";
 import { purchaseOrderVendorAddress } from "../lib/purchase-order-vendor";
 import { DeskHeaderContext, DeskTile, useDeskHeader, useIsPhone, type DeskHeader } from "./desk-shell";
 
@@ -1209,6 +1210,9 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   const saveInFlight = useRef(false);
   const pendingSave = useRef<AppState | null>(null);
   const lastSavedSnapshot = useRef("");
+  const savedQuoteNumbers = useRef(new Map<string, string>());
+  const isQuoteNumberConfirmed = (quote: Quote) => !currentEstimator.id || currentEstimator.id === "local-qa"
+    || isChangeNotice(quote) || savedQuoteNumbers.current.get(quote.id) === quote.number;
   const latestState = useRef(state);
   latestState.current = state;
 
@@ -1256,6 +1260,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       if (result.merged && result.state) {
         const remoteState = normalizeAppState(result.state);
         const newerLocalState = pendingSave.current;
+        savedQuoteNumbers.current = new Map(remoteState.quotes.map(quote => [quote.id, quote.number]));
         lastSavedSnapshot.current = JSON.stringify(remoteState);
         if (newerLocalState) {
           const rebased = mergeConcurrentEstimatorState(stateToSave, newerLocalState, remoteState);
@@ -1266,6 +1271,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
           setState(remoteState);
         }
       } else {
+        savedQuoteNumbers.current = new Map(stateToSave.quotes.map(quote => [quote.id, quote.number]));
         lastSavedSnapshot.current = JSON.stringify(stateToSave);
       }
 
@@ -1295,6 +1301,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       .then((payload) => {
         if (!active) return;
         const loadedState = normalizeAppState(payload.state);
+        savedQuoteNumbers.current = new Map(loadedState.quotes.map(quote => [quote.id, quote.number]));
         lastSavedSnapshot.current = JSON.stringify(loadedState);
         setState(loadedState);
         setLastSaved(payload.updatedAt);
@@ -1487,10 +1494,10 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
     }
 
     const date = today();
-    const sequence = String(state.settings.nextQuoteNumber).padStart(4, "0");
+    const allocation = nextAvailableQuoteNumber(state, date);
     const quote: Quote = {
       id: uid("quote"),
-      number: `${state.settings.quotePrefix}-${date.slice(0, 4)}-${sequence}`,
+      number: allocation.number,
       revision: 0,
       status: "Draft",
       clientId: "",
@@ -1541,7 +1548,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       addActivity(
         {
           ...current,
-          settings: { ...current.settings, nextQuoteNumber: current.settings.nextQuoteNumber + 1 },
+          settings: { ...current.settings, nextQuoteNumber: Math.max(current.settings.nextQuoteNumber, allocation.next) },
           quotes: [quote, ...current.quotes],
         },
         quote.id,
@@ -1574,12 +1581,12 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   };
 
   const duplicateQuote = (quote: Quote) => {
-    const sequence = String(state.settings.nextQuoteNumber).padStart(4, "0");
     const date = today();
+    const allocation = nextAvailableQuoteNumber(state, date);
     const copy: Quote = {
       ...quote,
       id: uid("quote"),
-      number: `${state.settings.quotePrefix}-${date.slice(0, 4)}-${sequence}`,
+      number: allocation.number,
       revision: 0,
       status: "Draft",
       preparedBy: currentEstimator.name,
@@ -1608,7 +1615,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       addActivity(
         {
           ...current,
-          settings: { ...current.settings, nextQuoteNumber: current.settings.nextQuoteNumber + 1 },
+          settings: { ...current.settings, nextQuoteNumber: Math.max(current.settings.nextQuoteNumber, allocation.next) },
           quotes: [copy, ...current.quotes],
         },
         copy.id,
@@ -1656,6 +1663,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   };
 
   const completeFinishQuote = (quote: Quote) => {
+    if (!isQuoteNumberConfirmed(quote)) return;
     const sentAt = new Date().toISOString();
     const siteName = quote.site.trim();
     const attentionName = quote.proposalAttention?.trim() ?? "";
@@ -1695,6 +1703,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   };
 
   const finalizeQuote = (quote: Quote) => {
+    if (!isQuoteNumberConfirmed(quote)) return;
     const readiness = quoteReadiness(quote, state.vendors);
     if (readiness.blockers.length) {
       setQuoteTab("review");
@@ -1717,6 +1726,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
     const result = await response.json();
     if (!response.ok || !result.state || !result.jobId) throw new Error(result.error || "The job could not be confirmed. Retry Create job to safely check the same request.");
     const savedState = normalizeAppState(result.state);
+    savedQuoteNumbers.current = new Map(savedState.quotes.map(quote => [quote.id, quote.number]));
     lastSavedSnapshot.current = JSON.stringify(savedState);
     pendingSave.current = null;
     setState(savedState);
@@ -2011,6 +2021,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
             duplicateQuote={duplicateQuote}
             createRevision={createRevision}
             finalizeQuote={finalizeQuote}
+            quoteNumberConfirmed={isQuoteNumberConfirmed(selectedQuote)}
             createJob={requestCreateJob}
             markLost={markQuoteLost}
             markChangeSubmitted={markChangeSubmitted}
@@ -3422,6 +3433,7 @@ function QuoteWorkspace({
   duplicateQuote,
   createRevision,
   finalizeQuote,
+  quoteNumberConfirmed,
   createJob,
   markLost,
   markChangeSubmitted,
@@ -3447,6 +3459,7 @@ function QuoteWorkspace({
   duplicateQuote: (quote: Quote) => void;
   createRevision: (quote: Quote) => void;
   finalizeQuote: (quote: Quote) => void;
+  quoteNumberConfirmed: boolean;
   createJob: (quote: Quote) => void;
   markLost: (quote: Quote) => void;
   markChangeSubmitted: (quote: Quote) => void;
@@ -3491,7 +3504,7 @@ function QuoteWorkspace({
         <button className="back-button" onClick={onBack}>{changeNotice ? "← Job changes" : "← All quotes"}</button>
         <div className="quote-identity">
           <div>
-            <span className="eyebrow">{quote.number} · REV {quote.revision}</span>
+            <span className="eyebrow">{quoteNumberConfirmed ? `${quote.number} · REV ${quote.revision}` : "Saving quote number…"}</span>
             <h1>{changeNotice ? quote.changeTitle || "Untitled change" : quote.project || "Untitled quote"}</h1>
             <p>{changeNotice && linkedJob ? `Job ${linkedJob.jobNumber} · ` : ""}{clientName(state, quote.clientId)}{quote.site ? ` · ${quote.site}` : ""}</p>{quote.address?.trim() && <p className="quote-project-address">{quote.address}</p>}
           </div>
@@ -3499,9 +3512,9 @@ function QuoteWorkspace({
         </div>
         <div className="quote-primary-actions">
           {!changeNotice && linkedJob && <button className="button primary" type="button" aria-label="Return to job" onClick={() => onOpenJob(linkedJob.id)}>← Return to job</button>}
-          <button className="button secondary quote-package-download" onClick={() => setPdfDownloadMenuOpen(true)}>⇩ Download PDFs</button>
+          <button className="button secondary quote-package-download" disabled={!quoteNumberConfirmed} onClick={() => setPdfDownloadMenuOpen(true)}>⇩ Download PDFs</button>
           {quote.demo && <button className="button danger-ghost" onClick={() => removeQuote(quote)}>Delete demo</button>}
-          {quote.status === "Draft" && <button className="button primary" onClick={() => finalizeQuote(quote)}>{changeNotice ? "Finish CCN pricing" : "Finish quote"}</button>}
+          {quote.status === "Draft" && <button className="button primary" disabled={!quoteNumberConfirmed} onClick={() => finalizeQuote(quote)}>{changeNotice ? "Finish CCN pricing" : "Finish quote"}</button>}
           {(quote.status === "Finished" || quote.status === "Won") && <button className="button secondary" onClick={() => setRevisionConfirmOpen(true)}>{changeNotice ? (quote.changeOrder ? "Revise CO" : "Re-open CCN") : "Re-open quote"}</button>}
           {!changeNotice && quote.status === "Finished" && <button className="button success" onClick={() => createJob(quote)}>Make into job</button>}
           {!changeNotice && quote.status === "Finished" && <button className="button danger-ghost" onClick={() => markLost(quote)}>Lost</button>}
@@ -3545,9 +3558,9 @@ function QuoteWorkspace({
           />
         )}
         {tab === "breakdown" && <QuoteBreakdown state={state} quote={quote} />}
-        {tab === "review" && <QuoteReview state={state} quote={quote} locked={locked} mutateQuote={mutateQuote} setTab={setTab} finalizeQuote={finalizeQuote} duplicateQuote={duplicateQuote} />}
+        {tab === "review" && <QuoteReview state={state} quote={quote} locked={locked} mutateQuote={mutateQuote} setTab={setTab} finalizeQuote={finalizeQuote} quoteNumberConfirmed={quoteNumberConfirmed} duplicateQuote={duplicateQuote} />}
         {tab === "divisions" && <QuoteDivisions quote={quote} />}
-        {tab === "proposal" && <QuoteProposal state={state} quote={quote} />}
+        {tab === "proposal" && <QuoteProposal state={state} quote={quote} quoteNumberConfirmed={quoteNumberConfirmed} />}
         {tab === "purchase-orders" && linkedJob && <QuotePurchaseOrders state={state} quote={quote} job={linkedJob} onEditPurchaseOrder={onEditPurchaseOrder} onDownloadPurchaseOrder={onDownloadPurchaseOrder} />}
         {tab === "history" && <QuoteHistory state={state} quote={quote} />}
       </div>
@@ -3579,7 +3592,7 @@ function QuoteWorkspace({
           </section>
         </div>
       )}
-      {pdfDownloadMenuOpen && (
+      {pdfDownloadMenuOpen && quoteNumberConfirmed && (
         <PdfDownloadMenu
           state={state}
           quote={quote}
@@ -4572,13 +4585,14 @@ function QuoteBreakdown({ state, quote }: { state: AppState; quote: Quote }) {
   );
 }
 
-function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote, duplicateQuote }: {
+function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote, quoteNumberConfirmed, duplicateQuote }: {
   state: AppState;
   quote: Quote;
   locked: boolean;
   mutateQuote: (id: string, updater: (quote: Quote) => Quote, activity?: { title: string; detail: string }) => void;
   setTab: (tab: QuoteTab) => void;
   finalizeQuote: (quote: Quote) => void;
+  quoteNumberConfirmed: boolean;
   duplicateQuote: (quote: Quote) => void;
 }) {
   const totals = quoteTotals(quote);
@@ -4674,7 +4688,7 @@ function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote,
           {!locked && (
             <div className="review-actions">
               <button className="button secondary" onClick={() => setTab("proposal")}>Preview {changeNotice ? "change proposal" : "proposal"}</button>
-              <button className="button primary" disabled={!!readiness.blockers.length} onClick={() => finalizeQuote(quote)}>Finish {changeNotice ? "CCN pricing" : "quote"}</button>
+              <button className="button primary" disabled={!quoteNumberConfirmed || !!readiness.blockers.length} onClick={() => finalizeQuote(quote)}>Finish {changeNotice ? "CCN pricing" : "quote"}</button>
             </div>
           )}
         </section>
@@ -4687,7 +4701,7 @@ function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote,
       )}
       <section className="panel review-utility-actions">
         <div><span className="eyebrow">{changeNotice ? "CCN FILE ACTIONS" : "QUOTE FILE ACTIONS"}</span><h2>Save a complete backup</h2><p>The backup keeps the estimate, breakdown and customer proposal together for the audit file.</p></div>
-        <div>{!changeNotice && <button className="button secondary" onClick={() => duplicateQuote(quote)}>⧉ Duplicate quote</button>}<button className="button secondary" onClick={() => void downloadQuoteBackup(state, quote)}>⇩ Download full PDF backup</button></div>
+        <div>{!changeNotice && <button className="button secondary" onClick={() => duplicateQuote(quote)}>⧉ Duplicate quote</button>}<button className="button secondary" disabled={!quoteNumberConfirmed} onClick={() => void downloadQuoteBackup(state, quote)}>⇩ Download full PDF backup</button></div>
       </section>
     </div>
   );
@@ -4810,7 +4824,7 @@ function QuoteDivisions({ quote }: { quote: Quote }) {
   );
 }
 
-function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
+function QuoteProposal({ state, quote, quoteNumberConfirmed }: { state: AppState; quote: Quote; quoteNumberConfirmed: boolean }) {
   const totals = quoteTotals(quote);
   const changeNotice = isChangeNotice(quote);
   const approvedChange = changeNotice && quote.status === "Won" && Boolean(quote.changeOrder);
@@ -4848,7 +4862,7 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
     <div className="proposal-workspace">
       <div className="proposal-toolbar">
         <div><span className="eyebrow">CUSTOMER VIEW · STEP 6 OF 7</span><h2>{changeNotice ? "Change proposal preview" : "Proposal preview"}</h2><p>JGC Classic lump sum. Internal costs, markup and vendors remain hidden unless you enable the optional breakdown.</p></div>
-        <div className="proposal-toolbar-actions"><button className="button primary" onClick={() => void downloadCustomerProposal(state, quote)}>⇩ {changeNotice ? "Change Proposal" : "Proposal"} PDF</button></div>
+        <div className="proposal-toolbar-actions"><button className="button primary" disabled={!quoteNumberConfirmed} onClick={() => void downloadCustomerProposal(state, quote)}>⇩ {changeNotice ? "Change Proposal" : "Proposal"} PDF</button></div>
       </div>
       <article className={`proposal-paper ${style === "jgc-classic" ? "classic-proposal hybrid-classic-proposal" : "modern-proposal"}`}>
         {style === "jgc-classic" ? (
