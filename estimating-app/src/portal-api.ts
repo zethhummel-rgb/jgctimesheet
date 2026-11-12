@@ -3,6 +3,7 @@ import { rfiPersistenceError } from "../lib/rfi-workflow";
 import { schedulePersistenceError } from "../lib/job-schedule";
 import { warrantyPersistenceError } from "../lib/job-warranty";
 import { resolveNewDraftQuoteNumbers } from "../lib/quote-numbering";
+import { resolveNewPurchaseOrderNumbers } from "../lib/subcontract-po-numbering";
 import { createDefaultState, normalizeAppState, type AppState, type Job, type Vendor, type VendorContact } from "../lib/estimator-data";
 import type { SupplierCatalogItemRecord, SupplierCatalogSearchResponse, SupplierImportApplyMetadata } from "../lib/supplier-catalog-types";
 import { normalizeMaterialName } from "../lib/material-price-workbook";
@@ -981,7 +982,7 @@ async function putState(client: any, request: Request) {
   const body = await request.json() as { state?: AppState };
   if (!body.state || !Array.isArray(body.state.quotes) || !Array.isArray(body.state.priceBook)) return json({ error: "A complete estimator workspace is required." }, 400);
   const proposed = stripPortalSnapshots(body.state);
-  const localState = stateBase ? resolveNewDraftQuoteNumbers(stateBase, proposed) : proposed;
+  const localState = stateBase ? resolveNewPurchaseOrderNumbers(stateBase, resolveNewDraftQuoteNumbers(stateBase, proposed)) : proposed;
   const rfiError = rfiPersistenceError(stateBase, localState);
   if (rfiError) return json({ error: rfiError }, 409);
   const scheduleError = schedulePersistenceError(stateBase, localState);
@@ -1024,7 +1025,7 @@ async function putState(client: any, request: Request) {
     }, 409);
   }
 
-  const mergedState = resolveNewDraftQuoteNumbers(remoteState, merged.state);
+  const mergedState = resolveNewPurchaseOrderNumbers(remoteState, resolveNewDraftQuoteNumbers(remoteState, merged.state));
   const mergedRfiError = rfiPersistenceError(remoteState, mergedState);
   if (mergedRfiError) return json({ error: mergedRfiError }, 409);
   const mergedScheduleError = schedulePersistenceError(remoteState, mergedState);

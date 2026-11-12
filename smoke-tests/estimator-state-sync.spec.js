@@ -88,3 +88,14 @@ test("concurrent quote creation preserves the saved number and gives the new dra
   expect(reconciled.settings.nextQuoteNumber).toBe(93);
   expect(resolveNewDraftQuoteNumbers(reconciled, reconciled)).toBe(reconciled);
 });
+
+test("subcontract POs use job suffixes and resolve concurrent creation without changing existing orders", () => {
+  const { nextSubcontractPurchaseOrderNumber: next, resolveNewPurchaseOrderNumbers: resolve } = loadEstimatorHelper("subcontract-po-numbering");
+  const order = (id, number) => ({ id, number, vendorName: id });
+  const job = { id: "job", jobNumber: "26142", purchaseOrders: [order("legacy", "26142"), order("first", "26142-001"), order("second", "26142-002")] };
+  expect(next(job)).toBe("26142-003");
+  const base = { jobs: [job], activity: [] };
+  const incoming = { jobs: [{ ...job, purchaseOrders: [...job.purchaseOrders, order("new", "26142-002")] }], activity: [] };
+  const result = resolve(base, incoming);
+  expect(result.jobs[0].purchaseOrders.map(po => po.number)).toEqual(["26142", "26142-001", "26142-002", "26142-003"]);
+});
