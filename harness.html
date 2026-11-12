@@ -7,11 +7,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Harness Inspection Checklist</title>
 <link rel="stylesheet" href="jgc-design-system.css?v=14" data-jgc-design-system="14">
-<link rel="stylesheet" href="specialty-inspection-design-system.css?v=5">
+<link rel="stylesheet" href="specialty-inspection-design-system.css?v=6">
+<link rel="stylesheet" href="inspection-result-buttons.css?v=1">
 
 </head>
 
-<body class="specialty-inspection-page jgc-page jgc-system-page">
+<body class="specialty-inspection-page jgc-page jgc-system-page" data-inspection-result-colours>
 <div class="logo-wrap jgc-brand-region">
     <img src="logo.webp" alt="John Gordon Construction logo">
 </div>
@@ -91,7 +92,7 @@
 <script src="safety-acknowledgements.js?v=9"></script>
 <script src="jsa-workers.js?v=4"></script>
 <script src="inspection-records.js?v=17"></script>
-<script src="inspection-mobile.js?v=7"></script>
+<script src="inspection-mobile.js?v=8"></script>
 <script>
 const workerName = localStorage.getItem('currentWorker');
 const workerDisplay = localStorage.getItem('currentWorkerDisplay') || workerName;
@@ -114,13 +115,14 @@ function handleInspectionSave(type) {
 function selectStatus(button, value) {
     const group = button.parentElement;
 
-    group.querySelectorAll('.status-btn').forEach(btn => {
-        btn.classList.remove('selected');
+    group.querySelectorAll('.status-btn').forEach(choice => {
+        choice.setAttribute('aria-pressed', String(choice === button));
     });
 
-    button.classList.add('selected');
-    group.querySelector('input[type="hidden"]').value = value;
+    const response = group.querySelector('input[type="hidden"]');
+    response.value = value;
     checkInspection();
+    response.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
 function checkInspection() {

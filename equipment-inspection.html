@@ -458,7 +458,7 @@ function renderForm() {
 
     document.getElementById("formHeading").textContent = state.inspectionType || "Equipment Inspection";
     document.getElementById("inspectionFields").innerHTML = getDetailFieldDefinitions().map(renderInputField).join("");
-    const colourResults = ["Aerial Lifts", "Fork Lift"].includes(state.inspectionType);
+    const colourResults = ["Aerial Lifts", "Fork Lift", "Tele Handler"].includes(state.inspectionType);
     const choices = [
         { value: "P", label: "Pass", result: "pass" },
         { value: "F", label: "Fail", result: "fail" },
