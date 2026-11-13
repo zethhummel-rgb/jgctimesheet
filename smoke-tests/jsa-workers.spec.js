@@ -24,7 +24,7 @@ for(const width of [390,1440])test(`job address autofills separately from on-sit
  const oldBytes=await page.evaluate(async()=>Array.from(new Uint8Array((await JgcJsaPdf.create({inspection_date:'2020-10-10',form_data:{fields:[{label:'Location',value:'Saved legacy location'}],rows:[]}}, {prepared:true})).output('arraybuffer'))));
  const oldWords=await pdfWords(oldBytes);expect(oldWords).toContain('Saved legacy location');expect(oldWords).not.toContain('GENERAL LOCATION ON SITE');
 });
-async function fixture(page,jobs=[]){
+async function fixture(page,jobs=[],isAdmin=true){
  const store={model:null,calls:[],savedDraft:null};
  const jwt=Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url')+'.'+Buffer.from(JSON.stringify({sub:creator.id,exp:Math.floor(Date.now()/1000)+3600,role:'authenticated'})).toString('base64url')+'.fixture';
  const session={access_token:jwt,refresh_token:'synthetic-refresh',token_type:'bearer',expires_at:Math.floor(Date.now()/1000)+3600,expires_in:3600,user:creator};
@@ -37,7 +37,7 @@ async function fixture(page,jobs=[]){
   if(url.pathname.includes('/auth/v1/'))return route.fulfill({json:url.pathname.endsWith('/user')?creator:session});
   if(url.pathname.includes('/rpc/')){
    const name=url.pathname.split('/').pop(),args=req.postDataJSON();store.calls.push({name,args});
-   if(name==='is_admin')return route.fulfill({json:true});
+   if(name==='is_admin')return route.fulfill({json:isAdmin});
    if(name==='save_prepared_jsa'){store.savedDraft={id:args.p_id,revision:1,payload:args.p_payload,activated_at:null};return route.fulfill({json:store.savedDraft});}
    if(name==='save_worker_jsa'){
     const payload=args.p_payload,acks=store.model?.acknowledgements || args.p_workers.map((w,i)=>({id:'00000000-0000-4000-8000-00000000000'+(i+5),attendee_name:w.employee_id?worker.display_name:w.name,attendee_company:w.company,matched_employee_id:w.employee_id,signature_signed_at:null}));
@@ -95,10 +95,28 @@ for(const width of [390,1440])for(const theme of ['light','dark'])test(`creator 
  await page.screenshot({path:info.outputPath('completed.png'),fullPage:true});
 });
 test('future JSA saves and exports for the client without sign-off or notifications',async({page},info)=>{
- const store=await fixture(page);await fill(page,future());await expect(page.locator('#jsaCompleteWorkers')).toBeDisabled();
- await page.locator('#jsaSaveWorkerDraft').click();await expect(page.locator('#jsaPostSaveQrPanel h3')).toHaveText('Prepared');await expect(page.locator('#jsaPostSaveQrPanel')).toContainText('Planned — sign on work date');await expect(page.locator('[data-jsa-worker-sign]')).toHaveCount(0);
- const download=page.waitForEvent('download');await page.locator('#jsaWorkerPdf').click();await (await download).saveAs(info.outputPath('future-jsa.pdf'));
+ const store=await fixture(page);await fill(page,future());await expect(page.locator('#jsaPreparation')).toBeVisible();await expect(page.locator('#jsaActivate')).toBeDisabled();
+ await page.locator('#jsaSaveDraft').click();await expect(page.locator('#jsaDraftStatus')).toContainText('Draft saved');expect(store.savedDraft.payload.record.inspection_date).toBe(future());await expect(page.locator('[data-jsa-worker-sign]')).toHaveCount(0);
+ const download=page.waitForEvent('download');await page.locator('#jsaDraftPdf').click();await (await download).saveAs(info.outputPath('future-jsa.pdf'));
  expect(store.calls.some(c=>/sign_jsa_worker|request_jsa_worker_signoff|activate_prepared/.test(c.name))).toBe(false);
+});
+for (const width of [390, 1440]) test(`date changes select preparation without losing JSA entries ${width}`, async ({page}) => {
+ await page.setViewportSize({width,height:900}); const store=await fixture(page); await fill(page);
+ await expect(page.locator('#jsaSignoffChoiceSection')).toBeVisible();
+ await page.locator('#jsaField3').fill(future());
+ await expect(page.locator('#jsaPreparation')).toBeVisible();
+ await expect(page.locator('#jsaActivate')).toBeDisabled();
+ await expect(page.locator('#tableBody textarea').nth(0)).toHaveValue('Install blocking');
+ await expect(page.locator('#selectedCrewList')).toContainText('Synthetic Worker');
+ await page.locator('#jsaField3').fill(date());
+ await expect(page.locator('#jsaSignoffChoiceSection')).toBeVisible();
+ await expect(page.locator('#tableBody textarea').nth(1)).toHaveValue('Sharp edges');
+ await page.locator('#jsaField3').fill(future());
+ await page.locator('#jsaSaveDraft').click();
+ await expect(page.locator('#jsaDraftStatus')).toContainText('Draft saved');
+ expect(store.savedDraft.payload.record.form_data.rows[0].cells[0]).toBe('Install blocking');
+ expect(store.calls.some(call => /request_jsa_worker_signoff|activate_prepared|sign_jsa_worker/.test(call.name))).toBe(false);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
 });
 test('manual workers require separate name and company',async({page})=>{
  await fixture(page);await page.goto('jsa.html');await page.locator('#manualCrewInput').fill('Manual Worker');await page.getByRole('button',{name:'Add Worker',exact:true}).click();await expect(page.locator('#manualWorkerStatus')).toHaveText('Enter both Name and Company.');await expect(page.locator('#manualCrewList')).toContainText('No manual entries');
@@ -148,7 +166,7 @@ test('creator-phone worker roster does not generate account reminders, including
 });
 
 test('a staff phone can collect a JSA prepared ahead of time without editing its saved report',async({page})=>{
- const store=await fixture(page);await fill(page,future());await page.locator('#jsaSaveWorkerDraft').click();
+ const store=await fixture(page,[],false);await fill(page,future());await page.locator('#jsaSaveWorkerDraft').click();
  Object.assign(store.model.workflow,{active:true,today:date(),valid_date:date(),status:'Draft — Awaiting Worker Sign-Offs',prepared_in_advance:true,signing_mode:'shared_phone'});
  store.model.record.inspection_date=date();store.model.record.form_data.fields.find(f=>f.label==='Date').value=date();store.model.can_edit=false;
  await page.goto('/jsa.html?record='+store.model.record.id);await expect(page.locator('#jsaWorkDateHelp')).toContainText('Staff with this JSA');await expect(page.locator('#jsaField3')).toBeDisabled();

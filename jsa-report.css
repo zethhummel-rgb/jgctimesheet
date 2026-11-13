@@ -521,3 +521,43 @@ button:hover {
 .safety-signature-confirm {display:flex!important;align-items:center;gap:10px;color:var(--jgc-color-text);}
 .safety-signature-confirm input {width:22px;height:22px;flex-shrink:0;}
 @media(max-width:600px){.manual-crew-grid{grid-template-columns:minmax(0,1fr);}#jsaPostSaveQrPanel .jgc-record-row{padding:12px;}#jsaPostSaveQrPanel button{min-height:44px;}}
+
+/* Document-style JSA editor */
+.report-form-page .container {
+  max-width: 1120px;
+  padding: clamp(18px, 3vw, 38px);
+  border-top: 0;
+  border-radius: 10px;
+  background: var(--jgc-color-surface);
+}
+.jsa-paper-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 20px;
+  border-bottom: 3px solid var(--jgc-color-brand-600);
+}
+.jsa-paper-header img { width: min(210px, 45%); height: auto; }
+.jsa-paper-header div { text-align: right; }
+.jsa-paper-header span { display: block; color: var(--jgc-color-text-muted); font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.report-form-page .jsa-paper-header h1 { margin: 4px 0 0; color: var(--jgc-color-text); text-align: right; }
+.report-form-page .container > .subtitle { text-align: left; margin: 14px 0 24px; color: var(--jgc-color-text-muted); font-weight: 400; }
+.report-form-page .grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+.report-form-page .grid .field { padding: 12px; border: 1px solid var(--jgc-color-input-border); border-radius: 6px; background: var(--jgc-color-surface-soft); }
+.report-form-page .grid label { font-size: .85rem; color: var(--jgc-color-text); }
+.report-form-page .grid input, .report-form-page .grid select { width: 100%; min-height: 44px; font: inherit; color: var(--jgc-color-text); }
+.report-form-page .jsa-section-title { padding-bottom: 10px; border-bottom: 2px solid var(--jgc-color-brand-600); }
+.report-form-page .signoff { margin-top: 25px; padding: 18px; background: var(--jgc-color-surface-soft); border: 1px solid var(--jgc-color-input-border); border-radius: 8px; }
+.report-form-page .signoff .jsa-section-title { margin-top: 0; }
+.report-form-page .crew-picker-grid input, .report-form-page .crew-picker-grid select { min-height: 44px; width: 100%; font: inherit; color: var(--jgc-color-text); }
+.report-form-page #crewSignOffCombined { width: 100%; min-height: 78px; font: inherit; color: var(--jgc-color-text); }
+.report-form-page .crew-help { margin: 14px 0; line-height: 1.5; color: var(--jgc-color-text-muted); }
+.report-form-page .jsa-preparation, .report-form-page .jsa-signoff-choice-section { border-radius: 8px; padding: 18px; }
+.report-form-page .post-save-qr { background: var(--jgc-color-surface); color: var(--jgc-color-text); }
+@media(max-width: 768px) {
+  .report-form-page .grid { grid-template-columns: minmax(0,1fr); }
+  .jsa-paper-header { align-items: flex-start; }
+  .report-form-page .jsa-paper-header h1 { font-size: 1.2rem; }
+  .report-form-page .signoff { padding: 14px; }
+}
