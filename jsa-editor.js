@@ -15,7 +15,18 @@
   const pickerObserver = new MutationObserver(markJobPicker);
   pickerObserver.observe($("jsaField1").closest(".field"), { childList: true, subtree: true });
   markJobPicker();
-  window.JgcPreparedJsa = { isPrepared: Boolean(param), activate,validate,restore,isActive:()=>!!draft?.activated_at };
+  function isPreparationMode() {
+    if (param || draft) return true;
+    return admin && !new URLSearchParams(location.search).has("record")
+      && $("jsaField3").value > JGCJsaWorkers.today();
+  }
+  function updateMode() {
+    const preparing = isPreparationMode();
+    $("jsaPreparation").hidden = !preparing;
+    $("jsaSignoffChoiceSection").hidden = preparing && !draft?.activated_at;
+    $("jsaCrewTitle").textContent = preparing && !draft?.activated_at ? "3. Workers Onsite — planned" : "3. Workers Onsite";
+  }
+  window.JgcPreparedJsa = { get isPrepared() { return isPreparationMode(); }, activate, validate, restore, updateMode, isActive:()=>!!draft?.activated_at };
   if (param) {
     $("jsaPreparation").hidden = false;
     $("jsaSignoffChoiceSection").hidden = true;
@@ -226,13 +237,13 @@
     void activate('workers');
   };
   window.addEventListener("beforeunload", event => {
-    if (param && admin && !draft?.activated_at && savedSnapshot !== snapshot()) { event.preventDefault(); event.returnValue = ""; }
+    if ((param || draft) && admin && !draft?.activated_at && savedSnapshot !== snapshot()) { event.preventDefault(); event.returnValue = ""; }
   });
   (async () => {
     const result = await inspectionSupabaseClient.rpc("is_admin");
     admin = !result.error && result.data === true;
     $("jsaLibraryManage").hidden = !admin;
-    if (!param) { $("jsaAdminEntry").hidden = !admin; return; }
+    if (!param) { $("jsaAdminEntry").hidden = !admin; updateMode(); return; }
     if (!admin && param === "new") { document.querySelector(".container").textContent = "Prepared JSAs are available to approved administrators only."; return; }
     await window.jsaCrewReady;
     if (param !== "new") {
