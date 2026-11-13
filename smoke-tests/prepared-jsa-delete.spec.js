@@ -1,13 +1,13 @@
 const {test,expect}=require('@playwright/test');
 const origin='https://xnrljkkszoimegfivlya.supabase.co';
-async function setup(page,{admin=true,error=false}={}){
+async function setup(page,{admin=true,error=false,staffFuture=false}={}){
  const user={id:'00000000-0000-4000-8000-000000000001',email:'synthetic@example.com',role:'admin',account_status:'approved'};
  const token=Buffer.from('{"alg":"HS256"}').toString('base64url')+'.'+Buffer.from(JSON.stringify({sub:user.id,role:'authenticated',exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')+'.fixture';
  const session={access_token:token,refresh_token:'synthetic',expires_at:Math.floor(Date.now()/1000)+3600,user,token_type:'bearer'};
  await page.addInitScript(session=>{localStorage.setItem('sb-xnrljkkszoimegfivlya-auth-token',JSON.stringify(session));localStorage.setItem('currentWorker','synthetic');localStorage.setItem('currentUserRole','admin');localStorage.setItem('currentUserStatus','approved');localStorage.setItem('jgcTheme','light');},session);
  const row=(id,date,active=false)=>({id,revision:2,activated_at:active?'2026-10-01':null,record_id:active?id:null,payload:{record:{inspection_date:date,form_data:{fields:[{label:'Project / Job',value:'26999 - Synthetic project'}]}}}});
  const store={rows:[row('00000000-0000-4000-8000-000000000010','2020-10-10'),row('00000000-0000-4000-8000-000000000011','2099-10-15'),row('00000000-0000-4000-8000-000000000012','2026-10-01',true)],calls:[]};
- await page.route('**/*',async route=>{const url=new URL(route.request().url());if(url.hostname==='127.0.0.1')return route.fallback();if(url.origin!==origin)return route.abort();if(url.pathname.includes('/auth/v1/'))return route.fulfill({json:url.pathname.endsWith('/user')?user:session});if(url.pathname.endsWith('/rpc/is_admin'))return route.fulfill({json:admin});if(url.pathname.endsWith('/jsa_preparations'))return route.fulfill({json:store.rows});if(url.pathname.endsWith('/rpc/delete_prepared_jsa')){store.calls.push(route.request().postDataJSON());if(error)return route.fulfill({status:409,json:{message:'This prepared JSA changed elsewhere. Refresh the list before deleting.'}});store.rows=store.rows.filter(row=>row.id!==store.calls.at(-1).p_id);return route.fulfill({json:true});}return route.fulfill({json:[]});});
+ await page.route('**/*',async route=>{const url=new URL(route.request().url());if(url.hostname==='127.0.0.1')return route.fallback();if(url.origin!==origin)return route.abort();if(url.pathname.includes('/auth/v1/'))return route.fulfill({json:url.pathname.endsWith('/user')?user:session});if(url.pathname.endsWith('/rpc/is_admin'))return route.fulfill({json:admin});if(url.pathname.endsWith('/jsa_worker_workflows'))return route.fulfill({json:staffFuture?[{record_id:'00000000-0000-4000-8000-000000000015',valid_date:'2099-10-16'}]:[]});if(url.pathname.endsWith('/inspection_records') && url.searchParams.has('id'))return route.fulfill({json:staffFuture?[{id:'00000000-0000-4000-8000-000000000015',inspection_type:'JSA',inspection_date:'2099-10-16',form_data:{fields:[{label:'Project / Job',value:'26888 - Staff future'}]}}]:[]});if(url.pathname.endsWith('/jsa_preparations'))return route.fulfill({json:store.rows});if(url.pathname.endsWith('/rpc/delete_prepared_jsa')){store.calls.push(route.request().postDataJSON());if(error)return route.fulfill({status:409,json:{message:'This prepared JSA changed elsewhere. Refresh the list before deleting.'}});store.rows=store.rows.filter(row=>row.id!==store.calls.at(-1).p_id);return route.fulfill({json:true});}return route.fulfill({json:[]});});
  await page.goto('/prepared-jsas.html');return store;
 }
 for(const width of [390,1440])test(`delete unused past preparation and preserve tomorrow at ${width}px`,async({page})=>{
@@ -17,7 +17,22 @@ for(const width of [390,1440])test(`delete unused past preparation and preserve 
 });
 test('cancel leaves preparation intact',async({page})=>{const store=await setup(page);await page.locator("#preparedFilter").selectOption("all");await expect(page.getByRole('button',{name:'Delete',exact:true})).toHaveCount(2);page.once('dialog',d=>d.dismiss());await page.getByRole('button',{name:'Delete',exact:true}).first().click();expect(store.calls).toHaveLength(0);await expect(page.locator('.prepared-jsa-card')).toHaveCount(3);});
 test('conflict retains the preparation and enables retry',async({page})=>{await setup(page,{error:true});await page.locator('#preparedFilter').selectOption('all');page.on('dialog',d=>d.accept());const button=page.getByRole('button',{name:'Delete',exact:true}).first();await button.click();await expect(page.locator('#preparedStatus')).toContainText('changed elsewhere');await expect(button).toBeEnabled();await expect(page.locator('.prepared-jsa-card')).toHaveCount(3);});
-test('non-admin never receives delete controls',async({page})=>{await setup(page,{admin:false});await expect(page.locator('#preparedStatus')).toContainText('administrators only');await expect(page.getByRole('button',{name:'Delete',exact:true})).toHaveCount(0);});
+test('non-admin never receives delete controls',async({page})=>{await setup(page,{admin:false});await expect(page.locator('#preparedStatus')).toContainText('No JSAs match');await expect(page.getByRole('button',{name:'Delete',exact:true})).toHaveCount(0);});
+for(const admin of [true,false]) for(const width of [390,1440]) test(`staff future JSA is listed and opens for ${admin?'admin':'staff'} at ${width}`,async({page},testInfo)=>{
+ await page.setViewportSize({width,height:900});await setup(page,{admin,staffFuture:true});
+ const staff=page.locator('.prepared-jsa-card').filter({hasText:'Staff future'});
+ await expect(staff).toContainText('2099-10-16');
+ await expect(staff.getByRole('link',{name:'Open / PDF'})).toHaveAttribute('href','jsa.html?record=00000000-0000-4000-8000-000000000015');
+ await expect(staff.getByRole('button',{name:'Delete'})).toHaveCount(0);
+ if(admin) await expect(page.locator('.prepared-jsa-card')).toHaveCount(2);
+ else await expect(page.locator('.prepared-jsa-card')).toHaveCount(1);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:testInfo.outputPath('upcoming.png'),fullPage:true});
+ await page.goto('/reports.html');
+ const upcoming=page.getByRole('button',{name:/Upcoming Reports/});
+ await expect(upcoming).toBeVisible();await upcoming.click();
+ await expect(page).toHaveURL(/prepared-jsas.html/);
+});
 
 for (const width of [390, 1440]) test(`unused preparations appear in previous JSA history at ${width}px`, async ({page}, testInfo) => {
  await page.setViewportSize({width, height:900});
