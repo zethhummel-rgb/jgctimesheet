@@ -281,11 +281,13 @@ function Get-PortalSourceInventory($Root) {
   $tableNames = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
   $bucketNames = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
   $sqlNames = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-  $sourcePattern = '\.from\(\s*["'']([a-zA-Z0-9_]+)["'']\s*\)'
+  $sourcePattern = '(?<!\bBuffer)(?<!\bArray)(?<!\bUint8Array)\.from\(\s*["'']([a-zA-Z0-9_]+)["'']\s*\)'
   $bucketPattern = '\.storage\.from\(\s*["'']([a-zA-Z0-9_-]+)["'']\s*\)'
   $sqlPattern = '(?im)\b(?:create\s+table(?:\s+if\s+not\s+exists)?|alter\s+table(?:\s+if\s+exists)?|references)\s+(?:public\.)?["'']?([a-z_][a-z0-9_]*)'
   foreach ($file in Get-PortalBackupFiles -Root $Root) {
     $relative = Get-NormalizedRelativePath -Root $Root -Path $file.FullName
+    # Test fixtures may contain placeholder table names and are not portal dependencies.
+    if ($relative -match "(^|/)smoke-tests/") { continue }
     $extension = $file.Extension.ToLowerInvariant()
     if ($extension -in @(".html", ".js", ".ts")) {
       $content = Get-Content -LiteralPath $file.FullName -Raw
