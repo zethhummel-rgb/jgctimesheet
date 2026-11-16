@@ -29,7 +29,7 @@ for (const [number, width] of [['26902', 390], ['26901', 1366]]) {
     await page.getByRole('button', { name: 'Make a PO', exact: true }).click();
     let dialog = page.getByRole('dialog', { name: 'Create purchase order' });
     await expect(dialog).toContainText('DIRECT JOB PO');
-    await expect(dialog.getByLabel(/JGC PO number/)).toHaveValue(number);
+    await expect(dialog.getByLabel(/JGC PO number/)).toHaveValue(`${number}-001`);
     await expect(dialog.getByLabel('Authorized by', { exact: true })).toHaveValue('Local QA');
     await dialog.getByRole('button', { name: 'Create final PO', exact: true }).click();
     await expect(dialog.getByLabel(/Subcontractor company/)).toBeFocused();
@@ -49,7 +49,7 @@ for (const [number, width] of [['26902', 390], ['26901', 1366]]) {
     await expect.poll(() => captures.writes.some(s => s.jobs.find(j => j.jobNumber === number).purchaseOrders.length === 1)).toBe(true);
     const saved = captures.writes.at(-1);
     const po = saved.jobs.find(j => j.jobNumber === number).purchaseOrders[0];
-    expect(po).toMatchObject({ sourceQuoteId: '', number, status: 'Issued', vendorQuoteNumber: '', revision: 0, authorizedBy: 'Local QA' });
+    expect(po).toMatchObject({ sourceQuoteId: '', number: `${number}-001`, status: 'Issued', vendorQuoteNumber: '', revision: 0, authorizedBy: 'Local QA' });
     expect(po.lines[0]).toMatchObject({ quoteLineId: '', amount: 3500, sourceReference: '' });
     expect(saved.jobs[0].acceptedQuoteSnapshot).toBe(state.jobs[0].acceptedQuoteSnapshot);
     expect(saved.jobs.find(j => j.jobNumber === number).costs).toEqual([]);
@@ -74,12 +74,12 @@ for (const [number, width] of [['26902', 390], ['26901', 1366]]) {
     const downloadPromise = page.waitForEvent('download');
     await table.getByRole('button', { name: 'Download & finalize', exact: true }).click();
     const download = await downloadPromise;
-    expect(download.suggestedFilename()).toContain(number);
+    expect(download.suggestedFilename()).toContain(`${number}-001`);
     await checkPdf(download, testInfo.outputPath(`direct-po-${number}.pdf`), 1, 'Jeff Vandrish');
     await expect(table).toContainText('Final');
     await expect.poll(() => { const po = captures.writes.at(-1)?.jobs.find(j => j.jobNumber === number).purchaseOrders[0]; return po ? `${po.revision}:${po.status}` : ''; }).toBe('1:Issued');
     const revised = captures.writes.at(-1).jobs.find(j => j.jobNumber === number).purchaseOrders[0];
-    expect(revised).toMatchObject({ sourceQuoteId: '', revision: 1, authorizedBy: 'Jeff Vandrish' });
+    expect(revised).toMatchObject({ sourceQuoteId: '', number: `${number}-001`, revision: 1, authorizedBy: 'Jeff Vandrish' });
     expect(revised.lines[0].amount).toBe(3750);
     expect(JSON.parse(revised.revisions[0].snapshot).lines[0].amount).toBe(3500);
     expect(JSON.parse(revised.revisions[0].snapshot).authorizedBy).toBe('Local QA');

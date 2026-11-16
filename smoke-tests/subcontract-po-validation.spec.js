@@ -50,7 +50,7 @@ for (const width of [390, 1366]) test(`missing subcontract scope is explained, f
   await expect(page.locator('.po-source-table')).toContainText('Final');
   await expect.poll(() => captures.writes.some(s => s.jobs[0].purchaseOrders.length === 1)).toBe(true);
   const saved = captures.writes.at(-1), po = saved.jobs[0].purchaseOrders[0];
-  expect(po).toMatchObject({ status: 'Issued', number: '26901', vendorName: 'Test Fencing Vendor', vendorQuoteNumber: 'FENCE-TEST-17', revision: 0 });
+  expect(po).toMatchObject({ status: 'Issued', number: '26901-001', vendorName: 'Test Fencing Vendor', vendorQuoteNumber: 'FENCE-TEST-17', revision: 0 });
   expect(po.lines[0]).toMatchObject({ description: 'Install the specified perimeter fencing.', amount: 2400 });
   expect(saved.quotes[0]).toMatchObject({ id: state.quotes[0].id, status: 'Won', revision: 0 });
   expect(saved.quotes[0].lines[0]).toMatchObject({ description: '', vendorReference: '', vendorActualCost: 2400 });

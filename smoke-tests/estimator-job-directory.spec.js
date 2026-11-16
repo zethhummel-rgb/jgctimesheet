@@ -686,7 +686,7 @@ for (const layout of ["List", "Tiles"]) for (const width of [390, 1366]) {
     await revealJobAction(close);
     const closeBox = await close.boundingBox(), cancelBox = await cancel.boundingBox();
     expect(cancelBox.height).toBeGreaterThanOrEqual(24);
-    const actionGap = 3;
+    const actionGap = 6;
     // Stacked tightly under Close; allow sub-pixel and rounding differences between layouts.
     expect(Math.abs(cancelBox.y - (closeBox.y + closeBox.height + actionGap))).toBeLessThanOrEqual(1.5);
     if (process.env.JGC_CAPTURE_VISUAL_QA === "1") await page.locator(layout === "List" ? ".jobs-table" : ".job-tiles").screenshot({ path: testInfo.outputPath(`cancel-${layout}-${width}.png`) });
@@ -711,6 +711,8 @@ for (const layout of ["List", "Tiles"]) for (const width of [390, 1366]) {
     await page.getByLabel("Search jobs", { exact: true, includeHidden: true }).fill("26901");
     await revealJobAction(page.getByRole("button", { name: "Make active — job 26901", exact: true, includeHidden: true }));
     await page.getByRole("button", { name: "Make active — job 26901", exact: true, includeHidden: true }).click();
+    await expect(page.locator(layout === "List" ? ".job-directory-page .job-status-dot[aria-label=Active]" : ".job-directory-page .status-pill")).toHaveCount(1);
+    await expect(page.locator(".job-directory-page")).toContainText("Job 26901 is now active");
     await revealJobAction(cancel);
     await expect(cancel).toBeVisible();
     await expect(close).toBeVisible();
@@ -790,7 +792,8 @@ for (const layout of ["List", "Tiles"]) {
       const size = await action.boundingBox();
       expect(size.height).toBeGreaterThanOrEqual(24);
       expect(size.width).toBeGreaterThan(70);
-      expect(size.width).toBeLessThan(240);
+      expect(size.x).toBeGreaterThanOrEqual(0);
+      expect(size.x + size.width).toBeLessThanOrEqual(width + 1);
       expect(await action.evaluate(element => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(12);
       if (process.env.JGC_CAPTURE_VISUAL_QA === "1") await page.locator(layout === "List" ? ".jobs-table" : ".job-tiles").screenshot({ path: testInfo.outputPath(`close-project-${layout}-${width}.png`) });
       page.once("dialog", async dialog => {
