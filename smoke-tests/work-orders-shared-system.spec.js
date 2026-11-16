@@ -200,15 +200,15 @@ test("Work Orders family uses one token-only shared visual source", async () => 
   expect(pageSource).not.toMatch(/\sstyle\s*=/i);
   expect(pageSource).not.toContain('href="styles.css');
   expect(pageSource).toContain('jgc-design-system.css?v=14');
-  expect(pageSource).toContain('work-orders-design-system.css?v=4');
+  expect(pageSource).toContain('work-orders-design-system.css?v=5');
   expect(pageSource).toContain('jgc-button--secondary wo-top-action--primary" onclick="resetWorkOrderForm()"');
   expect(pageSource).toContain('jgc-button--secondary wo-top-action--primary" onclick="refreshWorkOrders()"');
   expect(pageSource).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(featureCss, "Work Orders CSS must use centralized design tokens instead of page colours").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
 
   expect(adminSource).toContain('admin.css?v=19');
-  expect(adminSource).toContain('work-orders-design-system.css?v=4');
-  expect(adminSource).toContain('admin-work-orders.js?v=5');
+  expect(adminSource).toContain('work-orders-design-system.css?v=5');
+  expect(adminSource).toContain('admin-work-orders.js?v=6');
   expect(adminSource).toMatch(/id="workOrdersSection"[^>]*class="[^"]*\bjgc-admin-feature-surface\b[^"]*\bjgc-work-orders-admin\b/);
   expect(adminWorkOrders).not.toMatch(/class="small" style=/i);
   expect(adminCss).not.toContain(".admin-wo-management {");
@@ -216,8 +216,8 @@ test("Work Orders family uses one token-only shared visual source", async () => 
 
   expect(serviceWorker).toMatch(/const JGC_RELEASE_ID = "\d+";/);
   expect(serviceWorker).toContain('"./admin.css?v=19"');
-  expect(serviceWorker).toContain('"./work-orders-design-system.css?v=4"');
-  expect(serviceWorker).toContain('"./admin-work-orders.js?v=5"');
+  expect(serviceWorker).toContain('"./work-orders-design-system.css?v=5"');
+  expect(serviceWorker).toContain('"./admin-work-orders.js?v=6"');
 });
 
 for (const viewport of [
@@ -239,6 +239,8 @@ for (const viewport of [
     await page.locator("#workOrderManagementCard .collapse-header").click();
     await expect(page.locator("#managementBody")).toBeVisible();
     await expect(page.locator("#woList .wo-management-table tbody tr")).toHaveCount(1);
+    await page.locator("#woList details[data-archive-key] > summary").first().click();
+    await page.locator("#woList details[data-job-key] > summary").first().click();
 
     const dimensions = await page.evaluate(() => {
       const form = document.getElementById("workOrderFormCard");
@@ -340,6 +342,8 @@ test("Admin Work Orders stays contained and keeps its editor and management acti
   await expect(page.locator("#workOrdersSection")).toBeVisible();
   await expect(page.locator("#adminWorkOrdersSummary .summary-tile")).toHaveCount(5);
   await expect(page.locator("#adminWorkOrdersList tbody tr")).toHaveCount(1);
+  await page.locator("#adminWorkOrdersList details[data-archive-key] > summary").first().click();
+  await page.locator("#adminWorkOrdersList details[data-job-key] > summary").first().click();
   await expect(page.locator("#adminWorkOrdersList .jgc-button", { hasText: "Edit" })).toBeVisible();
   await expect(page.locator("#adminWorkOrdersList .jgc-button", { hasText: "Delete" })).toBeVisible();
   await page.locator("#adminWorkOrdersList .jgc-button", { hasText: "Edit" }).click();
@@ -398,9 +402,116 @@ test("Admin Work Orders stays contained and keeps its editor and management acti
 for (const width of [390,1280]) test(`Admin WO status shows the actual submission blockers at ${width}`,async({browser})=>{
  const context=await browser.newContext({viewport:{width,height:900}}),page=await context.newPage();const data=await installState(page,'admin');Object.assign(data.workOrder,{status:'ready_for_submission',locked:false,labour_complete:true,waiting_for:['Description of Work']});await page.goto('/admin.html',{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>typeof window.renderAdminWorkOrders==='function');
  await page.evaluate(({workOrder,labour})=>{workOrders=[{...workOrder,status:'ready_for_submission',locked:false,labour_complete:true,waiting_for:['Description of Work']}];workOrderLabourRows=[labour];workOrderPurchaseOrders=[];adminWorkOrderDigitalPoCounts={};showTab('workOrders');renderAdminWorkOrders();},{workOrder:data.workOrder,labour:data.labour});
+ await page.locator('#adminWorkOrdersList details[data-archive-key] > summary').first().click();
+ await page.locator('#adminWorkOrdersList details[data-job-key] > summary').first().click();
  const badge=page.locator('#adminWorkOrdersList tbody .jgc-badge');await expect(badge).toHaveText('Waiting for Description of Work');
  await page.evaluate(()=>{workOrders[0].waiting_for=['Description of Work','Andre Timesheet'];renderAdminWorkOrders();});await expect(badge).toHaveText('Waiting for Description of Work, Andre Timesheet');
  await page.evaluate(()=>{workOrders[0].waiting_for=[];renderAdminWorkOrders();});await expect(badge).toContainText('Pending Submission');
  await page.evaluate(()=>{workOrders[0].locked=true;renderAdminWorkOrders();});await expect(badge).toHaveText('Submitting');
  await context.close();
 });
+
+test('work orders group by work month and job, ordered by work date', async ({ page }) => {
+  await installState(page, 'worker');
+  await page.goto('/work-orders.html', { waitUntil: 'domcontentloaded' });
+  const groups = await page.evaluate(() => window.JgcWorkOrderManagementGroups.group([
+    { wo_number: 'WO-A-001', job_number: '26152', job_name: 'Trailer', work_order_date: '2026-11-02', created_at: '2026-11-15' },
+    { wo_number: 'WO-A-002', job_number: '26152', job_name: 'Trailer', work_order_date: '2026-11-08', created_at: '2026-11-08' },
+    { wo_number: 'WO-B-001', job_number: '26108', job_name: 'Megadome', work_order_date: '2026-11-01', created_at: '2026-11-01' },
+    { wo_number: 'WO-A-003', job_number: '26152', job_name: 'Trailer', work_order_date: '2026-10-30', created_at: '2026-11-16' },
+    { wo_number: 'WO-A-004', job_number: '26152', job_name: 'Trailer', work_order_date: null, created_at: '2026-11-16' }
+  ]));
+  expect(groups.map(group => group.label)).toEqual(['November 2026', 'October 2026', 'Undated']);
+  expect(groups[0].jobs.map(job => job.label)).toEqual(['26108 - Megadome', '26152 - Trailer']);
+  expect(groups[0].jobs[1].items.map(wo => wo.wo_number)).toEqual(['WO-A-002', 'WO-A-001']);
+  expect(groups[1].jobs[0].items[0].wo_number).toBe('WO-A-003');
+  expect(groups[2].jobs[0].items[0].wo_number).toBe('WO-A-004');
+});
+
+for (const width of [390, 1280]) {
+  test(`Work Order Management groups months and opens submitted orders in a popup at ${width}`, async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width, height: 844 } });
+    const page = await context.newPage();
+    const data = await installState(page, 'worker');
+    Object.assign(data.workOrder, { status: 'submitted', locked: true, work_order_date: '2026-11-03' });
+    await page.goto('/work-orders.html', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#employeePicker .employee-check')).toHaveCount(1);
+    await page.locator('#workOrderManagementCard .collapse-header').click();
+    await page.locator('#woSubmittedTabButton').click();
+    await expect(page.locator('#woList details[data-archive-key]')).toHaveCount(1);
+    await page.evaluate((wo) => {
+      workOrders = [wo, { ...wo, id: 'older', wo_number: 'WO26090-002', work_order_date: '2026-10-12' }];
+      renderWorkOrders();
+      localStorage.setItem(getWorkOrderLocalDraftKey(), 'draft-preservation-check');
+    }, data.workOrder);
+    const groups = page.locator('#woList details[data-archive-key]');
+    await expect(groups).toHaveCount(2);
+    await expect(groups.nth(0).locator(':scope > summary')).toContainText('November 2026');
+    await expect(groups.nth(1).locator(':scope > summary')).toContainText('October 2026');
+    await expect(groups.nth(0)).not.toHaveAttribute('open', '');
+    await groups.nth(0).locator(':scope > summary').click();
+    await groups.nth(0).locator('details[data-job-key] > summary').first().click();
+    const viewerWrites = [];
+    page.on('request', (request) => {
+      if (request.frame() !== page.mainFrame() && /\/rest\/v1\/(?:work_orders|work_order_|digital_po_work_order_links)/.test(request.url()) && !['GET', 'HEAD'].includes(request.method())) viewerWrites.push(request.method());
+    });
+    await groups.nth(0).getByRole('button', { name: 'View', exact: true }).click();
+    const dialog = page.locator('#workOrderViewer');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator('h2')).toHaveText('View WO26090-001');
+    await expect(page.frameLocator('#workOrderViewerFrame').locator('#woNumber')).toHaveValue('WO26090-001');
+    await expect(page.frameLocator('#workOrderViewerFrame').locator('#woDescription')).toBeDisabled();
+    await expect(page.frameLocator('#workOrderViewerFrame').locator('#jgcAppearanceSettingsButton')).toBeHidden();
+    await expect(page.frameLocator('#workOrderViewerFrame').locator('.jgc-admin-search-button')).toBeHidden();
+    expect(await page.evaluate(() => localStorage.getItem(getWorkOrderLocalDraftKey()))).toBe('draft-preservation-check');
+    expect(viewerWrites).toEqual([]);
+    const bounds = await dialog.boundingBox();
+    expect(bounds.width).toBeLessThanOrEqual(width);
+    expect(bounds.height).toBeLessThanOrEqual(844);
+    if (process.env.JGC_WORK_ORDER_SCREENSHOT_DIR) {
+      fs.mkdirSync(process.env.JGC_WORK_ORDER_SCREENSHOT_DIR, { recursive: true });
+      await page.screenshot({ path: path.join(process.env.JGC_WORK_ORDER_SCREENSHOT_DIR, `viewer-${width}.png`) });
+    }
+    await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.locator('#workOrderViewerFrame')).not.toHaveAttribute('src');
+    await expect(groups.nth(0)).toHaveAttribute('open', '');
+    await page.locator('#woSearch').fill('WO26090-002');
+    await expect(page.locator('#woList details[data-archive-key]')).toHaveCount(1);
+    await expect(page.locator('#woList details[data-archive-key]')).toHaveAttribute('open', '');
+    await expect(page.locator('#woList details[data-job-key]')).toHaveAttribute('open', '');
+    await context.close();
+  });
+
+  test(`Admin Work Orders groups active and past orders and views in a popup at ${width}`, async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width, height: 844 } });
+    const page = await context.newPage();
+    const data = await installState(page, 'admin');
+    Object.assign(data.workOrder, { status: 'submitted', locked: true, work_order_date: '2026-11-03' });
+    await page.goto('/admin.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => typeof window.renderAdminWorkOrders === 'function');
+    await page.evaluate(() => showTab('workOrders'));
+    await expect(page.locator('#adminWorkOrderListStatus')).not.toContainText('Loading');
+    await page.evaluate((wo) => {
+      workOrders = [wo, { ...wo, id: 'older', wo_number: 'WO26090-002', work_order_date: '2026-10-12' }, { ...wo, id: 'draft', status: 'draft', locked: false }];
+      workOrderLabourRows = []; workOrderPurchaseOrders = []; adminWorkOrderDigitalPoCounts = {};
+      renderAdminWorkOrders();
+    }, data.workOrder);
+    await expect(page.locator('#adminWorkOrdersList details[data-archive-key]')).toHaveCount(1);
+    await page.locator('#adminWoSubmittedTabButton').click();
+    const groups = page.locator('#adminWorkOrdersList details[data-archive-key]');
+    await expect(groups).toHaveCount(2);
+    await expect(groups.nth(0).locator(':scope > summary')).toContainText('November 2026');
+    await expect(groups.nth(1).locator(':scope > summary')).toContainText('October 2026');
+    await groups.nth(0).locator(':scope > summary').click();
+    await groups.nth(0).locator('details[data-job-key] > summary').first().click();
+    await groups.nth(0).getByRole('button', { name: 'View', exact: true }).click();
+    const dialog = page.locator('#adminWorkOrderViewer');
+    await expect(dialog).toBeVisible();
+    await expect(page.frameLocator('#adminWorkOrderViewerFrame').locator('#woNumber')).toHaveValue('WO26090-001');
+    await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.locator('#adminWorkOrderViewerFrame')).not.toHaveAttribute('src');
+    await context.close();
+  });
+}

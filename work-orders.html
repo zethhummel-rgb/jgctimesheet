@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0b5e3b">
 <link rel="manifest" href="manifest.json?v=7">
 <link rel="stylesheet" href="jgc-design-system.css?v=14" data-jgc-design-system="14">
-<link rel="stylesheet" href="work-orders-design-system.css?v=4">
+<link rel="stylesheet" href="work-orders-design-system.css?v=5">
 <link rel="stylesheet" href="work-order-paper.css?v=2">
 </head>
 <body class="work-orders-page jgc-page jgc-system-page">
@@ -286,10 +286,20 @@
   <div class="jgc-actions"><button id="woSignatureClear" type="button" class="secondary">Clear</button><button id="woSignatureRemove" type="button" class="secondary" hidden>Remove signature</button><button id="woSignatureCancel" type="button" class="secondary">Cancel</button><button id="woSignatureDone" type="button" disabled>Use signature</button></div>
 </dialog>
 
+<dialog id="workOrderViewer" class="wo-viewer-dialog" aria-labelledby="workOrderViewerTitle" onclose="closeWorkOrderViewer()">
+  <div class="wo-viewer-header">
+    <h2 id="workOrderViewerTitle">View Work Order</h2>
+    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="document.getElementById('workOrderViewer').close()">Close</button>
+  </div>
+  <iframe id="workOrderViewerFrame" class="wo-viewer-frame" title="Work Order viewer"></iframe>
+</dialog>
+
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=82"></script>
 <script src="job-list-sync.js?v=1"></script>
 <script src="employee-feature-access.js?v=3"></script>
+<script src="admin-housekeeping.js?v=1"></script>
+<script src="work-order-management-groups.js?v=1"></script>
 <script src="work-order-pdf-branding.js?v=1"></script>
 <script src="work-order-paper.js?v=1"></script>
 <script>
@@ -298,6 +308,7 @@ const worker = requireJgcWorker();
 const isAdmin = isAdminWorker(worker.key, worker.role, worker.email);
 const workOrderPageParams = new URLSearchParams(window.location.search);
 const isEmbeddedWorkOrderPage = workOrderPageParams.get("embedded") === "1";
+const isWorkOrderViewOnly = isEmbeddedWorkOrderPage && workOrderPageParams.get("viewonly") === "1";
 const requestedWorkOrderId = workOrderPageParams.get("wo") || "";
 const WORK_ORDER_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const WORK_ORDER_EMAIL_RECIPIENTS = [
@@ -520,6 +531,7 @@ function activateLocalWorkOrderDrafts() {
 if (isEmbeddedWorkOrderPage) {
   document.documentElement.classList.add("embedded-work-order-root");
   document.body.classList.add("embedded-work-order");
+  if (isWorkOrderViewOnly) document.documentElement.classList.add("work-order-view-only");
 }
 
 let embeddedWorkOrderHeightFrame = 0;
@@ -1854,7 +1866,25 @@ function renderWorkOrders() {
     return;
   }
 
-  list.innerHTML = `
+  const openGroups = new Set(Array.from(list.querySelectorAll('details[open][data-archive-key]'), (group) => group.dataset.archiveKey));
+  const openJobs = new Set(Array.from(list.querySelectorAll('details[open][data-job-key]'), (group) => group.dataset.jobKey));
+  const groups = window.JgcWorkOrderManagementGroups.group(filtered);
+  const hasFilter = Boolean(search || statusFilter || dateFilter);
+  list.innerHTML = `<div class="jgc-archive-list">${groups.map((group) => `
+    <details class="jgc-archive" data-archive-key="${escapeHtml(group.key)}"${hasFilter || openGroups.has(group.key) ? " open" : ""}>
+      <summary><span class="jgc-archive__title">${escapeHtml(group.label)}</span><span class="jgc-archive__count">${group.items.length} WO${group.items.length === 1 ? "" : "s"}</span></summary>
+      <div class="jgc-archive__body"><div class="jgc-archive-list wo-job-groups">${group.jobs.map((job) => {
+        const jobKey = group.key + "|" + job.key;
+        return `<details class="jgc-archive" data-job-key="${escapeHtml(jobKey)}"${hasFilter || openJobs.has(jobKey) ? " open" : ""}>
+          <summary><span class="jgc-archive__title">${escapeHtml(job.label)}</span><span class="jgc-archive__count">${job.items.length} WO${job.items.length === 1 ? "" : "s"}</span></summary>
+          <div class="jgc-archive__body">${renderWorkOrderTable(job.items)}</div>
+        </details>`;
+      }).join("")}</div></div>
+    </details>`).join("")}</div>`;
+}
+
+function renderWorkOrderTable(rows) {
+  return `
     <div class="table-wrap wo-management-table jgc-table-wrap">
       <table class="jgc-table">
         <thead>
@@ -1871,7 +1901,7 @@ function renderWorkOrders() {
           </tr>
         </thead>
         <tbody>
-          ${filtered.map((wo) => {
+          ${rows.map((wo) => {
             const poCount = purchaseOrders.filter((po) => po.work_order_id === wo.id).length + Number(digitalPoCounts[wo.id] || 0);
             const woLabourRows = labourRows.filter((row) => row.work_order_id === wo.id);
             const completeCount = woLabourRows.filter((row) => row.complete).length;
@@ -1889,7 +1919,7 @@ function renderWorkOrders() {
                 <td>${poCount}</td>
                 <td>
                   <div class="actions jgc-table-actions">
-                    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="editWorkOrder('${escapeHtml(wo.id)}')">${isLocked ? "View" : "Edit"}</button>
+                    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="${isLocked ? "openWorkOrderViewer" : "editWorkOrder"}('${escapeHtml(wo.id)}')">${isLocked ? "View" : "Edit"}</button>
                     ${!isLocked && wo.status === "ready_for_submission" ? `<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="moveWorkOrderToDraft('${escapeHtml(wo.id)}')">Move to Draft</button>` : ""}
           ${isLocked || isPendingSubmission ? "" : `<button type="button" class="jgc-button" onclick="submitSavedWorkOrder('${escapeHtml(wo.id)}')">Submit</button>`}
           ${isLocked ? "" : `<button type="button" class="jgc-button wo-early-submit" onclick="submitSavedWorkOrderEarly('${escapeHtml(wo.id)}')">Early Submission</button>`}
@@ -1905,6 +1935,20 @@ function renderWorkOrders() {
       </table>
     </div>
   `;
+}
+
+function openWorkOrderViewer(id) {
+  const wo = workOrders.find((item) => String(item.id) === String(id));
+  const dialog = document.getElementById("workOrderViewer");
+  const frame = document.getElementById("workOrderViewerFrame");
+  if (!wo || !dialog || !frame) return;
+  document.getElementById("workOrderViewerTitle").textContent = "View " + (wo.wo_number || "Work Order");
+  frame.src = "work-orders.html?embedded=1&viewonly=1&wo=" + encodeURIComponent(id);
+  if (!dialog.open) dialog.showModal();
+}
+
+function closeWorkOrderViewer() {
+  document.getElementById("workOrderViewerFrame").removeAttribute("src");
 }
 
 async function moveWorkOrderToDraft(id) {
@@ -1945,7 +1989,7 @@ function editWorkOrder(id) {
     return;
   }
 
-  if (!restoringLocalWorkOrderDraft) {
+  if (!restoringLocalWorkOrderDraft && !isWorkOrderViewOnly) {
     clearLocalWorkOrderDraft();
   }
 
@@ -2035,7 +2079,7 @@ function editWorkOrder(id) {
   renderEmployeePicker(selectedLabourRows.filter((row) => !isManualLabourRow(row)).map((row) => row.worker_key || normalizeWorkerName(row.employee_name)));
   renderLabourPreview();
   setPdfEmailControlsDisabled(false);
-  setFormLocked(Boolean(wo.locked || wo.status === "submitted"));
+  setFormLocked(Boolean(isWorkOrderViewOnly || wo.locked || wo.status === "submitted"));
   setFormStatus("Editing " + (wo.wo_number || "work order") + ".");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -3658,11 +3702,13 @@ async function signOut() {
 }
 
 resetWorkOrderForm({ preserveLocalDraft: true });
-activateLocalWorkOrderDrafts();
+if (!isWorkOrderViewOnly) activateLocalWorkOrderDrafts();
 Promise.all([loadJobs(), loadEquipment(), loadWorkOrders(), loadTimesheetEntries()]).then(() => loadEmployees()).then(async () => {
-  await refreshOpenWorkOrderLabourRows();
-  await loadWorkOrders(false);
-  await autoSubmitReadyWorkOrders();
+  if (!isWorkOrderViewOnly) {
+    await refreshOpenWorkOrderLabourRows();
+    await loadWorkOrders(false);
+    await autoSubmitReadyWorkOrders();
+  }
   if (requestedWorkOrderId && !workOrders.some((workOrder) => String(workOrder.id) === String(requestedWorkOrderId))) {
     await loadSubmittedWorkOrders(false);
   }

@@ -147,6 +147,20 @@ function openAdminWorkOrderEditor(id) {
     panel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+function openAdminWorkOrderViewer(id) {
+    const wo = workOrders.find((item) => String(item.id) === String(id));
+    const dialog = document.getElementById("adminWorkOrderViewer");
+    const frame = document.getElementById("adminWorkOrderViewerFrame");
+    if (!wo || !dialog || !frame) return;
+    document.getElementById("adminWorkOrderViewerTitle").textContent = "View " + (wo.wo_number || "Work Order");
+    frame.src = "work-orders.html?embedded=1&admin=1&viewonly=1&wo=" + encodeURIComponent(id);
+    if (!dialog.open) dialog.showModal();
+}
+
+function closeAdminWorkOrderViewer() {
+    document.getElementById("adminWorkOrderViewerFrame").removeAttribute("src");
+}
+
 function refreshAdminWorkOrderEditor() {
     const frame = document.getElementById("adminWorkOrderEditorFrame");
 
@@ -207,7 +221,7 @@ function renderAdminWorkOrderTable(rows) {
                                 <td>${getAdminWorkOrderPoCount(wo.id)}</td>
                                 <td>
                                     <div class="actions jgc-table-actions">
-                                        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="openAdminWorkOrderEditor('${escapeHtml(wo.id)}')">${isLocked ? "View" : "Edit"}</button>
+                                        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="${isLocked ? "openAdminWorkOrderViewer" : "openAdminWorkOrderEditor"}('${escapeHtml(wo.id)}')">${isLocked ? "View" : "Edit"}</button>
                                         ${!isLocked && String(wo.status || "").toLowerCase() === "ready_for_submission" ? `<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="moveAdminWorkOrderToDraft('${escapeHtml(wo.id)}')">Move to Draft</button>` : ""}
                                         <button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteAdminWorkOrder('${escapeHtml(wo.id)}')">Delete</button>
                                     </div>
@@ -221,13 +235,11 @@ function renderAdminWorkOrderTable(rows) {
     `;
 }
 
-function renderAdminPastWorkOrderGroups(rows, hasActiveFilter) {
+function renderAdminWorkOrderGroups(rows, hasActiveFilter) {
     const list = document.getElementById("adminWorkOrdersList");
     const openGroups = new Set(Array.from(list.querySelectorAll("details[open][data-archive-key]"), (details) => details.dataset.archiveKey));
-    const groups = window.JgcAdminHousekeeping?.groupByMonth(
-        rows,
-        (wo) => wo.submitted_at || wo.work_order_date || wo.created_at
-    ) || [{ key: "past", label: "Past Work Orders", items: rows }];
+    const openJobs = new Set(Array.from(list.querySelectorAll("details[open][data-job-key]"), (details) => details.dataset.jobKey));
+    const groups = window.JgcWorkOrderManagementGroups.group(rows);
 
     return `<div class="jgc-archive-list">${groups.map((group) => {
         const isOpen = hasActiveFilter || openGroups.has(group.key);
@@ -237,7 +249,13 @@ function renderAdminPastWorkOrderGroups(rows, hasActiveFilter) {
                     <span class="jgc-archive__title">${escapeHtml(group.label)}</span>
                     <span class="jgc-archive__count">${group.items.length} WO${group.items.length === 1 ? "" : "s"}</span>
                 </summary>
-                <div class="jgc-archive__body">${renderAdminWorkOrderTable(group.items)}</div>
+                <div class="jgc-archive__body"><div class="jgc-archive-list wo-job-groups">${group.jobs.map((job) => {
+                    const jobKey = `${group.key}|${job.key}`;
+                    return `<details class="jgc-archive" data-job-key="${escapeHtml(jobKey)}"${hasActiveFilter || openJobs.has(jobKey) ? " open" : ""}>
+                        <summary><span class="jgc-archive__title">${escapeHtml(job.label)}</span><span class="jgc-archive__count">${job.items.length} WO${job.items.length === 1 ? "" : "s"}</span></summary>
+                        <div class="jgc-archive__body">${renderAdminWorkOrderTable(job.items)}</div>
+                    </details>`;
+                }).join("")}</div></div>
             </details>
         `;
     }).join("")}</div>`;
@@ -309,9 +327,7 @@ function renderAdminWorkOrders() {
     }
 
     const hasActiveFilter = Boolean(search || statusFilter || dateFilter);
-    list.innerHTML = adminWorkOrderManagementView === "submitted"
-        ? renderAdminPastWorkOrderGroups(filtered, hasActiveFilter)
-        : renderAdminWorkOrderTable(filtered);
+    list.innerHTML = renderAdminWorkOrderGroups(filtered, hasActiveFilter);
 }
 
 async function moveAdminWorkOrderToDraft(id) {
