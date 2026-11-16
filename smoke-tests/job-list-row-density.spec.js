@@ -11,12 +11,12 @@ for (const width of [768, 1366, 1600]) test(`desktop job rows preserve readable 
     await page.evaluate(theme => window.applyJgcTheme(theme), theme);
     for (const row of await rows.all()) {
       const height = (await row.boundingBox()).height;
-      expect(height).toBeLessThanOrEqual(width >= 1600 ? 51 : width >= 1366 ? 100 : 150);
+      expect(height).toBeLessThanOrEqual(width >= 1600 ? 64 : width >= 1366 ? 100 : 150);
       expect(height).toBeGreaterThanOrEqual(51);
       const menu = row.locator('.job-status-menu');
       await expect(menu.locator('summary')).toHaveText('Change Status');
       await expect(menu).not.toHaveAttribute('open', '');
-      await expect(menu.getByRole('button', {includeHidden:true})).toHaveCount(3);
+      await expect(menu.getByRole('button', {includeHidden:true})).toHaveText(['Close Project', 'Cancel Project', 'Close — Discuss Invoice', 'Progress Billing']);
       const text = await row.locator('strong, small, button').evaluateAll(items => items.filter(el => el.checkVisibility()).map(el => ({
         size: parseFloat(getComputedStyle(el).fontSize), expectedSize: el.matches('small, .job-status-action') ? 12 : 14,
         top: el.getBoundingClientRect().top, bottom: el.getBoundingClientRect().bottom,

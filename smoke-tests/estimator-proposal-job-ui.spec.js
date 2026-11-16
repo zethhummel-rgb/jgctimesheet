@@ -118,7 +118,7 @@ for (const width of [390, 1366]) test(`job status actions are smaller and below 
   const primary = actions.locator('.quote-primary-actions');
   const secondary = actions.locator('.job-header-status-actions');
   await expect(primary.getByRole('button')).toHaveCount(2);
-  await expect(secondary.getByRole('button')).toHaveCount(3);
+  await expect(secondary.getByRole('button')).toHaveText(['Cancel Project', 'Close Project', 'Close — Discuss Invoice', 'Progress Billing']);
   const first = await primary.boundingBox(), second = await secondary.boundingBox();
   expect(second.y).toBeGreaterThanOrEqual(first.y + first.height);
   expect((await secondary.getByRole('button').first().boundingBox()).height).toBeLessThan((await primary.getByRole('button').first().boundingBox()).height);

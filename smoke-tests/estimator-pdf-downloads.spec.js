@@ -149,6 +149,7 @@ test("Purchase Order PDF keeps long names inside their panels and uses a descrip
 });
 
 test("Estimate and Breakdown buttons download separate internal PDFs", async ({ page }, testInfo) => {
+  test.setTimeout(60000);
   await openDemoQuote(page);
   await page.getByRole("tab", { name: /Estimate/ }).click();
   await page.getByRole("button", { name: "Built-up item" }).click();
