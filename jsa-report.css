@@ -532,6 +532,14 @@ button:hover {
 @media(max-width:600px){.manual-crew-grid{grid-template-columns:minmax(0,1fr);}#jsaPostSaveQrPanel .jgc-record-row{padding:12px;}#jsaPostSaveQrPanel button{min-height:44px;}}
 
 /* Document-style JSA editor */
+.jsa-copy-panel { margin: 18px 0; padding: 16px; border: 1px solid var(--jgc-color-input-border); border-radius: 10px; background: var(--jgc-color-surface-soft); color: var(--jgc-color-text); }
+.jsa-copy-panel[hidden] { display: none; }
+.jsa-copy-panel summary { cursor: pointer; font-weight: 700; min-height: 28px; }
+.jsa-copy-panel p { margin: 12px 0; font-size: .9rem; line-height: 1.5; }
+.jsa-copy-fields { display: grid; grid-template-columns: minmax(0, 2fr) minmax(160px, 1fr); gap: 12px; margin-bottom: 14px; }
+.jsa-copy-fields label { display: block; font-size: .85rem; font-weight: 700; margin-bottom: 6px; }
+.jsa-copy-fields input, .jsa-copy-fields select { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; font: inherit; color: var(--jgc-color-text); background: var(--jgc-color-input); border: 1px solid var(--jgc-color-input-border); border-radius: 6px; padding: 8px; }
+@media(max-width: 600px) { .jsa-copy-fields { grid-template-columns: minmax(0, 1fr); } .jsa-copy-panel .jgc-actions button { width: 100%; } }
 .report-form-page .container {
   max-width: 1120px;
   padding: clamp(18px, 3vw, 38px);

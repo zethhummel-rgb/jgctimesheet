@@ -1,6 +1,24 @@
 (function () {
   "use strict";
   const $ = id => document.getElementById(id);
+  // Collapsed details have no innerText. Keep JSA condition labels stable when
+  // saving or restoring without changing field collection on other reports.
+  const inspectionFieldLabel = getFieldLabel;
+  getFieldLabel = field => field.matches('.checklist input[type="checkbox"]')
+    ? field.closest('label').textContent.trim() : inspectionFieldLabel(field);
+  function conditionFields(record) {
+    const fields = record.form_data?.fields || [];
+    const inputs = [...document.querySelectorAll('.checklist input[type="checkbox"]')];
+    const unnamed = fields.filter(field => !String(field.label || '').trim() && ['Yes', 'No'].includes(field.value));
+    const occurrences = new Map();
+    return inputs.map((input, index) => {
+      const label = getFieldLabel(input), occurrence = occurrences.get(label) || 0;
+      occurrences.set(label, occurrence + 1);
+      const named = fields.filter(field => field.label === label)[occurrence];
+      const saved = named || (unnamed.length === inputs.length ? unnamed[index] : null);
+      return { label, value: saved?.value === 'Yes' ? 'Yes' : 'No' };
+    });
+  }
   const param = new URLSearchParams(location.search).get("prepared");
   // staffToday: a non-admin JGC staff member opened a prepared JSA on its work date. The office's wording is
   // read-only for them; they choose today's Workers Onsite and activate it.
@@ -26,7 +44,7 @@
     $("jsaSignoffChoiceSection").hidden = preparing && !draft?.activated_at;
     $("jsaCrewTitle").textContent = preparing && !draft?.activated_at ? "3. Workers Onsite — planned" : "3. Workers Onsite";
   }
-  window.JgcPreparedJsa = { get isPrepared() { return isPreparationMode(); }, activate, validate, restore, updateMode, isActive:()=>!!draft?.activated_at };
+  window.JgcPreparedJsa = { get isPrepared() { return isPreparationMode(); }, get isBusy() { return busy; }, activate, validate, restore, conditionFields, updateMode, isActive:()=>!!draft?.activated_at };
   if (param) {
     $("jsaPreparation").hidden = false;
     $("jsaSignoffChoiceSection").hidden = true;
@@ -66,7 +84,7 @@
     return draft;
   }
   async function run(action) {
-    if (busy) return;
+    if (busy || window.JgcJsaCopy?.isBusy) return;
     busy = true; lockDraft(true);
     const controls = [...document.querySelectorAll(".grid input, .grid select, .checklist input, #jsaTable textarea, #jsaTable button, .signoff input, .signoff select, .signoff button, .jsa-row-actions button, #jsaLibrary input, #jsaLibrary button")];
     const disabled = controls.map(control => control.disabled);
@@ -82,10 +100,12 @@
     const record = value.record;
     if(!$("jsaField3").value)$("jsaField3").value=record.inspection_date || "";
     const fields = record.form_data.fields || [];
+    const conditions = conditionFields(record);
+    let conditionIndex = 0;
     window.JgcJsaAddress?.setRestoring(true);
     try { document.querySelectorAll(".grid input, .grid select, .checklist input").forEach(input => {
       if (input.dataset.inspectionSkip === "true") return;
-      const found = fields.find(f => f.label === getFieldLabel(input)) || (input.id === "jsaField2" ? fields.find(f => f.label === "Location") : null);
+      const found = input.type === 'checkbox' ? conditions[conditionIndex++] : fields.find(f => f.label === getFieldLabel(input)) || (input.id === "jsaField2" ? fields.find(f => f.label === "Location") : null);
       if (!found) return;
       if (input.type === "checkbox") input.checked = found.value === "Yes";
       else { input.value = found.value || ""; input.dispatchEvent(new Event("change", { bubbles: true })); }
