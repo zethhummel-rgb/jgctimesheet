@@ -17,7 +17,7 @@
   <meta name="theme-color" content="#0b5e3b">
   <title>Job Board · JGC Portal</title>
   <link rel="stylesheet" href="jgc-design-system.css?v=14" data-jgc-design-system="14">
-  <link rel="stylesheet" href="job-board.css?v=11">
+  <link rel="stylesheet" href="job-board.css?v=12">
   <link rel="stylesheet" href="safety-signature-pad.css?v=4">
 </head>
 <body class="job-board-page jgc-page jgc-system-page">
@@ -25,17 +25,21 @@
     <header class="jgc-page-header board-header">
       <div class="jgc-brand"><img src="logo.webp" alt="John Gordon Construction"></div>
       <div class="board-eyebrow">Health &amp; Safety · Site documents</div>
+      <div class="board-qr-hero" hidden>
+        <i id="qrHeroIcon" data-lucide="hard-hat" aria-hidden="true"></i>
+        <h1 id="qrHeroTitle">JGC Job Board</h1>
+      </div>
       <h1 class="jgc-page-title" id="boardTitle">Job Board</h1>
       <p id="boardAddress" class="jgc-muted"></p>
       <div class="board-header-actions">
+        <button class="jgc-button jgc-button--secondary" id="qrPageBack" type="button" hidden>← Job Board</button>
         <button class="jgc-button" id="jsaSignOnBack" type="button" hidden>Back to Job Board</button>
         <button class="jgc-button jgc-button--secondary" id="boardRefresh" type="button" data-testid="board-refresh">Refresh</button>
-        <button class="jgc-button jgc-button--secondary" id="boardSiteSignIn" type="button" hidden>Site Sign in</button>
         <button class="jgc-button jgc-button--secondary" id="boardOnsite" type="button" hidden>On site today</button>
         <button class="jgc-button jgc-button--secondary" id="boardContacts" type="button" hidden>JGC Contacts</button>
         <a class="jgc-button jgc-button--secondary" id="boardDocuments" target="_blank" rel="noopener noreferrer" hidden>Drawings &amp; documents</a>
         <button class="jgc-button jgc-button--secondary" id="boardLogout" type="button" hidden>Log out</button>
-        <button class="jgc-button jgc-button--secondary" id="boardSignIn" type="button">Staff Login</button>
+        <button class="jgc-button jgc-button--secondary" id="boardSignIn" type="button">Staff sign-in</button>
       </div>
       <p id="boardIdentity" class="jgc-page-user" hidden></p>
     </header>
@@ -49,17 +53,36 @@
       <button class="jgc-button" id="boardRetry" type="button">Try again</button>
     </section>
 
-    <section class="jgc-panel board-gate" id="loginOptions" hidden aria-labelledby="loginOptionsTitle">
-      <h2 class="jgc-section-title" id="loginOptionsTitle">Welcome to the site</h2>
-      <p>Choose how you would like to continue.</p>
-      <div class="board-login-options">
-        <button class="jgc-button" id="visitorLogin" type="button">Visitor Login</button>
-        <button class="jgc-button" id="staffLogin" type="button">Staff Login</button>
-        <button class="jgc-button jgc-button--secondary" id="siteLogin" type="button">Site Sign in</button>
-      </div>
+    <section class="board-gate" id="loginOptions" hidden aria-label="Job Board options">
+      <section class="jgc-panel board-qr-card board-safety-entry" aria-labelledby="safetyEntryTitle">
+        <div class="board-qr-card-heading"><i data-lucide="shield-check" aria-hidden="true"></i><div><h2 id="safetyEntryTitle">Safety information</h2><p>No sign-in required</p></div></div>
+        <ul class="board-qr-checklist">
+          <li>Notice of Project</li>
+          <li>Ontario OHSA &amp; Construction Regulations</li>
+          <li>Site Specific Safety Plan</li>
+          <li>SDS &amp; WHMIS information</li>
+          <li>JGC Health &amp; Safety Policy</li>
+        </ul>
+        <button class="jgc-button jgc-button--secondary board-qr-wide" id="viewPublicSafety" type="button">View safety documents <i data-lucide="arrow-right" aria-hidden="true"></i></button>
+      </section>
+      <section class="jgc-panel board-qr-card board-signin-entry" aria-labelledby="loginOptionsTitle">
+        <div class="board-qr-card-heading"><i data-lucide="id-card" aria-hidden="true"></i><div><h2 id="loginOptionsTitle">Site sign-in</h2><p>Check in and open your job records.</p></div></div>
+        <ul class="board-qr-checklist">
+          <li>Site attendance</li><li>View and sign JSAs</li><li>Reports and inspections</li>
+        </ul>
+        <div class="board-login-options">
+          <button class="jgc-button board-gold-button" id="visitorLogin" type="button">Visitor sign-in</button>
+          <button class="jgc-button board-gold-button" id="staffLogin" type="button">Staff sign-in</button>
+        </div>
+      </section>
       <!-- Site rules everyone sees before signing in. PPE icons follow the blue "must wear" safety-sign style. -->
       <div class="board-site-rules">
-        <p class="jgc-notice jgc-notice--warning board-visitor-notice" id="boardVisitorNotice">All Visitors should report to Site Supervisor or Project Manager.</p>
+        <div class="board-arrival-grid">
+          <div class="board-arrival-card"><i data-lucide="users" aria-hidden="true"></i><div><h3>Visitors</h3><p id="boardVisitorNotice">Report to the site supervisor or project manager.</p></div></div>
+          <div class="board-arrival-card"><i data-lucide="hard-hat" aria-hidden="true"></i><div><h3>Required PPE</h3><p>Hard hat, safety shoes and safety glasses.</p></div></div>
+        </div>
+        <details id="boardPpeDetails" class="board-ppe-details">
+          <summary>See all PPE requirements</summary>
         <h3 class="board-ppe-title" id="boardPpeTitle">ALL PPE to be Worn At All Times</h3>
         <ul class="board-ppe-list" aria-labelledby="boardPpeTitle">
           <li><span class="board-ppe-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M10 31C10 22.5 16.2 16 24 16S38 22.5 38 31Z"/><rect class="board-ppe-cut" x="22" y="16" width="4" height="15"/><rect x="6" y="31" width="36" height="4.5" rx="2.25"/></svg></span><span class="board-ppe-name">Hardhats</span></li>
@@ -69,44 +92,39 @@
           <li><span class="board-ppe-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="15" y="20" width="18" height="15" rx="4"/><rect x="15.5" y="10" width="4" height="14" rx="2"/><rect x="20.5" y="7.5" width="4" height="16" rx="2"/><rect x="25.5" y="8.5" width="4" height="15" rx="2"/><rect x="30" y="12.5" width="3.6" height="12" rx="1.8"/><rect x="9" y="19" width="4.2" height="12" rx="2.1" transform="rotate(-35 11 25)"/><rect x="15" y="35.5" width="18" height="6.5" rx="1.5"/></svg></span><span class="board-ppe-name">Proper Gloves<small>when required</small></span></li>
           <li><span class="board-ppe-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M16 7l8 9 8-9 6.5 4-3 8.5V41h-23V19.5L9.5 11Z"/><rect class="board-ppe-cut" x="12.5" y="25" width="23" height="3"/><rect class="board-ppe-cut" x="12.5" y="32" width="23" height="3"/><path class="board-ppe-line" d="M24 16v25"/></svg></span><span class="board-ppe-name">Safety Vest<small>when required</small></span></li>
         </ul>
+        </details>
       </div>
     </section>
-    <section class="jgc-panel board-gate" id="siteGate" hidden aria-labelledby="siteTitle">
-      <div class="board-section-heading"><div><h2 class="jgc-section-title" id="siteTitle">Site Sign in</h2><p>Let the office know you are on site.</p></div><button class="jgc-button jgc-button--secondary" id="siteCancel" type="button">Back</button></div>
-      <form id="siteForm" class="board-form">
-        <div class="jgc-form-grid">
-          <div class="jgc-field"><label class="jgc-label" for="siteName">Name</label><input class="jgc-input" id="siteName" autocomplete="name" maxlength="150" required></div>
-          <div class="jgc-field"><label class="jgc-label" for="siteCompany">Company</label><input class="jgc-input" id="siteCompany" autocomplete="organization" maxlength="150" required></div>
-          <div class="jgc-field jgc-field--full"><label class="jgc-label" for="siteReason">Reason for visit (optional)</label><textarea class="jgc-textarea" id="siteReason" rows="3" maxlength="1000"></textarea></div>
-        </div>
-        <p class="board-help">The date and time are recorded automatically. Site sign-in does not give access to restricted reports.</p>
-        <p class="board-form-status" id="siteStatus" role="status" aria-live="polite"></p>
-        <button class="jgc-button" id="siteSubmit" type="submit">Sign in to site</button>
-      </form>
+    <section class="board-gate" id="publicSafety" hidden aria-label="Safety information">
+      <p class="board-public-access"><i data-lucide="lock-open" aria-hidden="true"></i> No sign-in required</p>
+      <div id="publicSafetySections" class="board-document-sections" aria-label="Public safety documents"></div>
+      <p class="board-form-status" id="publicSafetyStatus" role="status" aria-live="polite"></p>
+      <button type="button" class="jgc-button jgc-button--secondary" id="publicSafetyRetry" hidden>Try again</button>
     </section>
     <section class="jgc-panel board-gate" id="visitorGate" hidden aria-labelledby="visitorTitle" data-testid="visitor-gate">
-      <div class="board-section-heading"><div><h2 class="jgc-section-title" id="visitorTitle">Welcome to the site</h2><p>Sign in to view this job’s published safety documents.</p></div><span class="jgc-badge jgc-badge--info">Visitor sign-in</span></div>
+      <div class="board-section-heading"><div><h2 class="jgc-section-title" id="visitorTitle">Visitor sign-in</h2><p>Enter your name and company to check in.</p></div></div>
       <form id="visitorForm" class="board-form">
         <div class="jgc-form-grid">
           <div class="jgc-field"><label class="jgc-label" for="visitorName">Your name</label><input class="jgc-input" id="visitorName" name="name" autocomplete="name" maxlength="160" required></div>
           <div class="jgc-field"><label class="jgc-label" for="visitorCompany">Company</label><input class="jgc-input" id="visitorCompany" name="company" autocomplete="organization" maxlength="160" required></div>
           <div class="jgc-field jgc-field--full"><label class="jgc-label" for="visitorEmail">Email address (optional)</label><input class="jgc-input" id="visitorEmail" name="email" type="email" autocomplete="email" maxlength="254"></div>
         </div>
-        <p class="board-help">Your name, company, email and sign-in time are recorded for this job. Visitor details are entered by you; this sign-in does not provide access to restricted reports.</p>
+        <p class="board-help board-checkin-note">Your sign-in marks you on site for this job.</p>
         <p class="board-form-status" id="visitorStatus" role="status" aria-live="polite"></p>
-        <div class="board-actions"><button class="jgc-button" id="visitorSubmit" type="submit">Continue to Job Board</button><button class="jgc-button jgc-button--secondary" id="visitorCancel" type="button">Back</button></div>
+        <div class="board-actions"><button class="jgc-button board-gold-button" id="visitorSubmit" type="submit">Continue to Job Board <i data-lucide="arrow-right" aria-hidden="true"></i></button><button class="jgc-button jgc-button--secondary" id="visitorCancel" type="button">Back</button></div>
       </form>
     </section>
 
     <section class="jgc-panel board-gate" id="staffGate" hidden aria-labelledby="staffTitle">
-      <div class="board-section-heading"><div><h2 class="jgc-section-title" id="staffTitle">Staff Login</h2><p>Use your existing JGC Portal account. Job access is checked after sign-in.</p></div><button class="jgc-button jgc-button--secondary" id="staffCancel" type="button">Close</button></div>
+      <div class="board-section-heading"><div><h2 class="jgc-section-title" id="staffTitle">Staff Login</h2><p>Use your existing JGC Portal account.</p></div><button class="jgc-button jgc-button--secondary" id="staffCancel" type="button">Close</button></div>
       <form id="staffForm" class="board-form">
         <div class="jgc-form-grid">
           <div class="jgc-field"><label class="jgc-label" for="staffEmail">Email address</label><input class="jgc-input" id="staffEmail" type="email" autocomplete="username" maxlength="254" required></div>
           <div class="jgc-field"><label class="jgc-label" for="staffPassword">Password</label><input class="jgc-input" id="staffPassword" type="password" autocomplete="current-password" required></div>
         </div>
+        <p class="board-help board-checkin-note">Your sign-in marks you on site for this job.</p>
         <p class="board-form-status" id="staffStatus" role="status" aria-live="polite"></p>
-        <button class="jgc-button" id="staffSubmit" type="submit">Sign in</button>
+        <button class="jgc-button board-gold-button" id="staffSubmit" type="submit">Sign in to Job Board <i data-lucide="arrow-right" aria-hidden="true"></i></button>
       </form>
     </section>
 
@@ -116,13 +134,30 @@
           <div class="board-qr-image"><img id="boardQr" alt="QR code for this Job Board" width="256" height="256"><p id="boardQrStatus" class="board-help" role="status"></p></div>
           <div>
             <div class="board-section-heading"><h2 class="jgc-section-title" id="boardQrTitle">The site’s Job Board</h2><span class="jgc-badge" id="boardEnabledBadge"></span></div>
-            <p>Post this QR code on site. Visitors sign in, then view and download published documents. Signed-in JGC staff can upload paper forms and photos for office review.</p>
+            <p>Post this QR code at the job site. Anyone with the link can view published safety documents. Visitors and staff sign in to check in and open job records.</p>
             <div class="board-actions"><button class="jgc-button" id="boardPrint" type="button">Print QR poster</button><button class="jgc-button jgc-button--secondary" id="boardQrDownload" type="button">Download QR</button><button class="jgc-button jgc-button--secondary" id="boardCopyLink" type="button">Copy board link</button><a class="jgc-button jgc-button--secondary" id="boardOpenLink" target="_blank" rel="noopener noreferrer">Open board</a></div>
-            <details class="board-settings"><summary>Board access settings</summary><div class="board-settings-content"><label class="board-checkbox"><input id="boardEnabled" type="checkbox"> Enable visitor access</label><button class="jgc-button jgc-button--secondary" id="boardSaveEnabled" type="button">Save access</button><p class="board-help">Replacing the QR link stops the previous code from opening this board. Reprint the poster after replacing it.</p><button class="jgc-button jgc-button--danger" id="boardRotate" type="button">Replace QR link</button><div id="boardRotateConfirm" class="jgc-notice jgc-notice--warning" hidden><p>Replace the link and invalidate all existing QR posters for this job?</p><div class="board-actions"><button class="jgc-button jgc-button--danger" id="boardRotateYes" type="button">Replace link</button><button class="jgc-button jgc-button--secondary" id="boardRotateNo" type="button">Keep current link</button></div></div></div></details>
+            <details class="board-settings"><summary>Board access settings</summary><div class="board-settings-content"><label class="board-checkbox"><input id="boardEnabled" type="checkbox"> Enable QR Job Board access</label><button class="jgc-button jgc-button--secondary" id="boardSaveEnabled" type="button">Save access</button><p class="board-help">Replacing the QR link stops the previous code from opening this board. Reprint the poster after replacing it.</p><button class="jgc-button jgc-button--danger" id="boardRotate" type="button">Replace QR link</button><div id="boardRotateConfirm" class="jgc-notice jgc-notice--warning" hidden><p>Replace the link and invalidate all existing QR posters for this job?</p><div class="board-actions"><button class="jgc-button jgc-button--danger" id="boardRotateYes" type="button">Replace link</button><button class="jgc-button jgc-button--secondary" id="boardRotateNo" type="button">Keep current link</button></div></div></div></details>
           </div>
         </div>
       </section>
 
+      <div class="board-qr-dashboard board-gate" id="qrDashboard" hidden>
+        <section class="board-attendance-banner" id="qrAttendance" hidden aria-labelledby="qrAttendanceTitle">
+          <i data-lucide="circle-check" aria-hidden="true"></i>
+          <div><h2 id="qrAttendanceTitle">You’re checked in on site</h2><p id="qrAttendanceDetail"></p></div>
+        </section>
+        <button class="jgc-button jgc-button--secondary" id="retryAttendance" type="button" hidden>Retry site check-in</button>
+        <section class="jgc-panel board-qr-card board-signin-entry" id="qrJsa" hidden aria-labelledby="qrJsaTitle">
+          <div class="board-qr-card-heading"><i data-lucide="clipboard-check" aria-hidden="true"></i><div><h2 id="qrJsaTitle">Today’s JSA</h2><p id="qrJsaDetail"></p></div></div>
+          <button type="button" class="jgc-button board-gold-button board-qr-wide" id="qrJsaOpen">Review &amp; sign JSA <i data-lucide="arrow-right" aria-hidden="true"></i></button>
+        </section>
+        <details class="jgc-panel board-category board-qr-roster" id="qrRoster" hidden>
+          <summary>On site today <span class="jgc-badge board-section-count" id="qrRosterCount"></span></summary>
+          <p class="board-form-status" id="qrRosterStatus" role="status" aria-live="polite"></p>
+          <div class="jgc-record-list" id="qrRosterList"></div>
+          <button class="jgc-button jgc-button--secondary" id="qrRosterRefresh" type="button">Refresh list</button>
+        </details>
+      </div>
       <nav class="jgc-tabs board-tabs" aria-label="Job Board sections" role="tablist">
         <button class="jgc-tab active" id="documentsTab" type="button" role="tab" aria-selected="true" aria-controls="documentsPanel" data-panel="documentsPanel">Documents</button>
         <button class="jgc-tab" id="uploadTab" type="button" role="tab" aria-selected="false" aria-controls="uploadPanel" data-panel="uploadPanel">Upload</button>
@@ -131,6 +166,7 @@
 
       <div id="documentsPanel" role="tabpanel" aria-labelledby="documentsTab">
         <div id="documentSections" class="board-document-sections" aria-label="Site documents"></div>
+        <button id="signedInSafety" type="button" class="jgc-button jgc-button--secondary board-signed-safety" hidden><i data-lucide="shield-check" aria-hidden="true"></i> Safety information <i data-lucide="chevron-right" aria-hidden="true"></i></button>
         <p class="board-help">Open a section to view its documents. Newest reports appear first.</p>
       </div>
 
@@ -169,8 +205,12 @@
       <section class="jgc-panel board-admin-panel" id="boardSiteActivityPanel" hidden>
         <details id="boardSiteActivity"><summary>Site Sign-ins</summary><div class="board-details-content"><p class="board-help">Site attendance: name, company, date, time and optional reason, entered by the person signing in.</p><div class="board-actions"><button class="jgc-button jgc-button--secondary" id="siteActivityRefresh" type="button">Refresh sign-ins</button><button class="jgc-button" id="siteActivityPdf" type="button">Download Site Sign-ins PDF</button></div><p id="siteActivityStatus" class="board-form-status" role="status" aria-live="polite"></p><div id="siteActivityList" class="jgc-record-list"></div><button class="jgc-button jgc-button--secondary" id="siteActivityMore" type="button" hidden>Load more</button></div></details>
       </section>
-      <footer class="board-footer">John Gordon Construction · Job Board</footer>
+
     </div>
+    <footer class="board-footer" id="qrFooter" hidden>
+      <div class="board-footer-address" id="qrFooterLocation" hidden><i data-lucide="map-pin" aria-hidden="true"></i><div><strong id="qrFooterJob"></strong><span id="qrFooterAddress"></span></div></div>
+      <a class="board-footer-phone" href="tel:6139321293"><i data-lucide="phone" aria-hidden="true"></i><span><strong>JGC</strong><span>613-932-1293</span></span></a>
+    </footer>
   </main>
   <section id="jsaSignOnPanel" class="jgc-panel board-jsa-sign-on" aria-labelledby="jsaSignOnTitle" data-jgc-keep-open hidden>
     <h2 id="jsaSignOnTitle" class="jgc-section-title">Sign on to JSA</h2>
@@ -216,7 +256,40 @@
       <p class="board-help">If your browser cannot share a file, download the email draft and open it in a mail app that supports .eml drafts. The PDF is included as an attachment.</p>
     </div>
   </dialog>
-  <section id="boardPoster" class="board-poster" aria-label="Printable Job Board QR poster" hidden><img src="logo.webp" alt="John Gordon Construction" class="board-poster-logo"><h1>Job Board</h1><h2 id="posterJob"></h2><p id="posterAddress"></p><img id="posterQr" alt="Scan to open this job’s safety documents" width="320" height="320"><h3>Site Sign In</h3><p>Scan to sign in to site and open the Job Board.</p><p>H&amp;S · Policies · JSAs · Toolbox talks<br>Permits · Reports · Inspections</p><p>Sign in with your name, company and email to continue.<br>JGC staff: use your Portal account to upload paper forms and photos.</p></section>
+  <section id="boardPoster" class="board-poster" aria-label="Printable Job Board QR poster" hidden>
+    <img src="logo.webp" alt="John Gordon Construction" class="board-poster-logo">
+    <header class="board-poster-title">
+      <h1>JGC Job Board</h1>
+      <h2 id="posterJob"></h2>
+      <p id="posterAddress"></p>
+    </header>
+    <img id="posterQr" alt="Scan to open this Job Board" width="320" height="320">
+    <h3 class="board-poster-instruction">Scan the QR code</h3>
+    <p class="board-poster-tip">Open your phone’s camera and tap the link.</p>
+    <div class="board-poster-guide">
+      <section>
+        <h3>View safety information</h3>
+        <p>No sign-in required</p>
+        <ul>
+          <li>Notice of Project</li>
+          <li>Ontario OHSA &amp; Construction Regulations</li>
+          <li>Site Specific Safety Plan</li>
+          <li>SDS &amp; WHMIS information</li>
+          <li>JGC Health &amp; Safety Policy</li>
+        </ul>
+      </section>
+      <section>
+        <h3>Sign in to site</h3>
+        <p>Choose visitor or staff sign-in.</p>
+        <ul>
+          <li>Check in on site</li>
+          <li>Review and sign today’s JSA</li>
+          <li>Open reports, inspections and permits available to you</li>
+        </ul>
+      </section>
+    </div>
+    <footer class="board-poster-contact">Visitors, report to the site supervisor or project manager. <strong>JGC · 613-932-1293</strong></footer>
+  </section>
   <script>if (new URLSearchParams(location.search).get('embedded') !== '1') { const u = new URL(location.href); u.searchParams.set('embedded', '1'); history.replaceState(null, '', u); }</script>
   <script src="vendor/supabase-js.min.js?v=1"></script>
   <script src="vendor/lucide.min.js"></script>
@@ -226,6 +299,6 @@
   <script src="job-board-report-pdf.js?v=6"></script>
   <script src="job-board-email.js?v=1"></script>
   <script src="safety-signature-pad.js?v=4"></script>
-  <script src="job-board.js?v=25"></script>
+  <script src="job-board.js?v=26"></script>
 </body>
 </html>

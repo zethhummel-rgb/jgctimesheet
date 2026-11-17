@@ -665,6 +665,102 @@ async function createDatabase() {
       await as('authenticated','admin');for(const kind of ['portal','site']){let before=null,events=[];do{const page=await rpc('select public.get_job_board_signins($1,$2,$3,1) result',[autoBoard.id,kind,before]);events.push(...page.events);before=page.next_before;}while(before);assert(events.every(e=>e.action===(kind==='portal'?'visit':'site-signin')));assert.equal(new Set(events.map(e=>e.id)).size,events.length);}
       await rejects('select public.get_job_board_signins($1,$2)',[autoBoard.id,'invalid'],/Portal|Site/i);await as('authenticated','staff');await rejects('select public.get_job_board_signins($1,$2)',[autoBoard.id,'portal']);await as('anon');await rejects('select public.get_job_board_signins($1,$2)',[autoBoard.id,'site']);
     });
+    await db.exec('reset role');
+    const migrationDir = path.join(__dirname,'../supabase/migrations');
+    const oldPrivacy = fs.readFileSync(path.join(migrationDir,'20261009175359_public_qr_privacy_1014.sql'),'utf8');
+    const oldAttendance = fs.readFileSync(path.join(migrationDir,'20261009180039_qr_identity_attendance_notifications_1014.sql'),'utf8');
+    const existingFunction = (source, name) => {
+      const start = source.indexOf('CREATE OR REPLACE FUNCTION private.'+name+'(');
+      const end = source.indexOf('$function$;',source.indexOf('AS $function$',start) + 13);
+      assert(start >= 0 && end > start, name);
+      return source.slice(start,end+'$function$;'.length);
+    };
+    await db.exec("alter table public.job_board_visitor_sessions add column purpose text not null default 'portal'; create table private.jgc_site_signin_confirmations(event_id uuid primary key);");
+    await db.exec(existingFunction(oldAttendance,'jgc_job_board_visit'));
+    await db.exec(existingFunction(oldPrivacy,'jgc1014_public_safety_model'));
+    await db.exec(existingFunction(oldPrivacy,'jgc_resolve_job_board_download_full_1014'));
+    const qrMigration = fs.readdirSync(migrationDir).find(name => name.endsWith('_job_board_public_qr_1082.sql'));
+    assert(qrMigration);
+    await db.exec(fs.readFileSync(path.join(migrationDir,qrMigration),'utf8'));
+    const priorRoster = fs.readFileSync(path.join(migrationDir,'20261006200000_job_board_deleted_reports_onsite_995.sql'),'utf8');
+    await db.exec(priorRoster.slice(priorRoster.indexOf('create or replace function public.get_job_board_onsite_today(')));
+
+
+    const qrBoard = (await db.query('select id,token from public.job_boards where id=$1',[board.id])).rows[0];
+    const otherQrBoard = (await db.query('select id,token from public.job_boards where id=$1',[otherBoard.id])).rows[0];
+    await db.query('update public.job_boards set enabled=true where id in ($1,$2)',[qrBoard.id,otherQrBoard.id]);
+    const idsByDoc = {};
+    for (const [name,scope,category,status,visibility,sourceType] of [
+      ['Test plan',qrBoard,'site-specific','published','public',null],
+      ['Draft plan',qrBoard,'site-specific','pending','public',null],
+      ['Restricted plan',qrBoard,'site-specific','published','restricted',null],
+      ['Daily JSA PDF',qrBoard,'jsa','published','public',null],
+      ['Inspection PDF',qrBoard,'inspection','published','public',null],
+      ['Mislabeled source',qrBoard,'site-specific','published','public','inspection_records'],
+      ['Another board plan',otherQrBoard,'site-specific','published','public',null]
+    ]) {
+      const id = require('node:crypto').randomUUID();
+      idsByDoc[name]=id;
+      await db.query(`insert into public.job_board_documents(id,board_id,category,title,report_date,file_name,mime_type,file_size,object_path,notes,status,visibility,source_type,created_by)
+        values($1,$2,$3,$4,current_date,'Test.pdf','application/pdf',22,$5,'PRIVATE UPLOAD NOTE',$6,$7,$8,$9)`,
+        [id,scope.id,category,name,scope.id+'/'+id+'/original.pdf',status,visibility,sourceType,ids.staff]);
+    }
+
+    const publicSafety = token => rpc('select public.get_job_board_public_safety($1) result',[token]);
+    const roster = (token,visit) => rpc('select public.get_job_board_site_roster($1,$2) result',[token,visit]);
+    const anonDownload = (token,doc) => rpc('select public.resolve_job_board_download($1,null,$2) result',[token,doc]);
+    await check('QR-only document list and download expose only published safety files for the correct board', async() => {
+      await as('anon');
+      const model = await publicSafety(qrBoard.token);
+      assert(model.documents.some(doc=>doc.id===idsByDoc['Test plan']));
+      assert(model.documents.some(doc=>doc.category==='jgc-policy' && doc.title==='JGC Safety Policy'));
+      for (const name of ['Draft plan','Restricted plan','Daily JSA PDF','Inspection PDF','Mislabeled source','Another board plan']) {
+        assert(!model.documents.some(doc=>doc.id===idsByDoc[name]),name);
+        await assert.rejects(()=>anonDownload(qrBoard.token,idsByDoc[name]),/unavailable/i);
+      }
+      const policy = model.documents.find(doc=>doc.category==='jgc-policy' && doc.title==='JGC Safety Policy');
+      assert.equal((await anonDownload(qrBoard.token,policy.id)).source_type,'policies');
+      assert.equal((await anonDownload(qrBoard.token,idsByDoc['Test plan'])).id,idsByDoc['Test plan']);
+      assert(!JSON.stringify(model).includes('PRIVATE UPLOAD NOTE'));
+      assert(!JSON.stringify(model).includes('object_path'));
+      await assert.rejects(()=>publicSafety('wrong-board'),/unavailable/i);
+      await rejects('select private.jgc_qr_safety_documents($1)',[qrBoard.id]);
+      await rejects('select * from public.job_board_documents');
+      await assert.rejects(()=>roster(qrBoard.token,null),/sign in/i);
+    });
+
+    await db.exec('reset role');
+    const syntheticVisit = require('node:crypto').randomUUID();
+    await db.query(`insert into public.job_board_visitor_sessions(board_id,token_hash,actor_name,actor_company,actor_email,identity_type)
+      values($1,private.jgc_job_board_token_hash($2),'QR Roster Visitor','QR Roster Company','private@example.invalid','visitor')`,[qrBoard.id,syntheticVisit]);
+    await db.query(`insert into public.job_board_activity(board_id,actor_name,actor_company,actor_email,identity_type,action,created_at) values
+      ($1,'QR Roster Visitor','QR Roster Company','private@example.invalid','visitor','site-signin',now()),
+      ($1,'qr roster visitor','QR Roster Company','private@example.invalid','visitor','site-signin',now()+interval '1 second'),
+      ($1,'Yesterday Person','Other','private@example.invalid','visitor','site-signin',now()-interval '1 day'),
+      ($2,'Another Job Person','Other','private@example.invalid','visitor','site-signin',now())`,[qrBoard.id,otherQrBoard.id]);
+    await check('roster requires a valid visit for this board and returns today’s people without emails',async()=>{
+      await as('anon');
+      const result=await roster(qrBoard.token,syntheticVisit);
+      const person=result.people.find(row=>row.name.toLowerCase()==='qr roster visitor');
+      assert(person && person.count===2);
+      assert(!JSON.stringify(result).includes('private@example.invalid'));
+      assert(!JSON.stringify(result).includes('Yesterday Person'));
+      assert(!JSON.stringify(result).includes('Another Job Person'));
+      await assert.rejects(()=>roster(otherQrBoard.token,syntheticVisit),/sign in/i);
+      await rejects('select private.jgc_job_board_roster_for_day($1,current_date)',[qrBoard.id]);
+      await as('authenticated','staff');
+      const original=await rpc('select public.get_job_board_onsite_today($1) result',[qrBoard.token]);
+      assert.deepEqual(original.people,result.people);
+      await db.exec('reset role');
+      await db.query("update public.job_board_visitor_sessions set expires_at=now()-interval '1 minute' where token_hash=private.jgc_job_board_token_hash($1)",[syntheticVisit]);
+      await as('anon');
+      await assert.rejects(()=>roster(qrBoard.token,syntheticVisit),/sign in/i);
+      await db.exec('reset role');
+      await db.query('update public.job_boards set enabled=false where id=$1',[qrBoard.id]);
+      await as('anon');
+      await assert.rejects(()=>publicSafety(qrBoard.token),/unavailable/i);
+      await assert.rejects(()=>anonDownload(qrBoard.token,idsByDoc['Test plan']),/unavailable/i);
+    });
     console.log(`${passed}/${passed+failures.length} local Job Board security groups passed. No production connections or writes.`);
     if(failures.length) process.exitCode=1;
   } finally { await db.close(); }
