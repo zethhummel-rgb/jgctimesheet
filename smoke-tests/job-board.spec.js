@@ -101,8 +101,8 @@ async function install(page, store, options = {}) {
     if (name === 'get_job_board_contacts') return store.failContacts ? route.fulfill({status:403,json:{message:'Contacts unavailable'}}) : route.fulfill({json:[{name:'Synthetic Office',role:'Project coordinator',phone:'613-555-0100',email:'office@example.test'},{name:'Synthetic Site Lead',role:'Supervisor',phone:null,email:null}]});
     if (name === 'get_job_board_signins') { const events = (store.activityPages || store.events).filter(e=>e.action===(args.p_kind==='site'?'site-signin':'visit')); const start = args.p_before ? events.findIndex((event) => event.created_at === args.p_before) + 1 : 0; const batch = events.slice(start, start + args.p_limit); return route.fulfill({ json: { events: batch, next_before: start + batch.length < events.length ? batch.at(-1).created_at : null } }); }
     if (name === 'log_job_board_activity') { store.events.push({ id: 'document-event', actor_name: 'Synthetic user', identity_type: role === 'guest' ? 'visitor' : 'staff', action: args.p_action, document_title: store.documentRows.find((d) => d.id === args.p_document_id)?.title, created_at: new Date().toISOString() }); return route.fulfill({ json: {} }); }
-    if (name === 'begin_job_board_upload') return route.fulfill({ json: { id: '00000000-0000-4000-8000-000000000007', object_path: BOARD_ID + '/paper-upload.pdf' } });
-    if (name === 'finalize_job_board_upload') return store.storageReady ? route.fulfill({ json: {} }) : route.fulfill({ status: 403, json: { message: 'The original object has not finished uploading' } });
+    if (name === 'begin_job_board_upload') { store.uploadDocument = { id: '00000000-0000-4000-8000-000000000007', title: args.p_title, category: args.p_category, file_name: args.p_file_name, mime_type: args.p_mime_type, report_date: args.p_report_date, visibility: args.p_category === 'accident-incident' ? 'restricted' : 'public', status: 'uploading' }; return route.fulfill({ json: { id: store.uploadDocument.id, object_path: BOARD_ID + '/paper-upload.pdf' } }); }
+    if (name === 'finalize_job_board_upload') { if (!store.storageReady) return route.fulfill({ status: 403, json: { message: 'The original object has not finished uploading' } }); const doc = store.uploadDocument; doc.status = store.finalizePending ? 'pending' : 'published'; if (!store.documentRows.includes(doc)) store.documentRows.push(doc); return route.fulfill({ json: { id: doc.id, status: doc.status } }); }
     if (name === 'list_job_board_sources') return route.fulfill({ json: store.sources });
     if (name === 'attach_job_board_report') { const source = store.sources.find((s) => s.source_id === args.p_source_id); store.documentRows.push({ id: 'imported-document', ...source, file_name: 'Source-report.pdf', status: source.source_type === 'policies' ? 'pending' : 'published', visibility: source.category === 'accident-incident' || source.source_type === 'policies' ? 'restricted' : 'public', mime_type: 'application/pdf' }); store.sources = store.sources.filter((s) => s !== source); return route.fulfill({ json: {} }); }
     if (name === 'review_job_board_document') { const doc = store.documentRows.find((d) => d.id === args.p_document_id); if (doc) { doc.status = args.p_status; doc.visibility = args.p_visibility; } return route.fulfill({ json: {} }); }
@@ -212,7 +212,7 @@ test('staff direct sign-in verifies profile, preserves job context, and retries 
   await page.evaluate(() => { window.boardUploadAttempts = 0; window.uploadJgcFile = async () => { if (++window.boardUploadAttempts === 1) return { error: { message: 'Synthetic connection loss' } }; await window.fixtureBoardStorageComplete(); return { data: {} }; }; });
   await page.getByLabel('Title', { exact: true }).fill('Paper JSA for review'); await page.locator('#uploadFiles').setInputFiles({ name: 'paper-jsa.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\nSynthetic upload') }); await page.locator('#uploadSubmit').click();
   await expect(page.locator('#uploadStatus')).toContainText('Synthetic connection loss'); await expect(page.locator('#uploadTitle')).toHaveValue('Paper JSA for review'); expect(await page.locator('#uploadFiles').evaluate((e) => e.files.length)).toBe(1); expect(store.calls.filter((c) => c.name === 'finalize_job_board_upload')).toHaveLength(0);
-  await page.locator('#uploadSubmit').click(); await expect(page.locator('#uploadStatus')).toContainText('1 file uploaded for office review'); expect(store.calls.filter((c) => c.name === 'begin_job_board_upload')).toHaveLength(1); expect(store.calls.filter((c) => c.name === 'finalize_job_board_upload')).toHaveLength(2); expect(await page.locator('#uploadFiles').evaluate((e) => e.files.length)).toBe(0);
+  await page.locator('#uploadSubmit').click(); await expect(page.locator('#uploadStatus')).toContainText('1 file published on the Job Board'); expect(store.calls.filter((c) => c.name === 'begin_job_board_upload')).toHaveLength(1); expect(store.calls.filter((c) => c.name === 'finalize_job_board_upload')).toHaveLength(2); expect(await page.locator('#uploadFiles').evaluate((e) => e.files.length)).toBe(0);
   expect(store.calls.find((c) => c.name === 'begin_job_board_upload').args).toMatchObject({ p_board_id: BOARD_ID, p_category: 'jsa', p_title: 'Paper JSA for review', p_file_name: 'paper-jsa.pdf', p_mime_type: 'application/pdf' });
 });
 
@@ -317,7 +317,30 @@ test('lost successful upload response finalizes the stored original without a du
   const store = await open(page, 'staff'); await page.getByRole('tab', { name: /^(Upload|Create Todays Reports)$/, exact: true }).click(); await page.getByLabel('Title', { exact: true }).fill('JSA with a lost response'); await page.locator('#uploadFiles').setInputFiles({ name: 'stored-jsa.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\nSynthetic stored file') });
   await page.evaluate(() => { window.fixtureLostResponseTransfers = 0; window.uploadJgcFile = async () => { window.fixtureLostResponseTransfers++; await window.fixtureBoardStorageComplete(); return { error: { message: 'Response lost after file stored' } }; }; });
   await page.locator('#uploadSubmit').click(); await expect(page.locator('#uploadStatus')).toContainText('Response lost after file stored'); expect(store.storageReady).toBe(true); expect(store.calls.filter((c) => c.name === 'finalize_job_board_upload')).toHaveLength(0);
-  await page.locator('#uploadSubmit').click(); await expect(page.locator('#uploadStatus')).toContainText('1 file uploaded for office review'); expect(await page.evaluate(() => window.fixtureLostResponseTransfers)).toBe(1); expect(store.calls.filter((c) => c.name === 'begin_job_board_upload')).toHaveLength(1); expect(store.calls.filter((c) => c.name === 'finalize_job_board_upload')).toHaveLength(1);
+  await page.locator('#uploadSubmit').click(); await expect(page.locator('#uploadStatus')).toContainText('1 file published on the Job Board'); expect(await page.evaluate(() => window.fixtureLostResponseTransfers)).toBe(1); expect(store.calls.filter((c) => c.name === 'begin_job_board_upload')).toHaveLength(1); expect(store.calls.filter((c) => c.name === 'finalize_job_board_upload')).toHaveLength(1);
+});
+
+test('a pending upload is not reported as published and keeps the selected file for retry', async ({ page }) => {
+  const store = await open(page, 'staff'); store.finalizePending = true;
+  await page.getByRole('tab', { name: /^(Upload|Create Todays Reports)$/, exact: true }).click();
+  await page.getByLabel('Title', { exact: true }).fill('Pending report');
+  await page.locator('#uploadFiles').setInputFiles({ name: 'pending.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\nPending') });
+  await page.evaluate(() => { window.uploadJgcFile = async () => { await window.fixtureBoardStorageComplete(); return { data: {} }; }; });
+  await page.locator('#uploadSubmit').click();
+  await expect(page.locator('#uploadStatus')).toContainText('has not been published');
+  expect(await page.locator('#uploadFiles').evaluate(e => e.files.length)).toBe(1);
+  expect(store.calls.filter(c => c.name === 'begin_job_board_upload')).toHaveLength(1);
+});
+
+test('uploaded accident reports stay restricted on the board', async ({ page }) => {
+  const store = await open(page, 'staff');
+  await page.getByRole('tab', { name: /^(Upload|Create Todays Reports)$/, exact: true }).click();
+  await page.locator('#uploadCategory').selectOption('accident-incident');
+  await page.getByLabel('Title', { exact: true }).fill('Restricted accident');
+  await page.locator('#uploadFiles').setInputFiles({ name: 'accident.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\nRestricted') });
+  await page.evaluate(() => { window.uploadJgcFile = async () => { await window.fixtureBoardStorageComplete(); return { data: {} }; }; });
+  await page.locator('#uploadSubmit').click(); await expect(page.locator('#uploadStatus')).toContainText('1 file published on the Job Board');
+  expect(store.uploadDocument).toMatchObject({ status: 'published', visibility: 'restricted' });
 });
 
 test('an exact 50-event terminal activity page honors the explicit null server cursor', async ({ page }) => {
@@ -748,7 +771,7 @@ test('Portal and Site admin sign-in tabs page independently and poster carries b
   const store=await open(page,'admin');store.activityPages=Array.from({length:52},(_,i)=>({id:'portal-'+i,action:'visit',actor_name:'Portal person '+i,actor_company:'Company',identity_type:'visitor',created_at:new Date(Date.now()-i*1000).toISOString()})).concat(Array.from({length:52},(_,i)=>({id:'site-'+i,action:'site-signin',actor_name:'Site person '+i,actor_company:'Company',created_at:new Date(Date.now()-i*1000).toISOString()})));
   await page.locator('#boardActivity summary').click();await expect(page.locator('#activityList')).toContainText('Portal person');await expect(page.locator('#activityList')).not.toContainText('Site person');await page.locator('#activityMore').click();await expect(page.locator('#activityList .board-activity-row')).toHaveCount(52);
   await page.locator('#boardSiteActivity summary').click();await expect(page.locator('#siteActivityList .board-activity-row')).toHaveCount(50);await expect(page.locator('#siteActivityList')).not.toContainText('Portal person');await page.locator('#siteActivityMore').click();await expect(page.locator('#siteActivityList .board-activity-row')).toHaveCount(52);await expect(page.locator('#activityList .board-activity-row')).toHaveCount(52);
-  expect(store.calls.filter(c=>c.name==='get_job_board_signins').map(c=>c.args.p_kind)).toEqual(['portal','portal','site','site']);await page.emulateMedia({media:'print'});await expect(page.locator('#boardPoster h1')).toHaveText('JGC Job Board');await expect(page.locator('#boardPoster h3')).toHaveText(['Scan the QR code','View safety information','Sign in to site']);
+  expect(store.calls.filter(c=>c.name==='get_job_board_signins').map(c=>c.args.p_kind)).toEqual(['portal','portal','site','site']);await page.emulateMedia({media:'print'});await expect(page.locator('#boardPoster h1')).toHaveText('JGC Job Board');await expect(page.locator('#boardPoster h3')).toHaveText(['SCAN HERE','View safety information','Sign in to site']);
   await expect(page.locator('#boardPoster')).toContainText('Ontario OHSA & Construction Regulations');
   await expect(page.locator('#boardPoster')).toContainText('JGC Health & Safety Policy');
   await expect(page.locator('#boardPoster')).toContainText('Site Specific Safety Plan');
@@ -1079,7 +1102,7 @@ for (const width of [390, 1440]) test(`published SDS sheets have a collapsed job
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
 
-test('approved staff can upload an SDS sheet using the existing review workflow', async ({ page }) => {
+test('approved staff can publish an SDS sheet by uploading it', async ({ page }) => {
   const store = await open(page, 'staff');
   await page.getByRole('tab', { name: 'Create Todays Reports', exact: true }).click();
   await page.locator('#uploadCategory').selectOption('sds');
@@ -1087,9 +1110,12 @@ test('approved staff can upload an SDS sheet using the existing review workflow'
   await page.evaluate(() => { window.uploadJgcFile = async () => { await window.fixtureBoardStorageComplete(); return { data: {} }; }; });
   await page.locator('#uploadFiles').setInputFiles({ name: 'Cleaner-SDS.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\nSynthetic SDS upload') });
   await page.locator('#uploadSubmit').click();
-  await expect(page.locator('#uploadStatus')).toContainText('1 file uploaded for office review');
+  await expect(page.locator('#uploadStatus')).toContainText('1 file published on the Job Board');
   expect(store.calls.find(c => c.name === 'begin_job_board_upload').args).toMatchObject({ p_category: 'sds', p_title: 'Concrete cleaner SDS', p_file_name: 'Cleaner-SDS.pdf' });
   expect(store.calls.filter(c => c.name === 'finalize_job_board_upload')).toHaveLength(1);
+  await page.getByRole('tab', { name: 'Documents', exact: true }).click();
+  await page.locator('#signedInSafety').click();
+  await expect(page.locator('#public-sdsList')).toContainText('Concrete cleaner SDS');
 });
 
 for (const width of [390, 1440]) test(`Ontario legislation has its own collapsed section at ${width}`, async ({ page }) => {
@@ -1114,7 +1140,7 @@ for (const width of [390, 1440]) test(`Ontario legislation has its own collapsed
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
 
-test('staff upload Ontario legislation for office review', async ({ page }) => {
+test('staff publish Ontario legislation by uploading it', async ({ page }) => {
   const store = await open(page, 'staff');
   await page.getByRole('tab', { name: 'Create Todays Reports', exact: true }).click();
   await page.locator('#uploadCategory').selectOption('ontario-legislation');
@@ -1122,7 +1148,7 @@ test('staff upload Ontario legislation for office review', async ({ page }) => {
   await page.evaluate(() => { window.uploadJgcFile = async () => { await window.fixtureBoardStorageComplete(); return { data: {} }; }; });
   await page.locator('#uploadFiles').setInputFiles({ name: 'Act.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\\nSynthetic upload') });
   await page.locator('#uploadSubmit').click();
-  await expect(page.locator('#uploadStatus')).toContainText('1 file uploaded for office review');
+  await expect(page.locator('#uploadStatus')).toContainText('1 file published on the Job Board');
   expect(store.calls.find(c => c.name === 'begin_job_board_upload').args).toMatchObject({ p_category: 'ontario-legislation', p_title: 'Ontario Health and Safety Act', p_file_name: 'Act.pdf' });
   expect(store.calls.filter(c => c.name === 'finalize_job_board_upload')).toHaveLength(1);
 });

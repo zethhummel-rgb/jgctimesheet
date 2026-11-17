@@ -170,7 +170,7 @@
       </div>
 
       <section class="jgc-panel" id="uploadPanel" role="tabpanel" aria-labelledby="uploadTab" hidden>
-        <div class="board-section-heading"><div><h2 class="jgc-section-title">Upload a site document</h2><p>Send a scanned paper form, PDF or photo to this job’s review queue.</p></div><span class="jgc-badge jgc-badge--warning">Office review</span></div>
+        <div class="board-section-heading"><div><h2 class="jgc-section-title">Upload a site document</h2><p>Add a scanned paper form, PDF or photo to this Job Board.</p></div></div>
         <div id="uploadSignIn" class="jgc-notice" hidden><p>Uploads are available to signed-in JGC staff.</p><button class="jgc-button" id="uploadSignInButton" type="button">Staff sign-in</button></div>
         <section id="createForms" class="board-create-forms" hidden aria-labelledby="createFormsTitle"><h3 id="createFormsTitle" class="jgc-section-title">Create a form for this job</h3><p class="board-help">Open a Portal form with this job selected. Saved staff forms appear on this Job Board automatically. Accident and injury reports remain restricted.</p><div id="createFormLinks" class="board-actions"></div></section>
         <form id="uploadForm" class="board-form" hidden>
@@ -181,17 +181,17 @@
             <div class="jgc-field jgc-field--full"><label class="jgc-label" for="uploadNotes">Notes <span class="board-help">(optional)</span></label><textarea class="jgc-textarea" id="uploadNotes" rows="3" maxlength="2000" placeholder="Add context for the office…"></textarea></div>
             <div class="jgc-field jgc-field--full"><label class="jgc-label" for="uploadFiles">PDF or photos</label><input class="jgc-input" id="uploadFiles" type="file" accept="application/pdf,image/jpeg,image/png,image/webp,.pdf,.jpg,.jpeg,.png,.webp" multiple required><p class="board-help">PDF, JPG, PNG or WebP. Up to 20 MB per file. Choose multiple photos for a daily report.</p><div id="uploadFileList" class="board-upload-files"></div></div>
           </div>
-          <div class="jgc-notice jgc-notice--warning board-upload-note">Uploads remain private until the office reviews and publishes them. Accident and incident reports always require authorized sign-in.</div>
+          <div class="jgc-notice board-upload-note">Uploaded documents appear on the Job Board. Accident and incident reports always require authorized sign-in.</div>
           <progress id="uploadProgress" max="100" value="0" hidden aria-label="File upload progress"></progress>
           <p id="uploadStatus" class="board-form-status" role="status" aria-live="polite"></p>
-          <button class="jgc-button" id="uploadSubmit" type="submit">Upload for review</button>
+          <button class="jgc-button" id="uploadSubmit" type="submit">Upload to Job Board</button>
         </form>
       </section>
 
       <section class="jgc-panel" id="reviewPanel" role="tabpanel" aria-labelledby="reviewTab" hidden>
         <div class="board-section-heading"><div><h2 class="jgc-section-title">Review uploads</h2><p>Check the document, type and date before publishing. Pending files are private.</p></div></div>
         <div id="reviewList" class="jgc-record-list" data-testid="review-list"></div>
-        <details id="boardImport" class="board-settings"><summary>Attach an existing Portal report or policy</summary><div class="board-details-content"><p class="board-help">These reports match this job number, or are company policies. Saved staff reports publish automatically. Company policy imports and uploaded paper files still require office review.</p><button class="jgc-button jgc-button--secondary" id="importRefresh" type="button">Refresh available reports</button><p id="importStatus" class="board-form-status" role="status" aria-live="polite"></p><div id="importList" class="jgc-record-list"></div></div></details>
+        <details id="boardImport" class="board-settings"><summary>Attach an existing Portal report or policy</summary><div class="board-details-content"><p class="board-help">These reports match this job number, or are company policies. Saved staff reports publish automatically. Company policy imports require office review.</p><button class="jgc-button jgc-button--secondary" id="importRefresh" type="button">Refresh available reports</button><p id="importStatus" class="board-form-status" role="status" aria-live="polite"></p><div id="importList" class="jgc-record-list"></div></div></details>
       </section>
 
       <section class="jgc-panel board-admin-panel" id="boardViewersPanel" hidden>
@@ -302,6 +302,6 @@
   <script src="job-board-report-pdf.js?v=6"></script>
   <script src="job-board-email.js?v=1"></script>
   <script src="safety-signature-pad.js?v=4"></script>
-  <script src="job-board.js?v=27"></script>
+  <script src="job-board.js?v=28"></script>
 </body>
 </html>
