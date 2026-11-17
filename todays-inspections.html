@@ -479,6 +479,14 @@ function renderInspectionEmailCell(record) {
     return `<button class="email-button jgc-button" onclick="emailSavedInspection('${escapeHtml(record.id)}')">Email</button>`;
 }
 
+function renderJsaCopyCell(record) {
+    const current = getCurrentWorkerRecord();
+    if (!current.key || current.status !== "approved" || !record.id || record.not_activated
+        || String(record.inspection_type || "").toLowerCase() !== "jsa"
+        || (record.report_source && record.report_source !== "inspection_records")) return "-";
+    return `<a class="jgc-button jgc-button--secondary" href="jsa.html?copy=${encodeURIComponent(record.id)}">Copy to new day</a>`;
+}
+
 function renderInspectionDeleteCell(record) {
     if (!currentWorkerCanManageInspection(record)) return "-";
     if (isToolboxTalkReportRecord(record)) return "-";
@@ -798,7 +806,7 @@ function renderRecordCard(record) {
     const details = buildCardDetails(record);
     const status = isSafetyAckRecord(record) ? renderJsaAcknowledgementSummary(record) : "";
     const actions = [];
-    [renderInspectionViewCell(record), renderInspectionEditCell(record), renderInspectionPdfCell(record), renderInspectionEmailCell(record), renderInspectionDeleteCell(record)]
+    [renderInspectionViewCell(record), renderInspectionEditCell(record), renderInspectionPdfCell(record), renderJsaCopyCell(record), renderInspectionEmailCell(record), renderInspectionDeleteCell(record)]
         .forEach((html) => {
             if (html && html !== "-" && !actions.includes(html)) {
                 actions.push(html);

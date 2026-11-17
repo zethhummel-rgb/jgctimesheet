@@ -246,6 +246,14 @@ function renderPreviousPdfCell(record) {
     return `<button class="download-button jgc-button" onclick="downloadInspectionPdf('${escapeHtml(record.id)}')">Download PDF</button>`;
 }
 
+function renderJsaCopyCell(record) {
+    const current = getCurrentWorkerRecord();
+    if (!current.key || current.status !== "approved" || !record.id || record.not_activated
+        || String(record.inspection_type || "").toLowerCase() !== "jsa"
+        || (record.report_source && record.report_source !== "inspection_records")) return "-";
+    return `<a class="jgc-button jgc-button--secondary" href="jsa.html?copy=${encodeURIComponent(record.id)}">Copy to new day</a>`;
+}
+
 function renderPreviousEmailCell(record) {
     if (isToolboxTalkReportRecord(record)) {
         return `<button class="email-button jgc-button" onclick="emailPreviousToolboxReport('${escapeHtml(record.id)}')">Email</button>`;
@@ -646,7 +654,7 @@ function renderRecordCard(record) {
     const recordDate = formatCardDate(record.report_date || record.inspection_date);
     const savedDate = formatCardDate(record.created_at);
     const actions = [];
-    [renderPreviousViewCell(record), renderPreviousPdfCell(record), renderPreviousEmailCell(record), renderPreviousDeleteCell(record)]
+    [renderPreviousViewCell(record), renderPreviousPdfCell(record), renderJsaCopyCell(record), renderPreviousEmailCell(record), renderPreviousDeleteCell(record)]
         .forEach((html) => {
             if (html && html !== "-" && !actions.includes(html)) {
                 actions.push(html);

@@ -2,6 +2,12 @@
 
 ## Daily JSA
 
+### Copy a previous JSA to a new day
+
+On a new JSA, select the job and open **Copy a previous JSA**, or use **Copy to new day** on a JSA in Today's Reports or Previous Reports. Choose the source and a new work date, then copy. The source list matches the selected job number (or the exact manual job name) and uses existing signed-in record access.
+
+Only job details, work conditions and task/hazard/control text are restored as editable form content. The new date is applied, the supervisor is the current user, and Reviewed By, Workers Onsite and all signatures/sign-offs start empty. Review the new day's conditions and select its crew before saving. Copying itself makes no server writes; saving uses the existing new-record workflow and fresh IDs. Future dates follow the existing staff/admin preparation flows. An in-flight save prevents copying, and a saved or offline-queued JSA cannot be replaced by another copy. The original record, signatures and JSA PDF template are unchanged.
+
 The existing QR Code, Employee Signature and Creator Sign Off choices remain in place. The existing signature pad, public/account acknowledgement RPCs, notification helpers, late-worker flow and final-submit gate are unchanged. Task rows stack on phones and keep the existing three-cell saved-record format.
 
 The construction library contains 20 editable starter activities. Search matches task names, hazards and controls/PPE. Select the relevant hazards and controls, insert a task, then tailor its text to actual site conditions. Multiple hazards and controls remain separate lines. Insertion does not change the library or other JSAs.

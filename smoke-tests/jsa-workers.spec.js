@@ -222,3 +222,281 @@ for(const width of [390,1440])test(`listed employee signs only their own outstan
  await expect(panel.locator('[data-jsa-own-sign]')).toHaveCount(0);expect(store.model.acknowledgements[0].signature_signed_at).toBeTruthy();expect(store.model.acknowledgements[1].signature_signed_at).toBeNull();expect(store.model.workflow.outstanding).toBe(1);
  expect(store.calls.filter(c=>c.name==='sign_jsa_worker').at(-1).args.p_acknowledgement_id).toBe(store.model.acknowledgements[0].id);
 });
+
+const copyJobs = [
+ {id:'copy-job-1',job_number:'26152',job_name:'Trailer Prep',address:'1 Water Street',active:true},
+ {id:'copy-job-2',job_number:'26153',job_name:'Other Project',address:'2 Water Street',active:true}
+];
+function copySource(id='00000000-0000-4000-8000-000000000090',job=copyJobs[0],workDate='2026-01-15') {
+ return {
+  id,inspection_type:'JSA',inspection_date:workDate,title:'JSA - '+workDate,
+  worker_name:'previous author',worker_display_name:'Previous Author',created_by:'previous-user',created_at:workDate+'T12:00:00Z',
+  form_data:{
+   fields:[{label:'Contractor',value:'John Gordon Construction'},{label:'Project / Job',value:job.job_number+' - '+job.job_name},
+    {label:'Address',value:job.address},{label:'General location on site',value:'North stairwell'},
+    {label:'Date',value:workDate},{label:'Contractor Supervisor',value:'Previous Supervisor'},{label:'Reviewed By',value:'Previous Reviewer'},
+    {label:'Elevated Work',value:'Yes'},{label:'Workers Onsite (Print Names)',value:'Previously Signed Worker'},
+    {label:'Unrecognized hidden field',value:'should not be copied'}],
+   rows:[{table:1,cells:['Install blocking','Sharp edges\nWorking at height','Wear gloves\nUse guardrails']}],
+   job_context:{jobNumber:job.job_number,jobName:job.job_name,project:job.job_number+' - '+job.job_name,job_board_id:'old-board-id'},
+   offline_submission_id:'original-submission',jsa_worker_workflow_version:2,
+   workers_on_site:[{employee_id:worker.id,name:'Previously Signed Worker',company:'Old Company'}],
+   signature_strokes:[[[0.1,0.1],[0.9,0.9]]]
+  },
+  jsa_workflow:{version:2,revision:7,status:'Completed',requested_at:workDate+'T13:00:00Z',completed_at:workDate+'T14:00:00Z',signed:1},
+  safety_acknowledgements:[{id:'old-ack',matched_employee_id:worker.id,attendee_name:'Previously Signed Worker',signature_signed_at:workDate+'T14:00:00Z',signature_strokes:[[[0.1,0.1],[0.9,0.9]]]}]
+ };
+}
+async function copyFixture(page,{isAdmin=false,sources=[copySource()],fail=false}={}) {
+ const store=await fixture(page,copyJobs,isAdmin),requests=[];
+ await page.route('**/rest/v1/inspection_records*',async route=>{
+  const request=route.request(),url=new URL(request.url());requests.push({method:request.method(),url:url.toString()});
+  if(request.method()!=='GET')return route.fulfill({status:405,json:{message:'Copy must never write the source record'}});
+  if(fail)return route.fulfill({status:403,json:{message:'Source JSA unavailable'}});
+  const id=url.searchParams.get('id')?.replace(/^eq\./,'');
+  let records=id?sources.filter(record=>record.id===id):sources;
+  if(!id)records=records.filter(record=>String(record.inspection_type).toLowerCase()==='jsa');
+  const offset=Number(url.searchParams.get('offset')||0),limit=Number(url.searchParams.get('limit')||1000);
+  records=records.slice(offset,offset+limit);
+  return route.fulfill({json:String(request.headers().accept||'').includes('object')?(records[0]||null):records});
+ });
+ return {store,requests,sources};
+}
+function copyWrites(store) { return store.calls.filter(call=>/save_worker_jsa|save_prepared_jsa|request_jsa_worker_signoff|activate_prepared|sign_jsa_worker/.test(call.name)); }
+
+for(const width of [390,1440])test(`copy JSA to a new day preserves source and starts fresh signatures ${width}`,async({page},info)=>{
+ await page.setViewportSize({width,height:900});
+ const {store,sources,requests}=await copyFixture(page),original=JSON.stringify(sources[0]);
+ await page.goto('/jsa.html?copy='+sources[0].id);
+ await expect(page.locator('#jsaCopyPanel')).toHaveAttribute('open','');
+ await expect(page.locator('#jsaCopySource')).toHaveValue(sources[0].id);
+ await expect(page.locator('#jsaCopyDate')).toHaveValue(date());
+ expect(copyWrites(store)).toHaveLength(0);
+ if(width===390)for(const theme of ['light','dark']){
+  await page.evaluate(theme=>applyJgcTheme(theme),theme);
+  await page.locator('#jsaCopyPanel').evaluate(element=>{element.scrollIntoView({block:'start'});window.scrollBy(0,-110);});
+  await page.locator('#jsaCopyPanel').screenshot({path:info.outputPath('source-panel-'+theme+'.png')});
+ }
+ await page.evaluate(()=>applyJgcTheme('light'));
+ await page.locator('#jsaCopyApply').click();
+ await expect(page.locator('#tableBody textarea').nth(0)).toHaveValue('Install blocking');
+ await expect(page.locator('#tableBody textarea').nth(1)).toHaveValue('Sharp edges\nWorking at height');
+ await expect(page.locator('#tableBody textarea').nth(2)).toHaveValue('Wear gloves\nUse guardrails');
+ await expect(page.locator('#jsaField1')).toHaveValue('26152 - Trailer Prep');
+ await expect(page.locator('#jsaField2')).toHaveValue('1 Water Street');
+ await expect(page.locator('#jsaSiteLocation')).toHaveValue('North stairwell');
+ await expect(page.locator('#jsaField3')).toHaveValue(date());
+ await expect(page.locator('#jsaField4')).toHaveValue(creator.display_name);
+ await expect(page.locator('#jsaField5')).toHaveValue('');
+ await expect(page.getByLabel('Elevated Work',{exact:true})).toBeChecked();
+ await expect(page.locator('#crewSignOffCombined')).toHaveValue('');
+ await expect(page.locator('#jsaPostSaveQrPanel')).toBeHidden();
+ expect(copyWrites(store)).toHaveLength(0);
+ if(width===390)for(const theme of ['light','dark']){
+  await page.evaluate(theme=>applyJgcTheme(theme),theme);
+  await page.locator('#jsaCopyPanel').evaluate(element=>{element.scrollIntoView({block:'start'});window.scrollBy(0,-110);});
+  await page.locator('#jsaCopyPanel').screenshot({path:info.outputPath('ready-panel-'+theme+'.png')});
+ }
+ await page.evaluate(()=>applyJgcTheme('light'));
+ await page.locator('#tableBody textarea').nth(0).fill('Install new blocking');
+ await page.locator('#approvedCrewSelect').selectOption(worker.worker_key);
+ await page.locator('#jsaSaveWorkerDraft').click();
+ await expect.poll(()=>store.calls.filter(call=>call.name==='save_worker_jsa').length).toBe(1);
+ const saved=store.calls.find(call=>call.name==='save_worker_jsa').args;
+ expect(saved.p_id).not.toBe(sources[0].id);expect(saved.p_revision).toBe(0);
+ expect(saved.p_payload.inspection_date).toBe(date());expect(saved.p_payload.worker_name).toBe(creator.worker_key);
+ expect(saved.p_payload.form_data.offline_submission_id).not.toBe('original-submission');
+ expect(saved.p_payload.form_data.job_context).toMatchObject({jobNumber:'26152',jobName:'Trailer Prep'});
+ expect(saved.p_payload.form_data.job_context.job_board_id).toBeUndefined();
+ expect(saved.p_payload.form_data.rows[0].cells[0]).toBe('Install new blocking');
+ expect(saved.p_payload.form_data.fields).toContainEqual({label:'Elevated Work',value:'Yes'});
+ expect(JSON.stringify(saved)).not.toMatch(/old-ack|Previously Signed Worker|Previous Reviewer|original-submission|old-board-id|signature_strokes|previous-user/);
+ expect(store.model.acknowledgements).toHaveLength(1);expect(store.model.acknowledgements[0].signature_signed_at).toBeNull();
+ expect(JSON.stringify(sources[0])).toBe(original);expect(requests.every(request=>request.method==='GET')).toBe(true);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ await page.screenshot({path:info.outputPath('copied-jsa-'+width+'.png'),fullPage:true});
+ await page.goto('/jsa.html?record='+saved.p_id);await expect(page.locator('#jsaCopyPanel')).toBeHidden();
+ await expect(page.getByLabel('Elevated Work',{exact:true})).toBeChecked();
+});
+
+test('copy JSA picker shows only the selected job and switches jobs without stale choices',async({page})=>{
+ const first=copySource(),second=copySource('00000000-0000-4000-8000-000000000091',copyJobs[1]);
+ await copyFixture(page,{sources:[first,second]});await page.goto('/jsa.html');
+ await page.locator('#jsaField1Select').selectOption('26152 - Trailer Prep');
+ await page.locator('#jsaCopyPanel > summary').click();
+ await expect(page.locator('#jsaCopySource option[value="'+first.id+'"]')).toHaveCount(1);
+ await expect(page.locator('#jsaCopySource option[value="'+second.id+'"]')).toHaveCount(0);
+ await page.locator('#jsaField1Select').selectOption('26153 - Other Project');
+ await expect(page.locator('#jsaCopySource option[value="'+second.id+'"]')).toHaveCount(1);
+ await expect(page.locator('#jsaCopySource option[value="'+first.id+'"]')).toHaveCount(0);
+ await page.locator('#jsaCopySource').selectOption(second.id);await page.locator('#jsaCopyApply').click();
+ await expect(page.locator('#jsaField1')).toHaveValue('26153 - Other Project');
+ await expect(page.locator('#jsaField2')).toHaveValue('2 Water Street');
+});
+
+for(const isAdmin of [false,true])test(`copy JSA to future day saves prepared without signatures for ${isAdmin?'admin':'staff'}`,async({page})=>{
+ const {store,sources}=await copyFixture(page,{isAdmin});await page.goto('/jsa.html?copy='+sources[0].id);
+ await expect(page.locator('#jsaCopySource')).toHaveValue(sources[0].id);
+ await page.locator('#jsaCopyDate').fill(future());await page.locator('#jsaCopyApply').click();
+ await expect(page.locator('#jsaField3')).toHaveValue(future());
+ await page.locator('#approvedCrewSelect').selectOption(worker.worker_key);
+ await page.locator(isAdmin?'#jsaSaveDraft':'#jsaSaveWorkerDraft').click();
+ const name=isAdmin?'save_prepared_jsa':'save_worker_jsa';
+ await expect.poll(()=>store.calls.filter(call=>call.name===name).length).toBe(1);
+ const args=store.calls.find(call=>call.name===name).args,record=isAdmin?args.p_payload.record:args.p_payload;
+ expect(record.inspection_date).toBe(future());expect(args.p_id).not.toBe(sources[0].id);expect(args.p_revision).toBe(0);
+ expect(record.form_data.rows[0].cells[0]).toBe('Install blocking');
+ expect(copyWrites(store).map(call=>call.name)).toEqual([name]);
+ await expect(page.locator(isAdmin?'#jsaActivate':'#jsaCompleteWorkers')).toBeDisabled();
+});
+
+test('copy JSA lookup failure keeps current entries and does not save anything',async({page})=>{
+ const {store,sources}=await copyFixture(page,{fail:true});await page.goto('/jsa.html?copy='+sources[0].id);
+ await expect(page.locator('#jsaCopyStatus')).toContainText(/could not|unavailable|unable/i);
+ await expect(page.locator('#jsaCopyApply')).toBeDisabled();
+ await page.locator('#tableBody textarea').nth(0).fill('Keep my work');
+ await expect(page.locator('#tableBody textarea').nth(0)).toHaveValue('Keep my work');
+ expect(copyWrites(store)).toHaveLength(0);
+});
+
+test('copy JSA is unavailable when reopening an existing record or prepared JSA',async({page})=>{
+ const {store,sources,requests}=await copyFixture(page,{isAdmin:true});
+ await fill(page);await page.locator('#jsaSaveWorkerDraft').click();
+ await expect.poll(()=>store.model?.record?.id).toBeTruthy();
+ const savedId=store.model.record.id;
+ await page.goto('/jsa.html?record='+savedId+'&copy='+sources[0].id);
+ await expect(page.locator('#tableBody textarea').nth(0)).toHaveValue('Install blocking');
+ await expect(page.locator('#jsaCopyPanel')).toBeHidden();
+ const preparedId='00000000-0000-4000-8000-000000000092';
+ store.savedDraft={id:preparedId,revision:1,activated_at:null,payload:{record:{inspection_date:future(),form_data:{fields:[{label:'Date',value:future()},{label:'Project / Job',value:'26152 - Trailer Prep'}],rows:[{table:1,cells:['Prepared task','Hazard','Control']}]}},crew:[],manual:[]}};
+ await page.goto('/jsa.html?prepared='+preparedId+'&copy='+sources[0].id);
+ await expect(page.locator('#tableBody textarea').nth(0)).toHaveValue('Prepared task');
+ await expect(page.locator('#jsaCopyPanel')).toBeHidden();
+ expect(requests.some(request=>new URL(request.url).searchParams.get('id')==='eq.'+sources[0].id)).toBe(false);
+ expect(copyWrites(store).map(call=>call.name)).toEqual(['save_worker_jsa']);
+});
+
+test('copy JSA rejects a source from a different signed-in Job Board',async({page})=>{
+ const {store,sources}=await copyFixture(page);
+ await page.route('**/rest/v1/profiles*',route=>route.fulfill({json:String(route.request().headers().accept||'').includes('object')?creator:[creator]}));
+ await page.route('**/rest/v1/rpc/get_job_board',route=>route.fulfill({json:{id:'locked-board',job_number:'26153',job_name:'Other Project',address:'2 Water Street',can_upload:true}}));
+ await page.goto('/jsa.html?copy='+sources[0].id+'&jobBoard=1#board=synthetic-board&visit=synthetic-visit');
+ await expect(page.locator('#jsaCopyStatus')).toContainText('different job');
+ await expect(page.locator('#jsaField1')).toHaveValue('26153 - Other Project');
+ await expect(page.locator('#jsaCopyApply')).toBeDisabled();
+ await expect(page.locator('#tableBody textarea').nth(0)).toHaveValue('');
+ expect(copyWrites(store)).toHaveLength(0);
+});
+
+test('copy JSA history reads later result pages instead of silently omitting an older job',async({page})=>{
+ const target=copySource(),sources=Array.from({length:200},(_,i)=>copySource('00000000-0000-4000-8000-'+String(i+100).padStart(12,'0'),copyJobs[1]));
+ sources.push(target);const {requests}=await copyFixture(page,{sources});await page.goto('/jsa.html');
+ await page.locator('#jsaField1Select').selectOption('26152 - Trailer Prep');await page.locator('#jsaCopyPanel > summary').click();
+ await expect(page.locator('#jsaCopySource option[value="'+target.id+'"]')).toHaveCount(1);
+ expect(requests.some(request=>new URL(request.url).searchParams.get('offset')==='200')).toBe(true);
+ await expect(page.locator('#jsaCopySource option')).toHaveCount(2);
+});
+
+for(const theme of ['light','dark'])test(`copy JSA safely shows source text and can cancel replacing entries on phone in ${theme}`,async({page},info)=>{
+ await page.setViewportSize({width:390,height:900});const source=copySource();
+ source.worker_display_name='<img src=x onerror="window.copyInjected=true">';
+ source.form_data.rows[0].cells[0]='Cut blocking < 24 inches & protect opening';
+ const {store}=await copyFixture(page,{sources:[source]});
+ await page.goto('/jsa.html?copy='+source.id);await page.evaluate(theme=>applyJgcTheme(theme),theme);
+ await expect(page.locator('#jsaCopySource')).toHaveValue(source.id);
+ await expect(page.locator('#jsaCopySource option').last()).toContainText(source.worker_display_name);
+ expect(await page.evaluate(()=>window.copyInjected)).toBeUndefined();
+ await page.locator('#jsaCopyPanel').scrollIntoViewIfNeeded();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ await page.screenshot({path:info.outputPath('copy-panel-'+theme+'.png')});
+ await page.locator('#tableBody textarea').nth(0).fill('Keep my current task');
+ page.removeAllListeners('dialog');page.once('dialog',dialog=>dialog.dismiss());
+ await page.locator('#jsaCopyApply').click();
+ await expect(page.locator('#tableBody textarea').nth(0)).toHaveValue('Keep my current task');
+ expect(copyWrites(store)).toHaveLength(0);
+ page.once('dialog',dialog=>dialog.accept());await page.locator('#jsaCopyApply').click();
+ await expect(page.locator('#tableBody textarea').nth(0)).toHaveValue(source.form_data.rows[0].cells[0]);
+ expect(await page.evaluate(()=>window.copyInjected)).toBeUndefined();
+ await page.locator('#jsaCopyPanel').scrollIntoViewIfNeeded();
+ await page.screenshot({path:info.outputPath('copied-panel-'+theme+'.png')});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+
+for(const isAdmin of [false,true])test(`copy JSA cannot replace entries while ${isAdmin?'prepared':'worker'} save is pending`,async({page})=>{
+ const {store,sources}=await copyFixture(page,{isAdmin});
+ await page.goto('/jsa.html?copy='+sources[0].id);await expect(page.locator('#jsaCopySource')).toHaveValue(sources[0].id);
+ if(isAdmin)await page.locator('#jsaCopyDate').fill(future());
+ await page.locator('#jsaCopyApply').click();
+ await page.locator('#tableBody textarea').nth(0).fill('Keep edits made before save');
+ await page.locator('#approvedCrewSelect').selectOption(worker.worker_key);
+ const name=isAdmin?'save_prepared_jsa':'save_worker_jsa';let releaseSave,saveStarted=false;
+ const saving=new Promise(resolve=>{releaseSave=resolve;});
+ await page.route('**/rest/v1/rpc/'+name,async route=>{saveStarted=true;await saving;return route.fallback();});
+ await page.locator(isAdmin?'#jsaSaveDraft':'#jsaSaveWorkerDraft').click();
+ await expect.poll(()=>saveStarted).toBe(true);
+ await expect(page.locator('#jsaCopyApply')).toBeDisabled();
+ await page.locator('#jsaCopyApply').dispatchEvent('click');
+ await expect(page.locator('#tableBody textarea').nth(0)).toHaveValue('Keep edits made before save');
+ releaseSave();
+ await expect.poll(()=>store.calls.filter(call=>call.name===name).length).toBe(1);
+ await expect(page.locator('#jsaCopyPanel')).toBeHidden();
+ const args=store.calls.find(call=>call.name===name).args,record=isAdmin?args.p_payload.record:args.p_payload;
+ expect(record.form_data.rows[0].cells[0]).toBe('Keep edits made before save');
+ expect(copyWrites(store).map(call=>call.name)).toEqual([name]);
+});
+
+test('copy JSA blocks saving until the in-progress copy is ready',async({page})=>{
+ const {store,sources}=await copyFixture(page);await page.goto('/jsa.html?copy='+sources[0].id);
+ await expect(page.locator('#jsaCopySource')).toHaveValue(sources[0].id);
+ await page.evaluate(()=>{window.prepareJgcJobBoardForm=()=>new Promise(resolve=>{window.finishCopyPreparation=resolve;});});
+ await page.locator('#jsaCopyApply').click();
+ await expect.poll(()=>page.evaluate(()=>typeof window.finishCopyPreparation)).toBe('function');
+ await page.locator('#jsaSaveWorkerDraft').dispatchEvent('click');
+ expect(copyWrites(store)).toHaveLength(0);
+ await page.evaluate(()=>window.finishCopyPreparation(true));
+ await expect(page.locator('#tableBody textarea').nth(0)).toHaveValue('Install blocking');
+ expect(copyWrites(store)).toHaveLength(0);
+});
+
+test('copy JSA saved offline queues a fresh record and closes the copy controls',async({page})=>{
+ const {store,sources}=await copyFixture(page),original=JSON.stringify(sources[0]);
+ await page.goto('/jsa.html?copy='+sources[0].id);await expect(page.locator('#jsaCopySource')).toHaveValue(sources[0].id);
+ await page.locator('#jsaCopyApply').click();
+ await expect(page.locator('#tableBody textarea').nth(0)).toHaveValue('Install blocking');
+ await page.locator('#approvedCrewSelect').selectOption(worker.worker_key);
+ await page.evaluate(()=>Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>false}));
+ await page.locator('#jsaSaveWorkerDraft').click();
+ await expect(page.locator('#inspectionSaveStatus')).toContainText('JSA saved on this device');
+ await expect(page.locator('#jsaCopyPanel')).toBeHidden();
+ const queue=await page.evaluate(()=>getCurrentWorkerInspectionQueue());
+ expect(queue).toHaveLength(1);expect(queue[0].workerName).toBe(creator.worker_key);
+ const record=queue[0].record;
+ expect(record.id).not.toBe(sources[0].id);expect(record.inspection_date).toBe(date());
+ expect(record.worker_name).toBe(creator.worker_key);expect(record.form_data.offline_submission_id).toBe(queue[0].localId);
+ expect(record.form_data.offline_submission_id).not.toBe('original-submission');
+ expect(record.form_data.job_context).toMatchObject({jobNumber:'26152',jobName:'Trailer Prep'});
+ expect(record.form_data.rows[0].cells).toEqual(sources[0].form_data.rows[0].cells);
+ expect(record.form_data.workers_on_site).toEqual([{employee_id:worker.id,name:worker.display_name,company:'John Gordon Construction'}]);
+ expect(JSON.stringify(record)).not.toMatch(/old-ack|Previously Signed Worker|Previous Reviewer|original-submission|old-board-id|signature_strokes|previous-user/);
+ expect(record.jsa_workflow).toBeUndefined();
+ expect(copyWrites(store)).toHaveLength(0);expect(JSON.stringify(sources[0])).toBe(original);
+ await page.locator('#jsaCopyApply').dispatchEvent('click');
+ expect(await page.evaluate(()=>getCurrentWorkerInspectionQueue())).toEqual(queue);
+});
+
+for(const legacy of [false,true])test(`copy JSA preserves ${legacy?'legacy unlabeled':'named'} work conditions and separate Other choices when saved and reopened`,async({page})=>{
+ const labels=['Lockout / Tag Out','Hot Work','Confined Space','Elevated Work','Excavation','Crane / Hoisting / Rigging','Other','Other'];
+ const values=['Yes','No','Yes','No','No','Yes','Yes','No'],source=copySource();
+ source.form_data.fields=source.form_data.fields.filter(field=>field.label!=='Elevated Work').concat(values.map((value,index)=>({label:legacy?'':labels[index],value})));
+ const {store}=await copyFixture(page,{sources:[source]});await page.goto('/jsa.html?copy='+source.id);
+ await expect(page.locator('#jsaCopySource')).toHaveValue(source.id);await page.locator('#jsaCopyApply').click();
+ await expect(page.locator('#tableBody textarea').nth(0)).toHaveValue('Install blocking');
+ expect(await page.locator('.checklist input[type="checkbox"]').evaluateAll(inputs=>inputs.map(input=>input.checked))).toEqual(values.map(value=>value==='Yes'));
+ await page.locator('#approvedCrewSelect').selectOption(worker.worker_key);await page.locator('#jsaSaveWorkerDraft').click();
+ await expect.poll(()=>store.calls.filter(call=>call.name==='save_worker_jsa').length).toBe(1);
+ const saved=store.calls.find(call=>call.name==='save_worker_jsa').args;
+ expect(saved.p_payload.form_data.fields.filter(field=>labels.includes(field.label))).toEqual(labels.map((label,index)=>({label,value:values[index]})));
+ await page.goto('/jsa.html?record='+saved.p_id);
+ await expect(page.locator('#tableBody textarea').nth(0)).toHaveValue('Install blocking');
+ expect(await page.locator('.checklist input[type="checkbox"]').evaluateAll(inputs=>inputs.map(input=>input.checked))).toEqual(values.map(value=>value==='Yes'));
+});

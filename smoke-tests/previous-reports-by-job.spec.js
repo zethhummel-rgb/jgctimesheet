@@ -16,22 +16,22 @@ const DAILY = { id: "daily-1", report_date: day(6), created_at: daysAgo(6).toISO
 const INCIDENT = { id: "incident-1", report_date: day(3), created_at: daysAgo(3).toISOString(), reported_by_name: "Zeth Hummel", project: "26130 - Structural Shoring", location: "Cornwall", severity: "Minor", description: "Pinched finger", incident_type: "Incident / Near Miss" };
 const INJURY = { id: "injury-1", accident_date: day(2), created_at: daysAgo(2).toISOString(), employee_display: "Crew Member", accident_location: "Yard", bodily_injury: "Sprained wrist" };
 
-async function setup(page) {
+async function setup(page, role = "admin") {
   const b64 = v => Buffer.from(JSON.stringify(v)).toString("base64url");
   const now = Math.floor(Date.now() / 1000);
   const user = { id: USER_ID, aud: "authenticated", role: "authenticated", email: "reports-951@johngordonconstruction.com", user_metadata: { display_name: "Zeth Hummel" } };
   const auth = { access_token: [b64({ alg: "HS256", typ: "JWT" }), b64({ sub: USER_ID, exp: now + 3600, role: "authenticated" }), "reports-951"].join("."), refresh_token: "reports-951", expires_at: now + 3600, expires_in: 3600, token_type: "bearer", user };
-  await page.addInitScript(({ auth }) => {
+  await page.addInitScript(({ auth, role }) => {
     localStorage.setItem("sb-xnrljkkszoimegfivlya-auth-token", JSON.stringify(auth));
     localStorage.setItem("currentWorker", "zeth hummel");
     localStorage.setItem("currentWorkerDisplay", "Zeth Hummel");
     localStorage.setItem("currentUserEmail", auth.user.email);
-    localStorage.setItem("currentUserRole", "admin");
+    localStorage.setItem("currentUserRole", role);
     localStorage.setItem("currentAccountStatus", "approved");
     localStorage.setItem("jgcStayLoggedIn", "true");
     localStorage.setItem("jgcPushOnboarding:v1:zeth hummel", "dismissed");
     sessionStorage.setItem("jgcActiveSession", "true");
-  }, { auth });
+  }, { auth, role });
   await page.route(`${supabaseOrigin}/**`, route => {
     const url = new URL(route.request().url());
     if (url.pathname.startsWith("/auth/v1/user")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(user) });
@@ -91,3 +91,32 @@ test("search and type chips narrow the reports and open the matching jobs", asyn
   await page.locator('.record-type-chip[data-record-type=""]').click();
   await expect(page.locator("#recordSummary")).toHaveText("5 reports on 2 jobs");
 });
+
+for (const file of ["previous-inspections.html", "todays-inspections.html"]) {
+  test(`${file} lets approved staff copy each saved JSA using its own source ID`, async ({ page }) => {
+    await page.setViewportSize(PHONE);
+    await setup(page, "worker");
+    await page.goto(`/${file}?recordType=reports`, { waitUntil: "load" });
+    await expect(page.locator(".history-card")).toHaveCount(5);
+    const copies = page.locator('.history-card a[href*="jsa.html?copy="]');
+    await expect(copies).toHaveCount(2);
+    for (const source of [JSA_1, JSA_2]) {
+      const link = page.locator(`a[href="jsa.html?copy=${source.id}"]`);
+      await expect(link).toHaveText("Copy to new day");
+      await expect(link.locator("xpath=ancestor::article").locator(".history-card__type")).toHaveText("JSA");
+    }
+    // Copying is offered for saved JSAs only, including another staff member's JSA.
+    // Prepared records and read-only / signed-out accounts retain their existing actions.
+    const excluded = await page.evaluate(source => {
+      const prepared = renderJsaCopyCell({ ...source, report_source: "jsa_preparations", not_activated: true });
+      localStorage.setItem("currentAccountStatus", "limited");
+      const limited = renderJsaCopyCell(source);
+      localStorage.setItem("currentAccountStatus", "approved");
+      localStorage.removeItem("currentWorker");
+      const signedOut = renderJsaCopyCell(source);
+      return { prepared, limited, signedOut };
+    }, JSA_1);
+    expect(excluded).toEqual({ prepared: "-", limited: "-", signedOut: "-" });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(PHONE.width);
+  });
+}
