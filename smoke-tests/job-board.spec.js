@@ -153,9 +153,22 @@ test('actual QR PNG and print poster encode the public board link without identi
   const pending = page.waitForEvent('download'); await page.getByRole('button', { name: 'Download QR', exact: true }).click(); const download = await pending; expect(download.suggestedFilename()).toBe('JGC-Job-26132-QR.png');
   await download.saveAs(receipt(testInfo, 'job-board-qr-downloaded.png')); expect(fs.readFileSync(receipt(testInfo, 'job-board-qr-downloaded.png'))).toEqual(pngBytes);
   const { PDFDocument } = require('../estimating-app/node_modules/pdf-lib');
-  const printed = await PDFDocument.load(await page.pdf({format:'Letter',printBackground:true}));
-  expect(printed.getPageCount()).toBe(1);
+  await page.emulateMedia({ media: 'print' });
+  await expect(page.locator('html')).toHaveCSS('color-scheme', 'light');
+  for (const format of ['Letter', 'A4']) {
+    const printed = await PDFDocument.load(await page.pdf({ format, printBackground: true, path: receipt(testInfo, `job-board-qr-poster-${format}.pdf`) }));
+    expect(printed.getPageCount(), `${format} poster fits on one page`).toBe(1);
+  }
   await page.emulateMedia({ media: 'print' }); await expect(page.locator('#jobBoardPage')).toBeHidden(); await expect(page.locator('#boardPoster')).toBeVisible(); await expect(page.locator('#posterJob')).toContainText('Job 26132'); await expect(page.locator('#posterQr')).toHaveAttribute('src', png); await page.screenshot({ path: receipt(testInfo, 'job-board-qr-poster.png'), fullPage: true });
+  // Long job information and an absent address must not push the sign onto a second sheet.
+  for (const address of ['95 Snye School Rd, Akwesasne Reserve No. 15, Quebec H0M 1A1', '']) {
+    await page.locator('#posterJob').evaluate(el => { el.textContent = 'Job 26152 · GOC6812588 Site Preparation for Trailer — Cornwall Port of Entry'; });
+    await page.locator('#posterAddress').evaluate((el, value) => { el.textContent = value; }, address);
+    for (const format of ['Letter', 'A4']) {
+      const printed = await PDFDocument.load(await page.pdf({ format, printBackground: false, path: receipt(testInfo, `job-board-qr-poster-${format}-${address ? 'long' : 'no-address'}.pdf`) }));
+      expect(printed.getPageCount(), `${format} poster with ${address ? 'long' : 'no'} address fits on one page`).toBe(1);
+    }
+  }
 });
 
 test('staff direct sign-in verifies profile, preserves job context, and retries a failed upload without duplicate metadata', async ({ page }) => {
