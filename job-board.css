@@ -328,7 +328,7 @@ html[data-qr-board] #qrFooter strong { font-size: 12.5px; }
 
 /* Keep site contact details visible without covering the last document or sign-in action. */
 html[data-qr-board] { scroll-padding-bottom: calc(var(--board-footer-height, 0px) + 12px); }
-html[data-qr-board] body.job-board-page { padding-bottom: calc(var(--board-footer-height, 0px) + 12px); }
+html[data-qr-board] body.job-board-page { box-sizing: border-box; padding-bottom: calc(var(--board-footer-height, 0px) + 12px); }
 html[data-qr-board] #qrFooter {
   position: fixed;
   z-index: 20;
