@@ -161,6 +161,7 @@ html[data-job-board-host="job"] .jgc-tab[aria-selected="true"] { background: var
 .board-jsa-sign-top:disabled { opacity: 0.6; }
 .board-jsa-steps { margin: 0 0 var(--jgc-space-3); padding-left: 1.4em; font-weight: 600; line-height: 1.5; }
 /* The scanned board uses its own mobile shell. The job office view keeps its existing layout. */
+html[data-qr-board] :is(#jgcAppearanceSettings, #jgcAdminGlobalSearch, #jgcNotificationBell) { display: none !important; }
 html[data-qr-board] .jgc-page-shell { max-width: 740px; }
 html[data-qr-board] .board-header {
   position: relative; isolation: isolate; overflow: hidden; text-align: center;
@@ -323,6 +324,27 @@ html[data-qr-board] #qrFooter strong { font-size: 12.5px; }
 @media (max-width: 360px) {
   html[data-qr-board] #qrHeroTitle { font-size: 28px; }
   html[data-qr-board] #loginOptions .board-login-options button { font-size: 12.5px; }
+}
+
+/* Keep site contact details visible without covering the last document or sign-in action. */
+html[data-qr-board] { scroll-padding-bottom: calc(var(--board-footer-height, 0px) + 12px); }
+html[data-qr-board] body.job-board-page { padding-bottom: calc(var(--board-footer-height, 0px) + 12px); }
+html[data-qr-board] #qrFooter {
+  position: fixed;
+  z-index: 20;
+  inset: auto 0 0;
+  width: 100%;
+  max-width: 740px;
+  box-sizing: border-box;
+  margin: 0 auto;
+  padding: 11px max(12px, env(safe-area-inset-right, 0px)) calc(11px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -3px 12px #123b2510;
+}
+html[data-qr-board] .board-footer-address { flex: 1 1 0; min-width: 0; }
+html[data-qr-board] .board-footer-address > div { min-width: 0; }
+@media (max-width: 520px) {
+  html[data-qr-board] #qrFooter { border-radius: 0; }
 }
 
 @media print {

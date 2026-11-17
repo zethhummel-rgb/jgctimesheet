@@ -417,6 +417,112 @@ for (const width of [390, 1440]) test(`standalone QR visitor page keeps branding
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1); await page.screenshot({ path: receipt(testInfo, `standalone-qr-${width}.png`), fullPage: true });
 });
 
+for (const width of [320, 390]) test(`QR header stays clear with remembered Portal controls at ${width}`, async ({ page }, testInfo) => {
+  await page.setViewportSize({ width, height: 844 });
+  await open(page, 'staff', { forgedAdmin: true });
+  // A remembered Portal worker creates these shared controls even on the QR page.
+  for (const id of ['jgcAppearanceSettings', 'jgcAdminGlobalSearch', 'jgcNotificationBell']) {
+    await expect(page.locator('#' + id)).toBeAttached();
+    await expect(page.locator('#' + id)).toBeHidden();
+  }
+  await page.locator('#boardLogout').click();
+  await page.locator('#viewPublicSafety').click();
+  await expect(page.locator('#qrHeroTitle')).toHaveText('Safety information');
+  const back = page.locator('#qrPageBack');
+  await expect(back).toBeVisible();
+  await page.evaluate(() => scrollTo(0, 0));
+  const logo = await page.locator('.board-header .jgc-brand img').boundingBox(), button = await back.boundingBox();
+  expect(button.x).toBeGreaterThanOrEqual(logo.x + logo.width);
+  expect(button.x + button.width).toBeLessThanOrEqual(width);
+  const title = await page.locator('#qrHeroTitle').boundingBox();
+  expect(button.y + button.height).toBeLessThanOrEqual(title.y);
+  await page.screenshot({ path: receipt(testInfo, `clean-safety-header-${width}.png`) });
+  await back.click(); await expect(page.locator('#loginOptions')).toBeVisible();
+  await page.locator('#staffLogin').click(); await expect(page.locator('#staffGate')).toBeVisible();
+});
+
+for (const width of [320, 390, 1440]) test(`QR contact footer stays visible and clears page content at ${width}`, async ({ page }, testInfo) => {
+  await page.setViewportSize({ width, height: 844 });
+  const store = await open(page, 'guest');
+  const footer = page.locator('#qrFooter');
+  // Exercise the long title from the reported layout without changing real job data.
+  await page.locator('#qrFooterJob').evaluate(node => { node.textContent = 'GOC6812588 Site Preparation for Trailer'; });
+  await page.locator('#qrFooterAddress').evaluate(node => { node.textContent = '1 Water St. Cornwall'; });
+  const fits = async () => {
+    await expect(footer).toBeVisible();
+    await expect(footer).toHaveCSS('position', 'fixed');
+    await expect.poll(() => page.evaluate(() => {
+      const f = document.querySelector('#qrFooter').getBoundingClientRect();
+      const pad = parseFloat(getComputedStyle(document.body).paddingBottom);
+      return f.bottom <= innerHeight + 1 && f.bottom >= innerHeight - 1 && f.left >= 0 && f.right <= innerWidth + 1 && pad >= f.height + 11;
+    })).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize().width + 1);
+    for (const selector of ['#qrFooterJob', '#qrFooterAddress', '.board-footer-phone']) {
+      const box = await page.locator(selector).boundingBox(), frame = await footer.boundingBox();
+      expect(box.x).toBeGreaterThanOrEqual(frame.x);
+      expect(box.x + box.width).toBeLessThanOrEqual(frame.x + frame.width + 1);
+      expect(box.y + box.height).toBeLessThanOrEqual(frame.y + frame.height - 10);
+    }
+  };
+  await fits();
+  await page.screenshot({ path: receipt(testInfo, `sticky-footer-long-title-${width}.png`) });
+  await page.evaluate(() => scrollTo(0, 250)); await fits();
+  await page.locator('#viewPublicSafety').click(); await fits();
+  await page.locator('#qrPageBack').click();
+  await page.locator('#staffLogin').click();
+  await page.locator('#staffEmail').fill('staff@example.test');
+  await page.setViewportSize({ width, height: 460 });
+  await page.locator('#staffSubmit').scrollIntoViewIfNeeded();
+  await fits();
+  await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+  expect((await page.locator('#staffSubmit').boundingBox()).y + (await page.locator('#staffSubmit').boundingBox()).height).toBeLessThanOrEqual((await footer.boundingBox()).y);
+  await page.setViewportSize({ width, height: 844 });
+  await page.locator('#qrPageBack').click(); await visitorSignIn(page);
+  await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight)); await fits();
+  const documents = await page.locator('#documentsPanel').boundingBox();
+  expect(documents.y + documents.height).toBeLessThanOrEqual((await footer.boundingBox()).y);
+  await page.screenshot({ path: receipt(testInfo, `sticky-footer-${width}.png`) });
+  await page.locator(`[data-document-id="${DOCUMENT_ID}"]`).first().getByRole('button', { name: 'Sign on to JSA', exact: true }).click();
+  await expect(page.locator('.board-jsa-pdf-sheet canvas')).toBeVisible();
+  await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight)); await fits();
+  const jsa = await page.locator('#jsaSignOnPanel').boundingBox();
+  expect(jsa.y + jsa.height).toBeLessThanOrEqual((await footer.boundingBox()).y);
+  // No address means no invented location; the phone remains pinned and clickable.
+  store.address = ''; await page.reload();
+  await expect(page.locator('#qrFooterLocation')).toBeHidden();
+  await expect(page.locator('.board-footer-phone')).toHaveAttribute('href', 'tel:6139321293');
+  await expect.poll(() => page.evaluate(() => {
+    const f = document.querySelector('#qrFooter').getBoundingClientRect();
+    return Math.abs(parseFloat(getComputedStyle(document.body).paddingBottom) - f.height - 12) < 2;
+  })).toBe(true);
+});
+
+test('QR contact footer stays above the mobile Safari viewport edge', async ({}, testInfo) => {
+  test.skip(process.env.JGC_SMOKE_WEBKIT !== '1', 'Supplemental Safari check: install WebKit and set JGC_SMOKE_WEBKIT=1.');
+  const browser = await require('@playwright/test').webkit.launch({ channel: '' });
+  try {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block', baseURL: 'http://127.0.0.1:' + (process.env.JGC_SMOKE_PORT || 41738) });
+    const page = await context.newPage();
+    await open(page, 'guest');
+    await page.locator('#qrFooterJob').evaluate(node => { node.textContent = 'GOC6812588 Site Preparation for Trailer'; });
+    await page.locator('#qrFooterAddress').evaluate(node => { node.textContent = '1 Water St. Cornwall'; });
+    // Simulate extra device safe-area padding and ensure clearance follows it.
+    await page.locator('#qrFooter').evaluate(node => { node.style.paddingBottom = '45px'; });
+    for (const height of [844, 460]) {
+      await page.setViewportSize({ width: 390, height });
+      await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+      await page.screenshot({ path: receipt(testInfo, `sticky-footer-webkit-${height}.png`) });
+      await expect.poll(() => page.evaluate(() => {
+        const f = document.querySelector('#qrFooter').getBoundingClientRect();
+        return Math.abs(f.bottom - innerHeight) < 2 && f.left >= 0 && f.right <= innerWidth && parseFloat(getComputedStyle(document.body).paddingBottom) >= f.height + 11;
+      })).toBe(true);
+      const last = await page.locator('.board-ppe-details').boundingBox(), footer = await page.locator('#qrFooter').boundingBox();
+      expect(last.y + last.height).toBeLessThanOrEqual(footer.y);
+    }
+    await page.screenshot({ path: receipt(testInfo, 'sticky-footer-webkit-safe-area.png') });
+  } finally { await browser.close(); }
+});
+
 test('current company policy remains available in the fixed JGC Policy section with no search filters', async ({ page }) => {
   const { board } = await openNativeBoard(page);
   const policy = board.locator('#policyList article'); await expect(policy).toHaveCount(1); await expect(policy).toContainText('JGC Health & Safety Policy'); await expect(policy).toContainText('Company policy'); await expect(policy.locator('.board-document-edit')).toHaveCount(0);

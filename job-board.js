@@ -33,6 +33,13 @@
   if (!state.manage) {
     document.documentElement.dataset.qrBoard = '';
     $('boardTitle').setAttribute('role','none');
+    // Reserve the actual wrapped footer height, including the phone safe area,
+    // for every view (the JSA signing panel is outside the main page shell).
+    const footerObserver = new ResizeObserver(() => {
+      document.documentElement.style.setProperty('--board-footer-height', Math.ceil($('qrFooter').getBoundingClientRect().height) + 'px');
+    });
+    footerObserver.observe($('qrFooter'), { box: 'border-box' });
+    window.addEventListener('pagehide', (event) => { if (!event.persisted) footerObserver.disconnect(); });
   }
   if (hosted) {
     const toolbar = $('boardToolbar');
