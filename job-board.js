@@ -663,6 +663,7 @@
     const [title, icon] = pages[view] || ['JGC Job Board', 'hard-hat'];
     $('qrHeroTitle').parentElement.hidden = false;
     $('qrHeroTitle').textContent = title;
+    $('boardTitle').textContent = view === 'loginOptions' ? 'Site safety and sign-in' : state.board?.job_name || 'Site safety and sign-in';
     const current = $('qrHeroIcon');
     if (current.dataset.lucide !== icon) {
       const next = document.createElement('i');

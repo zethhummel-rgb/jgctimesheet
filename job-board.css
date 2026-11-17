@@ -278,6 +278,53 @@ html[data-qr-board] #jobBoardPage .board-safety-entry { border-width: 1px; borde
   html[data-qr-board] .board-header .jgc-brand img { width: 130px !important; max-width: 130px !important; height: 43px; }
   .board-onsite-row time { white-space: normal; max-width: 42%; }
 }
+
+/* Typography and spacing for the approved QR layout. */
+html[data-qr-board] #jobBoardPage {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+}
+html[data-qr-board] #jobBoardPage :is(h1,h2,h3,button,input) { font-family: inherit; }
+html[data-qr-board] #jobBoardPage .board-header { display: block; padding: 9px 19px 31px; }
+html[data-qr-board] #jobBoardPage .board-header .jgc-brand img { margin: 0 !important; }
+html[data-qr-board] #qrHeroTitle { font-weight: 800; font-size: 31px; line-height: 1.05; letter-spacing: -.043em; }
+html[data-qr-board] .board-qr-hero > svg { width: 40px; height: 40px; }
+html[data-qr-board] #boardTitle { font-size: 13px; line-height: 1.3; font-weight: 550; }
+html[data-qr-board] #boardTitle::after { margin-top: 11px; height: 3px; width: 46px; }
+html[data-qr-board] #loginOptions { position: relative; z-index: 1; margin-top: -14px; }
+html[data-qr-board] #loginOptions .board-qr-card,
+html[data-qr-board] #qrJsa { padding: 13px 14px; border-radius: 15px; margin-bottom: 10px; }
+html[data-qr-board] :is(#loginOptions,#qrJsa) .board-qr-card-heading h2 { font-size: 20px; line-height: 1.10; font-weight: 800; letter-spacing: -.025em; }
+html[data-qr-board] :is(#loginOptions,#qrJsa) .board-qr-card-heading p { font-size: 12px; line-height: 1.3; font-weight: 600; }
+html[data-qr-board] #loginOptions .board-qr-card-heading > svg { width: 38px; height: 38px; }
+html[data-qr-board] #loginOptions .board-qr-checklist { gap: 0; margin: 10px 0; }
+html[data-qr-board] #loginOptions .board-qr-checklist > li { min-height: 23px; padding: 4px 0; font-size: 12.5px; line-height: 1.25; font-weight: 640; }
+html[data-qr-board] #loginOptions .board-signin-entry .board-qr-checklist > li::before { display: none; }
+html[data-qr-board] #loginOptions .board-signin-entry .board-qr-checklist svg { width: 15px; height: 15px; flex: none; align-self: center; color: #f2d28e; }
+html[data-qr-board] #loginOptions .board-login-options button { min-height: 46px; border-radius: 9px; gap: 6px; font-size: 13.5px; line-height: 1.15; }
+html[data-qr-board] #loginOptions .board-login-options button svg { width: 16px; height: 16px; flex: none; }
+html[data-qr-board] #viewPublicSafety { border-radius: 9px; padding-inline: 11px; font-size: 14px; font-weight: 800; }
+html[data-qr-board] .board-arrival-card { padding: 9px 8px; }
+html[data-qr-board] .board-arrival-card h3 { font-size: 12.25px; line-height: 1.2; }
+html[data-qr-board] .board-arrival-card p { font-size: 11px; line-height: 1.3; }
+html[data-qr-board] .board-ppe-details { display: block; }
+html[data-qr-board] .board-ppe-details summary { display: flex; align-items: flex-start; gap: 6px; padding: 0; text-align: left; }
+html[data-qr-board] .board-ppe-details summary::-webkit-details-marker { display: none; }
+html[data-qr-board] .board-ppe-details summary::after { content: "⌄"; margin-left: auto; color: var(--jgc-color-brand-600); }
+html[data-qr-board] .board-ppe-details[open] summary::after { content: "⌃"; }
+html[data-qr-board] .board-arrival-grid:has(.board-ppe-details[open]) > * { grid-column: 1 / -1; }
+html[data-qr-board] #qrFooter { font-size: 11.5px; line-height: 1.25; }
+html[data-qr-board] #qrFooter strong { font-size: 12.5px; }
+@media (max-width: 520px) {
+  html[data-qr-board] #jobBoardPage.jgc-page-shell { width: 100%; padding: 0 12px 0; }
+  html[data-qr-board] #jobBoardPage .board-header { margin-inline: -12px; border-radius: 0; }
+  html[data-qr-board] #qrFooter { margin-inline: -12px; margin-top: 12px; border-radius: 0; border-width: 1px 0 0; }
+}
+@media (max-width: 360px) {
+  html[data-qr-board] #qrHeroTitle { font-size: 28px; }
+  html[data-qr-board] #loginOptions .board-login-options button { font-size: 12.5px; }
+}
+
 @media print {
   @page { size: portrait; margin: 13mm; }
   html, body.job-board-page { background: white !important; color: black !important; margin: 0 !important; padding: 0 !important; }
