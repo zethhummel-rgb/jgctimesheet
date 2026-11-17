@@ -1,7 +1,8 @@
 import type { Job } from '../lib/estimator-data';
 import { sitePlanDate, sitePlanFileName, type SiteSpecificPlan, type SafetyAttachment } from '../lib/site-specific';
+import { boardDocumentCategories, type BoardDocumentCategory } from '../lib/site-specific-workspace';
 let client:any;
-const tickets=new WeakMap<Blob,{id:string;object_path:string;uploaded:boolean;finalized:boolean}>();
+const tickets=new WeakMap<Blob,{id:string;object_path:string;uploaded:boolean;finalized:boolean;category:string}>();
 async function connected() {
  client ||= (window as any).createJgcSupabaseClient?.();
  if(!client)throw new Error('The Portal connection is unavailable. Refresh and try again.');
@@ -19,7 +20,7 @@ export async function loadSafetyAttachments(job:Job):Promise<{items:SafetyAttach
  if(b.status==='fulfilled') {
   for(const d of b.value.documents||[]) {
    if(['uploading','archived'].includes(d.status)||d.category==='accident-incident')continue;
-   items.push({id:`board:${d.id}`,kind:'board',title:d.title||d.file_name||'Job document',included:false,fileName:d.file_name||'document.pdf',fileType:d.mime_type,boardId:b.value.id,documentId:d.id,category:d.category});
+   items.push({id:`board:${d.id}`,kind:'board',title:d.title||d.file_name||'Job document',included:false,fileName:d.file_name||'document.pdf',fileType:d.mime_type,boardId:b.value.id,documentId:d.id,category:d.category,boardVisibility:d.visibility==='restricted'?'restricted':'public'});
   }
  } else warnings.push(b.reason?.message||'Job documents could not be loaded.');
  const cert=results[1];
@@ -44,16 +45,45 @@ export async function readSafetyAttachment(job:Job,item:SafetyAttachment):Promis
  if(u.protocol!=='https:'||![allowed,allowed.replace('.supabase.co','.storage.supabase.co')].includes(u.hostname))throw new Error('The document location could not be verified.');
  const responseFile=await fetch(u.href,{referrerPolicy:'no-referrer',cache:'no-store',signal:AbortSignal.timeout(45000)});if(!responseFile.ok)throw new Error(`${item.title}: download failed.`);return responseFile.blob();
 }
-async function upload(c:any,b:any,blob:Blob,name:string,title:string,date:string,notes:string) {
+async function upload(c:any,b:any,blob:Blob,name:string,title:string,date:string,notes:string,category='site-specific') {
  if(!b.enabled)throw new Error('Enable this Job Board in the Job Board tab before uploading.');if(blob.size<1||blob.size>20*1024*1024)throw new Error('The combined file must be 20 MB or smaller. Remove an attachment or reduce its file size.');
- let ticket=tickets.get(blob);if(!ticket){const reserved=await rpc(c,'begin_job_board_upload',{p_board_id:b.id,p_category:'site-specific',p_title:title.slice(0,200),p_report_date:date,p_file_name:name.slice(0,255),p_mime_type:blob.type,p_file_size:blob.size,p_notes:notes});if(!reserved?.id||!reserved.object_path)throw new Error('An upload destination could not be created.');ticket={...reserved,uploaded:false,finalized:false};tickets.set(blob,ticket!);}
+ let ticket=tickets.get(blob);if(!ticket){const reserved=await rpc(c,'begin_job_board_upload',{p_board_id:b.id,p_category:category,p_title:title.slice(0,200),p_report_date:date,p_file_name:name.slice(0,255),p_mime_type:blob.type,p_file_size:blob.size,p_notes:notes});if(!reserved?.id||!reserved.object_path)throw new Error('An upload destination could not be created.');ticket={...reserved,uploaded:false,finalized:false,category};tickets.set(blob,ticket!);}
  if(!ticket!.uploaded){const r=await c.storage.from('job-board-files').upload(ticket!.object_path,blob,{contentType:blob.type,upsert:false});if(r.error&&String(r.error.statusCode)!=='409'&&!/already exists|duplicate/i.test(r.error.message||''))throw new Error('The upload did not finish. Your plan is kept; retry when connected.');ticket!.uploaded=true;}
  if(!ticket!.finalized){await rpc(c,'finalize_job_board_upload',{p_document_id:ticket!.id});ticket!.finalized=true;}return ticket!;
 }
 export async function uploadSafetyAttachment(job:Job,file:File):Promise<SafetyAttachment> {
  if(!['application/pdf','image/png','image/jpeg','image/webp'].includes(file.type))throw new Error('Choose a PDF, JPG, PNG or WebP attachment.');
  const c=await connected(),b=await board(c,job);const t=await upload(c,b,file,file.name,`Plan attachment · ${file.name}`,sitePlanDate(),'Supporting file for the site-specific plan; original kept separately.');
- return {id:`board:${t.id}`,kind:'board',title:file.name,fileName:file.name,fileType:file.type,documentId:t.id,boardId:b.id,category:'site-specific',included:true};
+ return {id:`board:${t.id}`,kind:'board',title:file.name,fileName:file.name,fileType:file.type,documentId:t.id,boardId:b.id,category:'site-specific',boardVisibility:'public',included:true};
+}
+// Keep the original plan attachment and publish a separate board copy. The saved
+// document id lets subsequent publishes move/update that copy instead of duplicating it.
+const publicationBlobs=new Map<string,Blob>();
+export async function publishSafetyAttachment(job:Job,item:SafetyAttachment,category:BoardDocumentCategory,visibility:'public'|'restricted',onReserved:(publication:NonNullable<SafetyAttachment['boardPublication']>)=>void) {
+ if(!boardDocumentCategories.some(section=>section.id===category))throw new Error('Choose a Job Board section.');
+ const c=await connected(),b=await board(c,job);if(!b.enabled)throw new Error('Enable this Job Board before publishing.');
+ const key=`${job.id}:${item.id}`;
+ let id=item.boardPublication?.documentId;
+ let current=id?(b.documents||[]).find((d:any)=>String(d.id)===id):undefined;
+ if(id&&!current)throw new Error('The published copy is unavailable. Refresh Portal documents and try again.');
+ const source=item.kind==='board'&&item.boardId===b.id?(b.documents||[]).find((d:any)=>String(d.id)===item.documentId):undefined;
+ if(id&&!item.boardPublication?.usesOriginal&&source?.status==='published'&&source.category===category&&source.visibility===visibility)throw new Error('This document is already on the Job Board in that section. Its existing copy was left in its current section.');
+ if((!id||item.boardPublication?.usesOriginal)&&source?.status==='published'&&source.category===category&&source.visibility===visibility){
+  return {documentId:source.id as string,category,visibility,status:'published' as const,usesOriginal:true};
+ }
+ // A document already on the board is never moved or changed by the plan.
+ if(item.boardPublication?.usesOriginal){id=undefined;current=undefined;}
+ if(!id){
+  let blob=publicationBlobs.get(key);
+  if(!blob){const original=await readSafetyAttachment(job,item);const type=original.type||item.fileType||'application/pdf';blob=original.type===type?original:new Blob([original],{type});publicationBlobs.set(key,blob);}
+  const t=await upload(c,b,blob,item.fileName,item.title,sitePlanDate(),'Published from Site Specific supporting documents.',category);id=t.id;
+  onReserved({documentId:id!,category:t.category,visibility,status:'pending'});
+  current={id,title:item.title,report_date:sitePlanDate(),category:t.category,notes:'Published from Site Specific supporting documents.',status:'pending',visibility};
+ }
+ if(current.category!==category)await rpc(c,'update_job_board_document',{p_document_id:id,p_title:current.title||item.title,p_report_date:current.report_date||sitePlanDate(),p_category:category,p_notes:current.notes||''});
+ await rpc(c,'review_job_board_document',{p_document_id:id,p_status:'published',p_visibility:visibility});
+ publicationBlobs.delete(key);
+ return {documentId:id!,category,visibility,status:'published' as const,usesOriginal:false};
 }
 export async function publishSafetyPlan(job:Job,plan:SiteSpecificPlan,blob:Blob) {
  const c=await connected(),b=await board(c,job);const t=await upload(c,b,blob,sitePlanFileName(plan),`Site Specific · Revision ${plan.revision}`,plan.planDate,`JGC site-specific safety plan for Job ${job.jobNumber}. Revision ${plan.revision}.`);

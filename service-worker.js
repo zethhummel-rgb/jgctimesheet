@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "1079";
+const JGC_RELEASE_ID = "1080";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -11,7 +11,7 @@ const JGC_APP_SHELL = [
   "./job-board-report-pdf.js?v=6",
   "./job-board.css?v=11",
   "./job-board.html",
-  "./job-board.js?v=23",
+  "./job-board.js?v=24",
   "./job-board-email.js?v=1",
   "./vendor/qrcode.min.js?v=1",
   "./estimating/jgc-warranty-logo-v1.png",
@@ -211,24 +211,24 @@ const JGC_APP_SHELL = [
   "./icon-180.png?v=4",
   "./icon-192.png?v=4",
   "./icon-512.png?v=4",
-  "./estimating/assets/browser-Czc7VQAk.js",
+  "./estimating/assets/browser-C2RTyzpC.js",
   "./estimating/assets/document-worker-BoIEvfuy.js",
-  "./estimating/assets/drawing-pdf-DgldFGYk.js",
-  "./estimating/assets/es-xbd2HXkb.js",
-  "./estimating/assets/index-CsyIsq18.js",
-  "./estimating/assets/index-WpAhlmsN.css",
+  "./estimating/assets/drawing-pdf-BY55EmBT.js",
+  "./estimating/assets/es-DXGVWKLP.js",
+  "./estimating/assets/index-CiYX_ChI.css",
+  "./estimating/assets/index-D7Uvj5VZ.js",
   "./estimating/assets/job-accounting-workbook-DXQwGXWh.js",
-  "./estimating/assets/job-schedule-pdf-BROc3QKL.js",
-  "./estimating/assets/job-warranty-pdf-B7BIbjR6.js",
+  "./estimating/assets/job-schedule-pdf-BjWARak5.js",
+  "./estimating/assets/job-warranty-pdf-BPC_ZoIs.js",
   "./estimating/assets/pdf-Bs__3tTL.js",
-  "./estimating/assets/pdf-fM1a7agb.js",
-  "./estimating/assets/proposal-pdf-DG2QwAJy.js",
-  "./estimating/assets/purchase-order-pdf-CMUieadX.js",
-  "./estimating/assets/quote-backup-pdf-CyuyV898.js",
-  "./estimating/assets/rfi-pdf-CB8qIXum.js",
-  "./estimating/assets/shop-drawing-transmittal-pdf-D181ExG4.js",
-  "./estimating/assets/shop-drawing-workbook-DqjWfv8O.js",
-  "./estimating/assets/src-BgRMjHPA.js"
+  "./estimating/assets/pdf-BvteMmYf.js",
+  "./estimating/assets/proposal-pdf-BYqp4mDT.js",
+  "./estimating/assets/purchase-order-pdf-DV0JRgNj.js",
+  "./estimating/assets/quote-backup-pdf-DOkXXVSR.js",
+  "./estimating/assets/rfi-pdf-Dlj_dlzg.js",
+  "./estimating/assets/shop-drawing-transmittal-pdf-DhrZ8L5F.js",
+  "./estimating/assets/shop-drawing-workbook-C1SXcM-r.js",
+  "./estimating/assets/src-DlqlFdz_.js"
 ];
 
 function isJgcCacheableResponse(response) {
