@@ -145,8 +145,36 @@ for (const theme of ['light', 'dark']) for (const width of [390, 1440]) test(`Jo
   await page.getByRole('tab', { name: 'Documents', exact: true }).click(); await expect(page.locator('#dailyReportsList article')).toHaveCount(3); await expect(page.getByLabel('Search documents')).toHaveCount(0);
 });
 
-test('actual QR PNG and print poster encode the public board link without identity or signed file URLs', async ({ page }, testInfo) => {
-  await open(page, 'admin'); await expect(page.locator('#boardQr')).toHaveAttribute('src', /^data:image\/png;base64,/);
+async function assertPosterPrintColors(poster, testInfo, label) {
+  const observed = await poster.evaluate(root => {
+    const colors = selector => Array.from(root.querySelectorAll(selector)).map(element => {
+      const foreground = getComputedStyle(element).color;
+      let ancestor = element, background = 'rgb(255, 255, 255)';
+      while (ancestor) {
+        const color = getComputedStyle(ancestor).backgroundColor;
+        if (color !== 'rgba(0, 0, 0, 0)' && color !== 'transparent') { background = color; break; }
+        ancestor = ancestor.parentElement;
+      }
+      const luminance = color => color.match(/[\d.]+/g).slice(0, 3).map(Number).map(channel => {
+        const n = channel / 255;
+        return n <= .04045 ? n / 12.92 : Math.pow((n + .055) / 1.055, 2.4);
+      }).reduce((sum, n, i) => sum + n * [.2126, .7152, .0722][i], 0);
+      const a = luminance(foreground), b = luminance(background);
+      return { text: element.textContent.trim(), foreground, background, contrast: (Math.max(a, b) + .05) / (Math.min(a, b) + .05) };
+    });
+    return { surfaces: [document.documentElement, document.body].map(element => ({ color: getComputedStyle(element).backgroundColor, image: getComputedStyle(element).backgroundImage })), title: colors('.board-poster-title h1')[0], job: colors('#posterJob')[0], address: colors('#posterAddress')[0], notice: colors('.board-poster-signin-notice')[0], text: colors('h1,h2,h3,p,li,.board-poster-contact span,.board-poster-contact strong') };
+  });
+  fs.writeFileSync(receipt(testInfo, `poster-colors-${label}.json`), JSON.stringify(observed, null, 2));
+  expect(observed.title.foreground, 'title stays white on green').toBe('rgb(255, 255, 255)');
+  expect(observed.job.foreground, 'job name stays gold on green').toBe('rgb(255, 225, 160)');
+  expect(observed.address.foreground, 'address stays white on green').toBe('rgb(255, 255, 255)');
+  expect(observed.notice.foreground, 'sign-in notice stays white on green').toBe('rgb(255, 255, 255)');
+  for (const surface of observed.surfaces) expect(surface).toEqual({ color: 'rgb(255, 255, 255)', image: 'none' });
+  for (const item of observed.text.filter(item => item.text)) expect(item.contrast, item.text).toBeGreaterThanOrEqual(4.5);
+}
+
+for (const theme of ['light', 'dark']) test(`actual QR PNG and print poster preserve contrast and public board link in ${theme} theme`, async ({ page }, testInfo) => {
+  await open(page, 'admin', { theme }); await expect(page.locator('#boardQr')).toHaveAttribute('src', /^data:image\/png;base64,/);
   const href = await page.locator('#boardOpenLink').getAttribute('href'), parsed = new URL(href);
   expect(parsed.pathname).toBe('/job-board.html'); expect(parsed.searchParams.get('embedded')).toBe('1'); expect(new URLSearchParams(parsed.hash.slice(1)).get('board')).toBe(TOKEN); expect(parsed.searchParams.has('board')).toBe(false);
   const png = await page.locator('#boardQr').getAttribute('src'); const pngBytes = Buffer.from(png.split(',')[1], 'base64'); expect(pngBytes.subarray(1, 4).toString()).toBe('PNG'); fs.writeFileSync(receipt(testInfo, 'job-board-qr.png'), pngBytes); fs.writeFileSync(receipt(testInfo, 'job-board-qr-expected.txt'), href);
@@ -160,6 +188,7 @@ test('actual QR PNG and print poster encode the public board link without identi
     expect(printed.getPageCount(), `${format} poster fits on one page`).toBe(1);
   }
   await page.emulateMedia({ media: 'print' }); await expect(page.locator('#jobBoardPage')).toBeHidden(); await expect(page.locator('#boardPoster')).toBeVisible(); await expect(page.locator('#posterJob')).toContainText('Job 26132'); await expect(page.locator('#posterQr')).toHaveAttribute('src', png); await page.screenshot({ path: receipt(testInfo, 'job-board-qr-poster.png'), fullPage: true });
+  await assertPosterPrintColors(page.locator('#boardPoster'), testInfo, theme);
   // Long job information and an absent address must not push the sign onto a second sheet.
   for (const address of ['95 Snye School Rd, Akwesasne Reserve No. 15, Quebec H0M 1A1', '']) {
     await page.locator('#posterJob').evaluate(el => { el.textContent = 'Job 26152 · GOC6812588 Site Preparation for Trailer — Cornwall Port of Entry'; });
@@ -345,6 +374,25 @@ async function openNativeBoard(page, theme = 'light') {
   await expect(board.locator('#boardContent')).toBeVisible(); await board.locator('.board-category').evaluateAll(nodes=>nodes.forEach(n=>{n.open=true;n.querySelectorAll('.board-report-period').forEach(p=>p.open=true);})); await expect(board.locator('html')).toHaveAttribute('data-jgc-theme', theme);
   return { store, iframe, board, nativePanel };
 }
+
+for (const theme of ['light', 'dark']) test(`hosted Job Board prints its own poster with readable colors in ${theme} theme`, async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1200 });
+  const { board, iframe } = await openNativeBoard(page, theme);
+  await expect(board.locator('#boardPrint')).toBeEnabled();
+  // The actual button must print the board iframe, not the surrounding Estimate Desk.
+  await board.locator('body').evaluate(() => { window.print = () => { window.qrPrintDocument = document.getElementById('boardPoster').id; }; });
+  await board.getByRole('button', { name: 'Print QR poster', exact: true }).click();
+  expect(await board.locator('body').evaluate(() => window.qrPrintDocument)).toBe('boardPoster');
+  await page.emulateMedia({ media: 'print' });
+  await expect(board.locator('#jobBoardPage')).toBeHidden();
+  await expect(board.locator('#boardPoster')).toBeVisible();
+  await expect(board.locator('html')).toHaveAttribute('data-job-board-host', 'job');
+  await expect(board.locator('html')).toHaveAttribute('data-jgc-theme', theme);
+  // Expand only the screenshot viewport; native iframe printing has its own paper surface.
+  await iframe.evaluate(element => { element.style.height = '1200px'; });
+  await board.locator('#boardPoster').screenshot({ path: receipt(testInfo, `hosted-poster-${theme}.png`) });
+  await assertPosterPrintColors(board.locator('#boardPoster'), testInfo, `hosted-${theme}`);
+});
 
 for (const theme of ['light', 'dark']) for (const width of [390, 1440]) test(`native embedded job tab preserves parent chrome and fills the content area ${theme} ${width}`, async ({ page }, testInfo) => {
   await page.setViewportSize({ width, height: 1000 }); const errors = []; page.on('pageerror', (error) => errors.push(error.message));
