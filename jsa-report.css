@@ -64,6 +64,15 @@ h1 {
     flex-direction: column;
 }
 
+.jsa-job-search { position: relative; width: 100%; }
+.jsa-job-search input { width: 100%; min-width: 0; min-height: 44px; }
+.jsa-job-search .jgc-job-dropdown { max-height: 280px; overflow-y: auto; }
+.jsa-job-search .jgc-job-dropdown .jgc-job-option { background: var(--jgc-color-input) !important; color: var(--jgc-color-text-dark) !important; }
+.jsa-job-search .jgc-job-dropdown .jgc-job-option:hover,
+.jsa-job-search .jgc-job-dropdown .jgc-job-option:focus { background: color-mix(in srgb, var(--jgc-color-brand-700) 10%, var(--jgc-color-input)) !important; }
+.jsa-job-browse-label { display: block; margin: 8px 0 4px; font-size: 12px; font-weight: 600; }
+.jsa-job-search[hidden], .jsa-job-browse-label[hidden] { display: none; }
+
 label {
     font-weight: bold;
     margin-bottom: 4px;

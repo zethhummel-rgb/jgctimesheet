@@ -60,6 +60,7 @@ async function openJsa(page, store, options) { await install(page, store, option
 
 test('actual JSA prefills the stable board, resets changed job text, and saves/attaches with the canonical actor', async ({ page }) => {
   const store = fixture(); await openJsa(page, store); await expect(page.locator('#jsaField1')).toHaveAttribute('readonly', ''); await expect(page.locator('#jsaField2')).toHaveValue('14815 County Road 2');
+  await expect(page.locator('#jsaJobSearch')).toBeHidden();
   expect(store.calls.find((c) => c.name === 'get_job_board').args).toEqual({ p_token: TOKEN, p_visit_token: VISIT });
   const prepared = await page.evaluate(async () => { document.getElementById('jsaField1').value = '26999 - Wrong job'; localStorage.setItem('currentWorker', 'stale worker'); localStorage.setItem('currentWorkerDisplay', 'Stale Worker'); const prepared = await buildInspectionRecord('JSA', getCurrentWorker()); const saved = await persistInspectionRecord(prepared.record); return { prepared, saved }; });
   expect(prepared.saved).toMatchObject({ worker_name: STAFF.worker_key, worker_display_name: STAFF.display_name, summary: { completed_by: STAFF.display_name }, form_data: { job_context: { job_board_id: BOARD, jobNumber: '26132', project: '26132 - Synthetic site work' } } });

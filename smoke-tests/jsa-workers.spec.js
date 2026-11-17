@@ -10,6 +10,41 @@ async function pdfWords(bytes){
  const task=library.getDocument({data:new Uint8Array(bytes),disableWorker:true}),pdf=await task.promise,words=[];
  try{for(let page=1;page<=pdf.numPages;page++)words.push((await (await pdf.getPage(page)).getTextContent()).items.map(item=>item.str).join(' '));return words.join(' ');}finally{await task.destroy();}
 }
+for(const width of [390,1280])test(`JSA searches or browses jobs without changing saved job context ${width}`,async({page})=>{
+ await page.setViewportSize({width,height:900});
+ const jobs=[{id:'job1',job_number:'26108',customer:'Trans Northern Pipeline',job_name:'Megadome',site_name:'Lancaster Station',address:'100 Pipeline Road',active:true},{id:'job2',job_number:'26152',customer:'BGIS Federal',job_name:'Trailer Prep',site_name:'Cornwall Customs',address:'1 Water Street',active:true}];
+ await fixture(page,jobs);await page.goto('/jsa.html');
+ const search=page.getByRole('combobox',{name:'Search jobs'}), picker=page.locator('#jsaField1Select'), options=page.locator('#jsaJobSearchResults');
+ await expect(picker.locator('option')).toHaveCount(4);
+ await search.fill('26108');await expect(options.getByRole('option')).toHaveCount(1);await expect(options).toContainText('Megadome');
+ for(const theme of ['light','dark']){await page.evaluate(t=>applyJgcTheme(t),theme);const contrast=await options.getByRole('option').evaluate(el=>{const lum=color=>{const rgb=color.match(/[\d.]+/g).slice(0,3).map(Number).map(n=>n/255).map(n=>n<=.04045?n/12.92:((n+.055)/1.055)**2.4);return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722};const bg=lum(getComputedStyle(el).backgroundColor),fg=lum(getComputedStyle(el.querySelector('.jgc-job-option__name')).color);return (Math.max(bg,fg)+.05)/(Math.min(bg,fg)+.05);});expect(contrast).toBeGreaterThanOrEqual(4.5);}
+ if(process.env.JGC_JSA_SEARCH_SCREENSHOT)await page.screenshot({path:process.env.JGC_JSA_SEARCH_SCREENSHOT.replace('{width}',String(width))});
+ await options.getByRole('option').click();await expect(page.locator('#jsaField1')).toHaveValue('26108 - Megadome');await expect(page.locator('#jsaField2')).toHaveValue('100 Pipeline Road');
+ const saved=await page.evaluate(async()=>{const built=await buildInspectionRecord('JSA',getCurrentWorker());return {fields:built.record.form_data.fields,context:built.record.form_data.job_context};});
+ expect(saved.fields.filter(field=>field.label==='Project / Job')).toEqual([{label:'Project / Job',value:'26108 - Megadome'}]);
+ expect(saved.fields.some(field=>/Search jobs/i.test(field.label))).toBe(false);expect(saved.context).toMatchObject({jobNumber:'26108',jobName:'Megadome'});
+ await search.fill('BGIS');await search.press('ArrowDown');await expect(options.getByRole('option')).toBeFocused();await page.keyboard.press('Escape');await expect(search).toBeFocused();await expect(options).toBeHidden();
+ for(const term of ['BGIS','Trailer','Cornwall Customs','1 Water']){await search.fill(term);await expect(options.getByRole('option')).toHaveCount(1);await expect(options).toContainText('Trailer Prep');}
+ await search.fill('no-such-project');await expect(options).toContainText('No matching jobs');await expect(page.locator('#jsaField1')).toHaveValue('26108 - Megadome');
+ await page.keyboard.press('Escape');await expect(options).toBeHidden();
+ await picker.selectOption('26152 - Trailer Prep');await expect(page.locator('#jsaField2')).toHaveValue('1 Water Street');await expect(search).toHaveValue('');
+ await picker.selectOption('__manual__');await page.locator('#jsaField1').fill('Manual site');await expect(page.locator('#jsaField1')).toHaveValue('Manual site');
+ await page.evaluate(()=>JgcPreparedJsa.restore({record:{inspection_date:'2099-10-15',form_data:{fields:[{label:'Project / Job',value:'26108 - Megadome'},{label:'Address',value:'Saved address'}],rows:[]}},crew:[],manual:[]}));
+ await expect(picker).toHaveValue('26108 - Megadome');await expect(page.locator('#jsaField2')).toHaveValue('Saved address');
+ await page.evaluate(()=>{document.getElementById('jsaField1').readOnly=true;});await expect(search).toBeHidden();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+test('a future staff JSA saves the job selected through search',async({page})=>{
+ const jobs=[{id:'job1',job_number:'26108',customer:'Trans Northern Pipeline',job_name:'Megadome',address:'100 Pipeline Road',active:true}];
+ const store=await fixture(page,jobs,false);await page.goto('/jsa.html');await expect(page.locator('#approvedCrewStatus')).toContainText('1 approved employees loaded');
+ await page.locator('#jsaJobSearch').fill('Megadome');await page.locator('#jsaJobSearchResults').getByRole('option').click();
+ await page.locator('#jsaField3').fill(future());await page.locator('#tableBody textarea').nth(0).fill('Inspect access');await page.locator('#tableBody textarea').nth(1).fill('Falls');await page.locator('#tableBody textarea').nth(2).fill('Guardrails');
+ await page.locator('#approvedCrewSelect').selectOption(worker.worker_key);await page.locator('#jsaSaveWorkerDraft').click();
+ await expect.poll(()=>store.calls.some(call=>call.name==='save_worker_jsa')).toBe(true);
+ const record=store.calls.find(call=>call.name==='save_worker_jsa').args.p_payload;
+ expect(record.form_data.job_context).toMatchObject({jobNumber:'26108',jobName:'Megadome'});
+ expect(record.form_data.fields.filter(field=>field.label==='Project / Job')).toEqual([{label:'Project / Job',value:'26108 - Megadome'}]);
+});
 for(const width of [390,1440])test(`job address autofills separately from on-site location ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});
  const jobs=[{id:'job1',job_number:'26999',customer:'Synthetic Client',job_name:'Synthetic Job',site_name:'Main Office',address:'100 Synthetic Street, Test City',active:true},{id:'job2',job_number:'26998',customer:'Synthetic Client',job_name:'Other Job',address:'200 Other Street, Test City',active:true}];
@@ -170,6 +205,7 @@ test('a staff phone can collect a JSA prepared ahead of time without editing its
  Object.assign(store.model.workflow,{active:true,today:date(),valid_date:date(),status:'Draft — Awaiting Worker Sign-Offs',prepared_in_advance:true,signing_mode:'shared_phone'});
  store.model.record.inspection_date=date();store.model.record.form_data.fields.find(f=>f.label==='Date').value=date();store.model.can_edit=false;
  await page.goto('/jsa.html?record='+store.model.record.id);await expect(page.locator('#jsaWorkDateHelp')).toContainText('Staff with this JSA');await expect(page.locator('#jsaField3')).toBeDisabled();
+ await expect(page.locator('#jsaJobSearch')).toBeDisabled();
  await page.locator('#jsaCompleteWorkers').click();await expect(page.locator('[data-jsa-worker-sign]')).toHaveCount(2);
  await sign(page,'Synthetic Worker');await sign(page,'Manual Worker');await expect(page.locator('#jsaPostSaveQrPanel h3')).toHaveText('Completed');
  expect(store.calls.filter(c=>c.name==='save_worker_jsa')).toHaveLength(1);
