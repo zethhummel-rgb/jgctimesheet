@@ -1,13 +1,13 @@
 {
-  "_es-DXGVWKLP.js": {
-    "file": "assets/es-DXGVWKLP.js",
+  "_es-DErjRC46.js": {
+    "file": "assets/es-DErjRC46.js",
     "name": "es",
     "imports": [
       "index.html"
     ]
   },
   "index.html": {
-    "file": "assets/index-D7Uvj5VZ.js",
+    "file": "assets/index-BBK18tVS.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
@@ -32,13 +32,13 @@
     ]
   },
   "lib/drawing-pdf.ts": {
-    "file": "assets/drawing-pdf-BY55EmBT.js",
+    "file": "assets/drawing-pdf-CbaCfPEf.js",
     "name": "drawing-pdf",
     "src": "lib/drawing-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-DXGVWKLP.js"
+      "_es-DErjRC46.js"
     ]
   },
   "lib/job-accounting-workbook.ts": {
@@ -48,47 +48,47 @@
     "isDynamicEntry": true
   },
   "lib/job-schedule-pdf.ts": {
-    "file": "assets/job-schedule-pdf-BjWARak5.js",
+    "file": "assets/job-schedule-pdf-BxF__473.js",
     "name": "job-schedule-pdf",
     "src": "lib/job-schedule-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-DXGVWKLP.js"
+      "_es-DErjRC46.js"
     ]
   },
   "lib/job-warranty-pdf.ts": {
-    "file": "assets/job-warranty-pdf-BPC_ZoIs.js",
+    "file": "assets/job-warranty-pdf-BiNrZLOx.js",
     "name": "job-warranty-pdf",
     "src": "lib/job-warranty-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-DXGVWKLP.js"
+      "_es-DErjRC46.js"
     ]
   },
   "lib/proposal-pdf.ts": {
-    "file": "assets/proposal-pdf-BYqp4mDT.js",
+    "file": "assets/proposal-pdf-B4h_1GKK.js",
     "name": "proposal-pdf",
     "src": "lib/proposal-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-DXGVWKLP.js"
+      "_es-DErjRC46.js"
     ]
   },
   "lib/purchase-order-pdf.ts": {
-    "file": "assets/purchase-order-pdf-DV0JRgNj.js",
+    "file": "assets/purchase-order-pdf-CX52HaWX.js",
     "name": "purchase-order-pdf",
     "src": "lib/purchase-order-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-DXGVWKLP.js"
+      "_es-DErjRC46.js"
     ]
   },
   "lib/quote-backup-pdf.ts": {
-    "file": "assets/quote-backup-pdf-DOkXXVSR.js",
+    "file": "assets/quote-backup-pdf-y3R3QQym.js",
     "name": "quote-backup-pdf",
     "src": "lib/quote-backup-pdf.ts",
     "isDynamicEntry": true,
@@ -96,31 +96,31 @@
       "index.html",
       "lib/purchase-order-pdf.ts",
       "lib/proposal-pdf.ts",
-      "_es-DXGVWKLP.js"
+      "_es-DErjRC46.js"
     ]
   },
   "lib/rfi-pdf.ts": {
-    "file": "assets/rfi-pdf-Dlj_dlzg.js",
+    "file": "assets/rfi-pdf-BbcFFOUR.js",
     "name": "rfi-pdf",
     "src": "lib/rfi-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_es-DXGVWKLP.js"
+      "_es-DErjRC46.js"
     ]
   },
   "lib/shop-drawing-transmittal-pdf.ts": {
-    "file": "assets/shop-drawing-transmittal-pdf-DhrZ8L5F.js",
+    "file": "assets/shop-drawing-transmittal-pdf-DBNwrRoX.js",
     "name": "shop-drawing-transmittal-pdf",
     "src": "lib/shop-drawing-transmittal-pdf.ts",
     "isDynamicEntry": true,
     "imports": [
       "lib/drawing-pdf.ts",
-      "_es-DXGVWKLP.js"
+      "_es-DErjRC46.js"
     ]
   },
   "lib/shop-drawing-workbook.ts": {
-    "file": "assets/shop-drawing-workbook-C1SXcM-r.js",
+    "file": "assets/shop-drawing-workbook-Ca4MI2-C.js",
     "name": "shop-drawing-workbook",
     "src": "lib/shop-drawing-workbook.ts",
     "isDynamicEntry": true,
@@ -130,7 +130,7 @@
     ]
   },
   "node_modules/.pnpm/pdfjs-dist@6.2.108/node_modules/pdfjs-dist/legacy/build/pdf.mjs": {
-    "file": "assets/pdf-BvteMmYf.js",
+    "file": "assets/pdf-pwEBmO2d.js",
     "name": "pdf",
     "src": "node_modules/.pnpm/pdfjs-dist@6.2.108/node_modules/pdfjs-dist/legacy/build/pdf.mjs",
     "isDynamicEntry": true,
@@ -139,7 +139,7 @@
     ]
   },
   "node_modules/.pnpm/tesseract.js@7.0.0/node_modules/tesseract.js/src/index.js": {
-    "file": "assets/src-DlqlFdz_.js",
+    "file": "assets/src-CTePYb78.js",
     "name": "src",
     "src": "node_modules/.pnpm/tesseract.js@7.0.0/node_modules/tesseract.js/src/index.js",
     "isDynamicEntry": true,
@@ -148,7 +148,7 @@
     ]
   },
   "node_modules/.pnpm/tus-js-client@4.3.1/node_modules/tus-js-client/lib.esm/browser/index.js": {
-    "file": "assets/browser-C2RTyzpC.js",
+    "file": "assets/browser-BXmzAjAH.js",
     "name": "browser",
     "src": "node_modules/.pnpm/tus-js-client@4.3.1/node_modules/tus-js-client/lib.esm/browser/index.js",
     "isDynamicEntry": true,

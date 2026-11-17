@@ -30,6 +30,7 @@ export type DocumentCategory = typeof documentCategories[number]['id'];
 
 export const boardDocumentCategories = [
   { id: 'notice-of-project', title: 'Notice of Project' },
+  { id: 'ontario-legislation', title: 'Ontario H&S Act & Construction Regulations' },
   { id: 'site-specific', title: 'Site Specific' },
   { id: 'daily-report', title: 'Daily Reports' },
   { id: 'jsa', title: 'Daily Reports — JSA' },
