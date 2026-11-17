@@ -609,6 +609,11 @@
   function renderCreateForms() { const list = $('createFormLinks'); list.replaceChildren(); FORMS.forEach(([file, label]) => { const u = new URL(file, location.href); u.searchParams.set('jobBoard', '1'); u.hash = new URLSearchParams({ board: state.token, visit: state.visit && state.visit.token || '' }).toString(); const a = text('a', label, 'jgc-button jgc-button--secondary'); a.href = u.href; list.append(a); }); }
   function mime(file) { if (TYPES.includes(file.type)) return file.type; if (file.type) return ''; const extension = file.name.toLowerCase().split('.').pop(); return ({ pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' })[extension] || ''; }
   function showSelectedFiles() { $('uploadFileList').replaceChildren(); Array.from($('uploadFiles').files || []).forEach((file) => { const row = text('div', '', 'board-upload-file'); row.append(text('span', file.name), text('span', bytes(file.size))); $('uploadFileList').append(row); }); }
+  async function finalizeBoardUpload(attempt) {
+    const result = await rpc('finalize_job_board_upload', { p_document_id: attempt.id });
+    if (!result || result.status !== 'published') throw new Error('The file is uploaded but has not been published. Please retry or contact the office.');
+    attempt.finalized = true; attempt.uploaded = true;
+  }
   async function uploadDocuments(event) {
     event.preventDefault(); if (state.uploadBusy || !state.board || !state.board.can_upload || !$('uploadForm').reportValidity()) return;
     const files = Array.from($('uploadFiles').files || []); if (!files.length) return;
@@ -622,19 +627,19 @@
         if (attempt && !attempt.finalized && !attempt.uploaded) {
           // A lost response may conceal an upload already committed by Storage.
           // Finalization validates the reserved path, size and MIME before accepting it.
-          try { await rpc('finalize_job_board_upload', { p_document_id: attempt.id }); attempt.finalized = true; attempt.uploaded = true; } catch { /* No complete object yet; retry the original upload. */ }
+          try { const result = await rpc('finalize_job_board_upload', { p_document_id: attempt.id }); if (result && result.status === 'published') { attempt.finalized = true; attempt.uploaded = true; } else if (result && result.status === 'pending') { attempt.uploaded = true; throw new Error('The file is uploaded but has not been published. Please contact the office.'); } } catch (error) { if (attempt.uploaded) throw error; /* No complete object yet; retry the original upload. */ }
         }
         if (!attempt) { const result = await rpc('begin_job_board_upload', { p_board_id: state.board.id, p_category: $('uploadCategory').value, p_title: (files.length > 1 ? $('uploadTitle').value.trim() + ' · ' + file.name : $('uploadTitle').value.trim()).slice(0, 200), p_report_date: $('uploadDate').value, p_file_name: file.name, p_mime_type: mime(file), p_file_size: file.size, p_notes: $('uploadNotes').value.trim() }); if (!result || !result.id || !result.object_path) throw new Error('The upload destination was not created. Please retry.'); attempt = { id: result.id, path: result.object_path, uploaded: false, finalized: false }; state.uploads.set(file, attempt); }
         if (!attempt.finalized) {
           status('uploadStatus', 'Uploading ' + (completed + 1) + ' of ' + files.length + ': ' + file.name);
           if (!attempt.uploaded) { const result = await uploadJgcFile({ client: state.client, bucket: 'job-board-files', path: attempt.path, file, contentType: mime(file), maxBytes: 20 * 1024 * 1024, types: TYPES, upsert: false, onProgress: (loaded, total, percentage) => { $('uploadProgress').value = Number.isFinite(percentage) ? percentage : total ? loaded / total * 100 : 0; } }); if (result.error) throw result.error; attempt.uploaded = true; }
-          await rpc('finalize_job_board_upload', { p_document_id: attempt.id }); attempt.finalized = true;
+          await finalizeBoardUpload(attempt);
         }
         completed += 1;
       }
-      $('uploadForm').reset(); $('uploadDate').value = dateToday(); $('uploadFileList').replaceChildren(); state.uploads.clear(); status('uploadStatus', completed + (completed === 1 ? ' file uploaded' : ' files uploaded') + ' for office review.', 'success'); notice('Upload received. The office must review it before it appears on the board.'); invalidateLogs(); await loadBoard();
+      $('uploadForm').reset(); $('uploadDate').value = dateToday(); $('uploadFileList').replaceChildren(); state.uploads.clear(); status('uploadStatus', completed + (completed === 1 ? ' file published' : ' files published') + ' on the Job Board.', 'success'); notice('Upload published on this Job Board.'); invalidateLogs(); await loadBoard();
     } catch (error) { status('uploadStatus', errorMessage(error) + (completed ? ' ' + completed + ' file(s) completed. Retry continues the remaining files.' : ' Your selected files are kept; retry when your connection improves.'), 'error'); }
-    finally { state.uploadBusy = false; Array.from($('uploadForm').elements).forEach((e) => e.disabled = false); busy($('uploadSubmit'), false, 'Upload for review'); $('uploadProgress').hidden = true; }
+    finally { state.uploadBusy = false; Array.from($('uploadForm').elements).forEach((e) => e.disabled = false); busy($('uploadSubmit'), false, 'Upload to Job Board'); $('uploadProgress').hidden = true; }
   }
   function invalidateLogs(){Object.values(state.logs).forEach(log=>{log.loaded=false;});}
   function activityElement(kind,suffix){return $(kind==='site'?'siteActivity'+suffix:'activity'+suffix);}
