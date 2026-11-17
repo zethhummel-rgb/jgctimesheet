@@ -159,7 +159,9 @@
     $('uploadPanel').querySelector('h2').textContent = state.manage ? 'Upload a site document' : 'Create Todays Reports';
     const documents = Array.isArray(board.documents) ? board.documents : [];
     const published = documents.filter((d) => d.status === 'published');
-    const pending = documents.filter((d) => d.status === 'pending');
+    // Plan originals are managed in Supporting documents; only an explicitly
+    // published copy belongs in the Job Board review/publication workflow.
+    const pending = documents.filter((d) => d.status === 'pending' && !(d.category === 'site-specific' && d.notes === 'Supporting file for the site-specific plan; original kept separately.'));
     $('reviewCount').textContent = pending.length ? '(' + pending.length + ')' : '';
     renderDocuments($('reviewList'), pending, 'No uploads are waiting for review.', true);
     renderLibrary();

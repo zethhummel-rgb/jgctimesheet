@@ -167,6 +167,15 @@ test('staff direct sign-in verifies profile, preserves job context, and retries 
   expect(store.calls.find((c) => c.name === 'begin_job_board_upload').args).toMatchObject({ p_board_id: BOARD_ID, p_category: 'jsa', p_title: 'Paper JSA for review', p_file_name: 'paper-jsa.pdf', p_mime_type: 'application/pdf' });
 });
 
+test('private Site Specific originals stay out of board review while explicit copies appear', async ({ page }) => {
+  const store = await open(page, 'admin');
+  store.documentRows.push({id:'private-plan-source',title:'Plan attachment · Product SDS.pdf',category:'site-specific',report_date:today(),file_name:'Product SDS.pdf',status:'pending',visibility:'public',notes:'Supporting file for the site-specific plan; original kept separately.'});
+  store.documentRows.push({id:'published-plan-copy',title:'Product SDS.pdf',category:'sds',report_date:today(),file_name:'Product SDS.pdf',status:'published',visibility:'public',notes:'Published from Site Specific supporting documents.'});
+  await page.locator('#boardRefresh').click();await page.getByRole('tab',{name:'Review uploads (1)',exact:true}).click();
+  await expect(page.locator('#reviewList')).toContainText('Paper incident for office review');await expect(page.locator('#reviewList')).not.toContainText('Plan attachment · Product SDS.pdf');
+  await page.getByRole('tab',{name:'Documents',exact:true}).click();await expect(page.locator('#sdsList')).toContainText('Product SDS.pdf');await expect(page.locator('#siteSpecificList')).not.toContainText('Product SDS.pdf');
+});
+
 test('accident publication locks restricted access and saved staff source imports publish automatically', async ({ page }) => {
   const store = await open(page, 'admin'); await page.getByRole('tab', { name: 'Review uploads (1)', exact: true }).click();
   const card = page.locator('#reviewList article').first(); const visibility = card.getByLabel('Published access', { exact: true }); await expect(visibility).toHaveValue('restricted'); await expect(visibility).toBeDisabled();

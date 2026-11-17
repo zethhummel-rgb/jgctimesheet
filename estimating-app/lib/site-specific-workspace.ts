@@ -28,6 +28,24 @@ export const documentCategories = [
 ] as const;
 export type DocumentCategory = typeof documentCategories[number]['id'];
 
+export const boardDocumentCategories = [
+  { id: 'notice-of-project', title: 'Notice of Project' },
+  { id: 'site-specific', title: 'Site Specific' },
+  { id: 'daily-report', title: 'Daily Reports' },
+  { id: 'jsa', title: 'Daily Reports — JSA' },
+  { id: 'toolbox-talk', title: 'Daily Reports — Toolbox Talk' },
+  { id: 'inspection', title: 'Daily Inspections' },
+  { id: 'permit', title: 'Daily Permits' },
+  { id: 'sds', title: 'SDS Sheets' },
+  { id: 'jgc-policy', title: 'JGC Policy' },
+  { id: 'other', title: 'Daily Reports — Other' },
+] as const;
+export type BoardDocumentCategory = typeof boardDocumentCategories[number]['id'];
+export function defaultBoardCategory(item: SafetyAttachment): BoardDocumentCategory {
+  const selected = documentCategory(item);
+  return selected === 'sds' ? 'sds' : selected === 'jsa' ? 'jsa' : selected === 'policy' ? 'jgc-policy' : 'site-specific';
+}
+
 export function documentCategory(item: SafetyAttachment): DocumentCategory {
   // Certificate identity comes from the protected Portal source, not a UI label.
   if (item.kind === 'certificate') return 'certificates';
