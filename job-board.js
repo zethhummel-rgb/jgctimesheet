@@ -331,9 +331,7 @@
     all.sort((a,b) => String(b.created_at || b.report_date || '').localeCompare(String(a.created_at || a.report_date || '')) || String(b.id).localeCompare(String(a.id)));
     SECTIONS.forEach(([id,label,categories,description]) => {
       const list = $(id) || createDocumentSection(id, $('documentSections'), label, description);
-      const publicCategory = !state.manage && PUBLIC_SAFETY_LABELS.has(id);
-      const docs = all.filter(d => categories.includes(d.category) && (!publicCategory || !publicSafetyDocument(d)));
-      list.parentElement.hidden = publicCategory && !docs.length;
+      const docs = all.filter(d => categories.includes(d.category));
       list.parentElement.querySelector('.board-section-count').textContent = docs.length;
       if (['dailyReportsList','inspectionList','permitList'].includes(id)) {
         const headings = id === 'dailyReportsList' ? ['Todays Reports','Previous Reports'] : id === 'inspectionList' ? ['Todays Inspections','Previous Inspections'] : ['Todays Permits','Previous Permits'];

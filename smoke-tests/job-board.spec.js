@@ -668,6 +668,107 @@ test('scanned board opens public safety documents without creating a visit or gi
   await expect(page.locator('#loginOptions')).toBeVisible();
 });
 
+for (const identity of ['guest', 'staff']) test(`signed-in ${identity} sees the same safety documents directly and opens them without another site sign-in`, async ({ page }, testInfo) => {
+  if (identity === 'guest') await page.setViewportSize({ width: 390, height: 844 });
+  const store = fixture('guest');
+  const safetySections = [
+    ['noticeOfProjectList', ['notice-of-project', 'Project notice']],
+    ['ontarioLegislationList', ['ontario-legislation', 'Ontario Health and Safety Act'], ['ontario-legislation', 'Construction regulations']],
+    ['siteSpecificList', ['site-specific', 'Site safety plan'], ['hs-documents', 'Site emergency procedures']],
+    ['sdsList', ['sds', 'Diesel safety data sheet']],
+    ['policyList']
+  ];
+  safetySections.forEach(([section, ...entries]) => entries.forEach(([category, title], index) => store.documentRows.push({
+    id: `safety-${section}-${index}`, title, category, report_date: previousDate,
+    file_name: `${title}.pdf`, mime_type: 'application/pdf', status: 'published', visibility: 'public'
+  })));
+  // A pending safety file must not become visible simply because its category is public.
+  store.documentRows.push({ id: 'pending-sds', title: 'Unpublished safety sheet', category: 'sds', status: 'pending', visibility: 'public' });
+  await install(page, store);
+  await page.goto('/job-board.html?embedded=1#board=' + TOKEN);
+  await expect(page.locator('#loginOptions')).toBeVisible();
+  if (identity === 'guest') {
+    await visitorSignIn(page);
+  } else {
+    await page.locator('#staffLogin').click();
+    await page.locator('#staffEmail').fill('staff@example.test');
+    await page.locator('#staffPassword').fill('fixture-password');
+    await page.locator('#staffSubmit').click();
+  }
+  await expect(page.locator('#boardContent')).toBeVisible();
+  const signInCalls = () => store.calls.filter(call => ['register_job_board_visit', 'record_job_board_site_signin'].includes(call.name));
+  await expect.poll(() => signInCalls().filter(call => call.name === 'record_job_board_site_signin').length).toBe(1);
+  const originalSignIns = signInCalls().map(call => ({ name: call.name, args: { ...call.args } }));
+
+  // Compare the actual public library with the signed-in library, including the automatic company policy.
+  await page.locator('#signedInSafety').click();
+  await expect(page.locator('#publicSafety')).toBeVisible();
+  const publicIds = {};
+  for (const [section] of safetySections) {
+    publicIds[section] = await page.locator(`#public-${section} article`).evaluateAll(nodes => nodes.map(node => node.dataset.documentId).sort());
+    expect(publicIds[section].length).toBeGreaterThan(0);
+  }
+  await expect(page.locator('#publicSafetySections')).not.toContainText('Morning JSA');
+  await expect(page.locator('#publicSafetySections')).not.toContainText('Private accident');
+  await expect(page.locator('#publicSafetySections')).not.toContainText('Unpublished safety sheet');
+  await page.locator('#qrPageBack').click();
+  for (const [section] of safetySections) {
+    const list = page.locator('#' + section), group = list.locator('..');
+    await expect(group).toBeVisible();
+    await expect(group.locator(':scope > summary .board-section-count')).toHaveText(String(publicIds[section].length));
+    expect(await list.locator('article').evaluateAll(nodes => nodes.map(node => node.dataset.documentId).sort())).toEqual(publicIds[section]);
+    if (!(await group.evaluate(node => node.open))) await group.locator(':scope > summary').click();
+    await expect(list.locator('article').first()).toBeVisible();
+  }
+  await expect(page.locator('#policyList article')).toHaveCount(1);
+  await expect(page.locator('#documentSections')).not.toContainText('Unpublished safety sheet');
+  await expect(page.locator('#documentSections')).not.toContainText('Paper incident for office review');
+  if (identity === 'guest') await expect(page.locator('#documentSections')).not.toContainText('Private accident');
+
+  const { PDFDocument } = require('../estimating-app/node_modules/pdf-lib');
+  const pdf = await PDFDocument.create();
+  pdf.addPage().drawText('Synthetic Ontario construction safety regulations');
+  const pdfBase64 = await pdf.saveAsBase64();
+  await page.route('**/functions/v1/jgc-job-board-document', async route => {
+    store.edgeCalls.push(route.request().postDataJSON());
+    await route.fulfill({ json: { pdfBase64, fileName: 'Construction-regulations.pdf', mimeType: 'application/pdf' } });
+  });
+  const card = page.locator('#ontarioLegislationList article[data-document-id="safety-ontarioLegislationList-1"]');
+  if (identity === 'guest') {
+    const opened = page.waitForEvent('popup');
+    await card.getByRole('button', { name: 'View', exact: true }).click();
+    const viewer = await opened;
+    await expect.poll(() => viewer.url()).toMatch(/^blob:/);
+    const previewBytes = Buffer.from(await page.evaluate(async url => Array.from(new Uint8Array(await (await fetch(url)).arrayBuffer())), viewer.url()));
+    expect(await pdfTexts(previewBytes)).toContain('Synthetic Ontario construction safety regulations');
+    await viewer.close();
+  } else {
+    await card.getByRole('button', { name: 'View', exact: true }).click();
+    await expect(page.locator('#documentPreview')).toBeVisible();
+    await expect(page.locator('#previewBody canvas')).toHaveCount(1);
+    await expect(page.locator('#previewBody .board-jsa-accessible-text')).toContainText('Synthetic Ontario construction safety regulations');
+    await page.locator('#previewClose').click();
+  }
+  const downloaded = page.waitForEvent('download');
+  await card.getByRole('button', { name: 'Download', exact: true }).click();
+  const download = await downloaded;
+  expect(download.suggestedFilename()).toBe('Construction-regulations.pdf');
+  expect(await pdfTexts(fs.readFileSync(await download.path()))).toContain('Synthetic Ontario construction safety regulations');
+  expect(store.edgeCalls).toEqual(Array(2).fill({ boardToken: TOKEN, visitToken: VISIT, documentId: 'safety-ontarioLegislationList-1' }));
+
+  const boardReads = store.calls.filter(call => call.name === 'get_job_board').length;
+  await page.locator('#boardRefresh').click();
+  await expect.poll(() => store.calls.filter(call => call.name === 'get_job_board').length).toBeGreaterThan(boardReads);
+  await expect(page.locator('#boardRefresh')).toBeEnabled();
+  for (const [section] of safetySections) {
+    await expect(page.locator('#' + section).locator('..')).toHaveAttribute('open', '');
+    expect(await page.locator(`#${section} article`).evaluateAll(nodes => nodes.map(node => node.dataset.documentId).sort())).toEqual(publicIds[section]);
+  }
+  expect(signInCalls()).toEqual(originalSignIns);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.locator('#documentSections').screenshot({ path: receipt(testInfo, `signed-in-${identity}-safety-sections.png`) });
+});
+
 test('eight document sections, Notice of Project first, start collapsed, retain expanded state and sort newest entries first without search',async ({page})=>{
   // Same-day reports sort by upload time, so give each row one (relative to today; a fixed date breaks once that day passes).
   const store=fixture('staff'); store.documentRows[0].created_at=today()+'T15:00:00Z';store.documentRows[1].created_at=previousDate+'T11:00:00Z';store.documentRows[3].created_at=today()+'T14:00:00Z';
