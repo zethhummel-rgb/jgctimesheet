@@ -343,31 +343,39 @@ html[data-qr-board] .board-footer-address > div { min-width: 0; }
 }
 
 @media print {
-  @page { size: portrait; margin: 13mm; }
+  @page { size: portrait; margin: 10mm; }
+  html { color-scheme: light !important; }
   html, body.job-board-page { background: white !important; color: black !important; margin: 0 !important; padding: 0 !important; }
   body.job-board-page > :not(#boardPoster) { display: none !important; }
   .job-board-page #boardPoster { color: #172920; text-align: center; font-family: Arial, sans-serif; }
   .board-poster h2 { overflow-wrap: anywhere; }
   body.job-board-page > #boardPoster {
-    display: block !important; width: min(100%, 175mm); margin-inline: auto;
-    border: 1.4pt solid #153e2d; border-radius: 12px; padding: 6mm;
+    display: block !important; width: min(100%, 184mm); margin-inline: auto;
+    border: 2pt solid #153e2d; border-radius: 14px; padding: 5mm;
     break-inside: avoid; print-color-adjust: exact; -webkit-print-color-adjust: exact;
   }
-  .board-poster-logo { width: 58mm; height: 22mm; object-fit: cover; margin: 0 0 2mm; }
-  .board-poster-title { background: #153e2d; color: white; border-radius: 8px; border-bottom: 3px solid #d8a946; padding: 3mm; }
-  .board-poster h1 { font-size: 29pt; line-height: 1; margin: 0 0 2mm; }
-  .board-poster h2 { font-size: 14pt; margin: 0; }
-  .board-poster #posterAddress:not(:empty) { font-size: 10.5pt; line-height: 1.25; margin: 1mm 0 0; }
+  .board-poster-brand { display: flex; align-items: center; justify-content: space-between; gap: 4mm; margin-bottom: 3mm; }
+  .board-poster-logo { display: block; width: 53mm; height: 18mm; object-fit: cover; margin: 0; }
+  .board-poster-badge { border: 1.2pt solid #153e2d; border-radius: 5px; padding: 2.5mm 3mm; color: #153e2d; font-size: 10pt; font-weight: 800; letter-spacing: .08em; }
+  .board-poster-title { background: #153e2d; color: white; border-radius: 8px; padding: 3mm; }
+  .board-poster h1 { font-size: 25pt; line-height: 1; margin: 0 0 1.5mm; font-weight: 900; }
+  .board-poster h2 { color: #ffe1a0; font-size: 12pt; line-height: 1.2; margin: 0; }
+  .board-poster #posterAddress:not(:empty) { font-size: 10pt; line-height: 1.2; margin: 1mm 0 0; }
   .board-poster #posterAddress:empty { display: none; }
-  #posterQr { display: block; width: 69mm; height: 69mm; margin: 3mm auto 0; }
-  .board-poster .board-poster-instruction { font-size: 19pt; line-height: 1.1; margin: 0; }
-  .board-poster .board-poster-tip { margin: 1mm 0 4mm; font-size: 10.25pt; }
+  .board-poster-scan { margin-top: 3mm; padding: 3mm; border-radius: 10px; background: #f0c66e; color: #123b2b; border: 1pt solid #cda34d; }
+  .board-poster .board-poster-instruction { display: flex; align-items: center; justify-content: center; gap: 3mm; font-size: 40pt; font-weight: 900; line-height: 1; letter-spacing: -.035em; margin: 0; }
+  .board-poster-instruction svg { width: 12mm; height: 12mm; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+  .board-poster-subtitle { margin: 1mm 0 3mm; font-size: 12pt; line-height: 1.2; font-weight: 700; }
+  .board-poster-qr-frame { width: fit-content; margin-inline: auto; padding: 2mm; border: 1.5pt solid #153e2d; border-radius: 7px; background: white; }
+  #posterQr { display: block; width: 84mm; height: 84mm; margin: 0; }
+  .board-poster .board-poster-tip { margin: 2mm 0 0; font-size: 10pt; line-height: 1.2; font-weight: 600; }
+  .board-poster-signin-notice { margin: 3mm 0; padding: 2mm 1mm; background: #153e2d; color: white; border-radius: 5px; font-size: 10.5pt; line-height: 1.2; font-weight: 800; letter-spacing: .035em; }
   .board-poster-guide { display: grid; grid-template-columns: 1.18fr 1fr; gap: 3mm; text-align: left; }
-  .board-poster-guide section { padding: 3mm; border: 1px solid #9eb4a4; border-radius: 7px; background: #edf4ee; }
-  .board-poster-guide h3 { font-size: 13pt; margin: 0; color: #153e2d; }
-  .board-poster-guide p { font-size: 10pt; margin: 1mm 0; line-height: 1.25; }
-  .board-poster-guide ul { margin: 2mm 0 0; padding-left: 4.5mm; font-size: 10pt; line-height: 1.3; }
-  .board-poster-guide li + li { margin-top: 1mm; }
-  .board-poster-contact { display: flex; justify-content: space-between; gap: 3mm; padding-top: 3mm; color: #153e2d; text-align: left; font-size: 10pt; }
+  .board-poster-guide section { padding: 2.5mm; border: 1px solid #9eb4a4; border-radius: 7px; background: #edf4ee; }
+  .board-poster-guide h3 { font-size: 12pt; margin: 0; color: #153e2d; }
+  .board-poster-guide p { font-size: 9.5pt; margin: 1mm 0; line-height: 1.2; }
+  .board-poster-guide ul { margin: 2mm 0 0; padding-left: 4mm; font-size: 9.5pt; line-height: 1.25; }
+  .board-poster-guide li + li { margin-top: .8mm; }
+  .board-poster-contact { display: flex; align-items: center; justify-content: space-between; gap: 3mm; padding-top: 3mm; color: #153e2d; text-align: left; font-size: 9pt; line-height: 1.2; }
   .board-poster-contact strong { flex: none; }
 }

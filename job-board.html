@@ -17,7 +17,7 @@
   <meta name="theme-color" content="#0b5e3b">
   <title>Job Board · JGC Portal</title>
   <link rel="stylesheet" href="jgc-design-system.css?v=14" data-jgc-design-system="14">
-  <link rel="stylesheet" href="job-board.css?v=14">
+  <link rel="stylesheet" href="job-board.css?v=15">
   <link rel="stylesheet" href="safety-signature-pad.css?v=4">
 </head>
 <body class="job-board-page jgc-page jgc-system-page">
@@ -256,15 +256,19 @@
     </div>
   </dialog>
   <section id="boardPoster" class="board-poster" aria-label="Printable Job Board QR poster" hidden>
-    <img src="logo.webp" alt="John Gordon Construction" class="board-poster-logo">
+    <div class="board-poster-brand"><img src="logo.webp" alt="John Gordon Construction" class="board-poster-logo"><span class="board-poster-badge">JOBSITE ACCESS</span></div>
     <header class="board-poster-title">
       <h1>JGC Job Board</h1>
       <h2 id="posterJob"></h2>
       <p id="posterAddress"></p>
     </header>
-    <img id="posterQr" alt="Scan to open this Job Board" width="320" height="320">
-    <h3 class="board-poster-instruction">Scan the QR code</h3>
-    <p class="board-poster-tip">Open your phone’s camera and tap the link.</p>
+    <div class="board-poster-scan">
+      <h3 class="board-poster-instruction">SCAN HERE <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v17m-7-7 7 7 7-7"/></svg></h3>
+      <p class="board-poster-subtitle">Safety documents &amp; site sign-in</p>
+      <div class="board-poster-qr-frame"><img id="posterQr" alt="Scan to open this Job Board" width="320" height="320"></div>
+      <p class="board-poster-tip">Open your camera. Scan the code. Tap the link.</p>
+    </div>
+    <p class="board-poster-signin-notice">ALL VISITORS &amp; STAFF MUST SIGN IN</p>
     <div class="board-poster-guide">
       <section>
         <h3>View safety information</h3>
@@ -287,7 +291,7 @@
         </ul>
       </section>
     </div>
-    <footer class="board-poster-contact">Visitors, report to the site supervisor or project manager. <strong>JGC · 613-932-1293</strong></footer>
+    <footer class="board-poster-contact"><span>Visitors, report to the site supervisor or project manager.</span><strong>JGC · 613-932-1293</strong></footer>
   </section>
   <script>if (new URLSearchParams(location.search).get('embedded') !== '1') { const u = new URL(location.href); u.searchParams.set('embedded', '1'); history.replaceState(null, '', u); }</script>
   <script src="vendor/supabase-js.min.js?v=1"></script>
