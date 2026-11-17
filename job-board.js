@@ -898,7 +898,39 @@
   document.querySelectorAll('.board-tabs [role="tab"]').forEach((tab) => { tab.addEventListener('click', () => selectTab(tab.dataset.panel)); tab.addEventListener('keydown', (e) => { if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return; e.preventDefault(); const tabs = Array.from(document.querySelectorAll('.board-tabs [role="tab"]')).filter((t) => !t.hidden); const index = tabs.indexOf(tab); const next = e.key === 'Home' ? tabs[0] : e.key === 'End' ? tabs[tabs.length - 1] : tabs[(index + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length]; selectTab(next.dataset.panel); next.focus(); }); });
   $('uploadFiles').addEventListener('change', () => { state.uploads.clear(); showSelectedFiles(); status('uploadStatus', ''); }); $('uploadForm').addEventListener('submit', uploadDocuments);
   $('boardPrint').addEventListener('click', () => { if ($('posterQr').src) window.print(); });
-  $('boardQrDownload').addEventListener('click', async (e) => { const control = e.currentTarget; busy(control, true); try { const response = await fetch($('boardQr').src); saveBlob(await response.blob(), 'JGC-Job-' + (state.board.job_number || 'Board') + '-QR.png'); } catch (error) { notice(errorMessage(error), 'error'); } finally { busy(control, false); } });
+  async function posterImage() {
+    // Render the same poster and print rules used by the Print QR poster action.
+    const sheet = Array.from(document.styleSheets).find(s => s.href && new URL(s.href).pathname.endsWith('/job-board.css'));
+    const print = sheet && Array.from(sheet.cssRules).find(rule => rule.media && rule.media.mediaText === 'print');
+    if (!print) throw new Error('Poster styles unavailable. Refresh and try again.');
+    const styles = Array.from(print.cssRules).filter(rule => rule.type !== CSSRule.PAGE_RULE && !rule.cssText.includes('> :not(#boardPoster)')).map(rule => rule.cssText).join('\n');
+    const frame = document.createElement('iframe');
+    frame.setAttribute('aria-hidden', 'true'); frame.tabIndex = -1;
+    Object.assign(frame.style, { position: 'fixed', left: '-10000px', top: '0', width: '794px', height: '1123px', border: '0' });
+    document.body.append(frame);
+    try {
+      const doc = frame.contentDocument;
+      doc.body.className = 'job-board-page';
+      const style = doc.createElement('style');
+      style.textContent = styles + '\nhtml, body.job-board-page { width:794px; height:1123px; } body.job-board-page { box-sizing:border-box; padding:38px !important; } body.job-board-page * { box-sizing:border-box; }';
+      doc.head.append(style);
+      const poster = doc.importNode($('boardPoster'), true); poster.removeAttribute('hidden');
+      poster.querySelector('.board-poster-logo').src = new URL('logo.webp', document.baseURI).href;
+      doc.body.append(poster);
+      await Promise.all(Array.from(poster.querySelectorAll('img')).map(img => img.decode()));
+      const logo = poster.querySelector('.board-poster-logo');
+      const logoCanvas = doc.createElement('canvas'); logoCanvas.width = 636; logoCanvas.height = 216;
+      const scale = Math.max(logoCanvas.width / logo.naturalWidth, logoCanvas.height / logo.naturalHeight);
+      const width = logo.naturalWidth * scale, height = logo.naturalHeight * scale;
+      logoCanvas.getContext('2d').drawImage(logo, (logoCanvas.width - width) / 2, (logoCanvas.height - height) / 2, width, height);
+      logo.src = logoCanvas.toDataURL('image/png'); await logo.decode();
+      const script = doc.createElement('script'); script.src = new URL('vendor/html2canvas.min.js?v=1', document.baseURI).href;
+      await new Promise((resolve, reject) => { script.onload = resolve; script.onerror = () => reject(new Error('Poster renderer unavailable. Refresh and try again.')); doc.head.append(script); });
+      const canvas = await frame.contentWindow.html2canvas(doc.body, { backgroundColor: '#ffffff', width: 794, height: 1123, windowWidth: 794, windowHeight: 1123, scale: 2, logging: false });
+      return await new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Could not save the poster. Try printing it instead.')), 'image/png'));
+    } finally { frame.remove(); }
+  }
+  $('boardQrDownload').addEventListener('click', async (e) => { const control = e.currentTarget; busy(control, true); try { saveBlob(await posterImage(), 'JGC-Job-' + (state.board.job_number || 'Board') + '-QR-Poster.png'); } catch (error) { notice(errorMessage(error), 'error'); } finally { busy(control, false); } });
   $('boardCopyLink').addEventListener('click', async () => { try { await navigator.clipboard.writeText(boardLink()); notice('Job Board link copied.'); } catch (_) { notice('Copy is unavailable in this browser. Open board, then copy its address.', 'warning'); } });
   $('boardSaveEnabled').addEventListener('click', () => configureBoard(false)); $('boardRotate').addEventListener('click', () => $('boardRotateConfirm').hidden = false); $('boardRotateNo').addEventListener('click', () => $('boardRotateConfirm').hidden = true); $('boardRotateYes').addEventListener('click', () => configureBoard(true));
   $('viewerForm').addEventListener('submit', async (e) => { e.preventDefault(); busy($('viewerSubmit'), true); try { await rpc('grant_job_board_viewer', { p_board_id: state.board.id, p_email: $('viewerEmail').value.trim() }); $('viewerForm').reset(); notice('Restricted report access granted.'); await loadBoard(); } catch (error) { notice(errorMessage(error), 'error'); } finally { busy($('viewerSubmit'), false); } });
