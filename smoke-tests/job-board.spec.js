@@ -14,7 +14,7 @@ const USER_ID = 'eeeeeeee-eeee-4eee-eeee-eeeeeeeeeeee';
 const DOCUMENT_ID = 'ffffffff-ffff-4fff-ffff-ffffffffffff';
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto' }).format(new Date());
 const previousDate = '2026-09-30';
-const categoryValues = ['notice-of-project', 'hs-documents', 'site-specific', 'sds', 'jgc-policy', 'jsa', 'toolbox-talk', 'accident-incident', 'daily-report', 'permit', 'inspection', 'other'];
+const categoryValues = ['notice-of-project', 'ontario-legislation', 'hs-documents', 'site-specific', 'sds', 'jgc-policy', 'jsa', 'toolbox-talk', 'accident-incident', 'daily-report', 'permit', 'inspection', 'other'];
 
 function session(identity) {
   const now = Math.floor(Date.now() / 1000);
@@ -427,13 +427,13 @@ test('scanned board presents three login choices and site attendance without gra
   expect(store.calls.filter(c=>c.name==='register_job_board_visit')).toHaveLength(0); const identity=store.calls.find(c=>c.name==='begin_job_board_site_signin');expect(identity.args).toMatchObject({p_name:'Synthetic Delivery Driver',p_company:'Synthetic Delivery'});const call=store.calls.find(c=>c.name==='record_job_board_site_signin');expect(call.args).toMatchObject({p_reason:'Material delivery'});expect(call.args).not.toHaveProperty('p_name');expect(call.args).not.toHaveProperty('p_company');expect(call.args.p_submission_id).toMatch(/^[a-f0-9-]{36}$/);
 });
 
-test('seven document sections, Notice of Project first, start collapsed, retain expanded state and sort newest entries first without search',async ({page})=>{
+test('eight document sections, Notice of Project first, start collapsed, retain expanded state and sort newest entries first without search',async ({page})=>{
   // Same-day reports sort by upload time, so give each row one (relative to today; a fixed date breaks once that day passes).
   const store=fixture('staff'); store.documentRows[0].created_at=today()+'T15:00:00Z';store.documentRows[1].created_at=previousDate+'T11:00:00Z';store.documentRows[3].created_at=today()+'T14:00:00Z';
   await install(page,store);await page.goto('/job-board.html?embedded=1#board='+TOKEN);await expect(page.locator('#boardContent')).toBeVisible();
-  const sections=page.locator('.board-category');await expect(sections).toHaveCount(7);expect(await sections.evaluateAll(nodes=>nodes.map(n=>n.open))).toEqual([false,false,false,false,false,false,false]);
-  expect(await sections.locator(':scope > summary').evaluateAll(nodes=>nodes.map(n=>n.firstChild.textContent))).toEqual(['Notice of Project','Site Specific','Daily Reports','Daily Inspections','Daily Permits','SDS Sheets','JGC Policy']);
-  await sections.nth(2).locator(':scope > summary').click();await expect(page.locator('#dailyReportsList [data-period="today"] article').first()).toContainText('Morning JSA');await page.locator('#dailyReportsList .board-report-period').nth(1).locator('summary').click();await expect(page.locator('#dailyReportsList [data-period="previous"] article').first()).toContainText('Previous roof access');await page.locator('#boardRefresh').click();await expect(sections.nth(2)).toHaveAttribute('open','');await expect(page.locator('#documentSearch')).toHaveCount(0);
+  const sections=page.locator('.board-category');await expect(sections).toHaveCount(8);expect(await sections.evaluateAll(nodes=>nodes.map(n=>n.open))).toEqual([false,false,false,false,false,false,false,false]);
+  expect(await sections.locator(':scope > summary').evaluateAll(nodes=>nodes.map(n=>n.firstChild.textContent))).toEqual(['Notice of Project','Ontario H&S Act & Construction Regulations','Site Specific','Daily Reports','Daily Inspections','Daily Permits','SDS Sheets','JGC Policy']);
+  await sections.nth(3).locator(':scope > summary').click();await expect(page.locator('#dailyReportsList [data-period="today"] article').first()).toContainText('Morning JSA');await page.locator('#dailyReportsList .board-report-period').nth(1).locator('summary').click();await expect(page.locator('#dailyReportsList [data-period="previous"] article').first()).toContainText('Previous roof access');await page.locator('#boardRefresh').click();await expect(sections.nth(3)).toHaveAttribute('open','');await expect(page.locator('#documentSearch')).toHaveCount(0);
   await page.getByRole('tab',{name:'Create Todays Reports',exact:true}).click();await expect(page.locator('#createForms')).toBeVisible();
 });
 
@@ -470,9 +470,9 @@ function contrast(a,b){const luminance=c=>{const x=c.match(/[\d.]+/g).slice(0,3)
 for(const theme of ['light','dark']) for(const width of [390,1440]) test(`section descriptions and count contrast in scanned and admin board ${theme} ${width}`,async({page,context})=>{
   await page.setViewportSize({width,height:1000});await open(page,'staff',{theme});
   await page.locator('.board-category').evaluateAll(nodes=>nodes.forEach(n=>n.open=false));
-  await expect(page.locator('.board-category-description')).toHaveCount(7);
+  await expect(page.locator('.board-category-description')).toHaveCount(8);
   for(const badge of await page.locator('.board-section-count').all()){const colors=await badge.evaluate(e=>({text:getComputedStyle(e).color,bg:getComputedStyle(e).backgroundColor}));expect(contrast(colors.text,colors.bg)).toBeGreaterThanOrEqual(4.5);}
-  await expect(page.locator('.board-category-description').nth(3)).toBeVisible();await expect(page.locator('.board-category-description').nth(3)).toContainText('equipment QR');
+  await expect(page.locator('.board-category-description').nth(4)).toBeVisible();await expect(page.locator('.board-category-description').nth(4)).toContainText('equipment QR');
   const adminPage=await context.newPage();await adminPage.setViewportSize({width,height:1000});const {board}=await openNativeBoard(adminPage,theme);
   for(const badge of await board.locator('.board-section-count').all()){const colors=await badge.evaluate(e=>({text:getComputedStyle(e).color,bg:getComputedStyle(e).backgroundColor}));expect(contrast(colors.text,colors.bg)).toBeGreaterThanOrEqual(4.5);}
 });
@@ -850,5 +850,39 @@ test('approved staff can upload an SDS sheet using the existing review workflow'
   await page.locator('#uploadSubmit').click();
   await expect(page.locator('#uploadStatus')).toContainText('1 file uploaded for office review');
   expect(store.calls.find(c => c.name === 'begin_job_board_upload').args).toMatchObject({ p_category: 'sds', p_title: 'Concrete cleaner SDS', p_file_name: 'Cleaner-SDS.pdf' });
+  expect(store.calls.filter(c => c.name === 'finalize_job_board_upload')).toHaveLength(1);
+});
+
+for (const width of [390, 1440]) test(`Ontario legislation has its own collapsed section at ${width}`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1000 });
+  const store = fixture('guest');
+  for (const [id, title] of [['act', 'Ontario Health and Safety Act'], ['regulation', 'Construction Regulations']])
+    store.documentRows.push({ id, title, category: 'ontario-legislation', report_date: today(), file_name: id + '.pdf', mime_type: 'application/pdf', status: 'published', visibility: 'public' });
+  store.documentRows.push({ id: 'pending-law', title: 'Not reviewed', category: 'ontario-legislation', report_date: today(), status: 'pending', visibility: 'public' });
+  await install(page, store); await page.goto('/job-board.html?embedded=1#board=' + TOKEN);
+  await visitorSignIn(page); await page.reload(); await expect(page.locator('#boardContent')).toBeVisible();
+  const sections = page.locator('.board-category');
+  const section = sections.nth(1);
+  await expect(section.locator('summary')).toContainText('Ontario H&S Act & Construction Regulations');
+  await expect(section).not.toHaveAttribute('open', '');
+  await expect(section.locator('summary .board-section-count')).toHaveText('2');
+  await section.locator('summary').click();
+  await expect(page.locator('#ontarioLegislationList')).toContainText('Ontario Health and Safety Act');
+  await expect(page.locator('#ontarioLegislationList')).toContainText('Construction Regulations');
+  await expect(page.locator('#ontarioLegislationList')).not.toContainText('Not reviewed');
+  await expect(page.locator('#siteSpecificList')).not.toContainText('Construction Regulations');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+});
+
+test('staff upload Ontario legislation for office review', async ({ page }) => {
+  const store = await open(page, 'staff');
+  await page.getByRole('tab', { name: 'Create Todays Reports', exact: true }).click();
+  await page.locator('#uploadCategory').selectOption('ontario-legislation');
+  await page.locator('#uploadTitle').fill('Ontario Health and Safety Act');
+  await page.evaluate(() => { window.uploadJgcFile = async () => { await window.fixtureBoardStorageComplete(); return { data: {} }; }; });
+  await page.locator('#uploadFiles').setInputFiles({ name: 'Act.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\\nSynthetic upload') });
+  await page.locator('#uploadSubmit').click();
+  await expect(page.locator('#uploadStatus')).toContainText('1 file uploaded for office review');
+  expect(store.calls.find(c => c.name === 'begin_job_board_upload').args).toMatchObject({ p_category: 'ontario-legislation', p_title: 'Ontario Health and Safety Act', p_file_name: 'Act.pdf' });
   expect(store.calls.filter(c => c.name === 'finalize_job_board_upload')).toHaveLength(1);
 });
