@@ -69,8 +69,12 @@ async function install(page, store, options = {}) {
     store.calls.push({ name, args });
     const role = store.identity, manager = role === 'admin', canUpload = role === 'staff' || manager, restricted = role === 'client' || canUpload;
     const validVisit=!!store.visit && args.p_visit_token===store.visit;
-    const board = () => ({ id: BOARD_ID, job_id: 'existing-estimator-job', job_number: '26132', job_name: '14815 County Road 2 – Site safety', address: 'South Stormont, Ontario', token: TOKEN, enabled: true, can_manage: manager, can_upload: canUpload, can_register_as_staff: canUpload, can_read_restricted: restricted, requires_visitor_signin: !validVisit && !manager, documents: manager ? store.documentRows : !validVisit ? [] : store.documentRows.filter((d) => d.status === 'published' && (d.visibility === 'public' || restricted)), viewers: manager ? [{ id: 'viewer-id', email: 'client@example.test' }] : [], document_link: (manager || validVisit) && store.documentLink ? store.documentLink : null });
+    const board = () => ({ id: BOARD_ID, job_id: 'existing-estimator-job', job_number: '26132', job_name: '14815 County Road 2 – Site safety', address: store.address ?? 'South Stormont, Ontario', token: TOKEN, enabled: true, can_manage: manager, can_upload: canUpload, can_register_as_staff: canUpload, can_read_restricted: restricted, requires_visitor_signin: !validVisit && !manager, documents: manager ? store.documentRows : !validVisit ? [] : store.documentRows.filter((d) => d.status === 'published' && (d.visibility === 'public' || restricted)), viewers: manager ? [{ id: 'viewer-id', email: 'client@example.test' }] : [], document_link: (manager || validVisit) && store.documentLink ? store.documentLink : null });
     if (name === 'get_job_board' || name === 'get_or_create_job_board') return store.failBoard ? route.fulfill({ status: 403, json: { message: 'Board unavailable for this test' } }) : route.fulfill({ json: board() });
+    if (name === 'get_job_board_public_safety') {
+      const safe = new Set(['notice-of-project','ontario-legislation','hs-documents','site-specific','sds','jgc-policy']);
+      return route.fulfill({json:{documents:store.documentRows.filter(doc=>safe.has(doc.category) && doc.status==='published' && doc.visibility==='public' && (!doc.source_type || doc.source_type==='policies'))}});
+    }
     if (name === 'register_job_board_visit') { if (!canUpload && (!args.p_name || !args.p_company)) return route.fulfill({ status: 403, json: { message: 'Visitor name, and company are required' } }); store.visit = VISIT; store.events.push({ id: 'visit-event', actor_name: canUpload ? 'Synthetic Site Staff' : args.p_name, actor_company: args.p_company, actor_email: canUpload ? store.auth.user.email : args.p_email, identity_type: canUpload ? 'staff' : 'visitor', action: 'visit', created_at: new Date().toISOString() }); return route.fulfill({ json: { visit_token: VISIT } }); }
     if (name === 'list_job_board_prepared_jsas') return validVisit||manager ? route.fulfill({json:(store.preparedJsas||[]).filter(p=>!store.activatedPreparedIds?.has(p.id))}) : route.fulfill({status:403,json:{message:'Visitor sign-in required'}});
     if(name==='get_job_board_prepared_jsa'){
@@ -85,7 +89,7 @@ async function install(page, store, options = {}) {
       if(args.p_prepared){store.activatedPreparedIds ||=new Set();store.activatedPreparedIds.add(args.p_id);if(!store.documentRows.some(d=>d.source_id===args.p_id))store.documentRows.push({id:'activated-'+args.p_id,source_id:args.p_id,source_type:'inspection_records',category:'jsa',status:'published',visibility:'public',title:'Activated prepared JSA',report_date:today(),created_at:new Date().toISOString(),mime_type:'application/pdf'});}
       return route.fulfill({json:{ok:true,signed_at:new Date().toISOString(),workflow:store.workerWorkflow}});
     }
-    if (name === 'get_job_board_onsite_today') { if (!canUpload) return route.fulfill({ status: 403, json: { message: 'Sign in with your JGC account to see who is on site' } }); const people = new Map(); for (const e of store.events.filter(e => e.action === 'site-signin')) { const key = (e.actor_name + '|' + e.actor_company).toLowerCase(), p = people.get(key); if (p) { p.last_at = e.created_at; p.count++; } else people.set(key, { name: e.actor_name, company: e.actor_company, first_at: e.created_at, last_at: e.created_at, count: 1, staff: e.identity_type === 'staff', confirmed: e.identity_type !== 'staff' && e.verified === true }); } return route.fulfill({ json: { date: today(), people: [...people.values()] } }); }
+    if (name === 'get_job_board_onsite_today' || name === 'get_job_board_site_roster') { if (name === 'get_job_board_onsite_today' ? !canUpload : !validVisit) return route.fulfill({ status: 403, json: { message: 'Sign in with your JGC account to see who is on site' } }); const people = new Map(); for (const e of store.events.filter(e => e.action === 'site-signin')) { const key = (e.actor_name + '|' + e.actor_company).toLowerCase(), p = people.get(key); if (p) { p.last_at = e.created_at; p.count++; } else people.set(key, { name: e.actor_name, company: e.actor_company, first_at: e.created_at, last_at: e.created_at, count: 1, staff: e.identity_type === 'staff', confirmed: e.identity_type !== 'staff' && e.verified === true }); } return route.fulfill({ json: { date: today(), people: [...people.values()] } }); }
     if(name==='begin_job_board_site_signin'){const nonce=require('node:crypto').randomUUID();store.siteTickets ||= new Map();const ticket={nonce,visit_token:args.p_visit_token||VISIT,expires_at:new Date(Date.now()+600000).toISOString()};store.siteTickets.set(nonce,{...ticket,name:canUpload?'Synthetic Site Staff':args.p_name,company:canUpload?'John Gordon Construction':args.p_company});return route.fulfill({json:ticket});}
     if (name === 'record_job_board_site_signin') {const ticket=store.siteTickets?.get(args.p_submission_id);if(!ticket||ticket.visit_token!==args.p_visit_token)return route.fulfill({status:403,json:{message:'Start a fresh site sign-in.'}});store.events.push({id:'site',action:'site-signin',actor_name:ticket.name,actor_company:ticket.company,identity_type:canUpload?'staff':'visitor',verified:canUpload,reason:args.p_reason,created_at:new Date().toISOString()});return route.fulfill({json:{ok:true,verified:canUpload,recorded_at:new Date().toISOString()}}); }
     if(name==='confirm_job_board_site_signin'){const event=store.events.find(e=>e.id===args.p_event_id);if(!manager||!event)return route.fulfill({status:403,json:{message:'Administrator required'}});event.verified=true;return route.fulfill({json:null});}
@@ -107,7 +111,7 @@ async function install(page, store, options = {}) {
   });
 }
 async function open(page, identity, options) { const store = fixture(identity); await install(page, store, options); await page.goto(identity === 'admin' ? '/job-board.html?job=existing-estimator-job&manage=1&embedded=1' : '/job-board.html?embedded=1#board=' + TOKEN); await expect(page.locator(identity === 'guest' || identity === 'client' ? '#loginOptions' : '#boardContent')).toBeVisible(); if (identity === 'staff' || identity === 'admin') await page.locator('.board-category').evaluateAll(nodes=>nodes.forEach(n=>{n.open=true;n.querySelectorAll('.board-report-period').forEach(p=>p.open=true);})); return store; }
-async function visitorSignIn(page) { await page.getByRole('button',{name:'Visitor Login',exact:true}).click(); await page.getByLabel('Your name', { exact: true }).fill('Synthetic Visitor'); await page.locator('#visitorForm').getByLabel('Company', { exact: true }).fill('Synthetic Client Company'); await page.getByLabel('Email address (optional)', { exact: true }).first().fill('visitor@example.test'); await page.getByRole('button', { name: 'Continue to Job Board', exact: true }).click(); await expect(page.locator('#boardContent')).toBeVisible(); await page.locator('.board-category').evaluateAll(nodes=>nodes.forEach(n=>{n.open=true;n.querySelectorAll('.board-report-period').forEach(p=>p.open=true);})); }
+async function visitorSignIn(page) { await page.getByRole('button',{name:'Visitor sign-in',exact:true}).click(); await page.getByLabel('Your name', { exact: true }).fill('Synthetic Visitor'); await page.locator('#visitorForm').getByLabel('Company', { exact: true }).fill('Synthetic Client Company'); await page.getByLabel('Email address (optional)', { exact: true }).first().fill('visitor@example.test'); await page.getByRole('button', { name: 'Continue to Job Board', exact: true }).click(); await expect(page.locator('#boardContent')).toBeVisible(); await page.locator('.board-category').evaluateAll(nodes=>nodes.forEach(n=>{n.open=true;n.querySelectorAll('.board-report-period').forEach(p=>p.open=true);})); }
 function receipt(testInfo, name) { const root = process.env.JGC_JOB_BOARD_RECEIPTS; const file = root ? path.join(root, name) : testInfo.outputPath(name); fs.mkdirSync(path.dirname(file), { recursive: true }); return file; }
 async function pdfTexts(bytes) { const lib = await import(pathToFileURL(path.resolve(__dirname, '../estimating-app/node_modules/pdfjs-dist/legacy/build/pdf.mjs')).href); const task = lib.getDocument({ data: new Uint8Array(bytes), disableWorker: true }); const pdf = await task.promise, pages = []; for (let n = 1; n <= pdf.numPages; n++) { const content = await (await pdf.getPage(n)).getTextContent(); pages.push(content.items.map((item) => item.str).join(' ')); } await task.destroy(); return pages.join('\n'); }
 
@@ -119,7 +123,7 @@ test('visitor sign-in gates documents, records identity/time, and keeps restrict
   expect(store.events[0]).toMatchObject({ identity_type: 'visitor', actor_name: 'Synthetic Visitor', actor_company: 'Synthetic Client Company', actor_email: 'visitor@example.test', action: 'visit' });
   expect(Date.parse(store.events[0].created_at)).toBeGreaterThanOrEqual(before); expect(Date.parse(store.events[0].created_at)).toBeLessThanOrEqual(Date.now());
   await expect(page.locator('#documentSections')).not.toContainText('Private accident'); await expect(page.locator('#boardManager')).toBeHidden();
-  await page.getByRole('tab', { name: /^(Upload|Create Todays Reports)$/, exact: true }).click(); await expect(page.locator('#uploadSignIn')).toBeVisible(); await expect(page.locator('#uploadForm')).toBeHidden();
+  await expect(page.locator('#uploadTab')).toBeHidden(); await expect(page.locator('#uploadForm')).toBeHidden();
   await page.reload(); await expect(page.locator('#boardContent')).toBeVisible(); expect(store.calls.filter((c) => c.name === 'register_job_board_visit')).toHaveLength(1);
   expect(store.calls.filter((c) => c.name === 'get_job_board').at(-1).args.p_visit_token).toBe(VISIT);
 });
@@ -128,7 +132,7 @@ test('client access comes from the server and cannot upload despite a forged loc
   const store = await open(page, 'client', { forgedAdmin: true });
   expect(store.calls.filter((c) => c.name === 'register_job_board_visit')).toHaveLength(0); await visitorSignIn(page);
   await expect(page.locator('#documentSections')).toContainText('Private accident report'); await expect(page.locator('#reviewTab')).toBeHidden(); await expect(page.locator('#boardManager')).toBeHidden();
-  await page.getByRole('tab', { name: /^(Upload|Create Todays Reports)$/, exact: true }).click(); await expect(page.locator('#uploadForm')).toBeHidden(); await expect(page.locator('#createForms')).toBeHidden();
+  await expect(page.locator('#uploadTab')).toBeHidden(); await expect(page.locator('#uploadForm')).toBeHidden(); await expect(page.locator('#createForms')).toBeHidden();
   expect(store.calls.some((c) => c.name === 'register_job_board_visit')).toBe(true);
 });
 
@@ -148,12 +152,15 @@ test('actual QR PNG and print poster encode the public board link without identi
   const png = await page.locator('#boardQr').getAttribute('src'); const pngBytes = Buffer.from(png.split(',')[1], 'base64'); expect(pngBytes.subarray(1, 4).toString()).toBe('PNG'); fs.writeFileSync(receipt(testInfo, 'job-board-qr.png'), pngBytes); fs.writeFileSync(receipt(testInfo, 'job-board-qr-expected.txt'), href);
   const pending = page.waitForEvent('download'); await page.getByRole('button', { name: 'Download QR', exact: true }).click(); const download = await pending; expect(download.suggestedFilename()).toBe('JGC-Job-26132-QR.png');
   await download.saveAs(receipt(testInfo, 'job-board-qr-downloaded.png')); expect(fs.readFileSync(receipt(testInfo, 'job-board-qr-downloaded.png'))).toEqual(pngBytes);
+  const { PDFDocument } = require('../estimating-app/node_modules/pdf-lib');
+  const printed = await PDFDocument.load(await page.pdf({format:'Letter',printBackground:true}));
+  expect(printed.getPageCount()).toBe(1);
   await page.emulateMedia({ media: 'print' }); await expect(page.locator('#jobBoardPage')).toBeHidden(); await expect(page.locator('#boardPoster')).toBeVisible(); await expect(page.locator('#posterJob')).toContainText('Job 26132'); await expect(page.locator('#posterQr')).toHaveAttribute('src', png); await page.screenshot({ path: receipt(testInfo, 'job-board-qr-poster.png'), fullPage: true });
 });
 
 test('staff direct sign-in verifies profile, preserves job context, and retries a failed upload without duplicate metadata', async ({ page }) => {
-  const store = await open(page, 'guest'); await visitorSignIn(page); await page.getByRole('tab', { name: /^(Upload|Create Todays Reports)$/, exact: true }).click(); await page.getByRole('button', { name: 'Staff sign-in', exact: true }).click();
-  await page.locator('#staffEmail').fill('staff@example.test'); await page.locator('#staffPassword').fill('fixture-password'); await page.locator('#staffSubmit').click(); await expect(page.locator('#uploadForm')).toBeVisible();
+  const store = await open(page, 'guest'); await visitorSignIn(page); await page.locator('#boardSignIn').click();
+  await page.locator('#staffEmail').fill('staff@example.test'); await page.locator('#staffPassword').fill('fixture-password'); await page.locator('#staffSubmit').click(); await page.locator('#uploadTab').click(); await expect(page.locator('#uploadForm')).toBeVisible();
   expect(await page.evaluate(() => [localStorage.getItem('currentWorker'), localStorage.getItem('currentUserRole'), localStorage.getItem('currentAccountStatus'), sessionStorage.getItem('jgcActiveSession')])).toEqual(['synthetic site staff', 'worker', 'approved', 'true']);
   expect(store.calls.filter((c) => c.name === 'register_job_board_visit')).toHaveLength(2);
   const links = await page.locator('#createFormLinks a').evaluateAll((links) => links.map((a) => a.href)); expect(links).toHaveLength(13);
@@ -220,7 +227,9 @@ for (const width of [390, 1280]) test(`sign-in screen tells visitors to report i
   // Below the sign-in buttons.
   const [buttons, notice] = await Promise.all([options.locator('.board-login-options').boundingBox(), page.locator('#boardVisitorNotice').boundingBox()]);
   expect(notice.y).toBeGreaterThan(buttons.y + buttons.height);
-  await expect(page.locator('#boardVisitorNotice')).toHaveText('All Visitors should report to Site Supervisor or Project Manager.');
+  await expect(page.locator('#boardVisitorNotice')).toHaveText('Report to the site supervisor or project manager.');
+  await page.locator('#boardPpeDetails summary').click();
+  await expect(page.locator('#boardPpeTitle')).toBeVisible();
   await expect(page.locator('#boardPpeTitle')).toHaveText('ALL PPE to be Worn At All Times');
   const items = page.locator('.board-ppe-list li');
   await expect(items).toHaveCount(6);
@@ -392,8 +401,19 @@ test('embedded board height grows and shrinks with activity, imports and inner t
 
 for (const width of [390, 1440]) test(`standalone QR visitor page keeps branding and appearance/sign-in controls with embedded query ${width}`, async ({ page }, testInfo) => {
   await page.setViewportSize({ width, height: 1000 }); await open(page, 'guest', { theme: 'light' });
-  await expect(page.locator('html')).not.toHaveAttribute('data-job-board-host', 'job'); await expect(page.locator('.board-header .jgc-brand img')).toBeVisible(); await expect(page.locator('#boardTitle')).toBeVisible(); await expect(page.locator('#boardTheme')).toHaveCount(0); await expect(page.locator('#boardSignIn')).toBeHidden(); await expect(page.getByRole('button',{name:'Staff Login',exact:true})).toBeVisible(); await expect(page.locator('#boardToolbar')).toBeHidden();
-  await page.getByRole('button',{name:'Visitor Login',exact:true}).click(); await page.getByLabel('Your name', { exact: true }).fill('Unsubmitted visitor draft'); await page.evaluate(()=>applyJgcTheme('dark')); await expect(page.locator('html')).toHaveAttribute('data-jgc-theme', 'light'); await expect(page.getByLabel('Your name', { exact: true })).toHaveValue('Unsubmitted visitor draft');
+  await expect(page.locator('html')).not.toHaveAttribute('data-job-board-host', 'job'); await expect(page.locator('.board-header .jgc-brand img')).toBeVisible(); await expect(page.locator('#boardTitle')).toBeVisible(); await expect(page.locator('#boardTheme')).toHaveCount(0); await expect(page.locator('#boardSignIn')).toBeHidden(); await expect(page.getByRole('button',{name:'Staff sign-in',exact:true})).toBeVisible(); await expect(page.locator('#boardToolbar')).toBeHidden();
+  await expect(page.locator('#qrHeroTitle')).toHaveCSS('color', 'rgb(255, 255, 255)');
+  expect((await page.locator('.board-header .jgc-brand img').boundingBox()).width).toBeLessThanOrEqual(154);
+  const sizes = await page.locator('.board-login-options button').evaluateAll(buttons=>buttons.map(button=>[button.offsetWidth,button.offsetHeight]));
+  expect(sizes[0]).toEqual(sizes[1]);
+  await expect(page.locator('.board-safety-entry')).toHaveCSS('border-radius','15px');
+  await expect(page.locator('#loginOptions .board-signin-entry')).toHaveCSS('border-radius','15px');
+  await expect(page.locator('#loginOptions .board-signin-entry')).toHaveCSS('background-image',/linear-gradient/);
+  await expect(page.locator('#loginOptions .board-signin-entry h2')).toHaveCSS('color','rgb(255, 255, 255)');
+  await expect(page.locator('#qrHeroIcon')).toHaveJSProperty('tagName','svg');
+  await page.screenshot({ path: receipt(testInfo, `qr-landing-${width}.png`), fullPage: true });
+
+  await page.getByRole('button',{name:'Visitor sign-in',exact:true}).click(); await page.getByLabel('Your name', { exact: true }).fill('Unsubmitted visitor draft'); await page.evaluate(()=>applyJgcTheme('dark')); await expect(page.locator('html')).toHaveAttribute('data-jgc-theme', 'light'); await expect(page.getByLabel('Your name', { exact: true })).toHaveValue('Unsubmitted visitor draft');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1); await page.screenshot({ path: receipt(testInfo, `standalone-qr-${width}.png`), fullPage: true });
 });
 
@@ -420,18 +440,44 @@ test('mobile View closes its reserved blank tab on an access failure and opens t
 });
 
 
-test('scanned board presents three login choices and site attendance without granting document access',async ({page})=>{
-  const store=await open(page,'guest'); await expect(page.locator('#loginOptions button')).toHaveText(['Visitor Login','Staff Login','Site Sign in']);
-  await page.getByRole('button',{name:'Site Sign in',exact:true}).click(); await page.locator('#siteName').fill('Synthetic Delivery Driver'); await page.locator('#siteCompany').fill('Synthetic Delivery'); await page.locator('#siteReason').fill('Material delivery'); await page.locator('#siteSubmit').click();
-  await expect(page.locator('#siteStatus')).toContainText('Site sign-in recorded:'); await expect(page.locator('#boardContent')).toBeHidden();
-  expect(store.calls.filter(c=>c.name==='register_job_board_visit')).toHaveLength(0); const identity=store.calls.find(c=>c.name==='begin_job_board_site_signin');expect(identity.args).toMatchObject({p_name:'Synthetic Delivery Driver',p_company:'Synthetic Delivery'});const call=store.calls.find(c=>c.name==='record_job_board_site_signin');expect(call.args).toMatchObject({p_reason:'Material delivery'});expect(call.args).not.toHaveProperty('p_name');expect(call.args).not.toHaveProperty('p_company');expect(call.args.p_submission_id).toMatch(/^[a-f0-9-]{36}$/);
+test('scanned board opens public safety documents without creating a visit or giving access to job records', async ({page})=>{
+  const store=await open(page,'guest');
+  await expect(page.locator('.board-login-options button')).toHaveText(['Visitor sign-in','Staff sign-in']);
+  await expect(page.locator('#qrFooter')).toContainText('613-932-1293');
+  store.address = ' ';
+  await page.reload();
+  await expect(page.locator('#qrFooterLocation')).toBeHidden();
+  await expect(page.locator('a[href="tel:6139321293"]')).toBeVisible();
+  await page.locator('#viewPublicSafety').click();
+  await expect(page.locator('#publicSafety')).toBeVisible();
+  await page.locator('#public-policyList').locator('..').locator('summary').click();
+  await expect(page.locator('#public-policyList')).toContainText('JGC Health & Safety Policy');
+  const pdfService='**/functions/v1/jgc-job-board-document';
+  const { PDFDocument } = require('../estimating-app/node_modules/pdf-lib');
+  const publicPdf=await PDFDocument.create();
+  publicPdf.addPage().drawText('Synthetic public safety policy');
+  await page.route(pdfService, async route => {
+    const body = route.request().postDataJSON();
+    store.edgeCalls.push(body);
+    await route.fulfill({json:{pdfBase64:await publicPdf.saveAsBase64(),fileName:'Policy.pdf',mimeType:'application/pdf'}});
+  });
+  await page.locator('#public-policyList').getByRole('button',{name:'View PDF',exact:true}).click();
+  await expect(page.locator('#documentPreview')).toBeVisible();
+  await page.locator('#previewClose').click();
+  expect(store.edgeCalls[0]).toMatchObject({ boardToken:TOKEN, visitToken:null });
+
+  await expect(page.locator('#publicSafetySections')).not.toContainText('Morning JSA');
+  await expect(page.locator('#boardContent')).toBeHidden();
+  expect(store.calls.filter(call=>['register_job_board_visit','record_job_board_site_signin','get_job_board_site_roster'].includes(call.name))).toHaveLength(0);
+  await page.locator('#qrPageBack').click();
+  await expect(page.locator('#loginOptions')).toBeVisible();
 });
 
 test('eight document sections, Notice of Project first, start collapsed, retain expanded state and sort newest entries first without search',async ({page})=>{
   // Same-day reports sort by upload time, so give each row one (relative to today; a fixed date breaks once that day passes).
   const store=fixture('staff'); store.documentRows[0].created_at=today()+'T15:00:00Z';store.documentRows[1].created_at=previousDate+'T11:00:00Z';store.documentRows[3].created_at=today()+'T14:00:00Z';
   await install(page,store);await page.goto('/job-board.html?embedded=1#board='+TOKEN);await expect(page.locator('#boardContent')).toBeVisible();
-  const sections=page.locator('.board-category');await expect(sections).toHaveCount(8);expect(await sections.evaluateAll(nodes=>nodes.map(n=>n.open))).toEqual([false,false,false,false,false,false,false,false]);
+  const sections=page.locator('#documentSections .board-category');await expect(sections).toHaveCount(8);expect(await sections.evaluateAll(nodes=>nodes.map(n=>n.open))).toEqual([false,false,false,false,false,false,false,false]);
   expect(await sections.locator(':scope > summary').evaluateAll(nodes=>nodes.map(n=>n.firstChild.textContent))).toEqual(['Notice of Project','Ontario H&S Act & Construction Regulations','Site Specific','Daily Reports','Daily Inspections','Daily Permits','SDS Sheets','JGC Policy']);
   await sections.nth(3).locator(':scope > summary').click();await expect(page.locator('#dailyReportsList [data-period="today"] article').first()).toContainText('Morning JSA');await page.locator('#dailyReportsList .board-report-period').nth(1).locator('summary').click();await expect(page.locator('#dailyReportsList [data-period="previous"] article').first()).toContainText('Previous roof access');await page.locator('#boardRefresh').click();await expect(sections.nth(3)).toHaveAttribute('open','');await expect(page.locator('#documentSearch')).toHaveCount(0);
   await page.getByRole('tab',{name:'Create Todays Reports',exact:true}).click();await expect(page.locator('#createForms')).toBeVisible();
@@ -440,11 +486,13 @@ test('eight document sections, Notice of Project first, start collapsed, retain 
 test('Notice of Project is an upload choice and has its own collapsed section on the board',async ({page,browser})=>{
   const store=fixture('staff');store.documentRows.push({id:'00000000-0000-4000-8000-000000000010',title:'Notice of Project - 1001 Sydney St',category:'notice-of-project',report_date:previousDate,file_name:'Notice-of-Project.pdf',mime_type:'application/pdf',file_size:120000,status:'published',visibility:'public'});
   await install(page,store);await page.goto('/job-board.html?embedded=1#board='+TOKEN);await expect(page.locator('#boardContent')).toBeVisible();
-  const section=page.locator('.board-category').first();
+  await page.locator('#signedInSafety').click();
+  const section=page.locator('#publicSafetySections .board-category').first();
   await expect(section).not.toHaveAttribute('open','');await expect(section.locator(':scope > summary')).toContainText('Notice of Project');await expect(section.locator(':scope > summary .board-section-count')).toHaveText('1');
   await section.locator(':scope > summary').click();
-  const card=page.locator('#noticeOfProjectList article');await expect(card).toHaveCount(1);await expect(card).toContainText('Notice of Project - 1001 Sydney St');await expect(card.locator('.board-document-meta')).toContainText('Notice of Project');
-  await expect(card.getByRole('button',{name:'View',exact:true})).toBeVisible();await expect(card.getByRole('button',{name:'Sign on to JSA',exact:true})).toHaveCount(0);
+  const card=page.locator('#public-noticeOfProjectList article');await expect(card).toHaveCount(1);await expect(card).toContainText('Notice of Project - 1001 Sydney St');await expect(card.locator('.board-document-meta')).toContainText('Notice of Project');
+  await expect(card.getByRole('button',{name:'View PDF',exact:true})).toBeVisible();await expect(card.getByRole('button',{name:'Sign on to JSA',exact:true})).toHaveCount(0);
+  await page.locator('#qrPageBack').click();
   await page.getByRole('tab',{name:'Create Todays Reports',exact:true}).click();await expect(page.locator('#uploadCategory option[value="notice-of-project"]')).toHaveText('Notice of Project');
   // The office uploads it from the admin Job Board.
   const admin=await browser.newPage();await open(admin,'admin');await admin.getByRole('tab',{name:'Upload',exact:true}).click();
@@ -528,7 +576,10 @@ test('Portal and Site admin sign-in tabs page independently and poster carries b
   const store=await open(page,'admin');store.activityPages=Array.from({length:52},(_,i)=>({id:'portal-'+i,action:'visit',actor_name:'Portal person '+i,actor_company:'Company',identity_type:'visitor',created_at:new Date(Date.now()-i*1000).toISOString()})).concat(Array.from({length:52},(_,i)=>({id:'site-'+i,action:'site-signin',actor_name:'Site person '+i,actor_company:'Company',created_at:new Date(Date.now()-i*1000).toISOString()})));
   await page.locator('#boardActivity summary').click();await expect(page.locator('#activityList')).toContainText('Portal person');await expect(page.locator('#activityList')).not.toContainText('Site person');await page.locator('#activityMore').click();await expect(page.locator('#activityList .board-activity-row')).toHaveCount(52);
   await page.locator('#boardSiteActivity summary').click();await expect(page.locator('#siteActivityList .board-activity-row')).toHaveCount(50);await expect(page.locator('#siteActivityList')).not.toContainText('Portal person');await page.locator('#siteActivityMore').click();await expect(page.locator('#siteActivityList .board-activity-row')).toHaveCount(52);await expect(page.locator('#activityList .board-activity-row')).toHaveCount(52);
-  expect(store.calls.filter(c=>c.name==='get_job_board_signins').map(c=>c.args.p_kind)).toEqual(['portal','portal','site','site']);await page.emulateMedia({media:'print'});await expect(page.locator('#boardPoster h1')).toHaveText('Job Board');await expect(page.locator('#boardPoster h3')).toHaveText('Site Sign In');
+  expect(store.calls.filter(c=>c.name==='get_job_board_signins').map(c=>c.args.p_kind)).toEqual(['portal','portal','site','site']);await page.emulateMedia({media:'print'});await expect(page.locator('#boardPoster h1')).toHaveText('JGC Job Board');await expect(page.locator('#boardPoster h3')).toHaveText(['Scan the QR code','View safety information','Sign in to site']);
+  await expect(page.locator('#boardPoster')).toContainText('Ontario OHSA & Construction Regulations');
+  await expect(page.locator('#boardPoster')).toContainText('JGC Health & Safety Policy');
+  await expect(page.locator('#boardPoster')).toContainText('Site Specific Safety Plan');
 });
 
 for(const theme of ['light','dark'])for(const width of [390,1440])test(`JSA sign-on review and confirmation fit ${theme} ${width}`,async({page},testInfo)=>{
@@ -550,14 +601,14 @@ test('visitor login also signs in on site by default',async({page})=>{
  const store=await open(page,'guest');await page.locator('#visitorLogin').click();
  await expect(page.locator('#visitorSiteSignIn')).toHaveCount(0);
  await fillVisitor(page);await page.getByRole('button',{name:'Continue to Job Board',exact:true}).click();await expect(page.locator('#boardContent')).toBeVisible();
- await expect(page.locator('#boardNotice')).toContainText('Signed in on site at');
+ await expect(page.locator('#qrAttendance')).toBeVisible();
  const site=store.calls.filter(c=>c.name==='record_job_board_site_signin');expect(site).toHaveLength(1);expect(store.calls.find(c=>c.name==='begin_job_board_site_signin').args).toMatchObject({p_token:TOKEN,p_name:'Synthetic Visitor',p_company:'Synthetic Client Company'});expect(site[0].args).toMatchObject({p_token:TOKEN,p_visit_token:VISIT,p_reason:''});expect(site[0].args).not.toHaveProperty('p_name');
  expect(store.events.filter(e=>e.action==='site-signin').map(e=>[e.actor_name,e.actor_company])).toEqual([['Synthetic Visitor','Synthetic Client Company']]);
 });
 test('staff login also signs in on site with their Portal name; the office managing a board does not see the box',async({page,browser})=>{
  const store=await open(page,'guest');await page.locator('#staffLogin').click();
  await page.locator('#staffEmail').fill('staff@example.test');await page.locator('#staffPassword').fill('fixture-password');await page.locator('#staffSubmit').click();await expect(page.locator('#boardContent')).toBeVisible();
- await expect(page.locator('#boardNotice')).toContainText('Signed in on site at');
+ await expect(page.locator('#qrAttendance')).toBeVisible();
  expect(store.calls.filter(c=>c.name==='begin_job_board_site_signin').map(c=>[c.args.p_name,c.args.p_company])).toEqual([['Synthetic Site Staff','John Gordon Construction']]);
  const office=await browser.newPage();await open(office,'admin');await expect(office.locator('#staffGate .board-site-checkin')).toHaveCount(0);await office.close();
 });
@@ -585,15 +636,30 @@ test('unsigned workers are prompted while other required worker signatures are o
  await expect(page.locator('#jsaSignOnSign')).toBeEnabled({timeout:15000});await expect(page.locator('#jsaSignOnStatus')).toContainText('1/3 workers signed');
 });
 
-test('signed-in staff can see who is on site today; visitors cannot',async({page,browser})=>{
- const store=await open(page,'staff');const at=(h,m)=>new Date(Date.UTC(2026,9,6,h,m)).toISOString();
- store.events.push({id:'s1',action:'site-signin',actor_name:'Synthetic Electrician',actor_company:'Synthetic Electric',created_at:at(11,5)},{id:'s2',action:'site-signin',actor_name:'Synthetic Site Staff',actor_company:'John Gordon Construction',identity_type:'staff',verified:true,created_at:at(11,30)},{id:'s3',action:'site-signin',actor_name:'synthetic electrician',actor_company:'Synthetic Electric',created_at:at(17,15)});
- await expect(page.locator('#boardOnsite')).toBeVisible();await page.locator('#boardOnsite').click();
- const dialog=page.locator('#onsiteDialog');await expect(dialog).toBeVisible();await expect(page.locator('#onsiteStatus')).toContainText('2 people signed in on site today');
- const rows=page.locator('#onsiteList .board-onsite-row');await expect(rows).toHaveCount(2);await expect(rows.first()).toContainText('Synthetic Electrician');await expect(rows.first()).toContainText('Synthetic Electric');await expect(rows.first()).toContainText('Signed in 7:05');await expect(rows.first()).toContainText('last 1:15');await expect(rows.last()).toContainText('Staff sign-in');
- expect(store.calls.find(c=>c.name==='get_job_board_onsite_today').args).toEqual({p_token:TOKEN});
- await page.locator('#onsiteClose').click();await expect(dialog).toBeHidden();
- const visitorPage=await browser.newPage();await open(visitorPage,'guest');await visitorSignIn(visitorPage);await expect(visitorPage.locator('#boardOnsite')).toBeHidden();await visitorPage.close();
+for (const role of ['staff','guest']) test(`signed-in ${role} can see who is on site today`,async({page})=>{
+  const store=await open(page,role);
+  const at=(h,m)=>new Date(Date.UTC(2026,9,6,h,m)).toISOString();
+  store.events.push(
+    {id:'s1',action:'site-signin',actor_name:'Synthetic Electrician',actor_company:'Synthetic Electric',created_at:at(11,5)},
+    {id:'s2',action:'site-signin',actor_name:'Synthetic Site Staff',actor_company:'John Gordon Construction',identity_type:'staff',verified:true,created_at:at(11,30)},
+    {id:'s3',action:'site-signin',actor_name:'synthetic electrician',actor_company:'Synthetic Electric',created_at:at(17,15)}
+  );
+  if(role==='guest') {
+    await expect(page.locator('#qrRoster')).toBeHidden();
+    await visitorSignIn(page);
+    await expect(page.locator('#qrAttendance')).toBeVisible();
+  }
+  const roster=page.locator('#qrRoster');
+  await expect(roster).toBeVisible();
+  if(await roster.getAttribute('open')===null) await roster.locator('summary').click();
+  await page.locator('#qrRosterRefresh').click();
+  const rows=page.locator('#qrRosterList .board-onsite-row');
+  await expect(rows).toHaveCount(role==='guest'?3:2);
+  await expect(rows.first()).toContainText('Synthetic Electrician');
+  await expect(rows.first()).toContainText('Synthetic Electric');
+  await expect(rows.first()).toContainText('Signed in 7:05');
+  await expect(rows.first()).toContainText('last 1:15');
+  expect(store.calls.find(c=>c.name==='get_job_board_site_roster').args).toEqual({p_token:TOKEN,p_visit_token:VISIT});
 });
 
 test('staff and visitors see today’s prepared JSA and can review it before activation',async({page,browser})=>{
@@ -698,7 +764,7 @@ for(const identity of ['guest','staff'])test(`late ${identity} signs onto a Comp
 // Release 1003: what people type survives an unexpected reload, and the JSA they were signing on to reopens.
 test('a reload keeps what a visitor typed and reopens their form; signing in clears it', async ({ page }) => {
   const store = await open(page, 'guest');
-  await page.getByRole('button', { name: 'Visitor Login', exact: true }).click();
+  await page.getByRole('button', { name: 'Visitor sign-in', exact: true }).click();
   await page.getByLabel('Your name', { exact: true }).fill('Synthetic Visitor');
   await page.locator('#visitorForm').getByLabel('Company', { exact: true }).fill('Synthetic Client Company');
   await page.locator('#visitorEmail').fill('visitor@example.test');
@@ -723,7 +789,7 @@ test('a reload keeps a staff email but never the password; Back stops the form r
   await expect(page.locator('#staffGate')).toBeVisible();
   await expect(page.locator('#staffEmail')).toHaveValue('staff@example.test'); await expect(page.locator('#staffPassword')).toHaveValue('');
   expect(await page.evaluate(() => JSON.stringify(sessionStorage) + JSON.stringify(localStorage))).not.toContain('fixture-password-not-kept');
-  await page.locator('#staffCancel').click(); await page.reload();
+  await page.locator('#qrPageBack').click(); await page.reload();
   await expect(page.locator('#loginOptions')).toBeVisible(); await expect(page.locator('#staffGate')).toBeHidden();
 });
 
@@ -828,14 +894,15 @@ for (const width of [390, 1440]) test(`published SDS sheets have a collapsed job
   store.documentRows.push({ id: 'sds-pending', title: 'Unpublished SDS', category: 'sds', report_date: today(), status: 'pending', visibility: 'public' });
   await install(page, store); await page.goto('/job-board.html?embedded=1#board=' + TOKEN);
   await visitorSignIn(page); await page.reload(); await expect(page.locator('#boardContent')).toBeVisible();
-  const section = page.locator('.board-category').filter({ has: page.locator('#sdsList') });
+  await page.locator('#signedInSafety').click();
+  const section = page.locator('#publicSafetySections .board-category').filter({ has: page.locator('#public-sdsList') });
   await expect(section).not.toHaveAttribute('open', '');
-  await expect(section.locator('summary')).toContainText('SDS Sheets');
+  await expect(section.locator('summary')).toContainText('SDS & WHMIS information');
   await expect(section.locator('summary .board-section-count')).toHaveText('1');
   await section.locator('summary').click();
-  await expect(page.locator('#sdsList')).toContainText('Concrete cleaner SDS');
-  await expect(page.locator('#sdsList')).not.toContainText('Unpublished SDS');
-  for (const name of ['View', 'Download', 'Email PDF']) await expect(page.locator('#sdsList').getByRole('button', { name, exact: true })).toBeVisible();
+  await expect(page.locator('#public-sdsList')).toContainText('Concrete cleaner SDS');
+  await expect(page.locator('#public-sdsList')).not.toContainText('Unpublished SDS');
+  for (const name of ['View PDF', 'Download']) await expect(page.locator('#public-sdsList').getByRole('button', { name, exact: true })).toBeVisible();
   await expect(page.locator('#dailyReportsList')).not.toContainText('Concrete cleaner SDS');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
@@ -861,15 +928,16 @@ for (const width of [390, 1440]) test(`Ontario legislation has its own collapsed
   store.documentRows.push({ id: 'pending-law', title: 'Not reviewed', category: 'ontario-legislation', report_date: today(), status: 'pending', visibility: 'public' });
   await install(page, store); await page.goto('/job-board.html?embedded=1#board=' + TOKEN);
   await visitorSignIn(page); await page.reload(); await expect(page.locator('#boardContent')).toBeVisible();
-  const sections = page.locator('.board-category');
+  await page.locator('#signedInSafety').click();
+  const sections = page.locator('#publicSafetySections .board-category');
   const section = sections.nth(1);
-  await expect(section.locator('summary')).toContainText('Ontario H&S Act & Construction Regulations');
+  await expect(section.locator('summary')).toContainText('Ontario OHSA & Construction Regulations');
   await expect(section).not.toHaveAttribute('open', '');
   await expect(section.locator('summary .board-section-count')).toHaveText('2');
   await section.locator('summary').click();
-  await expect(page.locator('#ontarioLegislationList')).toContainText('Ontario Health and Safety Act');
-  await expect(page.locator('#ontarioLegislationList')).toContainText('Construction Regulations');
-  await expect(page.locator('#ontarioLegislationList')).not.toContainText('Not reviewed');
+  await expect(page.locator('#public-ontarioLegislationList')).toContainText('Ontario Health and Safety Act');
+  await expect(page.locator('#public-ontarioLegislationList')).toContainText('Construction Regulations');
+  await expect(page.locator('#public-ontarioLegislationList')).not.toContainText('Not reviewed');
   await expect(page.locator('#siteSpecificList')).not.toContainText('Construction Regulations');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });

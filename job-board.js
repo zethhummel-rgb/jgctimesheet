@@ -25,11 +25,15 @@
     job: params.get('job') || '', manage: params.get('manage') === '1',
     visit: null, generation: 0, uploads: new Map(), uploadBusy: false,
     logs: {portal:{events:[],busy:false,loaded:false,before:null},site:{events:[],busy:false,loaded:false,before:null}}, sourcesLoaded: false,
-    previewUrl: null, previewGeneration: 0, highlighted: hash.get('document') || '', loggedBoardVisit: ''
+    previewUrl: null, previewGeneration: 0, highlighted: hash.get('document') || '', loggedBoardVisit: '', safetyOpen: false
   };
   const $ = (id) => document.getElementById(id);
   const text = (tag, value, cls) => { const e = document.createElement(tag); e.textContent = value == null ? '' : String(value); if (cls) e.className = cls; return e; };
   const hosted = document.documentElement.dataset.jobBoardHost === 'job';
+  if (!state.manage) {
+    document.documentElement.dataset.qrBoard = '';
+    $('boardTitle').setAttribute('role','none');
+  }
   if (hosted) {
     const toolbar = $('boardToolbar');
     toolbar.hidden = false;
@@ -95,7 +99,8 @@
   async function loadBoard() {
     jsaReviewGeneration++;jsaReview=null;showJsaPanel(false);
     const generation = ++state.generation;
-    ['loginOptions','siteGate','visitorGate','staffGate'].forEach(id => $(id).hidden = true); $('boardLoading').hidden = false; $('boardError').hidden = true; $('visitorGate').hidden = true; $('boardContent').hidden = true;
+    ['loginOptions','publicSafety','visitorGate','staffGate'].forEach(id => $(id).hidden = true);
+    state.safetyOpen = false; state.preparedJsas = []; $('qrFooter').hidden = true; $('boardLoading').hidden = false; $('boardError').hidden = true; $('visitorGate').hidden = true; $('boardContent').hidden = true;
     try {
       if (!state.token && (!state.manage || !state.job)) throw new Error('This link is missing its Job Board code. Scan the posted QR code or open Job Board from the job.');
       if (!state.client) state.client = typeof createJgcSupabaseClient === 'function' ? createJgcSupabaseClient() : null;
@@ -140,17 +145,36 @@
     $('boardLogout').hidden = !state.user && !state.visit;
     $('boardSignIn').hidden = !!state.user || !!board.requires_visitor_signin;
     const gated = !state.manage && !!board.requires_visitor_signin;
-    $('boardSiteSignIn').hidden = state.manage || gated;
-    $('boardOnsite').hidden = gated || !isStaffBoard(); if ($('boardOnsite').hidden && $('onsiteDialog').open) $('onsiteDialog').close();
+    $('boardOnsite').hidden = !state.manage || gated || !isStaffBoard(); if ($('boardOnsite').hidden && $('onsiteDialog').open) $('onsiteDialog').close();
     $('boardContacts').hidden = gated;
     // The job's drawings/documents folder, the same link as on the Portal Jobs page, for anyone signed in to the board.
     const folder = board.document_link && /^https:\/\/\S+$/i.test(board.document_link.url || '') ? board.document_link : null;
     $('boardDocuments').hidden = gated || !folder;
     if (folder) { $('boardDocuments').href = folder.url; $('boardDocuments').textContent = folder.label || 'Drawings & documents'; } else $('boardDocuments').removeAttribute('href');
     if (gated && $('contactsDialog').open) $('contactsDialog').close();
+    if (!state.manage) {
+      $('qrFooterJob').textContent = board.job_name || title;
+      $('qrFooterAddress').textContent = String(board.address || '').trim();
+      $('qrFooterLocation').hidden = !$('qrFooterAddress').textContent;
+      $('qrFooter').hidden = false;
+    }
+    chooseLogin(gated ? 'loginOptions' : '');
     $('loginOptions').hidden = !gated; $('visitorGate').hidden = true; $('boardContent').hidden = gated;
-    if (gated) { clearVisit(); restoreSignInDraft(true); return; }
+    if (gated) {
+      clearVisit();
+      restoreSignInDraft(true);
+      if (state.highlighted && !$('loginOptions').hidden) void openPublicSafety({ deepLink: true });
+      return;
+    }
     restoreSignInDraft(false);
+    $('qrDashboard').hidden = state.manage;
+    $('retryAttendance').hidden = !attendanceRequest || attendanceRequest.key !== checkInKey() || attendanceRequest.busy;
+    $('signedInSafety').hidden = state.manage || !board.enabled;
+    $('uploadTab').hidden = !state.manage && !board.can_upload;
+    if ($('uploadTab').hidden && !$('uploadPanel').hidden) selectTab('documentsPanel');
+    renderCheckIn();
+    $('qrRoster').hidden = state.manage || !state.visit;
+    if (!$('qrRoster').hidden) void loadQrRoster();
     const manager = state.manage && board.can_manage;
     $('boardManager').hidden = !manager; $('reviewTab').hidden = !manager;
     $('boardViewersPanel').hidden = !manager; $('boardActivityPanel').hidden = !manager; $('boardSiteActivityPanel').hidden = !manager;
@@ -168,7 +192,7 @@
     renderLibrary();
     if (manager) { renderManager(); renderViewers(); for(const kind of ['portal','site'])if($(kind==='portal'?'boardActivity':'boardSiteActivity').open && !state.logs[kind].loaded)void loadActivity(kind,false); }
     if (board.can_upload) renderCreateForms();
-    if (state.highlighted) highlightDocument();
+    if (state.highlighted && !highlightDocument() && !state.manage) void openPublicSafety({ deepLink: true });
     if (state.user || state.visit) void loadPreparedJsas(); else state.preparedJsas = [];
   }
   // Signed-in people see only this job's JSA on its work date; the first saved signature activates it.
@@ -180,7 +204,7 @@
     catch (_) { items = []; failed=true; }
     if (generation !== preparedGeneration || boardGeneration !== state.generation) return;
     if(failed)notice('Could not check today’s prepared JSAs. Use Refresh to try again.','error');
-    state.preparedJsas = items; renderPreparedJsas();
+    state.preparedJsas = items; renderPreparedJsas(); renderQrJsa();
     if (!state.manage) { restoreJsaSignOn(); void promptActiveJsa(); }
   }
   const preparedJsaDoc = item => ({...item,id:item.id,prepared:true,category:'jsa',title:'JSA - '+item.work_date,report_date:item.work_date,mime_type:'application/pdf',file_name:'JGC-JSA-'+item.work_date+'.pdf'});
@@ -214,18 +238,95 @@
     ['sdsList', 'SDS Sheets', ['sds'], 'Safety Data Sheets for products used on this job, including hazards, safe handling, protective equipment and emergency information.'],
     ['policyList', 'JGC Policy', ['jgc-policy'], 'John Gordon Construction’s current company health and safety policy.']
   ];
+  const PUBLIC_SAFETY_LABELS = new Map([
+    ['noticeOfProjectList','Notice of Project'],
+    ['ontarioLegislationList','Ontario OHSA & Construction Regulations'],
+    ['siteSpecificList','Site Specific Safety Plan'],
+    ['sdsList','SDS & WHMIS information'],
+    ['policyList','JGC Health & Safety Policy']
+  ]);
+  function publicSafetyDocument(doc) {
+    return doc.status === 'published' && doc.visibility === 'public' &&
+      (!doc.source_type || (doc.source_type === 'policies' && doc.automatic));
+  }
+  function createDocumentSection(listId, parent, label, description) {
+    const section = text('details', '', 'jgc-panel board-category');
+    const summary = text('summary', label);
+    summary.append(text('span', '', 'jgc-badge board-section-count'));
+    if (description) summary.append(text('span', description, 'board-help board-category-description'));
+    const list = text('div', '', 'board-category-list');
+    list.id = listId;
+    section.append(summary, list);
+    parent.append(section);
+    return list;
+  }
+  function renderPublicSafety(documents) {
+    const sections = $('publicSafetySections');
+    for (const [id, , categories] of SECTIONS) {
+      const label = PUBLIC_SAFETY_LABELS.get(id);
+      if (!label) continue;
+      const listId = 'public-' + id;
+      const list = $(listId) || createDocumentSection(listId, sections, label);
+      const visible = documents.filter(doc => categories.includes(doc.category) && publicSafetyDocument(doc));
+      list.parentElement.querySelector('.board-section-count').textContent = visible.length;
+      renderDocuments(list, visible, 'No published documents yet.', false, true);
+    }
+  }
+  async function openPublicSafety({ deepLink = false } = {}) {
+    if (state.manage || !state.board?.enabled) return;
+    const generation = state.generation;
+    const previous = state.board.requires_visitor_signin ? 'loginOptions' : 'documentsPanel';
+    if (!deepLink) showSafetyPage();
+    $('publicSafetyRetry').hidden = true;
+    status('publicSafetyStatus', 'Loading safety documents…');
+    try {
+      const model = await rpc('get_job_board_public_safety', { p_token: state.token });
+      if (generation !== state.generation || (!deepLink && !state.safetyOpen)) return;
+      const documents = Array.isArray(model?.documents) ? model.documents : [];
+      if (deepLink) {
+        if (!documents.some(doc => doc.id === state.highlighted) || $(previous).hidden) return;
+        showSafetyPage();
+      }
+      renderPublicSafety(documents);
+      status('publicSafetyStatus', '');
+      if (state.highlighted) highlightDocument($('publicSafetySections'));
+    } catch (error) {
+      if (generation !== state.generation || !state.safetyOpen) return;
+      $('publicSafetySections').replaceChildren();
+      status('publicSafetyStatus', errorMessage(error), 'error');
+      $('publicSafetyRetry').hidden = false;
+    }
+  }
+  function showSafetyPage() {
+    state.safetyOpen = true;
+    chooseLogin('');
+    $('boardContent').hidden = true;
+    $('publicSafety').hidden = false;
+    $('publicSafetySections').replaceChildren();
+    updateQrHeader('safety');
+    $('qrPageBack').focus();
+    window.scrollTo(0, 0);
+  }
+  function backFromSafety() {
+    state.safetyOpen = false;
+    $('publicSafety').hidden = true;
+    $('publicSafetySections').replaceChildren();
+    const gated = !!state.board?.requires_visitor_signin;
+    $('boardContent').hidden = gated;
+    chooseLogin(gated ? 'loginOptions' : '');
+    (gated ? $('viewPublicSafety') : $('signedInSafety')).focus();
+  }
+  $('viewPublicSafety').addEventListener('click', () => void openPublicSafety());
+  $('signedInSafety').addEventListener('click', () => void openPublicSafety());
+  $('publicSafetyRetry').addEventListener('click', () => void openPublicSafety());
   function renderLibrary() {
     const all = (state.board?.documents || []).filter(d => d.status === 'published');
     all.sort((a,b) => String(b.created_at || b.report_date || '').localeCompare(String(a.created_at || a.report_date || '')) || String(b.id).localeCompare(String(a.id)));
     SECTIONS.forEach(([id,label,categories,description]) => {
-      let list = $(id);
-      if (!list) {
-        const section = text('details','', 'jgc-panel board-category');
-        const summary = text('summary', label); summary.append(text('span','', 'jgc-badge board-section-count'));
-        list = text('div','', 'board-category-list'); list.id = id;
-        summary.append(text('span',description,'board-help board-category-description')); section.append(summary,list); $('documentSections').append(section);
-      }
-      const docs = all.filter(d => categories.includes(d.category));
+      const list = $(id) || createDocumentSection(id, $('documentSections'), label, description);
+      const publicCategory = !state.manage && PUBLIC_SAFETY_LABELS.has(id);
+      const docs = all.filter(d => categories.includes(d.category) && (!publicCategory || !publicSafetyDocument(d)));
+      list.parentElement.hidden = publicCategory && !docs.length;
       list.parentElement.querySelector('.board-section-count').textContent = docs.length;
       if (['dailyReportsList','inspectionList','permitList'].includes(id)) {
         const headings = id === 'dailyReportsList' ? ['Todays Reports','Previous Reports'] : id === 'inspectionList' ? ['Todays Inspections','Previous Inspections'] : ['Todays Permits','Previous Permits'];
@@ -255,13 +356,24 @@
   let jsaPromptRun = null;
   const promptedJsas = new Set();
   const signedInIdentity = () => state.token + ':' + (state.user ? state.user.id : 'visitor:' + String(state.visit?.label || '').trim().toLowerCase());
-  // Attendance remains separate from JSA prompts; unticking site sign-in does not suppress review.
-  function markOnSiteToday() { try { localStorage.setItem('jgcJobBoardOnSite:' + signedInIdentity(), dateToday()); } catch (_) {} }
-  async function promptActiveJsa() {
-    const today = dateToday(), generation=state.generation;
-    if (jsaPromptRun?.generation===generation || state.manage || !(state.user || state.visit)) return;
-    const docs = (state.preparedJsas || []).map(preparedJsaDoc).concat((state.board?.documents || []).filter(d => d.status === 'published' && d.category === 'jsa' && String(d.report_date || '').slice(0, 10) === today))
+  function todayJsaDocuments() {
+    const today = dateToday();
+    const submitted = (state.board?.documents || []).filter(doc => doc.status === 'published' && doc.category === 'jsa' && String(doc.report_date || '').slice(0, 10) === today);
+    return (state.preparedJsas || []).map(preparedJsaDoc).concat(submitted)
       .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+  }
+  function renderQrJsa() {
+    const doc = !state.manage && !state.board?.requires_visitor_signin && todayJsaDocuments()[0];
+    $('qrJsa').hidden = !doc;
+    if (!doc) return;
+    const work = [doc.project, doc.location].filter(Boolean).join(' · ');
+    $('qrJsaDetail').textContent = work || doc.title || 'Review the job’s safety analysis.';
+    $('qrJsaOpen').onclick = () => void openJsaSignOn(doc);
+  }
+  async function promptActiveJsa() {
+    const generation = state.generation;
+    if (jsaPromptRun?.generation===generation || state.manage || !(state.user || state.visit)) return;
+    const docs = todayJsaDocuments();
     if (!docs.length) return;
     const run={generation};jsaPromptRun=run;
     try {
@@ -270,6 +382,9 @@
         try { model = await jsaContext(doc); }
         catch(_){if(generation===state.generation)notice('Could not check a JSA sign-off. Use Refresh to try again.','error');continue;}
         if(generation!==state.generation)return;
+        if (docs[0]?.id === doc.id) {
+          $('qrJsaOpen').firstChild.textContent = model.signed || jsaCollecting(model) ? 'Review JSA ' : 'Review & sign JSA ';
+        }
         if (model.signed || jsaCollecting(model)) continue;
         const key=signedInIdentity()+':'+doc.id+':'+(model.review_key||model.version||'');
         if(promptedJsas.has(key))continue;
@@ -345,8 +460,8 @@
     }});
   });
   function button(label, action, secondary) { const b = text('button', label, 'jgc-button' + (secondary ? ' jgc-button--secondary' : '')); b.type = 'button'; b.addEventListener('click', action); return b; }
-  function renderDocuments(parent, docs, message, review) { parent.replaceChildren(); if (!docs.length) return empty(parent, message); docs.forEach((doc) => parent.append(documentCard(doc, review))); if (window.lucide) window.lucide.createIcons(); }
-  function documentCard(doc, review) {
+  function renderDocuments(parent, docs, message, review, publicView = false) { parent.replaceChildren(); if (!docs.length) return empty(parent, message); docs.forEach((doc) => parent.append(documentCard(doc, review, publicView))); if (window.lucide) window.lucide.createIcons(); }
+  function documentCard(doc, review, publicView) {
     const card = document.createElement('article'); card.className = 'jgc-record-row board-document'; card.dataset.documentId = doc.id;
     const icon = text('span', '', 'board-document-icon'); icon.setAttribute('aria-hidden', 'true'); const i = document.createElement('i'); i.dataset.lucide = String(doc.mime_type || '').startsWith('image/') ? 'image' : 'file-text'; icon.append(i);
     const detail = document.createElement('div'); detail.append(text('h3', doc.title || doc.file_name || 'Document', 'board-document-title'));
@@ -356,9 +471,9 @@
     if (doc.source_type) meta.append(text('span', doc.source_type === 'policies' ? 'Company policy' : 'Portal form', 'jgc-badge jgc-badge--info'));
     detail.append(meta); if (doc.notes) detail.append(text('p', doc.notes, 'board-document-notes'));
     const actions = text('div', '', 'board-document-actions');
-    actions.append(button('View', (event) => viewDocument(doc, event.currentTarget), true), button('Download', (event) => downloadDocument(doc, event.currentTarget), true));
+    actions.append(button(publicView ? (doc.mime_type === 'application/pdf' ? 'View PDF' : 'View image') : 'View', (event) => viewDocument(doc, event.currentTarget), true), button('Download', (event) => downloadDocument(doc, event.currentTarget), true));
     if (!review && doc.category === 'jsa') actions.append(button('Sign on to JSA',()=>openJsaSignOn(doc),true));
-    if (!review) actions.append(button('Email PDF', (event) => emailDocument(doc, event.currentTarget), true));
+    if (!review && !publicView) actions.append(button('Email PDF', (event) => emailDocument(doc, event.currentTarget), true));
     card.append(icon, detail, actions);
     if (state.manage && state.board.can_manage && !doc.automatic) card.append(reviewEditor(doc, review));
     return card;
@@ -373,8 +488,8 @@
     fields.category = field('Document type', 'select', 'category', ''); categories(fields.category, doc.category);
     fields.date = field('Report date', 'input', 'date', String(doc.report_date || '').slice(0, 10)); fields.date.required = true;
     fields.notes = field('Notes', 'textarea', 'notes', doc.notes, true); fields.notes.maxLength = 2000; fields.notes.rows = 2;
-    fields.visibility = field('Published access', 'select', 'visibility', ''); [['public', 'Visitors signed in to this board'], ['restricted', 'Authorized Portal accounts only']].forEach(([value, label]) => { const o = text('option', label); o.value = value; fields.visibility.append(o); }); fields.visibility.value = doc.visibility || 'restricted';
-    const enforce = () => { if (fields.category.value === 'accident-incident') { fields.visibility.value = 'restricted'; fields.visibility.disabled = true; } else fields.visibility.disabled = false; }; fields.category.addEventListener('change', enforce); enforce();
+    fields.visibility = field('Published access', 'select', 'visibility', ''); [['public', 'Visible on the Job Board'], ['restricted', 'Authorized Portal accounts only']].forEach(([value, label]) => { const o = text('option', label); o.value = value; fields.visibility.append(o); }); fields.visibility.value = doc.visibility || 'restricted';
+    const enforce = () => { fields.visibility.options[0].textContent = SECTIONS.some(([id, , categories]) => PUBLIC_SAFETY_LABELS.has(id) && categories.includes(fields.category.value)) && !doc.source_type ? 'Anyone with the QR link' : 'Signed-in visitors and staff'; if (fields.category.value === 'accident-incident') { fields.visibility.value = 'restricted'; fields.visibility.disabled = true; } else fields.visibility.disabled = false; }; fields.category.addEventListener('change', enforce); enforce();
     const feedback = text('p', '', 'board-form-status'); feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
     const controls = text('div', '', 'board-actions'); const save = button(review ? 'Save details' : 'Save changes', () => perform('save'), true); const publish = button(review ? 'Publish document' : 'Update published access', () => perform('published')); const archive = button('Archive', () => perform('archived'), true); controls.append(save, publish, archive);
     form.append(grid, feedback, controls); form.addEventListener('submit', (e) => { e.preventDefault(); perform('save'); }); details.append(form);
@@ -470,7 +585,7 @@
     } catch(e) { if (version === emailVersion) status('emailPdfStatus',errorMessage(e),'error'); }
     finally { busy(control,false); }
   }
-  function highlightDocument() { const cards = Array.from(document.querySelectorAll('[data-document-id]')); const card = cards.find((e) => e.dataset.documentId === state.highlighted); if (!card) return; for (let parent = card.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS') parent.open = true; card.classList.add('is-highlighted'); card.tabIndex = -1; requestAnimationFrame(() => { card.scrollIntoView({ block: 'center' }); card.focus({ preventScroll: true }); }); }
+  function highlightDocument(scope = $('documentSections')) { const cards = Array.from(scope.querySelectorAll('[data-document-id]')); const card = cards.find((e) => e.dataset.documentId === state.highlighted); if (!card) return; for (let parent = card.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS') parent.open = true; card.classList.add('is-highlighted'); card.tabIndex = -1; requestAnimationFrame(() => { card.scrollIntoView({ block: 'center' }); card.focus({ preventScroll: true }); }); return true; }
   async function renderManager() {
     const board = state.board, token = state.token;
     $('boardEnabled').checked = !!board.enabled; $('boardEnabledBadge').textContent = board.enabled ? 'Access enabled' : 'Access disabled'; $('boardEnabledBadge').className = 'jgc-badge ' + (board.enabled ? 'jgc-badge--success' : 'jgc-badge--warning');
@@ -538,10 +653,45 @@
   }
   async function loadSources() { if (!state.board || !state.board.can_manage) return; busy($('importRefresh'), true); status('importStatus', 'Loading available reports…'); try { const data = await rpc('list_job_board_sources', { p_board_id: state.board.id }); const sources = (Array.isArray(data) ? data : data && data.sources || []).filter((source) => !(source.source_type === 'policies' && (state.board.documents || []).some((doc) => doc.automatic && doc.source_type === 'policies' && String(doc.source_id) === String(source.source_id)))); state.sourcesLoaded = true; $('importList').replaceChildren(); if (!sources.length) empty($('importList'), 'No unattached matching reports or company policies are available.'); sources.forEach((source) => { const row = text('div', '', 'jgc-record-row board-viewer'); const desc = document.createElement('div'); desc.append(text('strong', source.title || categoryName(source.category)), text('p', [categoryName(source.category), dateLabel(source.report_date), source.match === 'company-policy' ? 'Company policy' : 'Job number match'].join(' · '), 'board-help')); row.append(desc, button(source.source_type === 'policies' ? 'Attach for review' : 'Attach report', async (e) => { const b = e.currentTarget; busy(b, true); try { await rpc('attach_job_board_report', { p_token: state.token, p_visit_token: state.visit && state.visit.token || null, p_source_type: source.source_type, p_source_id: source.source_id }); notice(source.source_type === 'policies' ? 'Company policy attached for office review.' : 'Report attached and published on this Job Board.'); invalidateLogs(); await loadBoard(); await loadSources(); } catch (error) { notice(errorMessage(error), 'error'); } finally { busy(b, false); } }, true)); $('importList').append(row); }); status('importStatus', sources.length + ' available items.'); } catch (e) { status('importStatus', errorMessage(e), 'error'); } finally { busy($('importRefresh'), false); } }
   function selectTab(id) { document.querySelectorAll('.board-tabs [role="tab"]').forEach((tab) => { const chosen = tab.dataset.panel === id; tab.classList.toggle('active', chosen); tab.setAttribute('aria-selected', String(chosen)); tab.tabIndex = chosen ? 0 : -1; $(tab.dataset.panel).hidden = !chosen; }); }
-  function chooseLogin(id) { ['loginOptions','visitorGate','staffGate','siteGate'].forEach(key => $(key).hidden = key !== id); }
+  function updateQrHeader(view) {
+    if (state.manage) return;
+    const pages = {
+      safety: ['Safety information', 'shield-check'],
+      visitorGate: ['Visitor sign-in', 'id-card'],
+      staffGate: ['Staff sign-in', 'hard-hat']
+    };
+    const [title, icon] = pages[view] || ['JGC Job Board', 'hard-hat'];
+    $('qrHeroTitle').parentElement.hidden = false;
+    $('qrHeroTitle').textContent = title;
+    $('boardTitle').textContent = view === 'loginOptions' ? 'Site safety and sign-in' : state.board?.job_name || 'Site safety and sign-in';
+    const current = $('qrHeroIcon');
+    if (current.dataset.lucide !== icon) {
+      const next = document.createElement('i');
+      next.id = 'qrHeroIcon';
+      next.dataset.lucide = icon;
+      next.setAttribute('aria-hidden', 'true');
+      current.replaceWith(next);
+    }
+    window.lucide?.createIcons();
+    $('qrPageBack').hidden = !pages[view];
+    document.documentElement.dataset.qrView = view;
+  }
+  function chooseLogin(id) {
+    ['loginOptions','visitorGate','staffGate'].forEach(key => $(key).hidden = key !== id);
+    if (!state.manage && (id === 'visitorGate' || id === 'staffGate')) $('boardContent').hidden = true;
+    updateQrHeader(id);
+  }
+  $('qrPageBack').addEventListener('click', () => {
+    if (state.safetyOpen) return backFromSafety();
+    clearSignInDraft();
+    const gated = !!state.board?.requires_visitor_signin;
+    if (state.board) $('boardContent').hidden = gated;
+    chooseLogin(gated ? 'loginOptions' : '');
+    (gated ? $('visitorLogin') : $('boardSignIn')).focus();
+  });
   // Typed sign-in details survive an unexpected reload (the phone dropping the tab, a weak connection): kept in
   // this tab only, per board, and cleared once the person is signed in. Passwords are never kept.
-  const SIGN_IN_FIELDS = { visitorGate: ['visitorName', 'visitorCompany', 'visitorEmail'], staffGate: ['staffEmail'], siteGate: ['siteName', 'siteCompany', 'siteReason'] };
+  const SIGN_IN_FIELDS = { visitorGate: ['visitorName', 'visitorCompany', 'visitorEmail'], staffGate: ['staffEmail'] };
   const signInDraftKey = () => 'jgcJobBoardSignInDraft:' + (state.token || state.job);
   function readSignInDraft() { try { return JSON.parse(sessionStorage.getItem(signInDraftKey()) || '{}') || {}; } catch (_) { return {}; } }
   function writeSignInDraft(draft) { try { if (Object.keys(draft).length) sessionStorage.setItem(signInDraftKey(), JSON.stringify(draft)); else sessionStorage.removeItem(signInDraftKey()); } catch (_) {} }
@@ -553,18 +703,62 @@
     const draft = readSignInDraft();
     Object.entries(SIGN_IN_FIELDS).forEach(([gate, ids]) => ids.forEach(id => { const values = draft[gate]; if (!values || !(id in values)) return; if ($(id).type === 'checkbox') $(id).checked = !!values[id]; else if (!$(id).value) $(id).value = values[id]; }));
     const open = draft.open;
-    if (open === 'siteGate' || (open === 'visitorGate' && gated) || (open === 'staffGate' && !state.user)) chooseLogin(open);
+    if ((open === 'visitorGate' && gated) || (open === 'staffGate' && !state.user)) chooseLogin(open);
   }
   Object.entries(SIGN_IN_FIELDS).forEach(([gate, ids]) => ids.forEach(id => $(id).addEventListener($(id).type === 'checkbox' ? 'change' : 'input', () => saveSignInDraft(gate))));
   function openStaff() { chooseLogin('staffGate'); $('staffEmail').focus(); $('staffGate').scrollIntoView({ block: 'center' }); }
-  // Logging in also records a site sign-in (name, company, date and time).
-  async function recordLoginSiteSignIn(name, company) {
-    try {
-      const ticket = await rpc('begin_job_board_site_signin', { p_token: state.token, p_visit_token: state.visit?.token || null, p_name: String(name || '').trim().slice(0, 150), p_company: String(company || '').trim().slice(0, 150) });
-      const result = await rpc('record_job_board_site_signin', { p_token: state.token, p_visit_token: ticket.visit_token, p_reason: '', p_submission_id: ticket.nonce });
-      notice('Signed in on site at ' + timeLabel(result.recorded_at)); invalidateLogs(); markOnSiteToday(); void promptActiveJsa();
-    } catch (error) { notice('You are logged in, but your site sign-in was not saved: ' + errorMessage(error) + ' Use Site Sign in to try again.', 'error'); }
+  const checkInKey = () => 'jgcJobBoardCheckIn:' + state.token + ':' + (state.visit?.token || state.user?.id || '');
+  function renderCheckIn() {
+    let record;
+    try { record = JSON.parse(sessionStorage.getItem(checkInKey()) || 'null'); } catch (_) {}
+    const date = new Date(record?.time);
+    const today = !Number.isNaN(date.getTime()) && date.toLocaleDateString('en-CA', { timeZone: 'America/Toronto' }) === new Date().toLocaleDateString('en-CA', { timeZone: 'America/Toronto' });
+    $('qrAttendance').hidden = state.manage || !today;
+    $('qrAttendanceDetail').textContent = today ? [record.name, clockLabel(record.time)].filter(Boolean).join(' · ') : '';
   }
+  let attendanceRequest;
+  // Reuse the same single-use ticket if recording fails after the server accepts it.
+  async function recordLoginSiteSignIn(name, company) {
+    const key = checkInKey(), generation = state.generation;
+    if (attendanceRequest?.key !== key) attendanceRequest = { key, name, company, ticket: null };
+    const request = attendanceRequest;
+    if (request.busy) return;
+    request.busy = true;
+    $('retryAttendance').hidden = true;
+    const token = state.token, visit = state.visit?.token || null;
+    try {
+      if (request.ticket && new Date(request.ticket.expires_at).getTime() <= Date.now()) request.ticket = null;
+      request.ticket ||= await rpc('begin_job_board_site_signin', {
+        p_token: token, p_visit_token: visit,
+        p_name: String(name || '').trim().slice(0,150),
+        p_company: String(company || '').trim().slice(0,150)
+      });
+      const result = await rpc('record_job_board_site_signin', {
+        p_token: token, p_visit_token: request.ticket.visit_token, p_reason: '', p_submission_id: request.ticket.nonce
+      });
+      if (key !== checkInKey()) return;
+      try { sessionStorage.setItem(key, JSON.stringify({name, time:result.recorded_at})); } catch (_) {}
+      attendanceRequest = null;
+      if (generation === state.generation) {
+        renderCheckIn();
+        invalidateLogs();
+        void loadQrRoster();
+        void promptActiveJsa();
+      }
+    } catch (error) {
+      if (key !== checkInKey() || generation !== state.generation) return;
+      notice('You are logged in, but your site check-in was not saved: ' + errorMessage(error), 'error');
+      $('retryAttendance').hidden = false;
+    } finally {
+      request.busy = false;
+    }
+  }
+  $('retryAttendance').addEventListener('click', () => {
+    if (attendanceRequest?.key === checkInKey()) {
+      notice('');
+      void recordLoginSiteSignIn(attendanceRequest.name, attendanceRequest.company);
+    }
+  });
   async function visitorSignIn(e) { e.preventDefault(); promptedJsas.clear(); busy($('visitorSubmit'), true); status('visitorStatus', 'Signing in…'); const name = $('visitorName').value.trim(), company = $('visitorCompany').value.trim(); try { await registerVisit({ p_name: name, p_company: company, p_email: $('visitorEmail').value.trim() }); await loadBoard(); if ($('visitorGate').hidden) { status('visitorStatus', ''); clearSignInDraft('visitorGate'); } else status('visitorStatus', 'Site sign-in expired. Please sign in again.', 'error'); if (!$('boardContent').hidden) await recordLoginSiteSignIn(name, company); } catch (error) { status('visitorStatus', errorMessage(error), 'error'); } finally { busy($('visitorSubmit'), false); } }
   async function staffSignIn(e) {
     e.preventDefault(); promptedJsas.clear(); busy($('staffSubmit'), true); status('staffStatus', 'Signing in…');
@@ -614,6 +808,36 @@
   // Emergency list for signed-in JGC staff: today's site sign-ins, one line per person.
   let onsiteGeneration = 0;
   const clockLabel = value => new Date(value).toLocaleTimeString('en-CA', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' });
+  function rosterRow(person) {
+    const row = text('div', '', 'jgc-record-row board-onsite-row');
+    const who = document.createElement('div');
+    who.append(text('strong', person.name), text('span', person.company, 'board-help'));
+    if (state.manage) who.append(text('span', person.staff ? 'Staff sign-in' : person.confirmed ? 'Confirmed visitor sign-in' : 'Visitor sign-in', 'board-help'));
+    row.append(who, text('time', 'Signed in ' + clockLabel(person.first_at) + (person.count > 1 ? ' · last ' + clockLabel(person.last_at) : ''), 'board-help'));
+    return row;
+  }
+  let qrRosterGeneration = 0;
+  async function loadQrRoster() {
+    if ($('qrRoster').hidden || !state.visit || state.manage || state.board?.requires_visitor_signin) return;
+    const generation = ++qrRosterGeneration, boardGeneration = state.generation;
+    const list = $('qrRosterList'), count = $('qrRosterCount');
+    status('qrRosterStatus', 'Loading today’s site sign-ins…');
+    try {
+      const result = await rpc('get_job_board_site_roster', { p_token: state.token, p_visit_token: state.visit.token });
+      if (generation !== qrRosterGeneration || boardGeneration !== state.generation) return;
+      const people = Array.isArray(result?.people) ? result.people : [];
+      count.textContent = people.length;
+      list.replaceChildren(...people.map(rosterRow));
+      status('qrRosterStatus', people.length ? '' : 'Nobody has signed in on site today.');
+    } catch (error) {
+      if (generation !== qrRosterGeneration || boardGeneration !== state.generation) return;
+      count.textContent = '';
+      list.replaceChildren();
+      status('qrRosterStatus', errorMessage(error), 'error');
+    }
+  }
+  $('qrRoster').addEventListener('toggle', () => { if ($('qrRoster').open) void loadQrRoster(); });
+  $('qrRosterRefresh').addEventListener('click', loadQrRoster);
   async function showOnsite() {
     const generation = ++onsiteGeneration;
     if (!$('onsiteDialog').open) $('onsiteDialog').showModal();
@@ -623,13 +847,7 @@
       if (generation !== onsiteGeneration || !$('onsiteDialog').open) return;
       const people = Array.isArray(result?.people) ? result.people : [];
       status('onsiteStatus', people.length ? people.length + (people.length === 1 ? ' person' : ' people') + ' signed in on site today, ' + dateLabel(result.date) + '.' : 'Nobody has signed in on site today.');
-      people.forEach(person => {
-        const row = text('div', '', 'jgc-record-row board-onsite-row'), who = document.createElement('div');
-        const source = person.staff ? 'Staff sign-in' : person.confirmed ? 'Confirmed visitor sign-in' : 'Visitor sign-in';
-        who.append(text('strong', person.name), text('span', person.company, 'board-help'), text('span', source, 'board-help'));
-        row.append(who, text('time', 'Signed in ' + clockLabel(person.first_at) + (person.count > 1 ? ' · last ' + clockLabel(person.last_at) : ''), 'board-help'));
-        $('onsiteList').append(row);
-      });
+      $('onsiteList').append(...people.map(rosterRow));
     } catch (error) { if (generation === onsiteGeneration) status('onsiteStatus', errorMessage(error), 'error'); }
   }
   $('boardOnsite').addEventListener('click', showOnsite); $('onsiteRefresh').addEventListener('click', showOnsite);
@@ -637,21 +855,16 @@
   $('onsiteDialog').addEventListener('close', () => { onsiteGeneration++; $('onsiteList').replaceChildren(); });
   $('boardLogout').addEventListener('click',async()=>{
     const control=$('boardLogout');busy(control,true);
-    try{if(state.user){const result=await state.client.auth.signOut({scope:'local'});if(result.error)throw result.error;}clearVisit();promptedJsas.clear();writeSignInDraft({});rememberJsaOpen('');state.user=null;state.board=null;state.loggedBoardVisit='';state.generation++;state.previewGeneration++;jsaReviewGeneration++;jsaReview=null;$('jsaSignOnPanel').hidden=true;['documentPreview','contactsDialog','emailPdfDialog','jsaReadDialog','jsaPromptDialog'].forEach(id=>{if($(id).open)$(id).close();});['documentSections','activityList','siteActivityList','viewerList','contactsList','jsaSignOnReport','jsaSignOnRoster'].forEach(id=>$(id).replaceChildren());Object.values(state.logs).forEach(log=>{log.events=[];log.loaded=false;log.before=null;});$('boardLogout').hidden=true;syncBoardTheme();await loadBoard();notice('You have logged out of this Job Board.');}catch(error){notice(errorMessage(error),'error');}finally{busy(control,false);}
+    try{if(state.user){const result=await state.client.auth.signOut({scope:'local'});if(result.error)throw result.error;}try{sessionStorage.removeItem(checkInKey());}catch(_){}attendanceRequest=null;clearVisit();promptedJsas.clear();writeSignInDraft({});rememberJsaOpen('');state.user=null;state.board=null;state.loggedBoardVisit='';state.generation++;state.previewGeneration++;jsaReviewGeneration++;jsaReview=null;$('jsaSignOnPanel').hidden=true;['documentPreview','contactsDialog','emailPdfDialog','jsaReadDialog','jsaPromptDialog'].forEach(id=>{if($(id).open)$(id).close();});['documentSections','publicSafetySections','qrRosterList','activityList','siteActivityList','viewerList','contactsList','jsaSignOnReport','jsaSignOnRoster'].forEach(id=>$(id).replaceChildren());Object.values(state.logs).forEach(log=>{log.events=[];log.loaded=false;log.before=null;});$('boardLogout').hidden=true;syncBoardTheme();await loadBoard();notice('You have logged out of this Job Board.');}catch(error){notice(errorMessage(error),'error');}finally{busy(control,false);}
   });
   $('boardRefresh').addEventListener('click', loadBoard); $('boardRetry').addEventListener('click', loadBoard);
   $('boardSignIn').addEventListener('click', openStaff); $('uploadSignInButton').addEventListener('click', openStaff); $('staffCancel').addEventListener('click', () => { clearSignInDraft(); chooseLogin(state.board?.requires_visitor_signin ? 'loginOptions' : ''); });
-  $('visitorLogin').addEventListener('click',()=>chooseLogin('visitorGate')); $('staffLogin').addEventListener('click',openStaff); $('siteLogin').addEventListener('click',()=>chooseLogin('siteGate')); $('boardSiteSignIn').addEventListener('click',()=>{chooseLogin('siteGate'); $('siteName').focus(); $('siteGate').scrollIntoView({block:'center'});});
-  ['visitorCancel','siteCancel'].forEach(id => $(id).addEventListener('click',()=>{ clearSignInDraft(); chooseLogin(state.board?.requires_visitor_signin ? 'loginOptions' : ''); }));
-  let siteSubmission = null;
-  $('siteForm').addEventListener('input',()=>siteSubmission = null);
-  $('siteForm').addEventListener('submit',async e => {
-    e.preventDefault(); if ($('siteSubmit').disabled) return; busy($('siteSubmit'),true); status('siteStatus','Recording sign-in…');
-    try { if(siteSubmission && new Date(siteSubmission.expires_at).getTime()<=Date.now())siteSubmission=null;siteSubmission ||= await rpc('begin_job_board_site_signin',{p_token:state.token,p_visit_token:state.visit?.token||null,p_name:$('siteName').value.trim(),p_company:$('siteCompany').value.trim()});
-      const result = await rpc('record_job_board_site_signin',{p_token:state.token,p_visit_token:siteSubmission.visit_token,p_reason:$('siteReason').value.trim(),p_submission_id:siteSubmission.nonce});
-      status('siteStatus','Site sign-in recorded: '+timeLabel(result.recorded_at),'success'); $('siteForm').reset(); clearSignInDraft('siteGate'); siteSubmission = null; invalidateLogs();
-      if (state.user || state.visit) { chooseLogin(''); notice('Signed in on site at ' + timeLabel(result.recorded_at)); markOnSiteToday(); void promptActiveJsa(); }
-    } catch(error) { status('siteStatus',errorMessage(error),'error'); } finally { busy($('siteSubmit'),false); }
+  $('visitorLogin').addEventListener('click', () => { chooseLogin('visitorGate'); $('visitorName').focus(); });
+  $('staffLogin').addEventListener('click', openStaff);
+  $('visitorCancel').addEventListener('click', () => {
+    clearSignInDraft();
+    chooseLogin(state.board?.requires_visitor_signin ? 'loginOptions' : '');
+    $('visitorLogin').focus();
   });
   $('visitorForm').addEventListener('submit', visitorSignIn); $('staffForm').addEventListener('submit', staffSignIn);
   function isStaffBoard(){return !!state.user&&!!(state.manage&&state.board?.can_manage||state.board?.can_register_as_staff);}

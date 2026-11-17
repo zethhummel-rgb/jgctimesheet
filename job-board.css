@@ -101,19 +101,6 @@
   .board-header-actions .jgc-button { padding-inline: 12px; font-size: var(--jgc-font-size-sm); }
 }
 @media (prefers-reduced-motion: reduce) { .board-loader { animation: none; } }
-@media print {
-  @page { size: A4 portrait; margin: 18mm; }
-  html, body.job-board-page { background: white !important; color: black !important; margin: 0 !important; padding: 0 !important; }
-  body.job-board-page > :not(#boardPoster) { display: none !important; }
-  body.job-board-page > #boardPoster { display: flex !important; flex-direction: column; align-items: center; text-align: center; color: black; font-family: Arial, sans-serif; page-break-inside: avoid; }
-  .board-poster-logo { width: 280px; height: auto; margin-bottom: 24px; }
-  .board-poster h1 { font-size: 38px; margin: 0 0 14px; }
-  .board-poster h2 { font-size: 22px; margin: 0 0 10px; overflow-wrap: anywhere; }
-  .board-poster p { font-size: 15px; line-height: 1.5; margin: 10px 0; }
-  .board-poster h3 { font-size: 22px; margin: 18px 0 4px; }
-  #posterQr { width: 320px; height: 320px; margin-top: 20px; }
-}
-
 /* The job tab supplies the page header, branding, theme and scrolling surface. */
 html[data-job-board-host="job"],
 html[data-job-board-host="job"] body.job-board-page {
@@ -173,3 +160,197 @@ html[data-job-board-host="job"] .jgc-tab[aria-selected="true"] { background: var
 .board-jsa-sign-top { display: block; width: 100%; min-height: 64px; margin: var(--jgc-space-3) 0 var(--jgc-space-2); font-size: 1.35rem; font-weight: 800; letter-spacing: 0.01em; }
 .board-jsa-sign-top:disabled { opacity: 0.6; }
 .board-jsa-steps { margin: 0 0 var(--jgc-space-3); padding-left: 1.4em; font-weight: 600; line-height: 1.5; }
+/* The scanned board uses its own mobile shell. The job office view keeps its existing layout. */
+html[data-qr-board] .jgc-page-shell { max-width: 740px; }
+html[data-qr-board] .board-header {
+  position: relative; isolation: isolate; overflow: hidden; text-align: center;
+  padding: 18px 14px 22px; border: 0; border-radius: 16px; color: #fff;
+  background: linear-gradient(0deg,#0c2c20 5%,#0c2c20a0 100%), url("login-background.webp") center 43% / cover;
+}
+html[data-qr-board] .board-header .jgc-brand { position: relative; display: flex; justify-content: flex-start; margin: 0; }
+html[data-qr-board] .board-header .jgc-brand img { width: 154px !important; max-width: 154px !important; height: 52px; margin: 0 !important; object-fit: cover; object-position: center; }
+html[data-qr-board] .board-eyebrow, html[data-qr-board] #boardAddress, html[data-qr-board] #boardIdentity { display: none; }
+html[data-qr-board] #boardTitle {
+  color: #edf5ee !important; font-size: 1rem; line-height: 1.35; font-weight: 650; margin: 5px 0 0; overflow-wrap: anywhere;
+}
+.board-qr-hero > svg { width: 36px; height: 36px; stroke-width: 1.65; color: #ffdfa0; }
+html[data-qr-board] #qrHeroTitle { margin: 4px 0 0; color: #fff !important; font-size: clamp(1.65rem, 4.5vw, 2.35rem); line-height: 1.1; letter-spacing: -.04em; }
+html[data-qr-board] .board-header-actions .jgc-button { color: #fff; background: #103529e8; border-color: #ddecde75; }
+html[data-qr-board] .board-header-actions .jgc-button:hover { background: #245340; }
+html[data-qr-board] #qrPageBack { position: absolute; top: 14px; right: 14px; min-height: 44px; z-index: 1; }
+html[data-qr-board][data-qr-view="loginOptions"] #boardRefresh,
+html[data-qr-board][data-qr-view="safety"] .board-header-actions > :not(#qrPageBack),
+html[data-qr-board]:is([data-qr-view="visitorGate"],[data-qr-view="staffGate"]) .board-header-actions > :not(#qrPageBack),
+html:not([data-qr-board]) .board-checkin-note { display: none; }
+html[data-qr-board] #boardContent > .board-tabs { margin-top: 12px; }
+html[data-qr-board] .board-tabs [hidden] { display: none !important; }
+.board-qr-card { padding: 15px; border-radius: 15px; }
+.board-qr-card-heading { display: flex; align-items: center; gap: 10px; }
+.board-qr-card-heading > svg { flex: none; width: 36px; height: 36px; padding: 7px; color: #195a39; background: #e7f2e8; border-radius: 9px; }
+.board-qr-card-heading h2 { margin: 0; font-size: 1.2rem; line-height: 1.15; }
+.board-qr-card-heading p { margin: 4px 0 0; font-size: .9rem; color: var(--jgc-color-text-muted); }
+.board-qr-checklist { list-style: none; display: grid; gap: 5px; margin: 11px 0; padding: 0; }
+.board-qr-checklist > li { display: flex; gap: 8px; align-items: baseline; }
+.board-qr-checklist > li::before { content: "✓"; color: #1e7848; font-weight: 850; flex: none; }
+.board-qr-wide { width: 100%; min-height: 44px; justify-content: space-between; gap: 8px; text-align: left; }
+.board-qr-wide svg { flex: none; width: 18px; height: 18px; }
+.board-signin-entry { background: linear-gradient(143deg,#194535,#0e2e24 80%); color: #fff; border-color: #173b2e; }
+html[data-qr-board] .board-signin-entry .board-qr-card-heading h2 { color: #fff !important; }
+.board-signin-entry .board-qr-card-heading p { color: #dfebe0; }
+.board-signin-entry .board-qr-card-heading > svg { background: #315848; color: #ffe0a4; }
+.board-signin-entry .board-qr-checklist > li::before { color: #ffe0a4; }
+.job-board-page .board-gold-button { background: #f0c66e; border-color: #e4b95c; color: #1c2c23; font-weight: 800; }
+.job-board-page .board-gold-button:hover { background: #ffe1a0; color: #1c2c23; }
+.board-login-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
+.board-login-options button { min-width: 0; padding-inline: 4px; white-space: normal; }
+html[data-qr-board] #loginOptions .board-site-rules { margin-top: 0; padding: 12px; background: var(--jgc-color-surface); border: 1px solid var(--jgc-color-border); border-radius: 12px; }
+html[data-qr-board] #loginOptions .board-ppe-list { grid-template-columns: repeat(auto-fit,minmax(min(100%,130px),1fr)); }
+html[data-qr-board] #loginOptions .board-ppe-list li { min-height: 42px; gap: 6px; padding: 5px 7px; font-size: .8rem; }
+html[data-qr-board] #loginOptions .board-ppe-icon { width: 28px; height: 28px; }
+html[data-qr-board] #loginOptions .board-ppe-icon svg { width: 20px; height: 20px; }
+.board-public-access { display: flex; gap: 8px; align-items: center; color: var(--jgc-color-text); font-weight: 700; margin: 0 0 10px; }
+.board-public-access svg, .board-footer svg { width: 17px; height: 17px; flex: none; }
+html[data-qr-board] :is(#publicSafetySections,#documentSections) .board-category { padding: 0 13px; border-width: 1px; border-radius: 12px; margin: 0; }
+html[data-qr-board] :is(#publicSafetySections,#documentSections) .board-category:open { border-color: var(--jgc-color-brand-500); }
+html[data-qr-board] .board-category summary { overflow-wrap: anywhere; }
+html[data-qr-board] :is(#publicSafetySections,#documentSections) .board-category-description { font-size: .84rem; }
+.board-qr-dashboard { display: grid; gap: 9px; }
+.board-qr-dashboard .jgc-panel { margin-bottom: 0; }
+.board-attendance-banner { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--jgc-color-border); border-radius: 11px; background: var(--jgc-color-surface-soft); color: var(--jgc-color-text); }
+.board-attendance-banner svg { width: 21px; height: 21px; flex: none; color: var(--jgc-color-brand-500); }
+.board-attendance-banner h2 { margin: 0; font-size: 1rem; }
+.board-attendance-banner p { margin: 3px 0 0; font-size: .85rem; }
+#qrJsa .board-qr-card-heading { margin-bottom: 10px; }
+.board-qr-roster summary { padding: 0; }
+.board-qr-roster #qrRosterList { margin-block: 5px; }
+.board-signed-safety { display: flex; width: 100%; margin-top: 12px; gap: 8px; }
+.board-signed-safety svg:last-child { margin-left: auto; }
+#qrFooter { display: flex; justify-content: space-between; align-items: center; gap: 10px; text-align: left; padding: 11px 12px; border: 1px solid var(--jgc-color-border); border-radius: 12px; background: var(--jgc-color-surface); margin-top: 14px; }
+.board-footer-address, .board-footer-phone { display: flex; align-items: center; gap: 7px; }
+.board-footer-address { overflow-wrap: anywhere; }
+.board-footer-phone { margin-left: auto; flex: none; color: var(--jgc-color-text); white-space: nowrap; }
+.board-footer :is(strong,span) { display: block; }
+.board-footer strong { color: var(--jgc-color-text); }
+
+html[data-qr-board] .board-header { border-radius: 17px; margin-bottom: 13px; }
+html[data-qr-board] #boardTitle::after { content: ""; display: block; height: 3px; width: 42px; background: #efc66e; border-radius: 9px; margin: 11px auto 0; }
+html[data-qr-board] .board-header-actions { margin-top: 5px; }
+html[data-qr-board] :is(#visitorGate,#staffGate) { border-width: 1px; border-radius: 15px; padding: 15px 14px; }
+html[data-qr-board] :is(#visitorGate,#staffGate) .board-section-heading { margin-bottom: 10px; }
+html[data-qr-board] :is(#visitorGate,#staffGate) .board-section-heading h2,
+html[data-qr-board] :is(#visitorCancel,#staffCancel) { display: none; }
+html[data-qr-board] :is(#visitorGate,#staffGate) .board-section-heading p { margin: 0; }
+html[data-qr-board] :is(#visitorGate,#staffGate) .jgc-form-grid { grid-template-columns: minmax(0,1fr); gap: 10px; }
+html[data-qr-board] :is(#visitorGate,#staffGate) .board-form { gap: 11px; }
+html[data-qr-board] :is(#visitorGate,#staffGate) .jgc-input { border-radius: 9px; min-height: 44px; }
+html[data-qr-board] :is(#visitorStatus,#staffStatus):empty { display: none; }
+html[data-qr-board] .board-checkin-note { border-radius: 9px; padding: 8px 10px; margin: 0; font-weight: 650; background: var(--jgc-color-surface-soft); }
+html[data-qr-board] :is(#visitorSubmit,#staffSubmit) { justify-self: stretch; width: 100%; min-height: 46px; justify-content: space-between; border-radius: 9px; }
+html[data-qr-board] :is(#visitorSubmit,#staffSubmit) svg { width: 17px; height: 17px; }
+html[data-qr-board] #loginOptions .board-site-rules { border: 0; background: none; padding: 0; }
+.board-arrival-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin-bottom: 10px; }
+.board-arrival-card { display: flex; align-items: flex-start; gap: 6px; border: 1px solid var(--jgc-color-border); border-radius: 12px; padding: 9px 8px; background: var(--jgc-color-surface); }
+.board-arrival-card h3 { margin: 0; font-size: .9rem; }
+.board-arrival-card p { margin: 4px 0 0; font-size: .78rem; line-height: 1.35; }
+.board-arrival-card svg { flex: none; height: 17px; width: 17px; color: var(--jgc-color-brand-600); }
+html[data-qr-board] #boardPpeTitle { font-size: .83rem; margin: 8px 0 6px; }
+html[data-qr-board] .board-footer-phone { text-decoration: none; }
+html[data-qr-board] .board-footer-phone:hover { text-decoration: underline; }
+html[data-qr-board] .board-footer-address { border-inline-end: 1px solid var(--jgc-color-border); padding-inline-end: 9px; }
+
+
+html[data-qr-board] #jobBoardPage .board-header .jgc-brand { width: 100%; justify-self: stretch; justify-content: flex-start !important; }
+html[data-qr-board] #jobBoardPage .board-signin-entry {
+  background: linear-gradient(143deg,#194535,#0e2e24 80%) !important;
+  color: #f5fbf6 !important;
+  border: 1px solid #174431 !important;
+  border-radius: 15px;
+}
+html[data-qr-board] #jobBoardPage .board-signin-entry .board-qr-card-heading h2 { color: #fff !important; }
+html[data-qr-board] #jobBoardPage .board-signin-entry .board-qr-card-heading p { color: #e0eee4 !important; }
+html[data-qr-board] #jobBoardPage .board-safety-entry { border-width: 1px; border-radius: 15px; }
+.board-ppe-details summary { font-size: .8rem; font-weight: 700; cursor: pointer; padding: 6px 1px; }
+#loginOptions .board-arrival-grid { margin-bottom: 3px; }
+
+@media (max-width: 450px) {
+  html[data-qr-board] .jgc-page-shell { padding-inline: 10px; }
+  html[data-qr-board] .board-header { padding-top: 12px; }
+  html[data-qr-board] .board-header .jgc-brand img { width: 130px !important; max-width: 130px !important; height: 43px; }
+  .board-onsite-row time { white-space: normal; max-width: 42%; }
+}
+
+/* Typography and spacing for the approved QR layout. */
+html[data-qr-board] #jobBoardPage {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+}
+html[data-qr-board] #jobBoardPage :is(h1,h2,h3,button,input) { font-family: inherit; }
+html[data-qr-board] #jobBoardPage .board-header { display: block; padding: 9px 19px 31px; }
+html[data-qr-board] #jobBoardPage .board-header .jgc-brand img { margin: 0 !important; }
+html[data-qr-board] #qrHeroTitle { font-weight: 800; font-size: 31px; line-height: 1.05; letter-spacing: -.043em; }
+html[data-qr-board] .board-qr-hero > svg { width: 40px; height: 40px; }
+html[data-qr-board] #boardTitle { font-size: 13px; line-height: 1.3; font-weight: 550; }
+html[data-qr-board] #boardTitle::after { margin-top: 11px; height: 3px; width: 46px; }
+html[data-qr-board] #loginOptions { position: relative; z-index: 1; margin-top: -14px; }
+html[data-qr-board] #loginOptions .board-qr-card,
+html[data-qr-board] #qrJsa { padding: 13px 14px; border-radius: 15px; margin-bottom: 10px; }
+html[data-qr-board] :is(#loginOptions,#qrJsa) .board-qr-card-heading h2 { font-size: 20px; line-height: 1.10; font-weight: 800; letter-spacing: -.025em; }
+html[data-qr-board] :is(#loginOptions,#qrJsa) .board-qr-card-heading p { font-size: 12px; line-height: 1.3; font-weight: 600; }
+html[data-qr-board] #loginOptions .board-qr-card-heading > svg { width: 38px; height: 38px; }
+html[data-qr-board] #loginOptions .board-qr-checklist { gap: 0; margin: 10px 0; }
+html[data-qr-board] #loginOptions .board-qr-checklist > li { min-height: 23px; padding: 4px 0; font-size: 12.5px; line-height: 1.25; font-weight: 640; }
+html[data-qr-board] #loginOptions .board-signin-entry .board-qr-checklist > li::before { display: none; }
+html[data-qr-board] #loginOptions .board-signin-entry .board-qr-checklist svg { width: 15px; height: 15px; flex: none; align-self: center; color: #f2d28e; }
+html[data-qr-board] #loginOptions .board-login-options button { min-height: 46px; border-radius: 9px; gap: 6px; font-size: 13.5px; line-height: 1.15; }
+html[data-qr-board] #loginOptions .board-login-options button svg { width: 16px; height: 16px; flex: none; }
+html[data-qr-board] #viewPublicSafety { border-radius: 9px; padding-inline: 11px; font-size: 14px; font-weight: 800; }
+html[data-qr-board] .board-arrival-card { padding: 9px 8px; }
+html[data-qr-board] .board-arrival-card h3 { font-size: 12.25px; line-height: 1.2; }
+html[data-qr-board] .board-arrival-card p { font-size: 11px; line-height: 1.3; }
+html[data-qr-board] .board-ppe-details { display: block; }
+html[data-qr-board] .board-ppe-details summary { display: flex; align-items: flex-start; gap: 6px; padding: 0; text-align: left; }
+html[data-qr-board] .board-ppe-details summary::-webkit-details-marker { display: none; }
+html[data-qr-board] .board-ppe-details summary::after { content: "⌄"; margin-left: auto; color: var(--jgc-color-brand-600); }
+html[data-qr-board] .board-ppe-details[open] summary::after { content: "⌃"; }
+html[data-qr-board] .board-arrival-grid:has(.board-ppe-details[open]) > * { grid-column: 1 / -1; }
+html[data-qr-board] #qrFooter { font-size: 11.5px; line-height: 1.25; }
+html[data-qr-board] #qrFooter strong { font-size: 12.5px; }
+@media (max-width: 520px) {
+  html[data-qr-board] #jobBoardPage.jgc-page-shell { width: 100%; padding: 0 12px 0; }
+  html[data-qr-board] #jobBoardPage .board-header { margin-inline: -12px; border-radius: 0; }
+  html[data-qr-board] #qrFooter { margin-inline: -12px; margin-top: 12px; border-radius: 0; border-width: 1px 0 0; }
+}
+@media (max-width: 360px) {
+  html[data-qr-board] #qrHeroTitle { font-size: 28px; }
+  html[data-qr-board] #loginOptions .board-login-options button { font-size: 12.5px; }
+}
+
+@media print {
+  @page { size: portrait; margin: 13mm; }
+  html, body.job-board-page { background: white !important; color: black !important; margin: 0 !important; padding: 0 !important; }
+  body.job-board-page > :not(#boardPoster) { display: none !important; }
+  .job-board-page #boardPoster { color: #172920; text-align: center; font-family: Arial, sans-serif; }
+  .board-poster h2 { overflow-wrap: anywhere; }
+  body.job-board-page > #boardPoster {
+    display: block !important; width: min(100%, 175mm); margin-inline: auto;
+    border: 1.4pt solid #153e2d; border-radius: 12px; padding: 6mm;
+    break-inside: avoid; print-color-adjust: exact; -webkit-print-color-adjust: exact;
+  }
+  .board-poster-logo { width: 58mm; height: 22mm; object-fit: cover; margin: 0 0 2mm; }
+  .board-poster-title { background: #153e2d; color: white; border-radius: 8px; border-bottom: 3px solid #d8a946; padding: 3mm; }
+  .board-poster h1 { font-size: 29pt; line-height: 1; margin: 0 0 2mm; }
+  .board-poster h2 { font-size: 14pt; margin: 0; }
+  .board-poster #posterAddress:not(:empty) { font-size: 10.5pt; line-height: 1.25; margin: 1mm 0 0; }
+  .board-poster #posterAddress:empty { display: none; }
+  #posterQr { display: block; width: 69mm; height: 69mm; margin: 3mm auto 0; }
+  .board-poster .board-poster-instruction { font-size: 19pt; line-height: 1.1; margin: 0; }
+  .board-poster .board-poster-tip { margin: 1mm 0 4mm; font-size: 10.25pt; }
+  .board-poster-guide { display: grid; grid-template-columns: 1.18fr 1fr; gap: 3mm; text-align: left; }
+  .board-poster-guide section { padding: 3mm; border: 1px solid #9eb4a4; border-radius: 7px; background: #edf4ee; }
+  .board-poster-guide h3 { font-size: 13pt; margin: 0; color: #153e2d; }
+  .board-poster-guide p { font-size: 10pt; margin: 1mm 0; line-height: 1.25; }
+  .board-poster-guide ul { margin: 2mm 0 0; padding-left: 4.5mm; font-size: 10pt; line-height: 1.3; }
+  .board-poster-guide li + li { margin-top: 1mm; }
+  .board-poster-contact { display: flex; justify-content: space-between; gap: 3mm; padding-top: 3mm; color: #153e2d; text-align: left; font-size: 10pt; }
+  .board-poster-contact strong { flex: none; }
+}
