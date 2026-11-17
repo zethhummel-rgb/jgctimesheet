@@ -178,8 +178,25 @@ for (const theme of ['light', 'dark']) test(`actual QR PNG and print poster pres
   const href = await page.locator('#boardOpenLink').getAttribute('href'), parsed = new URL(href);
   expect(parsed.pathname).toBe('/job-board.html'); expect(parsed.searchParams.get('embedded')).toBe('1'); expect(new URLSearchParams(parsed.hash.slice(1)).get('board')).toBe(TOKEN); expect(parsed.searchParams.has('board')).toBe(false);
   const png = await page.locator('#boardQr').getAttribute('src'); const pngBytes = Buffer.from(png.split(',')[1], 'base64'); expect(pngBytes.subarray(1, 4).toString()).toBe('PNG'); fs.writeFileSync(receipt(testInfo, 'job-board-qr.png'), pngBytes); fs.writeFileSync(receipt(testInfo, 'job-board-qr-expected.txt'), href);
-  const pending = page.waitForEvent('download'); await page.getByRole('button', { name: 'Download QR', exact: true }).click(); const download = await pending; expect(download.suggestedFilename()).toBe('JGC-Job-26132-QR.png');
-  await download.saveAs(receipt(testInfo, 'job-board-qr-downloaded.png')); expect(fs.readFileSync(receipt(testInfo, 'job-board-qr-downloaded.png'))).toEqual(pngBytes);
+  const pending = page.waitForEvent('download'); await page.getByRole('button', { name: 'Download QR poster', exact: true }).click(); const download = await pending; expect(download.suggestedFilename()).toBe('JGC-Job-26132-QR-Poster.png');
+  await download.saveAs(receipt(testInfo, 'job-board-qr-downloaded.png'));
+  const posterBytes = fs.readFileSync(receipt(testInfo, 'job-board-qr-downloaded.png'));
+  expect(posterBytes.subarray(1, 4).toString()).toBe('PNG');
+  expect(posterBytes.readUInt32BE(16)).toBe(1588); expect(posterBytes.readUInt32BE(20)).toBe(2246);
+  expect(posterBytes).not.toEqual(pngBytes);
+  const regions = await page.evaluate(async base64 => {
+    const img = new Image(); img.src = 'data:image/png;base64,' + base64; await img.decode();
+    const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height;
+    const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0);
+    function count(x, y, w, h, predicate) { const bytes = ctx.getImageData(x, y, w, h).data; let n = 0; for (let i = 0; i < bytes.length; i += 4) if (predicate(bytes[i], bytes[i + 1], bytes[i + 2])) n++; return n; }
+    return { logo: count(160, 140, 390, 100, (r, g, b) => r < 200 && g < 200 && b < 200),
+      green: count(200, 320, 1100, 140, (r, g, b) => r < 60 && g < 100 && b < 70),
+      gold: count(200, 520, 1100, 150, (r, g, b) => r > 200 && g > 150 && b < 160),
+      qr: count(520, 800, 550, 500, (r, g, b) => r < 40 && g < 40 && b < 40),
+      footer: count(160, 1870, 1300, 100, (r, g, b) => r < 100 && g < 120 && b < 100) };
+  }, posterBytes.toString('base64'));
+  expect(regions.logo).toBeGreaterThan(500); expect(regions.green).toBeGreaterThan(30000);
+  expect(regions.gold).toBeGreaterThan(30000); expect(regions.qr).toBeGreaterThan(10000); expect(regions.footer).toBeGreaterThan(100);
   const { PDFDocument } = require('../estimating-app/node_modules/pdf-lib');
   await page.emulateMedia({ media: 'print' });
   await expect(page.locator('html')).toHaveCSS('color-scheme', 'light');
@@ -198,6 +215,24 @@ for (const theme of ['light', 'dark']) test(`actual QR PNG and print poster pres
       expect(printed.getPageCount(), `${format} poster with ${address ? 'long' : 'no'} address fits on one page`).toBe(1);
     }
   }
+});
+
+test('downloaded QR poster fits a long job name and address', async ({ page }, testInfo) => {
+  await open(page, 'admin'); await expect(page.locator('#boardQrDownload')).toBeEnabled();
+  await page.locator('#posterJob').evaluate(el => { el.textContent = 'Job 26152 · GOC6812588 Site Preparation for Trailer — Cornwall Port of Entry'; });
+  await page.locator('#posterAddress').evaluate(el => { el.textContent = '95 Snye School Rd, Akwesasne Reserve No. 15, Quebec H0M 1A1'; });
+  const pending = page.waitForEvent('download'); await page.locator('#boardQrDownload').click();
+  const download = await pending; await download.saveAs(receipt(testInfo, 'poster-long-details.png'));
+  const bytes = fs.readFileSync(receipt(testInfo, 'poster-long-details.png'));
+  const footerVisible = await page.evaluate(async base64 => {
+    const img = new Image(); img.src = 'data:image/png;base64,' + base64; await img.decode();
+    const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height;
+    const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0);
+    const pixels = ctx.getImageData(160, 1900, 1300, 300).data; let dark = 0;
+    for (let i = 0; i < pixels.length; i += 4) if (pixels[i] < 100 && pixels[i + 1] < 120 && pixels[i + 2] < 100) dark++;
+    return dark;
+  }, bytes.toString('base64'));
+  expect(footerVisible).toBeGreaterThan(1000);
 });
 
 test('staff direct sign-in verifies profile, preserves job context, and retries a failed upload without duplicate metadata', async ({ page }) => {
