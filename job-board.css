@@ -345,9 +345,14 @@ html[data-qr-board] .board-footer-address > div { min-width: 0; }
 @media print {
   @page { size: portrait; margin: 10mm; }
   html { color-scheme: light !important; }
-  html, body.job-board-page { background: white !important; color: black !important; margin: 0 !important; padding: 0 !important; }
+  html:root, html:root[data-jgc-theme] body.job-board-page { background: white !important; color: black !important; margin: 0 !important; padding: 0 !important; }
   body.job-board-page > :not(#boardPoster) { display: none !important; }
   .job-board-page #boardPoster { color: #172920; text-align: center; font-family: Arial, sans-serif; }
+  /* Printed sign colours must win over the shared light-theme text rules. */
+  #boardPoster :is(h1, h2, h3, p, strong) { color: inherit !important; }
+  #boardPoster #posterJob { color: #ffe1a0 !important; }
+  #boardPoster .board-poster-signin-notice { color: white !important; }
+  #boardPoster .board-poster-guide h3 { color: #153e2d !important; }
   .board-poster h2 { overflow-wrap: anywhere; }
   body.job-board-page > #boardPoster {
     display: block !important; width: min(100%, 184mm); margin-inline: auto;
