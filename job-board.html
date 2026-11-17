@@ -17,7 +17,7 @@
   <meta name="theme-color" content="#0b5e3b">
   <title>Job Board · JGC Portal</title>
   <link rel="stylesheet" href="jgc-design-system.css?v=14" data-jgc-design-system="14">
-  <link rel="stylesheet" href="job-board.css?v=13">
+  <link rel="stylesheet" href="job-board.css?v=14">
   <link rel="stylesheet" href="safety-signature-pad.css?v=4">
 </head>
 <body class="job-board-page jgc-page jgc-system-page">
@@ -54,6 +54,7 @@
     </section>
 
     <section class="board-gate" id="loginOptions" hidden aria-label="Job Board options">
+      <p class="board-visitor-notice" id="boardVisitorNotice"><i data-lucide="users" aria-hidden="true"></i> All visitors must sign in</p>
       <section class="jgc-panel board-qr-card board-safety-entry" aria-labelledby="safetyEntryTitle">
         <div class="board-qr-card-heading"><i data-lucide="shield-check" aria-hidden="true"></i><div><h2 id="safetyEntryTitle">Safety information</h2><p>No sign-in required</p></div></div>
         <ul class="board-qr-checklist">
@@ -79,10 +80,8 @@
       </section>
       <!-- Site rules everyone sees before signing in. PPE icons follow the blue "must wear" safety-sign style. -->
       <div class="board-site-rules">
-        <div class="board-arrival-grid">
-          <div class="board-arrival-card"><i data-lucide="users" aria-hidden="true"></i><div><h3>Visitors</h3><p id="boardVisitorNotice">Report to the site supervisor or project manager.</p></div></div>
-          <details id="boardPpeDetails" class="board-arrival-card board-ppe-details">
-            <summary><i data-lucide="hard-hat" aria-hidden="true"></i><div><h3>Required PPE</h3><p>Hard hat, safety shoes and safety glasses.</p></div></summary>
+        <section id="boardPpeDetails" class="board-arrival-card board-ppe-details" aria-labelledby="boardPpeHeading">
+          <div class="board-ppe-heading"><i data-lucide="hard-hat" aria-hidden="true"></i><div><h3 id="boardPpeHeading">Required PPE</h3><p>Hard hat, safety shoes and safety glasses.</p></div></div>
         <h3 class="board-ppe-title" id="boardPpeTitle">ALL PPE to be Worn At All Times</h3>
         <ul class="board-ppe-list" aria-labelledby="boardPpeTitle">
           <li><span class="board-ppe-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M10 31C10 22.5 16.2 16 24 16S38 22.5 38 31Z"/><rect class="board-ppe-cut" x="22" y="16" width="4" height="15"/><rect x="6" y="31" width="36" height="4.5" rx="2.25"/></svg></span><span class="board-ppe-name">Hardhats</span></li>
@@ -92,8 +91,7 @@
           <li><span class="board-ppe-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="15" y="20" width="18" height="15" rx="4"/><rect x="15.5" y="10" width="4" height="14" rx="2"/><rect x="20.5" y="7.5" width="4" height="16" rx="2"/><rect x="25.5" y="8.5" width="4" height="15" rx="2"/><rect x="30" y="12.5" width="3.6" height="12" rx="1.8"/><rect x="9" y="19" width="4.2" height="12" rx="2.1" transform="rotate(-35 11 25)"/><rect x="15" y="35.5" width="18" height="6.5" rx="1.5"/></svg></span><span class="board-ppe-name">Proper Gloves<small>when required</small></span></li>
           <li><span class="board-ppe-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M16 7l8 9 8-9 6.5 4-3 8.5V41h-23V19.5L9.5 11Z"/><rect class="board-ppe-cut" x="12.5" y="25" width="23" height="3"/><rect class="board-ppe-cut" x="12.5" y="32" width="23" height="3"/><path class="board-ppe-line" d="M24 16v25"/></svg></span><span class="board-ppe-name">Safety Vest<small>when required</small></span></li>
         </ul>
-          </details>
-        </div>
+        </section>
       </div>
     </section>
     <section class="board-gate" id="publicSafety" hidden aria-label="Safety information">
@@ -103,7 +101,7 @@
       <button type="button" class="jgc-button jgc-button--secondary" id="publicSafetyRetry" hidden>Try again</button>
     </section>
     <section class="jgc-panel board-gate" id="visitorGate" hidden aria-labelledby="visitorTitle" data-testid="visitor-gate">
-      <div class="board-section-heading"><div><h2 class="jgc-section-title" id="visitorTitle">Visitor sign-in</h2><p>Enter your name and company to check in.</p></div></div>
+      <div class="board-section-heading"><div><h2 class="jgc-section-title" id="visitorTitle">Visitor sign-in</h2><p>Sign in, then report to the site supervisor or project manager.</p></div></div>
       <form id="visitorForm" class="board-form">
         <div class="jgc-form-grid">
           <div class="jgc-field"><label class="jgc-label" for="visitorName">Your name</label><input class="jgc-input" id="visitorName" name="name" autocomplete="name" maxlength="160" required></div>
