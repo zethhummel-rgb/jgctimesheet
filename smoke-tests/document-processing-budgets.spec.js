@@ -14,6 +14,29 @@ test('workbook row and cell budgets stop XML object expansion',()=>{const w=load
 test('timeout stops document work and exposes no partial result',async()=>{let stopped=false;await expect(load('document-budget').documentDeadline(new Promise(()=>{}),10,()=>{stopped=true;})).rejects.toThrow('took too long');expect(stopped).toBe(true);});
 
 const {ascii85}=require('./fixtures/ascii85-pdf');
+test('Flate-wrapped JPEGs accept Acrobat filter parameters and count image pixels and decoded JPEG bytes', () => {
+ const {preflightPdf}=load('pdf-input-budget');
+ const jpeg=require('./fixtures/flate-jpeg-pdf').letterheadJpeg();
+ const {width,height}=load('document-budget').imageDimensions(jpeg,'image/jpeg');
+ const packed=zlibSync(jpeg);
+ const image=`/Subtype /Image /Width ${width} /Height ${height}`;
+ for(const [filters,params] of [
+  ['[/FlateDecode/DCTDecode]','/DecodeParms[null null]'],
+  ['[/Fl /DCT]',''],
+  ['[/FlateDecode /DCT]','/DecodeParms [<< /Predictor 1 >> << /ColorTransform 1 >>]'],
+ ]) {
+  const bytes=streamPdf(packed,'/Filter '+filters,image+' '+params);
+  const budget=preflightPdf(bytes);
+  expect(budget.imagePixels).toBe(width*height);
+  expect(budget.decodedBytes).toBe(jpeg.length);
+ }
+ const filters='/Filter [/FlateDecode /DCTDecode]';
+ const bytes=streamPdf(packed,filters,image);
+ expect(()=>preflightPdf(bytes,{objects:0,decodedBytes:80*1024*1024-jpeg.length+1})).toThrow('too complex');
+ expect(()=>preflightPdf(bytes,{objects:0,decodedBytes:0,imagePixels:60_000_000-width*height+1})).toThrow('too complex');
+ expect(()=>preflightPdf(streamPdf(packed,filters,`/Subtype /Image /Width ${width+1} /Height ${height}`))).toThrow('too complex');
+ expect(()=>preflightPdf(streamPdf(packed,filters,image+' /DecodeParms [<< /Predictor 12 >> null]'))).toThrow('too complex');
+});
 test('ASCII85 plus Flate PDF streams accept ordinary documents and preserve expansion and token limits',()=>{
  const p=load('pdf-input-budget');for(const filter of ['/Filter [/ASCII85Decode /FlateDecode]','/Filter[/A85/Fl]']){
   const bytes=streamPdf(ascii85(zlibSync(Buffer.from('JGC spill plan content'))),filter);expect(p.preflightPdf(bytes).decodedBytes).toBeGreaterThan(20);

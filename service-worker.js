@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "1094";
+const JGC_RELEASE_ID = "1095";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -214,24 +214,24 @@ const JGC_APP_SHELL = [
   "./icon-180.png?v=4",
   "./icon-192.png?v=4",
   "./icon-512.png?v=4",
-  "./estimating/assets/browser-BXmzAjAH.js",
-  "./estimating/assets/document-worker-BoIEvfuy.js",
-  "./estimating/assets/drawing-pdf-CbaCfPEf.js",
-  "./estimating/assets/es-DErjRC46.js",
-  "./estimating/assets/index-BBK18tVS.js",
+  "./estimating/assets/browser-cAl0OzvL.js",
+  "./estimating/assets/document-worker-DbK99mzg.js",
+  "./estimating/assets/drawing-pdf-DGFu-Fgn.js",
+  "./estimating/assets/es-DcqFcHYh.js",
+  "./estimating/assets/index--2kxjFB3.js",
   "./estimating/assets/index-CiYX_ChI.css",
   "./estimating/assets/job-accounting-workbook-DXQwGXWh.js",
-  "./estimating/assets/job-schedule-pdf-BxF__473.js",
-  "./estimating/assets/job-warranty-pdf-BiNrZLOx.js",
+  "./estimating/assets/job-schedule-pdf-frlf5pi1.js",
+  "./estimating/assets/job-warranty-pdf-Cdx5YyKD.js",
   "./estimating/assets/pdf-Bs__3tTL.js",
-  "./estimating/assets/pdf-pwEBmO2d.js",
-  "./estimating/assets/proposal-pdf-B4h_1GKK.js",
-  "./estimating/assets/purchase-order-pdf-CX52HaWX.js",
-  "./estimating/assets/quote-backup-pdf-y3R3QQym.js",
-  "./estimating/assets/rfi-pdf-BbcFFOUR.js",
-  "./estimating/assets/shop-drawing-transmittal-pdf-DBNwrRoX.js",
-  "./estimating/assets/shop-drawing-workbook-Ca4MI2-C.js",
-  "./estimating/assets/src-CTePYb78.js"
+  "./estimating/assets/pdf-CsPuADaZ.js",
+  "./estimating/assets/proposal-pdf-DqvVD5W-.js",
+  "./estimating/assets/purchase-order-pdf-rLVfy3Co.js",
+  "./estimating/assets/quote-backup-pdf-BswXAfph.js",
+  "./estimating/assets/rfi-pdf-BBYg8qcy.js",
+  "./estimating/assets/shop-drawing-transmittal-pdf-oq13Cu6_.js",
+  "./estimating/assets/shop-drawing-workbook-CECX0tWH.js",
+  "./estimating/assets/src-CiP8KJ4N.js"
 ];
 
 function isJgcCacheableResponse(response) {
