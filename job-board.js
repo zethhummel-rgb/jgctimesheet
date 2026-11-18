@@ -144,6 +144,7 @@
   function renderBoard() {
     const board = state.board;
     syncBoardTheme();
+    renderEmergencyInfo(board);
     const title = [board.job_number ? 'Job ' + board.job_number : '', board.job_name].filter(Boolean).join(' · ') || 'Job Board';
     $('boardTitle').textContent = title; $('boardAddress').textContent = board.address || '';
     document.title = title + ' · JGC Job Board';
@@ -597,8 +598,100 @@
     finally { busy(control,false); }
   }
   function highlightDocument(scope = $('documentSections')) { const cards = Array.from(scope.querySelectorAll('[data-document-id]')); const card = cards.find((e) => e.dataset.documentId === state.highlighted); if (!card) return; for (let parent = card.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS') parent.open = true; card.classList.add('is-highlighted'); card.tabIndex = -1; requestAnimationFrame(() => { card.scrollIntoView({ block: 'center' }); card.focus({ preventScroll: true }); }); return true; }
+  const emergencyFields = ['responder_entrance', 'muster_point', 'first_aid_location', 'supervisor_name', 'supervisor_phone'];
+  let emergencyEditBoard = null, emergencySnapshot = {}, emergencyDirty = false;
+
+  function directPhone(value) {
+    const phone = String(value || '').trim();
+    const digits = phone.replace(/[^0-9]/g, '');
+    if (!/^\+?[0-9(][0-9 ().-]*$/.test(phone) || digits.length < 7 || digits.length > 15) return '';
+    return (phone.startsWith('+') ? '+' : '') + digits;
+  }
+
+  function renderEmergencyInfo(board) {
+    const info = board.emergency_info || {};
+    const list = $('emergencyDetails');
+    list.replaceChildren();
+    const add = (label, value) => {
+      if (!value) return;
+      const row = document.createElement('div'), detail = document.createElement('dd');
+      detail.append(value);
+      row.append(text('dt', label), detail);
+      list.append(row);
+    };
+    add('Site address', (board.address || '').trim());
+    add('Responder entrance', info.responder_entrance);
+    add('Muster point', info.muster_point);
+    add('First aid location', info.first_aid_location);
+    const dial = directPhone(info.supervisor_phone);
+    if (dial) {
+      const call = text('a', [info.supervisor_name, info.supervisor_phone].filter(Boolean).join(' · '));
+      call.href = 'tel:' + dial;
+      call.setAttribute('aria-label', 'Call site supervisor ' + call.textContent);
+      add('Site supervisor', call);
+    } else add('Site supervisor', info.supervisor_name);
+    $('emergencyUnposted').hidden = !!(info.responder_entrance || info.muster_point || info.first_aid_location);
+  }
+
+  function fillEmergencyEditor(board) {
+    $('emergencyJobAddress').textContent = (board.address || '').trim() || 'Add the site address in Job details';
+    if (emergencyEditBoard === board.id && emergencyDirty) return;
+    emergencyEditBoard = board.id;
+    emergencyDirty = false;
+    emergencySnapshot = board.emergency_info || {};
+    for (const name of emergencyFields) $('emergencyForm').elements[name].value = emergencySnapshot[name] || '';
+    $('emergencyReload').hidden = true;
+    $('emergencyPhone').setCustomValidity('');
+  }
+
+  $('emergencyForm').addEventListener('input', () => {
+    emergencyDirty = true;
+    $('emergencyPhone').setCustomValidity('');
+    if ($('emergencyReload').hidden) status('emergencyStatus', '');
+  });
+  $('emergencyReload').addEventListener('click', () => {
+    emergencyEditBoard = null;
+    status('emergencyStatus', '');
+    void loadBoard();
+  });
+  $('emergencyForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const board = state.board, form = event.currentTarget;
+    if (!state.manage || !board?.can_manage || $('emergencySave').disabled) return;
+    const info = {};
+    for (const name of emergencyFields) {
+      const value = form.elements[name].value.trim();
+      if (value) info[name] = value;
+    }
+    if (info.supervisor_phone && !directPhone(info.supervisor_phone)) {
+      $('emergencyPhone').setCustomValidity('Enter a direct phone number with 7 to 15 digits.');
+      $('emergencyPhone').reportValidity();
+      return;
+    }
+    $('emergencyFields').disabled = true;
+    busy($('emergencySave'), true);
+    status('emergencyStatus', 'Saving…');
+    try {
+      const saved = await rpc('save_job_board_emergency_info', { p_board_id: board.id, p_info: info, p_expected: emergencySnapshot });
+      if (state.board?.id !== board.id) return;
+      state.board.emergency_info = saved;
+      emergencyDirty = false;
+      fillEmergencyEditor(state.board);
+      renderEmergencyInfo(state.board);
+      status('emergencyStatus', 'Emergency info saved.');
+    } catch (error) {
+      if (state.board?.id !== board.id) return;
+      status('emergencyStatus', errorMessage(error), 'error');
+      $('emergencyReload').hidden = error.code !== '40001';
+    } finally {
+      $('emergencyFields').disabled = false;
+      busy($('emergencySave'), false);
+    }
+  });
+
   async function renderManager() {
     const board = state.board, token = state.token;
+    fillEmergencyEditor(board);
     $('boardEnabled').checked = !!board.enabled; $('boardEnabledBadge').textContent = board.enabled ? 'Access enabled' : 'Access disabled'; $('boardEnabledBadge').className = 'jgc-badge ' + (board.enabled ? 'jgc-badge--success' : 'jgc-badge--warning');
     $('boardOpenLink').href = boardLink(); $('posterJob').textContent = [board.job_number && 'Job ' + board.job_number, board.job_name].filter(Boolean).join(' · '); $('posterAddress').textContent = board.address || '';
     $('boardQr').removeAttribute('src'); $('posterQr').removeAttribute('src'); status('boardQrStatus', 'Generating QR code…'); ['boardPrint', 'boardQrDownload'].forEach((id) => $(id).disabled = true);
@@ -671,6 +764,15 @@
   function selectTab(id) { document.querySelectorAll('.board-tabs [role="tab"]').forEach((tab) => { const chosen = tab.dataset.panel === id; tab.classList.toggle('active', chosen); tab.setAttribute('aria-selected', String(chosen)); tab.tabIndex = chosen ? 0 : -1; $(tab.dataset.panel).hidden = !chosen; }); }
   function updateQrHeader(view) {
     if (state.manage) return;
+    const card = $('boardEmergency');
+    let emergencyHost = null;
+    if (state.board?.enabled) {
+      if (view === 'loginOptions') emergencyHost = $('loginOptions');
+      else if (view === 'safety') emergencyHost = $('publicSafety');
+      else if (view === '' && !state.board.requires_visitor_signin) emergencyHost = $('qrDashboard');
+    }
+    if (emergencyHost && card.parentElement !== emergencyHost) emergencyHost.prepend(card);
+    card.hidden = !emergencyHost;
     const pages = {
       safety: ['Safety information', 'shield-check'],
       visitorGate: ['Visitor sign-in', 'id-card'],

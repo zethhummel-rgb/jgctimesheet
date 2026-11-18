@@ -761,6 +761,60 @@ async function createDatabase() {
       await assert.rejects(()=>publicSafety(qrBoard.token),/unavailable/i);
       await assert.rejects(()=>anonDownload(qrBoard.token,idsByDoc['Test plan']),/unavailable/i);
     });
+    await db.exec('reset role');
+    await db.exec(fs.readFileSync(path.join(migrationDir,'20261118022229_job_board_emergency_info.sql'),'utf8'));
+    await db.query('update public.job_boards set enabled=true where id=$1',[qrBoard.id]);
+    const saveEmergency = (info, expected) => rpc('select public.save_job_board_emergency_info($1,$2,$3) result',[qrBoard.id,info,expected]);
+    const posted = { responder_entrance: 'Gate C', muster_point: 'East fence', first_aid_location: 'Inside trailer', supervisor_name: 'Test Supervisor', supervisor_phone: '+1 (613) 555-0100' };
+    await check('existing QR boards get empty emergency fields and use the current official job address', async () => {
+      await db.query('update public.jobs set address=$1 where id=(select portal_job_id from public.job_boards where id=$2)',['12 Example Street',qrBoard.id]);
+      await as('anon');
+      const model = await getBoard(qrBoard);
+      assert.equal(model.address,'12 Example Street');
+      assert.deepEqual(model.emergency_info,{});
+    });
+    await check('office save is scoped to one board and works before and after visitor sign-in', async () => {
+      await as('authenticated','admin');
+      assert.deepEqual(await saveEmergency({...posted, muster_point:'  East fence  '},{}),posted);
+      assert.deepEqual(await saveEmergency(posted,{}),posted,'lost-response retry');
+      await as('anon');
+      const guest = await getBoard(qrBoard);
+      assert.equal(guest.requires_visitor_signin,true);
+      assert.deepEqual(guest.emergency_info,posted);
+      assert.equal(guest.documents.length,0);
+      assert.deepEqual((await getBoard(otherQrBoard)).emergency_info,{});
+      const visit = await register(qrBoard);
+      assert.deepEqual((await getBoard(qrBoard,visit)).emergency_info,posted);
+    });
+    await check('only board administrators can publish emergency details', async () => {
+      await as('anon');
+      await assert.rejects(()=>saveEmergency({},posted),/permission denied/i);
+      for (const role of ['staff','client','limited','disabled']) {
+        await as('authenticated',role);
+        await assert.rejects(()=>saveEmergency({},posted),/administrator/i);
+      }
+    });
+    await check('invalid fields and conflicting edits cannot overwrite posted information', async () => {
+      await as('authenticated','admin');
+      await assert.rejects(()=>saveEmergency({ private_phone:'unshared' },posted),/fields/i);
+      await assert.rejects(()=>saveEmergency({ muster_point:{ internal:'unshared' } },posted),/fields/i);
+      await assert.rejects(()=>saveEmergency({ responder_entrance:'x'.repeat(301) },posted),/length/i);
+      await assert.rejects(()=>saveEmergency({ supervisor_phone:'123' },posted),/phone number/i);
+      await assert.rejects(()=>saveEmergency({ muster_point:'Stale edit' },{}),/another person/i);
+      assert.deepEqual((await getBoard(qrBoard)).emergency_info,posted);
+      assert.deepEqual(await saveEmergency({ muster_point:'  ' },posted),{});
+    });
+    await check('disabled boards and old printed QR codes cannot return emergency information', async () => {
+      await as('authenticated','admin');
+      const rotated = await rpc('select public.configure_job_board($1,true,true) result',[qrBoard.id]);
+      await as('anon');
+      await assert.rejects(()=>getBoard(qrBoard),/unavailable/i);
+      assert.deepEqual((await getBoard(rotated)).emergency_info,{});
+      await as('authenticated','admin');
+      await rpc('select public.configure_job_board($1,false,false) result',[qrBoard.id]);
+      await as('anon');
+      await assert.rejects(()=>getBoard(rotated),/unavailable/i);
+    });
     console.log(`${passed}/${passed+failures.length} local Job Board security groups passed. No production connections or writes.`);
     if(failures.length) process.exitCode=1;
   } finally { await db.close(); }
