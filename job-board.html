@@ -17,7 +17,7 @@
   <meta name="theme-color" content="#0b5e3b">
   <title>Job Board · JGC Portal</title>
   <link rel="stylesheet" href="jgc-design-system.css?v=14" data-jgc-design-system="14">
-  <link rel="stylesheet" href="job-board.css?v=17">
+  <link rel="stylesheet" href="job-board.css?v=18">
   <link rel="stylesheet" href="safety-signature-pad.css?v=4">
 </head>
 <body class="job-board-page jgc-page jgc-system-page">
@@ -53,15 +53,21 @@
     </section>
 
     <section class="board-gate" id="loginOptions" hidden aria-label="Job Board options">
+      <p class="board-visitor-notice" id="boardVisitorNotice"><i data-lucide="users" aria-hidden="true"></i> All visitors must sign in</p>
       <section class="board-emergency" id="boardEmergency" aria-labelledby="emergencyTitle" hidden>
         <div class="board-emergency-heading">
-          <h2 id="emergencyTitle"><i data-lucide="siren" aria-hidden="true"></i> Emergency info</h2>
+          <h2 id="emergencyTitle">
+            <button type="button" id="emergencyToggle" aria-expanded="false" aria-controls="emergencyBody">
+              <i data-lucide="siren" aria-hidden="true"></i> Emergency info <i data-lucide="chevron-down" aria-hidden="true"></i>
+            </button>
+          </h2>
           <a class="board-emergency-call" href="tel:911"><i data-lucide="phone" aria-hidden="true"></i> Call 911</a>
         </div>
-        <dl id="emergencyDetails"></dl>
-        <p id="emergencyUnposted" hidden>Ask the site supervisor for emergency access, muster and first aid details.</p>
+        <div id="emergencyBody" hidden>
+          <dl id="emergencyDetails"></dl>
+          <p id="emergencyUnposted" hidden>Ask the site supervisor for emergency access, muster and first aid details.</p>
+        </div>
       </section>
-      <p class="board-visitor-notice" id="boardVisitorNotice"><i data-lucide="users" aria-hidden="true"></i> All visitors must sign in</p>
       <section class="jgc-panel board-qr-card board-safety-entry" aria-labelledby="safetyEntryTitle">
         <div class="board-qr-card-heading"><i data-lucide="shield-check" aria-hidden="true"></i><div><h2 id="safetyEntryTitle">Safety information</h2><p>No sign-in required</p></div></div>
         <ul class="board-qr-checklist">
@@ -332,6 +338,6 @@
   <script src="job-board-report-pdf.js?v=6"></script>
   <script src="job-board-email.js?v=1"></script>
   <script src="safety-signature-pad.js?v=4"></script>
-  <script src="job-board.js?v=32"></script>
+  <script src="job-board.js?v=33"></script>
 </body>
 </html>

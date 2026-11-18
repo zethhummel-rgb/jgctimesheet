@@ -303,7 +303,7 @@ test('activity starts collapsed, shows names and Toronto times, and pages with t
   await expect(page.locator('#activityMore')).toBeHidden(); await page.locator('#boardSiteActivity summary').click(); await expect(page.locator('#siteActivityList .board-activity-row')).toHaveCount(1); await expect(page.locator('#siteActivityList')).toContainText('Synthetic Visitor'); await expect(page.locator('#siteActivityMore')).toBeHidden(); await expect(page.locator('#activityList .board-activity-row')).toHaveCount(50); expect(store.calls.filter((c) => c.name === 'get_job_board_signins')[1].args).toEqual({ p_board_id: BOARD_ID, p_kind:'site', p_before: null, p_limit: 50 });
 });
 
-for (const width of [320, 390, 1280]) test(`emergency card is immediately accessible on the QR landing, safety and signed-in pages at ${width}`, async ({ page }, testInfo) => {
+for (const width of [320, 390, 1280]) test(`emergency card starts collapsed below the visitor notice and opens on each QR view at ${width}`, async ({ page }, testInfo) => {
   const store = fixture('guest');
   store.address = '12 Example Street, Cornwall';
   store.emergencyInfo = { responder_entrance: 'North vehicle gate on Example Street', muster_point: 'Visitor parking, beside the guardhouse', first_aid_location: 'Site trailer beside the west entrance', supervisor_name: 'Alex Morgan', supervisor_phone: '+1 (613) 555-0100' };
@@ -311,24 +311,57 @@ for (const width of [320, 390, 1280]) test(`emergency card is immediately access
   await install(page,store);
   await page.goto('/job-board.html?embedded=1#board=' + TOKEN);
   const card = page.getByRole('region',{name:'Emergency info',exact:true});
+  const toggle = card.getByRole('button',{name:'Emergency info',exact:true});
+  const call911 = card.getByRole('link',{name:'Call 911',exact:true});
+  const details = card.locator('#emergencyBody');
+  const afterNotice = page.locator('#loginOptions > #boardVisitorNotice:first-child + #boardEmergency');
+  await expect(afterNotice).toBeVisible();
   await expect(card).toBeInViewport();
-  await expect(card.getByRole('link',{name:'Call 911'})).toHaveAttribute('href','tel:911');
+  await expect(toggle).toHaveAttribute('aria-expanded','false');
+  await expect(details).toBeHidden();
+  await expect(call911).toBeVisible();
+  await expect(call911).toHaveAttribute('href','tel:911');
+  expect((await card.boundingBox()).height).toBeLessThanOrEqual(54);
+  for (const control of [toggle,call911]) expect((await control.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await call911.evaluate(link=>link.addEventListener('click',event=>event.preventDefault(),{once:true}));
+  await call911.click();
+  await expect(details).toBeHidden();
+  await card.screenshot({path:receipt(testInfo,`emergency-card-collapsed-${width}.png`)});
+  await toggle.focus();
+  await toggle.press('Enter');
+  await expect(toggle).toHaveAttribute('aria-expanded','true');
+  await expect(details).toBeVisible();
   await expect(card.getByRole('link',{name:/Call site supervisor Alex Morgan/})).toHaveAttribute('href','tel:+16135550100');
-  for (const value of [store.address, store.emergencyInfo.responder_entrance, store.emergencyInfo.muster_point, store.emergencyInfo.first_aid_location]) await expect(card).toContainText(value);
+  for (const value of [store.address, store.emergencyInfo.responder_entrance, store.emergencyInfo.muster_point, store.emergencyInfo.first_aid_location]) await expect(details.getByText(value,{exact:true})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   await card.screenshot({path:receipt(testInfo,`emergency-card-${width}.png`)});
+  await toggle.press('Space');
+  await expect(details).toBeHidden();
+  await toggle.press('Tab');
+  await expect(call911).toBeFocused();
+  await toggle.click();
   await page.locator('#viewPublicSafety').click();
   await expect(page.locator('#publicSafety #boardEmergency')).toBeVisible();
+  await expect(details).toBeHidden();
+  await toggle.click();
+  await expect(details).toBeVisible();
   expect(store.calls.some(call=>call.name==='register_job_board_visit')).toBe(false);
   await page.locator('#qrPageBack').click();
+  await expect(afterNotice).toBeVisible();
+  await expect(details).toBeHidden();
   await visitorSignIn(page);
   await expect(page.locator('#qrDashboard #boardEmergency')).toBeVisible();
-  await expect(card).toContainText('Visitor parking');
+  await expect(details).toBeHidden();
+  await expect(call911).toBeVisible();
+  await toggle.click();
+  await expect(details.getByText(store.emergencyInfo.muster_point,{exact:true})).toBeVisible();
   await expect(page.locator('#emergencySettings')).toBeHidden();
   await page.locator('#signedInSafety').click();
   await expect(page.locator('#publicSafety #boardEmergency')).toBeVisible();
+  await expect(details).toBeHidden();
   await page.locator('#qrPageBack').click();
   await expect(page.locator('#qrDashboard #boardEmergency')).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-expanded','false');
 });
 
 test('emergency card handles empty jobs and clears removed details', async ({ page }) => {
@@ -338,6 +371,7 @@ test('emergency card handles empty jobs and clears removed details', async ({ pa
   await install(page,store);
   await page.goto('/job-board.html?embedded=1#board='+TOKEN);
   const card = page.locator('#boardEmergency');
+  await card.getByRole('button',{name:'Emergency info'}).click();
   await expect(card.locator('dd')).toHaveText(['<b>Trailer</b>']);
   await expect(card.locator('dd b, dd a')).toHaveCount(0);
   store.emergencyInfo = {};
@@ -345,6 +379,8 @@ test('emergency card handles empty jobs and clears removed details', async ({ pa
   await expect(card).toBeVisible();
   await expect(card.locator('dt')).toHaveCount(0);
   await expect(card.getByRole('link',{name:'Call 911'})).toBeVisible();
+  await expect(page.locator('#emergencyUnposted')).toBeHidden();
+  await card.getByRole('button',{name:'Emergency info'}).click();
   await expect(page.locator('#emergencyUnposted')).toBeVisible();
 });
 
@@ -372,7 +408,8 @@ test('office can publish, reload, update and clear the emergency card from job s
     Object.defineProperty(guest,'emergencyInfo',{get:()=>store.emergencyInfo});
     await install(publicPage,guest);
     await publicPage.goto('/job-board.html?embedded=1#board='+TOKEN);
-    await expect(publicPage.locator('#boardEmergency')).toContainText('Enter at the north gate');
+    await publicPage.locator('#emergencyToggle').click();
+    await expect(publicPage.getByText('Enter at the north gate',{exact:true})).toBeVisible();
     await page.reload();
     await page.locator('#emergencySettings summary').click();
     await expect(form.getByLabel('Muster point')).toHaveValue('East fence');
@@ -389,6 +426,7 @@ test('office can publish, reload, update and clear the emergency card from job s
     await form.getByRole('button',{name:'Save emergency info'}).click();
     await expect(form.getByRole('status')).toHaveText('Emergency info saved.');
     await publicPage.reload();
+    await publicPage.locator('#emergencyToggle').click();
     await expect(publicPage.locator('#emergencyDetails dt')).toHaveText(['Site address']);
     await expect(publicPage.locator('#boardEmergency a')).toHaveCount(1);
   } finally { await publicPage.close(); }
@@ -398,8 +436,13 @@ for (const width of [320, 390, 1280]) test(`sign-in screen shows a slim visitor 
   await page.setViewportSize({ width, height: 1000 }); await open(page, 'guest');
   const options = page.locator('#loginOptions'), rules = options.locator('.board-site-rules');
   await expect(rules).toBeVisible();
-  const [safety, notice] = await Promise.all([options.locator('.board-safety-entry').boundingBox(), page.locator('#boardVisitorNotice').boundingBox()]);
-  expect(notice.y + notice.height).toBeLessThanOrEqual(safety.y);
+  const [notice, emergency, safety] = await Promise.all([
+    options.locator('#boardVisitorNotice').boundingBox(),
+    options.locator('#boardEmergency').boundingBox(),
+    options.locator('.board-safety-entry').boundingBox()
+  ]);
+  expect(notice.y + notice.height).toBeLessThanOrEqual(emergency.y);
+  expect(emergency.y + emergency.height).toBeLessThanOrEqual(safety.y);
   expect(notice.height).toBeLessThanOrEqual(32);
   await expect(page.locator('#boardVisitorNotice')).toHaveText('All visitors must sign in');
   await expect(page.locator('#boardPpeDetails')).toHaveJSProperty('tagName', 'SECTION');
