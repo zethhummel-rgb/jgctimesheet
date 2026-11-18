@@ -601,6 +601,12 @@
   const emergencyFields = ['responder_entrance', 'muster_point', 'first_aid_location', 'supervisor_name', 'supervisor_phone'];
   let emergencyEditBoard = null, emergencySnapshot = {}, emergencyDirty = false;
 
+  function setEmergencyExpanded(expanded) {
+    $('emergencyToggle').setAttribute('aria-expanded', String(expanded));
+    $('emergencyBody').hidden = !expanded;
+  }
+  $('emergencyToggle').addEventListener('click', () => setEmergencyExpanded($('emergencyBody').hidden));
+
   function directPhone(value) {
     const phone = String(value || '').trim();
     const digits = phone.replace(/[^0-9]/g, '');
@@ -771,7 +777,11 @@
       else if (view === 'safety') emergencyHost = $('publicSafety');
       else if (view === '' && !state.board.requires_visitor_signin) emergencyHost = $('qrDashboard');
     }
-    if (emergencyHost && card.parentElement !== emergencyHost) emergencyHost.prepend(card);
+    if (emergencyHost && card.parentElement !== emergencyHost) {
+      if (view === 'loginOptions') $('boardVisitorNotice').after(card);
+      else emergencyHost.prepend(card);
+      setEmergencyExpanded(false);
+    }
     card.hidden = !emergencyHost;
     const pages = {
       safety: ['Safety information', 'shield-check'],
