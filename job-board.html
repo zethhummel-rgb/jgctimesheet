@@ -17,7 +17,7 @@
   <meta name="theme-color" content="#0b5e3b">
   <title>Job Board · JGC Portal</title>
   <link rel="stylesheet" href="jgc-design-system.css?v=14" data-jgc-design-system="14">
-  <link rel="stylesheet" href="job-board.css?v=16">
+  <link rel="stylesheet" href="job-board.css?v=17">
   <link rel="stylesheet" href="safety-signature-pad.css?v=4">
 </head>
 <body class="job-board-page jgc-page jgc-system-page">
@@ -53,6 +53,14 @@
     </section>
 
     <section class="board-gate" id="loginOptions" hidden aria-label="Job Board options">
+      <section class="board-emergency" id="boardEmergency" aria-labelledby="emergencyTitle" hidden>
+        <div class="board-emergency-heading">
+          <h2 id="emergencyTitle"><i data-lucide="siren" aria-hidden="true"></i> Emergency info</h2>
+          <a class="board-emergency-call" href="tel:911"><i data-lucide="phone" aria-hidden="true"></i> Call 911</a>
+        </div>
+        <dl id="emergencyDetails"></dl>
+        <p id="emergencyUnposted" hidden>Ask the site supervisor for emergency access, muster and first aid details.</p>
+      </section>
       <p class="board-visitor-notice" id="boardVisitorNotice"><i data-lucide="users" aria-hidden="true"></i> All visitors must sign in</p>
       <section class="jgc-panel board-qr-card board-safety-entry" aria-labelledby="safetyEntryTitle">
         <div class="board-qr-card-heading"><i data-lucide="shield-check" aria-hidden="true"></i><div><h2 id="safetyEntryTitle">Safety information</h2><p>No sign-in required</p></div></div>
@@ -135,6 +143,22 @@
             <p>Post this QR code at the job site. Anyone with the link can view published safety documents. Visitors and staff sign in to check in and open job records.</p>
             <div class="board-actions"><button class="jgc-button" id="boardPrint" type="button">Print QR poster</button><button class="jgc-button jgc-button--secondary" id="boardQrDownload" type="button">Download QR poster</button><button class="jgc-button jgc-button--secondary" id="boardCopyLink" type="button">Copy board link</button><a class="jgc-button jgc-button--secondary" id="boardOpenLink" target="_blank" rel="noopener noreferrer">Open board</a></div>
             <details class="board-settings"><summary>Board access settings</summary><div class="board-settings-content"><label class="board-checkbox"><input id="boardEnabled" type="checkbox"> Enable QR Job Board access</label><button class="jgc-button jgc-button--secondary" id="boardSaveEnabled" type="button">Save access</button><p class="board-help">Replacing the QR link stops the previous code from opening this board. Reprint the poster after replacing it.</p><button class="jgc-button jgc-button--danger" id="boardRotate" type="button">Replace QR link</button><div id="boardRotateConfirm" class="jgc-notice jgc-notice--warning" hidden><p>Replace the link and invalidate all existing QR posters for this job?</p><div class="board-actions"><button class="jgc-button jgc-button--danger" id="boardRotateYes" type="button">Replace link</button><button class="jgc-button jgc-button--secondary" id="boardRotateNo" type="button">Keep current link</button></div></div></div></details>
+            <details class="board-settings" id="emergencySettings">
+              <summary>Emergency info</summary>
+              <form id="emergencyForm" class="board-form">
+                <p class="board-help">Anyone who scans this job’s QR code can see the details you post here.</p>
+                <p class="board-help">Site address from Job details · <strong id="emergencyJobAddress"></strong></p>
+                <fieldset class="jgc-form-grid" id="emergencyFields" aria-label="Public emergency details">
+                  <div class="jgc-field jgc-field--full"><label class="jgc-label" for="emergencyEntrance">Responder entrance</label><input class="jgc-input" id="emergencyEntrance" name="responder_entrance" maxlength="300"></div>
+                  <div class="jgc-field"><label class="jgc-label" for="emergencyMuster">Muster point</label><input class="jgc-input" id="emergencyMuster" name="muster_point" maxlength="300"></div>
+                  <div class="jgc-field"><label class="jgc-label" for="emergencyFirstAid">First aid location</label><input class="jgc-input" id="emergencyFirstAid" name="first_aid_location" maxlength="300"></div>
+                  <div class="jgc-field"><label class="jgc-label" for="emergencySupervisor">Site supervisor name</label><input class="jgc-input" id="emergencySupervisor" name="supervisor_name" maxlength="120"></div>
+                  <div class="jgc-field"><label class="jgc-label" for="emergencyPhone">Supervisor’s direct phone</label><input class="jgc-input" id="emergencyPhone" name="supervisor_phone" type="tel" maxlength="40"></div>
+                </fieldset>
+                <div class="board-actions"><button class="jgc-button" id="emergencySave" type="submit">Save emergency info</button><button class="jgc-button jgc-button--secondary" id="emergencyReload" type="button" hidden>Reload posted details</button></div>
+                <p class="board-form-status" id="emergencyStatus" role="status" aria-live="polite"></p>
+              </form>
+            </details>
           </div>
         </div>
       </section>
@@ -308,6 +332,6 @@
   <script src="job-board-report-pdf.js?v=6"></script>
   <script src="job-board-email.js?v=1"></script>
   <script src="safety-signature-pad.js?v=4"></script>
-  <script src="job-board.js?v=31"></script>
+  <script src="job-board.js?v=32"></script>
 </body>
 </html>

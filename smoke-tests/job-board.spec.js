@@ -70,7 +70,13 @@ async function install(page, store, options = {}) {
     const role = store.identity, manager = role === 'admin', canUpload = role === 'staff' || manager, restricted = role === 'client' || canUpload;
     const validVisit=!!store.visit && args.p_visit_token===store.visit;
     const board = () => ({ id: BOARD_ID, job_id: 'existing-estimator-job', job_number: '26132', job_name: '14815 County Road 2 – Site safety', address: store.address ?? 'South Stormont, Ontario', token: TOKEN, enabled: true, can_manage: manager, can_upload: canUpload, can_register_as_staff: canUpload, can_read_restricted: restricted, requires_visitor_signin: !validVisit && !manager, documents: manager ? store.documentRows : !validVisit ? [] : store.documentRows.filter((d) => d.status === 'published' && (d.visibility === 'public' || restricted)), viewers: manager ? [{ id: 'viewer-id', email: 'client@example.test' }] : [], document_link: (manager || validVisit) && store.documentLink ? store.documentLink : null });
-    if (name === 'get_job_board' || name === 'get_or_create_job_board') return store.failBoard ? route.fulfill({ status: 403, json: { message: 'Board unavailable for this test' } }) : route.fulfill({ json: board() });
+    if (name === 'get_job_board' || name === 'get_or_create_job_board') return store.failBoard ? route.fulfill({ status: 403, json: { message: 'Board unavailable for this test' } }) : route.fulfill({ json: { ...board(), emergency_info: store.emergencyInfo || {} } });
+    if (name === 'save_job_board_emergency_info') {
+      if (!manager) return route.fulfill({ status: 403, json: { message: 'Approved administrator access required' } });
+      if (store.failEmergency) return route.fulfill({ status: 400, json: { message: 'Another person updated this card. Reload the posted details before editing again.', code: '40001' } });
+      store.emergencyInfo = args.p_info;
+      return route.fulfill({ json: args.p_info });
+    }
     if (name === 'get_job_board_public_safety') {
       const safe = new Set(['notice-of-project','ontario-legislation','hs-documents','site-specific','sds','jgc-policy']);
       return route.fulfill({json:{documents:store.documentRows.filter(doc=>safe.has(doc.category) && doc.status==='published' && doc.visibility==='public' && (!doc.source_type || doc.source_type==='policies'))}});
@@ -295,6 +301,97 @@ test('activity starts collapsed, shows names and Toronto times, and pages with t
   await expect(page.locator('#boardActivity')).not.toHaveAttribute('open', ''); expect(store.calls.filter((c) => c.name === 'get_job_board_signins')).toHaveLength(0);
   await page.locator('#boardActivity summary').click(); await expect(page.locator('#activityList .board-activity-row')).toHaveCount(50); await expect(page.locator('#activityList .board-activity-row').first()).toContainText('Synthetic staff'); await expect(page.locator('#activityList .board-activity-row').first()).toContainText('Staff Login'); await expect(page.locator('#activityList .board-activity-row').first()).not.toContainText('Prepared email link'); await expect(page.locator('#activityStatus')).toContainText('Times are in Toronto');
   await expect(page.locator('#activityMore')).toBeHidden(); await page.locator('#boardSiteActivity summary').click(); await expect(page.locator('#siteActivityList .board-activity-row')).toHaveCount(1); await expect(page.locator('#siteActivityList')).toContainText('Synthetic Visitor'); await expect(page.locator('#siteActivityMore')).toBeHidden(); await expect(page.locator('#activityList .board-activity-row')).toHaveCount(50); expect(store.calls.filter((c) => c.name === 'get_job_board_signins')[1].args).toEqual({ p_board_id: BOARD_ID, p_kind:'site', p_before: null, p_limit: 50 });
+});
+
+for (const width of [320, 390, 1280]) test(`emergency card is immediately accessible on the QR landing, safety and signed-in pages at ${width}`, async ({ page }, testInfo) => {
+  const store = fixture('guest');
+  store.address = '12 Example Street, Cornwall';
+  store.emergencyInfo = { responder_entrance: 'North vehicle gate on Example Street', muster_point: 'Visitor parking, beside the guardhouse', first_aid_location: 'Site trailer beside the west entrance', supervisor_name: 'Alex Morgan', supervisor_phone: '+1 (613) 555-0100' };
+  await page.setViewportSize({width,height:844});
+  await install(page,store);
+  await page.goto('/job-board.html?embedded=1#board=' + TOKEN);
+  const card = page.getByRole('region',{name:'Emergency info',exact:true});
+  await expect(card).toBeInViewport();
+  await expect(card.getByRole('link',{name:'Call 911'})).toHaveAttribute('href','tel:911');
+  await expect(card.getByRole('link',{name:/Call site supervisor Alex Morgan/})).toHaveAttribute('href','tel:+16135550100');
+  for (const value of [store.address, store.emergencyInfo.responder_entrance, store.emergencyInfo.muster_point, store.emergencyInfo.first_aid_location]) await expect(card).toContainText(value);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  await card.screenshot({path:receipt(testInfo,`emergency-card-${width}.png`)});
+  await page.locator('#viewPublicSafety').click();
+  await expect(page.locator('#publicSafety #boardEmergency')).toBeVisible();
+  expect(store.calls.some(call=>call.name==='register_job_board_visit')).toBe(false);
+  await page.locator('#qrPageBack').click();
+  await visitorSignIn(page);
+  await expect(page.locator('#qrDashboard #boardEmergency')).toBeVisible();
+  await expect(card).toContainText('Visitor parking');
+  await expect(page.locator('#emergencySettings')).toBeHidden();
+  await page.locator('#signedInSafety').click();
+  await expect(page.locator('#publicSafety #boardEmergency')).toBeVisible();
+  await page.locator('#qrPageBack').click();
+  await expect(page.locator('#qrDashboard #boardEmergency')).toBeVisible();
+});
+
+test('emergency card handles empty jobs and clears removed details', async ({ page }) => {
+  const store = fixture('guest');
+  store.address = '';
+  store.emergencyInfo = { first_aid_location:'<b>Trailer</b>', supervisor_phone:'not a phone' };
+  await install(page,store);
+  await page.goto('/job-board.html?embedded=1#board='+TOKEN);
+  const card = page.locator('#boardEmergency');
+  await expect(card.locator('dd')).toHaveText(['<b>Trailer</b>']);
+  await expect(card.locator('dd b, dd a')).toHaveCount(0);
+  store.emergencyInfo = {};
+  await page.reload();
+  await expect(card).toBeVisible();
+  await expect(card.locator('dt')).toHaveCount(0);
+  await expect(card.getByRole('link',{name:'Call 911'})).toBeVisible();
+  await expect(page.locator('#emergencyUnposted')).toBeVisible();
+});
+
+test('office can publish, reload, update and clear the emergency card from job setup', async ({ page, browser }) => {
+  const store = await open(page,'admin');
+  await page.locator('#emergencySettings summary').click();
+  const form = page.locator('#emergencyForm');
+  await expect(form.locator('#emergencyJobAddress')).toHaveText('South Stormont, Ontario');
+  await form.getByLabel('Responder entrance').fill('  Enter at the north gate  ');
+  await form.getByLabel('Muster point').fill('East fence');
+  await form.getByLabel('First aid location').fill('Inside trailer');
+  await form.getByLabel('Site supervisor name').fill('Alex Morgan');
+  await form.getByLabel('Supervisor’s direct phone').fill('bad number');
+  await form.getByRole('button',{name:'Save emergency info'}).click();
+  expect(store.calls.filter(c=>c.name==='save_job_board_emergency_info')).toHaveLength(0);
+  await form.getByLabel('Supervisor’s direct phone').fill('613-555-0100');
+  await form.getByRole('button',{name:'Save emergency info'}).click();
+  await expect(form.getByRole('status')).toHaveText('Emergency info saved.');
+  const officePosted = {...store.emergencyInfo};
+  expect(officePosted.responder_entrance).toBe('Enter at the north gate');
+  expect(store.calls.find(c=>c.name==='save_job_board_emergency_info').args.p_expected).toEqual({});
+  const publicPage = await browser.newPage();
+  try {
+    const guest = fixture('guest');
+    Object.defineProperty(guest,'emergencyInfo',{get:()=>store.emergencyInfo});
+    await install(publicPage,guest);
+    await publicPage.goto('/job-board.html?embedded=1#board='+TOKEN);
+    await expect(publicPage.locator('#boardEmergency')).toContainText('Enter at the north gate');
+    await page.reload();
+    await page.locator('#emergencySettings summary').click();
+    await expect(form.getByLabel('Muster point')).toHaveValue('East fence');
+    await form.getByLabel('Muster point').fill('South fence');
+    store.emergencyInfo = {...officePosted,muster_point:'Updated by another manager'};
+    store.failEmergency = true;
+    await form.getByRole('button',{name:'Save emergency info'}).click();
+    await expect(form.getByRole('status')).toContainText('Another person');
+    await expect(form.getByLabel('Muster point')).toHaveValue('South fence');
+    await form.getByRole('button',{name:'Reload posted details'}).click();
+    await expect(form.getByLabel('Muster point')).toHaveValue('Updated by another manager');
+    store.failEmergency = false;
+    for (const input of await form.locator('input').all()) await input.fill('');
+    await form.getByRole('button',{name:'Save emergency info'}).click();
+    await expect(form.getByRole('status')).toHaveText('Emergency info saved.');
+    await publicPage.reload();
+    await expect(publicPage.locator('#emergencyDetails dt')).toHaveText(['Site address']);
+    await expect(publicPage.locator('#boardEmergency a')).toHaveCount(1);
+  } finally { await publicPage.close(); }
 });
 
 for (const width of [320, 390, 1280]) test(`sign-in screen shows a slim visitor notice and always-open required PPE at ${width}`, async ({ page }, testInfo) => {

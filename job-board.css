@@ -22,6 +22,32 @@
 .board-site-rules { --board-ppe-blue: #005ca9; margin-top: var(--jgc-space-5); padding-top: var(--jgc-space-4); border-top: 1px solid var(--jgc-color-border-soft); }
 .board-visitor-notice { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0 0 8px; padding: 6px 10px; border: 1px solid var(--jgc-color-border); border-radius: 8px; background: var(--jgc-color-surface-soft); color: var(--jgc-color-text); font-size: 12px; line-height: 1.25; font-weight: 700; }
 .board-visitor-notice svg { width: 15px; height: 15px; flex: none; }
+.board-emergency {
+  margin: 0 0 10px; padding: 11px 14px; border: 1px solid #d7c4bc; border-radius: 15px;
+  background: #fffdf9; color: #24352c; box-shadow: 0 2px 8px rgb(18 43 29 / 7%);
+}
+.board-emergency-heading, .board-emergency-heading h2, .board-emergency-call {
+  display: flex; align-items: center; gap: 7px;
+}
+.board-emergency-heading { justify-content: space-between; flex-wrap: wrap; }
+#boardEmergency h2 { margin: 0; font-size: 18px; line-height: 1.2; font-weight: 800; letter-spacing: -.02em; }
+.board-emergency-heading h2 svg { width: 21px; height: 21px; color: #96392e; flex: none; }
+#boardEmergency .board-emergency-call {
+  min-height: 44px; padding: 0 13px; border-radius: 9px; background: #972f28; color: #fff;
+  text-decoration: none; font-size: 14px; font-weight: 750; white-space: nowrap;
+}
+.board-emergency-call svg { width: 16px; height: 16px; }
+#boardEmergency .board-emergency-call:hover { background: #75221c; }
+.board-emergency dl { margin: 6px 0 0; }
+.board-emergency dl:empty { display: none; }
+.board-emergency dl > div { display: grid; grid-template-columns: minmax(80px, 30%) minmax(0, 1fr); align-items: baseline; gap: 10px; padding: 6px 0; border-top: 1px solid #e9dfd9; }
+.board-emergency dt { font-size: 12px; font-weight: 650; color: #535e57; }
+.board-emergency dd { margin: 0; font-size: 14px; line-height: 1.35; font-weight: 650; overflow-wrap: anywhere; }
+.board-emergency dd a { display: inline-block; padding-block: 4px; color: #19533b; text-underline-offset: 3px; }
+#emergencyUnposted { margin: 6px 0 0; font-size: 12px; line-height: 1.4; }
+#emergencyForm { padding-top: 10px; }
+#emergencyForm p { margin: 0; }
+#emergencyFields { min-width: 0; padding: 0; margin: 0; border: 0; }
 .board-ppe-title { margin: 0 0 var(--jgc-space-3); color: var(--jgc-color-text); font-family: inherit; font-size: 1.05rem; font-weight: 800; letter-spacing: .02em; }
 .board-ppe-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr)); gap: var(--jgc-space-2); margin: 0; padding: 0; list-style: none; }
 .board-ppe-list li { display: flex; align-items: center; gap: var(--jgc-space-3); min-height: 56px; padding: var(--jgc-space-2) var(--jgc-space-3); border: 1px solid var(--jgc-color-border-soft); border-radius: var(--jgc-radius-md); background: var(--jgc-color-surface-raised); }
