@@ -1136,26 +1136,65 @@ test('a reload reopens the JSA a visitor was signing on to; Back forgets it', as
   await expect(page.locator('#boardContent')).toBeVisible(); await expect(page.locator('#jsaSignOnPanel')).toBeHidden();
 });
 
-// Release 1010: the job's drawings/documents folder link, as on the Portal Jobs page, for anyone signed in to the board.
-for (const [identity, width] of [['guest', 390], ['staff', 1280]]) test(`signed-in ${identity} sees the job's drawings link; it is never shown before sign-in`, async ({ page }, info) => {
+for (const [identity, width] of [['guest', 390], ['staff', 1280]]) test(`signed-in ${identity} opens the job's drawings from the Drawings tab`, async ({ page, context }, info) => {
   await page.setViewportSize({ width, height: 900 });
   const store = await open(page, identity);
-  store.documentLink = { url: 'https://johngordonconst-my.sharepoint.com/:f:/g/personal/synthetic/Drawings', label: 'Employee Drawings/Shop Drawings' };
+  store.documentLink = { url: 'https://drawings.example.test/job-26132', label: 'Employee Drawings/Shop Drawings' };
+  await context.route(store.documentLink.url, route => route.fulfill({ body: 'Job 26132 drawings folder' }));
+  const tab = page.getByRole('tab', { name: 'Drawings', exact: true });
   const link = page.locator('#boardDocuments');
-  if (identity === 'guest') { await expect(link).toBeHidden(); await visitorSignIn(page); } else await page.locator('#boardRefresh').click();
+  if (identity === 'guest') {
+    await expect(tab).toBeHidden();
+    await expect(link).not.toHaveAttribute('href');
+    await visitorSignIn(page);
+  } else await page.locator('#boardRefresh').click();
+  await expect(tab).toBeVisible();
+  await expect(link).toBeHidden();
+  if (identity === 'guest') await tab.click();
+  else {
+    await page.getByRole('tab', { name: 'Documents', exact: true }).press('ArrowRight');
+    await expect(tab).toBeFocused();
+  }
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tabpanel', { name: 'Drawings', exact: true })).toBeVisible();
   await expect(link).toBeVisible(); await expect(link).toHaveText('Employee Drawings/Shop Drawings');
   await expect(link).toHaveAttribute('href', store.documentLink.url); await expect(link).toHaveAttribute('target', '_blank'); await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
-  await page.locator('.board-header').screenshot({ path: info.outputPath(`board-drawings-link-${identity}-${width}.png`) });
-  await page.locator('#boardLogout').click(); await expect(page.locator('#loginOptions')).toBeVisible(); await expect(link).toBeHidden();
+  const opened = page.waitForEvent('popup');
+  await link.click();
+  const folder = await opened;
+  await expect(folder.getByText('Job 26132 drawings folder')).toBeVisible();
+  await folder.close();
+  await page.locator('#drawingsPanel').screenshot({ path: info.outputPath(`board-drawings-link-${identity}-${width}.png`) });
+  await page.locator('#boardLogout').click();
+  await expect(page.locator('#loginOptions')).toBeVisible();
+  await expect(tab).toBeHidden();
+  await expect(link).not.toHaveAttribute('href');
 });
-test('the drawings link stays hidden when the job has none, or when it is not an https link', async ({ page }) => {
+test('the Drawings tab requires an HTTPS link and returns to Documents when the link is removed', async ({ page }) => {
   const store = await open(page, 'staff'); const link = page.locator('#boardDocuments');
-  await expect(link).toBeHidden();
-  store.documentLink = { url: 'javascript:alert(1)', label: 'Bad link' }; await page.locator('#boardRefresh').click(); await page.waitForTimeout(300);
-  await expect(link).toBeHidden(); expect(await link.getAttribute('href')).toBeNull();
+  const tab = page.locator('#drawingsTab');
+  const refresh = async () => {
+    const loaded = page.waitForResponse(response => response.url().endsWith('/rpc/get_job_board'));
+    await page.locator('#boardRefresh').click();
+    await loaded;
+    await expect(page.locator('#boardContent')).toBeVisible();
+  };
+  await expect(tab).toBeHidden();
+  store.documentLink = { url: 'javascript:alert(1)', label: 'Bad link' };
+  await refresh();
+  await expect(tab).toBeHidden();
+  await expect(link).not.toHaveAttribute('href');
   store.documentLink = { url: 'https://example.sharepoint.com/folder', label: '' }; await page.locator('#boardRefresh').click();
-  await expect(link).toBeVisible(); await expect(link).toHaveText('Drawings & documents');
+  await tab.click();
+  await expect(link).toBeVisible();
+  await expect(link).toHaveText('Open drawings');
+  store.documentLink = null;
+  await refresh();
+  await expect(tab).toBeHidden();
+  await expect(link).not.toHaveAttribute('href');
+  await expect(page.locator('#documentsTab')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#documentsPanel')).toBeVisible();
 });
 // Release 1011 (Zeth): only people signing in on site are asked to sign the JSA, the JSA page starts with one big
 // button, and the signature can't be skipped.
