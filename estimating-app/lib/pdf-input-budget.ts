@@ -4,6 +4,8 @@ import {Unzlib} from 'fflate';
 import {DOCUMENT_LIMITS,imageBudget,imageDimensions} from './document-budget';
 
 export type PdfInputBudget={decodedBytes:number;objects:number;imagePixels?:number;tokens?:number};
+const maxDecodedStreamBytes = 16 * 1024 * 1024;
+const maxDecodedPdfBytes = 80 * 1024 * 1024;
 const tooComplex=()=>new Error('This PDF is too complex to process. Save a flattened copy or split it into smaller documents.');
 const whitespace=/[\s\0]/;
 function visibleDictionary(text:string){let result='',literal=0,hex=false,comment=false,escaped=false;for(let n=0;n<text.length;n++){const c=text[n];if(comment){if(c==='\r'||c==='\n'){comment=false;result+=' ';}continue;}if(literal){if(escaped){escaped=false;continue;}if(c==='\\'){escaped=true;continue;}if(c==='(')literal++;if(c===')')literal--;continue;}if(hex){if(c==='>')hex=false;continue;}if(c==='%'){comment=true;continue;}if(c==='('){literal=1;result+='()';continue;}if(c==='<'&&text[n+1]!=='<'&&text[n-1]!=='<'){hex=true;result+='<>';continue;}result+=c;}return result.replace(/#([0-9a-f]{2})/gi,(_,v:string)=>String.fromCharCode(parseInt(v,16)));}
@@ -34,6 +36,49 @@ function ccittDecodedSize(dictionary:string,width:number,height:number) {
  if(columns!==width||(rows!==0&&rows!==height)||mode < -1||mode>height)throw tooComplex();
  return Math.ceil(width/8)*height;
 }
+
+function inflatePdfStream(bytes:Uint8Array, budget:PdfInputBudget, ascii85:boolean, onChunk:(chunk:Uint8Array)=>void) {
+ let decoded = 0;
+ const inflate = new Unzlib(chunk => {
+  decoded += chunk.length;
+  budget.decodedBytes += chunk.length;
+  if (decoded > maxDecodedStreamBytes || budget.decodedBytes > maxDecodedPdfBytes) throw tooComplex();
+  onChunk(chunk);
+ });
+ if (ascii85) {
+  decodePdfAscii85(bytes, chunk => {
+   budget.decodedBytes += chunk.length;
+   if (budget.decodedBytes > maxDecodedPdfBytes) throw tooComplex();
+   inflate.push(chunk, false);
+  });
+  inflate.push(new Uint8Array(), true);
+ } else {
+  for (let offset=0; offset<bytes.length; offset+=512) {
+   inflate.push(bytes.subarray(offset, offset+512), offset+512 >= bytes.length);
+  }
+ }
+ return decoded;
+}
+
+// Acrobat can store an otherwise ordinary JPEG inside a Flate stream. Only
+// unwrap it for validation; the uploader and PDF.js still receive the original.
+function unwrapJpeg(bytes:Uint8Array, dictionary:string, budget:PdfInputBudget):Uint8Array {
+ const params = dictionary.split(/\/(?:DecodeParms|DP)(?=[\s<>/\[\]])/);
+ // A predictor would change the bytes between filters. Accept identity Flate
+ // parameters and the optional JPEG colour transform, which preserves dimensions.
+ const supported = /^\s*(?:null|\[\s*(?:null\b|<<\s*(?:\/Predictor\s+1\s*)?>>)\s*(?:null\b|<<\s*(?:\/ColorTransform\s+[01]\s*)?>>)\s*\])(?=[\s/<>\[\]]|$)/;
+ if (params.length > 1 && (params.length !== 2 || !supported.test(params[1]))) throw tooComplex();
+ const chunks:Uint8Array[] = [];
+ const length = inflatePdfStream(bytes, budget, false, chunk => { if (chunk.length) chunks.push(chunk); });
+ const jpeg = new Uint8Array(length);
+ let offset = 0;
+ for (const chunk of chunks) {
+  jpeg.set(chunk, offset);
+  offset += chunk.length;
+ }
+ return jpeg;
+}
+
 // Inspect physical stream boundaries before a PDF parser can inflate object/content streams.
 // Stream dictionaries and indirect lengths are read without decoding any PDF stream.
 export function preflightPdf(bytes:Uint8Array,budget:PdfInputBudget={decodedBytes:0,objects:0},maxTokens?:number) {
@@ -79,10 +124,13 @@ export function preflightPdf(bytes:Uint8Array,budget:PdfInputBudget={decodedByte
   const ccitt=filter==='/CCITTFaxDecode'||filter==='/CCF';
   const jbig2=filter==='/JBIG2Decode';
   const ascii85Flate=/^\/(?:ASCII85Decode|A85)\/(?:FlateDecode|Fl)$/.test(filter);
-  if(!ascii85Flate&&!ccitt&&!jbig2&&!['','/FlateDecode','/Fl','/DCTDecode','/DCT'].includes(filter))throw tooComplex();
-  if((ccitt||jbig2)&&!/\/Subtype\s*\/Image\b/.test(dictionary))throw tooComplex();
-  if(/\/Subtype\s*\/Image\b/.test(dictionary)){
-   const width=Number(dictionary.match(/\/Width\s+(\d+)/)?.[1]),height=Number(dictionary.match(/\/Height\s+(\d+)/)?.[1]);
+  const flateJpeg=/^\[\s*\/(?:FlateDecode|Fl)\s*\/(?:DCTDecode|DCT)\s*\]$/.test(filters[0]||'');
+  if(!ascii85Flate&&!ccitt&&!jbig2&&!flateJpeg&&!['','/FlateDecode','/Fl','/DCTDecode','/DCT'].includes(filter))throw tooComplex();
+  const isImage=/\/Subtype\s*\/Image\b/.test(dictionary);
+  if((ccitt||jbig2||flateJpeg)&&!isImage)throw tooComplex();
+  if(isImage){
+   const width=flateJpeg?directInteger(dictionary,'Width'):Number(dictionary.match(/\/Width\s+(\d+)/)?.[1]);
+   const height=flateJpeg?directInteger(dictionary,'Height'):Number(dictionary.match(/\/Height\s+(\d+)/)?.[1]);
    imageBudget(width,height);
    let pixels=width*height,decoded=0;
    if(ccitt) decoded=ccittDecodedSize(dictionary,width,height);
@@ -95,20 +143,24 @@ export function preflightPdf(bytes:Uint8Array,budget:PdfInputBudget={decodedByte
     decoded=scan.decodedBytes;
    }
    budget.decodedBytes+=decoded;
-   if(decoded>16*1024*1024||budget.decodedBytes>80*1024*1024)throw tooComplex();
+   if(decoded>maxDecodedStreamBytes||budget.decodedBytes>maxDecodedPdfBytes)throw tooComplex();
    budget.imagePixels=(budget.imagePixels||0)+pixels;if(budget.imagePixels>DOCUMENT_LIMITS.totalImagePixels)throw tooComplex();
-   if(filter==='/DCTDecode'||filter==='/DCT'){const size=imageDimensions(bytes.subarray(n,end),'image/jpeg');imageBudget(size.width,size.height);if(size.width!==width||size.height!==height)throw tooComplex();}
+   if (flateJpeg || filter==='/DCTDecode' || filter==='/DCT') {
+    const data=bytes.subarray(n,end);
+    const jpeg=flateJpeg?unwrapJpeg(data,dictionary,budget):data;
+    if (jpeg[0]!==0xff || jpeg[1]!==0xd8) throw tooComplex();
+    const size=imageDimensions(jpeg,'image/jpeg');
+    imageBudget(size.width,size.height);
+    if (size.width!==width || size.height!==height) throw tooComplex();
+   }
   }
   // Count lexical tokens while streaming, before PDF.js can allocate an operator list.
   // Conservative counting also includes strings/font data; over-budget snapping falls back to manual points.
   let inToken=false;
   const countTokens=(chunk:Uint8Array)=>{if(maxTokens===undefined)return;for(const byte of chunk){const boundary=byte===0||byte===9||byte===10||byte===12||byte===13||byte===32||byte===37||byte===40||byte===41||byte===47||byte===60||byte===62||byte===91||byte===93||byte===123||byte===125;if(boundary)inToken=false;else if(!inToken){inToken=true;budget.tokens=(budget.tokens||0)+1;if(budget.tokens>maxTokens)throw tooComplex();}}};
   if(ascii85Flate||filter==='/FlateDecode'||filter==='/Fl'){
-   let streamBytes=0;
-   const inflate=new Unzlib(chunk=>{streamBytes+=chunk.length;budget.decodedBytes+=chunk.length;if(streamBytes>16*1024*1024||budget.decodedBytes>80*1024*1024)throw tooComplex();countTokens(chunk);});
-   if(ascii85Flate){decodePdfAscii85(bytes.subarray(n,end),chunk=>{budget.decodedBytes+=chunk.length;if(budget.decodedBytes>80*1024*1024)throw tooComplex();inflate.push(chunk,false);});inflate.push(new Uint8Array(),true);}
-   else for(let offset=n;offset<end;offset+=512)inflate.push(bytes.subarray(offset,Math.min(end,offset+512)),offset+512>=end);
-  }else if(!filter){budget.decodedBytes+=length!;if(budget.decodedBytes>80*1024*1024)throw tooComplex();countTokens(bytes.subarray(n,end));}
+   inflatePdfStream(bytes.subarray(n,end),budget,ascii85Flate,countTokens);
+  }else if(!filter){budget.decodedBytes+=length!;if(budget.decodedBytes>maxDecodedPdfBytes)throw tooComplex();countTokens(bytes.subarray(n,end));}
   objects.lastIndex=terminator+9;
  }
  return budget;

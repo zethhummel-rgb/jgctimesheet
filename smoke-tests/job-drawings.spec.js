@@ -4,7 +4,7 @@ const {PDFDocument,StandardFonts,rgb,degrees,PDFName}=require('../estimating-app
 const cache={};function load(name){if(cache[name])return cache[name];const m={exports:{}};Function('exports','module','require',ts.transpileModule(fs.readFileSync(path.resolve(__dirname,'../estimating-app/lib/'+name+'.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(m.exports,m,n=>n.startsWith('.')?load(n.replace(/^\.\//,'')):require('../estimating-app/node_modules/'+n));return cache[name]=m.exports;}
 async function sample(count=2){const pdf=await PDFDocument.create(),font=await pdf.embedFont(StandardFonts.Helvetica);for(let n=1;n<=count;n++){const p=pdf.addPage([612,792]);p.drawText('JGC TEST DRAWING PAGE '+n,{x:70,y:700,size:18,font});p.drawLine({start:{x:70,y:600},end:{x:370,y:600},thickness:2,color:rgb(0,0,0)});if(n===2){p.setCropBox(30,40,540,700);p.setRotation(degrees(90));}}return Buffer.from(await pdf.save());}
 function state(){const s=load('estimator-data').createDefaultState();s.clients=[];s.quotes=[];s.priceBook=[];s.jobs=[{id:'job',jobNumber:'26999',quoteId:'',clientId:'',project:'Drawing review',status:'Active',portalJobId:'portal-job',acceptedRevenue:0,originalCostBudget:0,approvedRevenueChanges:0,approvedCostChanges:0,estimateToComplete:0,acceptedAt:'2026-10-01',costs:[],notes:''}];return s;}
-async function setup(page,store){await page.route('**/api/**',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({state:state(),jobs:[],actuals:[],rows:[],saved:true})}));await page.route('https://drawings.example.test/**',async r=>{const req=r.request(),u=new URL(req.url());if(u.pathname.startsWith('/storage/')){if(req.method()==='POST'){store.uploaded=true;return r.fulfill({status:200,contentType:'application/json',body:'{"Key":"ok"}'});}return r.fulfill({status:200,contentType:'application/pdf',body:store.bytes});}if(u.pathname.endsWith('/job_drawings')){if(req.method()==='GET')return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify([store.row])});if(req.method()==='PATCH'){const v=req.postDataJSON();if(u.searchParams.get('revision')!=='eq.'+store.row.revision)return r.fulfill({status:200,contentType:'application/json',body:'null'});store.row={...store.row,...v,updated_at:new Date().toISOString()};store.saves++;return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(store.row)});}if(req.method()==='POST'){const v=req.postDataJSON();store.row={...store.row,...v,object_path:v.id+'/original.pdf'};return r.fulfill({status:201,contentType:'application/json',body:JSON.stringify(store.row)});}}return r.fulfill({status:404,body:'{}'});});await page.goto('/estimating/index.html?dev=1&view=jobs&job=26999');await expect(page.locator('.job-detail-page')).toContainText('26999');await page.evaluate(()=>{window.__drawingBaselineWidth=document.documentElement.scrollWidth;window.createJgcSupabaseClient=()=>window.supabase.createClient('https://drawings.example.test','public-test-key',{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});});await page.getByRole('tab',{name:'Drawings',exact:true}).click();await expect(page.getByLabel('Select drawing').locator('option')).toHaveCount(2);await page.getByLabel('Select drawing').selectOption(store.row.id);await expect(page.locator('.drawing-overlay')).toBeVisible();expect(await page.locator('.drawing-sheet canvas').evaluate(c=>c.width)).toBeGreaterThan(0);}
+async function setup(page,store,storageOrigin){await page.route('**/api/**',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({state:state(),jobs:[],actuals:[],rows:[],saved:true})}));await page.route(storageOrigin?storageOrigin+'/rest/**':'https://drawings.example.test/**',async r=>{const req=r.request(),u=new URL(req.url());if(u.pathname.startsWith('/storage/')){if(req.method()==='POST'){store.uploaded=true;return r.fulfill({status:200,contentType:'application/json',body:'{"Key":"ok"}'});}return r.fulfill({status:200,contentType:'application/pdf',body:store.bytes});}if(u.pathname.endsWith('/job_drawings')){if(req.method()==='GET')return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify([store.row])});if(req.method()==='PATCH'){const v=req.postDataJSON();if(u.searchParams.get('revision')!=='eq.'+store.row.revision)return r.fulfill({status:200,contentType:'application/json',body:'null'});store.row={...store.row,...v,updated_at:new Date().toISOString()};store.saves++;return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(store.row)});}if(req.method()==='POST'){const v=req.postDataJSON();store.row={...store.row,...v,object_path:v.id+'/original.pdf'};return r.fulfill({status:201,contentType:'application/json',body:JSON.stringify(store.row)});}}return r.fulfill({status:404,body:'{}'});});await page.goto('/estimating/index.html?dev=1&view=jobs&job=26999');await expect(page.locator('.job-detail-page')).toContainText('26999');await page.evaluate(origin=>{window.__drawingBaselineWidth=document.documentElement.scrollWidth;window.createJgcSupabaseClient=()=>window.supabase.createClient(origin,'public-test-key',{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});},storageOrigin||'https://drawings.example.test');await page.getByRole('tab',{name:'Drawings',exact:true}).click();await expect(page.getByLabel('Select drawing').locator('option')).toHaveCount(2);await page.getByLabel('Select drawing').selectOption(store.row.id);await expect(page.locator('.drawing-overlay')).toBeVisible();expect(await page.locator('.drawing-sheet canvas').evaluate(c=>c.width)).toBeGreaterThan(0);}
 async function store(){return{bytes:await sample(),saves:0,row:{id:'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',job_id:'job',title:'Architectural drawing',file_name:'original.pdf',object_path:'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa/original.pdf',revision:1,content:load('drawing-model').emptyDrawing(),created_at:'2026-10-01',updated_at:'2026-10-01'}};}
 async function drag(page,x=70,y=90,dx=130,dy=0){if(await page.getByRole('button',{name:'Set scale',exact:true}).count()&&await page.getByRole('button',{name:'Set scale',exact:true}).getAttribute('aria-pressed')==='true'){await distance(page,x,y,dx,dy);return;}await page.locator('.drawing-overlay').evaluate(svg=>scrollTo(0,scrollY+svg.getBoundingClientRect().top-240));const b=await page.locator('.drawing-overlay').boundingBox();await page.mouse.move(b.x+x,b.y+y);await page.mouse.down();await page.mouse.move(b.x+x+dx,b.y+y+dy,{steps:5});await page.mouse.up();}
 async function distance(page,x=70,y=150,dx=130,dy=0){await page.locator('.drawing-overlay').evaluate(svg=>scrollTo(0,scrollY+svg.getBoundingClientRect().top-240));const b=await page.locator('.drawing-overlay').boundingBox();await page.mouse.click(b.x+x,b.y+y);await page.mouse.move(b.x+x+dx,b.y+y+dy);await page.mouse.click(b.x+x+dx,b.y+y+dy);}
@@ -397,31 +397,112 @@ for(const theme of ['light','dark'])for(const width of [390,1440])test(`a saved 
  if(width>900)for(const label of ['Page 2','Page 3'])expect(await page.getByRole('button',{name:label,exact:true}).locator('canvas').evaluate(c=>c.height)).toBeLessThanOrEqual(440);
  await pageNumber.fill('1');await pageNumber.press('Enter');await expect(page.locator('.drawing-page-problem')).toHaveCount(0);await expect.poll(()=>sheet.evaluate(c=>c.width)).toBeGreaterThan(0);
 });
-test('CCITT scanner upload displays every page and keeps the original PDF intact',async({page},info)=>{
- test.setTimeout(60000);
- const s=await store();await setup(page,s);
- if(process.env.JGC_PDF_FORCE_FALLBACK)await page.route('**/pdf-decoders/jbig2.wasm',route=>route.abort('failed'));
- const bytes=process.env.JGC_PDF_QA_FILE?fs.readFileSync(process.env.JGC_PDF_QA_FILE):await require('./fixtures/ccitt-pdf').ccittPdf();
- const original=Buffer.from(bytes),sourceDoc=await PDFDocument.load(bytes),pages=sourceDoc.getPageCount();
- let stored;
- await page.route('https://drawings.example.test/storage/**',async route=>{
-  if(route.request().method()==='POST'){
-   const req=route.request(),body=req.postDataBuffer();
-   if((req.headers()['content-type']||'').startsWith('multipart/form-data')){
-    const form=await new Request(req.url(),{method:'POST',headers:req.headers(),body}).formData();
-    for(const value of form.values())if(value instanceof Blob)stored=Buffer.from(await value.arrayBuffer());
-   }else stored=body;
-   return route.fulfill({json:{Key:'ok'}});
+// A real, loopback-only HTTP endpoint receives the file bytes. WebKit's
+// Playwright routing API omits file contents when inspecting multipart requests.
+const uploadTest = test.extend({
+ drawingStorage: async ({baseURL}, use) => {
+  const http = require('node:http');
+  const {once} = require('node:events');
+  const storage = {origin:'', bytes:null, reads:0};
+  const server = http.createServer(async (req,res) => {
+   res.setHeader('Access-Control-Allow-Origin', new URL(baseURL).origin);
+   if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Methods','GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers',req.headers['access-control-request-headers'] || '');
+    res.writeHead(204).end();
+    return;
+   }
+   if (!new URL(req.url,storage.origin).pathname.startsWith('/storage/v1/object/job-drawings/')) {
+    res.writeHead(404).end();
+    return;
+   }
+   if (req.method === 'POST') {
+    try {
+     const chunks = [];
+     for await (const chunk of req) chunks.push(chunk);
+     const body = Buffer.concat(chunks);
+     if ((req.headers['content-type'] || '').startsWith('multipart/form-data')) {
+      const form = await new Response(body,{headers:{'Content-Type':req.headers['content-type']}}).formData();
+      const file = [...form.values()].find(value => value instanceof Blob);
+      if (!file) throw new Error('Expected an uploaded file');
+      storage.bytes = Buffer.from(await file.arrayBuffer());
+     } else storage.bytes = body;
+     res.writeHead(200,{'Content-Type':'application/json'}).end('{"Key":"ok"}');
+    } catch (error) {
+     res.writeHead(400).end(error.message);
+    }
+    return;
+   }
+   if (req.method === 'GET' && storage.bytes) {
+    storage.reads++;
+    res.writeHead(200,{'Content-Type':'application/pdf'}).end(storage.bytes);
+    return;
+   }
+   res.writeHead(404).end();
+  });
+  const ready = once(server,'listening');
+  server.listen(0,'127.0.0.1');
+  await ready;
+  storage.origin = 'http://127.0.0.1:'+server.address().port;
+  try { await use(storage); }
+  finally {
+   const closed = once(server,'close');
+   server.close();
+   server.closeAllConnections();
+   await closed;
   }
-  return route.fulfill({contentType:'application/pdf',body:bytes});
- });
- await page.locator('.drawing-heading input[type=file]').setInputFiles({name:'Scanned declaration.pdf',mimeType:'application/pdf',buffer:bytes});
- await expect(page.getByLabel('Drawing title')).toHaveValue('Scanned declaration');
- expect(stored.equals(original)).toBe(true);
+ }
+});
+// The viewer updates its page number before PDF.js finishes painting. Observe
+// the renderer's completion promise so screenshots contain the entire sheet.
+async function observeSheetPaint(page, probePdf) {
+ const manifest=require('../estimating/.vite/manifest.json');
+ const engine=Object.entries(manifest).find(([name])=>name.endsWith('pdfjs-dist/legacy/build/pdf.mjs'))[1];
+ await page.evaluate(async ({url,probe})=>{
+  const pdfjs=await import(url);
+  const doc=await pdfjs.getDocument({data:Uint8Array.from(probe)}).promise;
+  const proto=Object.getPrototypeOf(await doc.getPage(1));
+  const render=proto.render;
+  let latest;
+  proto.render=function(options){
+   const task=render.call(this,options), canvas=options.canvas;
+   if(canvas?.matches('.drawing-sheet canvas')){
+    latest=task;
+    delete canvas.dataset.paintedPage;
+    task.promise.then(()=>{
+     if(latest===task) canvas.dataset.paintedPage=String(this.pageNumber);
+    },()=>{});
+   }
+   return task;
+  };
+  await doc.loadingTask.destroy();
+ },{url:'/estimating/'+engine.file,probe:[...probePdf]});
+}
+for (const format of [
+ {name:'CCITT scanner', title:'Scanned declaration', file:'JGC_PDF_QA_FILE', fixture:require('./fixtures/ccitt-pdf').ccittPdf},
+ {name:'Acrobat wrapped JPEG', title:'Acrobat drawing', file:'JGC_WRAPPED_JPEG_QA_FILE', fixture:require('./fixtures/flate-jpeg-pdf').flateJpegPdf},
+]) uploadTest(format.name+' upload displays every page and keeps the original PDF intact',async({page,drawingStorage},info)=>{
+ uploadTest.setTimeout(90000);
+ const s=await store();
+ drawingStorage.bytes=s.bytes;
+ await setup(page,s,drawingStorage.origin);
+ await observeSheetPaint(page,s.bytes);
+ if(process.env.JGC_PDF_FORCE_FALLBACK)await page.route('**/pdf-decoders/jbig2.wasm',route=>route.abort('failed'));
+ const bytes=process.env[format.file]?fs.readFileSync(process.env[format.file]):await format.fixture();
+ const original=Buffer.from(bytes),sourceDoc=await PDFDocument.load(bytes),pages=sourceDoc.getPageCount();
+ await page.locator('.drawing-heading input[type=file]').setInputFiles({name:format.title+'.pdf',mimeType:'application/pdf',buffer:bytes});
+ await expect(page.getByLabel('Drawing title')).toHaveValue(format.title,{timeout:25000});
+ expect(drawingStorage.bytes.equals(original)).toBe(true);
+ const readsBeforeRefresh=drawingStorage.reads;
+ await page.getByRole('button',{name:'Refresh drawings',exact:true}).click();
+ await expect.poll(()=>drawingStorage.reads).toBeGreaterThan(readsBeforeRefresh);
+ await expect(page.getByRole('button',{name:'Refresh drawings',exact:true})).toBeEnabled();
+ const sheetCanvas=page.locator('.drawing-sheet canvas');
  for(let n=1;n<=pages;n++){
-  await page.getByRole('button',{name:'Page '+n,exact:true}).click();
+  if(n>1)await page.getByRole('button',{name:'Next page',exact:true}).click();
   await expect(page.getByLabel('Page number',{exact:true})).toHaveValue(String(n));
-  await expect.poll(()=>page.locator('.drawing-sheet canvas').evaluate(c=>{
+  await expect(sheetCanvas).toHaveAttribute('data-painted-page',String(n),{timeout:25000});
+  await expect.poll(()=>sheetCanvas.evaluate(c=>{
    if(!c.width||!c.height)return 0;
    const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
    let dark=0;for(let i=0;i<d.length;i+=16)if(d[i]<100&&d[i+3]>0)dark++;return dark;
