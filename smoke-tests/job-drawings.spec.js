@@ -453,6 +453,31 @@ const uploadTest = test.extend({
   }
  }
 });
+// The viewer updates its page number before PDF.js finishes painting. Observe
+// the renderer's completion promise so screenshots contain the entire sheet.
+async function observeSheetPaint(page, probePdf) {
+ const manifest=require('../estimating/.vite/manifest.json');
+ const engine=Object.entries(manifest).find(([name])=>name.endsWith('pdfjs-dist/legacy/build/pdf.mjs'))[1];
+ await page.evaluate(async ({url,probe})=>{
+  const pdfjs=await import(url);
+  const doc=await pdfjs.getDocument({data:Uint8Array.from(probe)}).promise;
+  const proto=Object.getPrototypeOf(await doc.getPage(1));
+  const render=proto.render;
+  let latest;
+  proto.render=function(options){
+   const task=render.call(this,options), canvas=options.canvas;
+   if(canvas?.matches('.drawing-sheet canvas')){
+    latest=task;
+    delete canvas.dataset.paintedPage;
+    task.promise.then(()=>{
+     if(latest===task) canvas.dataset.paintedPage=String(this.pageNumber);
+    },()=>{});
+   }
+   return task;
+  };
+  await doc.loadingTask.destroy();
+ },{url:'/estimating/'+engine.file,probe:[...probePdf]});
+}
 for (const format of [
  {name:'CCITT scanner', title:'Scanned declaration', file:'JGC_PDF_QA_FILE', fixture:require('./fixtures/ccitt-pdf').ccittPdf},
  {name:'Acrobat wrapped JPEG', title:'Acrobat drawing', file:'JGC_WRAPPED_JPEG_QA_FILE', fixture:require('./fixtures/flate-jpeg-pdf').flateJpegPdf},
@@ -461,6 +486,7 @@ for (const format of [
  const s=await store();
  drawingStorage.bytes=s.bytes;
  await setup(page,s,drawingStorage.origin);
+ await observeSheetPaint(page,s.bytes);
  if(process.env.JGC_PDF_FORCE_FALLBACK)await page.route('**/pdf-decoders/jbig2.wasm',route=>route.abort('failed'));
  const bytes=process.env[format.file]?fs.readFileSync(process.env[format.file]):await format.fixture();
  const original=Buffer.from(bytes),sourceDoc=await PDFDocument.load(bytes),pages=sourceDoc.getPageCount();
@@ -471,10 +497,12 @@ for (const format of [
  await page.getByRole('button',{name:'Refresh drawings',exact:true}).click();
  await expect.poll(()=>drawingStorage.reads).toBeGreaterThan(readsBeforeRefresh);
  await expect(page.getByRole('button',{name:'Refresh drawings',exact:true})).toBeEnabled();
+ const sheetCanvas=page.locator('.drawing-sheet canvas');
  for(let n=1;n<=pages;n++){
   if(n>1)await page.getByRole('button',{name:'Next page',exact:true}).click();
   await expect(page.getByLabel('Page number',{exact:true})).toHaveValue(String(n));
-  await expect.poll(()=>page.locator('.drawing-sheet canvas').evaluate(c=>{
+  await expect(sheetCanvas).toHaveAttribute('data-painted-page',String(n),{timeout:25000});
+  await expect.poll(()=>sheetCanvas.evaluate(c=>{
    if(!c.width||!c.height)return 0;
    const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
    let dark=0;for(let i=0;i<d.length;i+=16)if(d[i]<100&&d[i+3]>0)dark++;return dark;
