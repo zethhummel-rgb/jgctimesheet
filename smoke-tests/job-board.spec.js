@@ -69,7 +69,8 @@ async function install(page, store, options = {}) {
     store.calls.push({ name, args });
     const role = store.identity, manager = role === 'admin', canUpload = role === 'staff' || manager, restricted = role === 'client' || canUpload;
     const validVisit=!!store.visit && args.p_visit_token===store.visit;
-    const board = () => ({ id: BOARD_ID, job_id: 'existing-estimator-job', job_number: '26132', job_name: '14815 County Road 2 – Site safety', address: store.address ?? 'South Stormont, Ontario', token: TOKEN, enabled: true, can_manage: manager, can_upload: canUpload, can_register_as_staff: canUpload, can_read_restricted: restricted, requires_visitor_signin: !validVisit && !manager, documents: manager ? store.documentRows : !validVisit ? [] : store.documentRows.filter((d) => d.status === 'published' && (d.visibility === 'public' || restricted)), viewers: manager ? [{ id: 'viewer-id', email: 'client@example.test' }] : [], document_link: (manager || validVisit) && store.documentLink ? store.documentLink : null });
+    const drawingsAllowed = manager || (validVisit && (canUpload || options.legacyVisitorDrawings));
+    const board = () => ({ id: BOARD_ID, job_id: 'existing-estimator-job', job_number: '26132', job_name: '14815 County Road 2 – Site safety', address: store.address ?? 'South Stormont, Ontario', token: TOKEN, enabled: true, can_manage: manager, can_upload: canUpload, can_register_as_staff: canUpload, can_read_restricted: restricted, requires_visitor_signin: !validVisit && !manager, documents: manager ? store.documentRows : !validVisit ? [] : store.documentRows.filter((d) => d.status === 'published' && (d.visibility === 'public' || restricted)), viewers: manager ? [{ id: 'viewer-id', email: 'client@example.test' }] : [], document_link: drawingsAllowed ? store.documentLink || null : null });
     if (name === 'get_job_board' || name === 'get_or_create_job_board') return store.failBoard ? route.fulfill({ status: 403, json: { message: 'Board unavailable for this test' } }) : route.fulfill({ json: { ...board(), emergency_info: store.emergencyInfo || {} } });
     if (name === 'save_job_board_emergency_info') {
       if (!manager) return route.fulfill({ status: 403, json: { message: 'Approved administrator access required' } });
@@ -1276,21 +1277,40 @@ test('a reload reopens the JSA a visitor was signing on to; Back forgets it', as
   await expect(page.locator('#boardContent')).toBeVisible(); await expect(page.locator('#jsaSignOnPanel')).toBeHidden();
 });
 
-for (const [identity, width] of [['guest', 390], ['staff', 1280]]) test(`signed-in ${identity} opens the job's drawings from the Drawings tab`, async ({ page, context }, info) => {
+for (const identity of ['guest', 'client']) test(`Job Board drawings stay hidden before and after ${identity} signs in as a visitor`, async ({ page }) => {
+  const store = await open(page, identity, { legacyVisitorDrawings: identity === 'client' });
+  store.documentLink = { url: 'https://drawings.example.test/visitor-test', label: 'Drawings and Spec' };
+  await page.reload();
+  const tab = page.locator('#drawingsTab');
+  const link = page.locator('#boardDocuments');
+  await expect(page.locator('#loginOptions')).toBeVisible();
+  await expect(tab).toBeHidden();
+  await expect(link).not.toHaveAttribute('href');
+  await visitorSignIn(page);
+  await expect(page.locator('#signedInSafety')).toBeVisible();
+  await expect(tab).toBeHidden();
+  await expect(link).not.toHaveAttribute('href');
+  await expect(link).toHaveText('Open drawings');
+});
+
+for (const [identity, width] of [['staff', 390], ['admin', 1280]]) test(`signed-in ${identity} opens the job's drawings from the Drawings tab`, async ({ page, context }, info) => {
   await page.setViewportSize({ width, height: 900 });
-  const store = await open(page, identity);
+  const store = await open(page, identity === 'staff' ? 'guest' : identity);
   store.documentLink = { url: 'https://drawings.example.test/job-26132', label: 'Employee Drawings/Shop Drawings' };
   await context.route(store.documentLink.url, route => route.fulfill({ body: 'Job 26132 drawings folder' }));
   const tab = page.getByRole('tab', { name: 'Drawings', exact: true });
   const link = page.locator('#boardDocuments');
-  if (identity === 'guest') {
+  if (identity === 'staff') {
     await expect(tab).toBeHidden();
     await expect(link).not.toHaveAttribute('href');
-    await visitorSignIn(page);
+    await page.locator('#staffLogin').click();
+    await page.locator('#staffEmail').fill('staff@example.test');
+    await page.locator('#staffPassword').fill('fixture-password');
+    await page.locator('#staffSubmit').click();
   } else await page.locator('#boardRefresh').click();
   await expect(tab).toBeVisible();
   await expect(link).toBeHidden();
-  if (identity === 'guest') await tab.click();
+  if (identity === 'staff') await tab.click();
   else {
     await page.getByRole('tab', { name: 'Documents', exact: true }).press('ArrowRight');
     await expect(tab).toBeFocused();
@@ -1306,10 +1326,14 @@ for (const [identity, width] of [['guest', 390], ['staff', 1280]]) test(`signed-
   await expect(folder.getByText('Job 26132 drawings folder')).toBeVisible();
   await folder.close();
   await page.locator('#drawingsPanel').screenshot({ path: info.outputPath(`board-drawings-link-${identity}-${width}.png`) });
-  await page.locator('#boardLogout').click();
-  await expect(page.locator('#loginOptions')).toBeVisible();
-  await expect(tab).toBeHidden();
-  await expect(link).not.toHaveAttribute('href');
+  if (identity === 'staff') {
+    await page.locator('#boardLogout').click();
+    await expect(page.locator('#loginOptions')).toBeVisible();
+    await visitorSignIn(page);
+    await expect(tab).toBeHidden();
+    await expect(link).not.toHaveAttribute('href');
+    await expect(link).toHaveText('Open drawings');
+  }
 });
 test('the Drawings tab requires an HTTPS link and returns to Documents when the link is removed', async ({ page }) => {
   const store = await open(page, 'staff'); const link = page.locator('#boardDocuments');

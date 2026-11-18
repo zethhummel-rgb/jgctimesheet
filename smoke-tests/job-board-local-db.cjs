@@ -667,6 +667,7 @@ async function createDatabase() {
     });
     await db.exec('reset role');
     const migrationDir = path.join(__dirname,'../supabase/migrations');
+    await db.exec(fs.readFileSync(path.join(migrationDir,'20261008180000_job_board_document_link_1010.sql'),'utf8'));
     const oldPrivacy = fs.readFileSync(path.join(migrationDir,'20261009175359_public_qr_privacy_1014.sql'),'utf8');
     const oldAttendance = fs.readFileSync(path.join(migrationDir,'20261009180039_qr_identity_attendance_notifications_1014.sql'),'utf8');
     const existingFunction = (source, name) => {
@@ -803,6 +804,52 @@ async function createDatabase() {
       await assert.rejects(()=>saveEmergency({ muster_point:'Stale edit' },{}),/another person/i);
       assert.deepEqual((await getBoard(qrBoard)).emergency_info,posted);
       assert.deepEqual(await saveEmergency({ muster_point:'  ' },posted),{});
+    });
+    await db.exec('reset role');
+    await db.exec(fs.readFileSync(path.join(migrationDir,'20261118160054_job_board_staff_drawings.sql'),'utf8'));
+    const drawings = { url: 'https://drawings.example.invalid/project', label: 'Drawings and Spec' };
+    await db.query('update public.jobs set document_link=$1, document_link_label=$2 where id=$3',[drawings.url,drawings.label,ids.job]);
+    // The drawings scenarios start in a fresh sign-in window after the preceding site visits.
+    await db.query("update public.job_board_visitor_sessions set created_at=now()-interval '2 minutes' where board_id=$1 and created_at>now()-interval '1 minute'",[qrBoard.id]);
+    await check('QR scans, registered visitors and restricted-report viewers receive no drawings link', async () => {
+      await as('anon');
+      assert.equal((await getBoard(qrBoard)).document_link,null);
+      const visitorBoard = await getBoard(qrBoard,await register(qrBoard));
+      assert.equal(visitorBoard.requires_visitor_signin,false);
+      assert.equal(visitorBoard.document_link,null);
+      assert(!(JSON.stringify(await publicSafety(qrBoard.token)).includes(drawings.url)));
+      await as('authenticated','admin');
+      await rpc('select public.grant_job_board_viewer($1,$2) result',[qrBoard.id,'client@example.invalid']);
+      await as('authenticated','client');
+      const clientBoard = await getBoard(qrBoard,await register(qrBoard));
+      assert.equal(clientBoard.can_read_restricted,true);
+      assert.equal(clientBoard.document_link,null);
+    });
+    await check('the staff visit and the office management view receive only the selected job’s drawings', async () => {
+      await as('authenticated','staff');
+      assert.equal((await getBoard(qrBoard)).document_link,null);
+      const visit = await register(qrBoard);
+      assert.deepEqual((await getBoard(qrBoard,visit)).document_link,drawings);
+      assert.equal((await getBoard(otherQrBoard,visit)).document_link,null);
+      assert.equal((await db.query('select document_link from public.jobs where id=$1',[ids.job])).rows[0].document_link,drawings.url);
+      await as('authenticated','admin');
+      const office = await rpc('select public.get_or_create_job_board($1) result',[ids.job]);
+      assert.deepEqual(office.document_link,drawings);
+    });
+    await check('staff eligibility is checked again and a client visit never becomes a staff sign-in', async () => {
+      await as('authenticated','otherStaff');
+      const staffVisit = await register(qrBoard);
+      await db.exec('reset role');
+      await db.query("update public.profiles set role='subcontractor' where id=$1",[ids.otherStaff]);
+      await as('authenticated','otherStaff');
+      assert.equal((await getBoard(qrBoard,staffVisit)).document_link,null);
+      assert.equal((await db.query('select document_link from public.jobs where id=$1',[ids.job])).rows.length,0);
+      const clientVisit = await register(qrBoard);
+      await db.exec('reset role');
+      await db.query("update public.profiles set role='supervisor' where id=$1",[ids.otherStaff]);
+      await as('authenticated','otherStaff');
+      assert.equal((await getBoard(qrBoard,clientVisit)).document_link,null);
+      assert.deepEqual((await getBoard(qrBoard,await register(qrBoard))).document_link,drawings);
     });
     await check('disabled boards and old printed QR codes cannot return emergency information', async () => {
       await as('authenticated','admin');
