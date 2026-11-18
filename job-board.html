@@ -37,7 +37,6 @@
         <button class="jgc-button jgc-button--secondary" id="boardRefresh" type="button" data-testid="board-refresh">Refresh</button>
         <button class="jgc-button jgc-button--secondary" id="boardOnsite" type="button" hidden>On site today</button>
         <button class="jgc-button jgc-button--secondary" id="boardContacts" type="button" hidden>JGC Contacts</button>
-        <a class="jgc-button jgc-button--secondary" id="boardDocuments" target="_blank" rel="noopener noreferrer" hidden>Drawings &amp; documents</a>
         <button class="jgc-button jgc-button--secondary" id="boardLogout" type="button" hidden>Log out</button>
         <button class="jgc-button jgc-button--secondary" id="boardSignIn" type="button">Staff sign-in</button>
       </div>
@@ -159,6 +158,7 @@
       </div>
       <nav class="jgc-tabs board-tabs" aria-label="Job Board sections" role="tablist">
         <button class="jgc-tab active" id="documentsTab" type="button" role="tab" aria-selected="true" aria-controls="documentsPanel" data-panel="documentsPanel">Documents</button>
+        <button class="jgc-tab" id="drawingsTab" type="button" role="tab" aria-selected="false" aria-controls="drawingsPanel" data-panel="drawingsPanel" hidden>Drawings</button>
         <button class="jgc-tab" id="uploadTab" type="button" role="tab" aria-selected="false" aria-controls="uploadPanel" data-panel="uploadPanel">Upload</button>
         <button class="jgc-tab" id="reviewTab" type="button" role="tab" aria-selected="false" aria-controls="reviewPanel" data-panel="reviewPanel" hidden>Review uploads <span id="reviewCount"></span></button>
       </nav>
@@ -168,6 +168,12 @@
         <button id="signedInSafety" type="button" class="jgc-button jgc-button--secondary board-signed-safety" hidden><i data-lucide="shield-check" aria-hidden="true"></i> Safety information <i data-lucide="chevron-right" aria-hidden="true"></i></button>
         <p class="board-help">Open a section to view its documents. Newest reports appear first.</p>
       </div>
+
+      <section class="jgc-panel" id="drawingsPanel" role="tabpanel" aria-labelledby="drawingsTab" hidden>
+        <div class="board-actions">
+          <a class="jgc-button" id="boardDocuments" target="_blank" rel="noopener noreferrer">Open drawings</a>
+        </div>
+      </section>
 
       <section class="jgc-panel" id="uploadPanel" role="tabpanel" aria-labelledby="uploadTab" hidden>
         <div class="board-section-heading"><div><h2 class="jgc-section-title">Upload a site document</h2><p>Add a scanned paper form, PDF or photo to this Job Board.</p></div></div>
@@ -302,6 +308,6 @@
   <script src="job-board-report-pdf.js?v=6"></script>
   <script src="job-board-email.js?v=1"></script>
   <script src="safety-signature-pad.js?v=4"></script>
-  <script src="job-board.js?v=30"></script>
+  <script src="job-board.js?v=31"></script>
 </body>
 </html>

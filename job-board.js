@@ -154,10 +154,16 @@
     const gated = !state.manage && !!board.requires_visitor_signin;
     $('boardOnsite').hidden = !state.manage || gated || !isStaffBoard(); if ($('boardOnsite').hidden && $('onsiteDialog').open) $('onsiteDialog').close();
     $('boardContacts').hidden = gated;
-    // The job's drawings/documents folder, the same link as on the Portal Jobs page, for anyone signed in to the board.
-    const folder = board.document_link && /^https:\/\/\S+$/i.test(board.document_link.url || '') ? board.document_link : null;
-    $('boardDocuments').hidden = gated || !folder;
-    if (folder) { $('boardDocuments').href = folder.url; $('boardDocuments').textContent = folder.label || 'Drawings & documents'; } else $('boardDocuments').removeAttribute('href');
+    // Use the existing Portal Jobs folder link for the signed-in board.
+    const folder = !gated && board.document_link && /^https:\/\/\S+$/i.test(board.document_link.url || '') ? board.document_link : null;
+    $('drawingsTab').hidden = !folder;
+    if (folder) {
+      $('boardDocuments').href = folder.url;
+      $('boardDocuments').textContent = folder.label || 'Open drawings';
+    } else {
+      $('boardDocuments').removeAttribute('href');
+      if (!$('drawingsPanel').hidden) selectTab('documentsPanel');
+    }
     if (gated && $('contactsDialog').open) $('contactsDialog').close();
     if (!state.manage) {
       $('qrFooterJob').textContent = board.job_name || title;
