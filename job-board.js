@@ -106,6 +106,7 @@
   async function loadBoard() {
     jsaReviewGeneration++;jsaReview=null;showJsaPanel(false);
     const generation = ++state.generation;
+    $('boardDocuments').removeAttribute('href');
     ['loginOptions','publicSafety','visitorGate','staffGate'].forEach(id => $(id).hidden = true);
     state.safetyOpen = false; state.preparedJsas = []; $('qrFooter').hidden = true; $('boardLoading').hidden = false; $('boardError').hidden = true; $('visitorGate').hidden = true; $('boardContent').hidden = true;
     try {
@@ -138,6 +139,7 @@
       renderBoard();
     } catch (error) {
       if (generation !== state.generation) return;
+      renderDrawings(null);
       $('boardErrorMessage').textContent = errorMessage(error); $('boardError').hidden = false;
     } finally { if (generation === state.generation) $('boardLoading').hidden = true; }
   }
@@ -155,16 +157,7 @@
     const gated = !state.manage && !!board.requires_visitor_signin;
     $('boardOnsite').hidden = !state.manage || gated || !isStaffBoard(); if ($('boardOnsite').hidden && $('onsiteDialog').open) $('onsiteDialog').close();
     $('boardContacts').hidden = gated;
-    // Use the existing Portal Jobs folder link for the signed-in board.
-    const folder = !gated && board.document_link && /^https:\/\/\S+$/i.test(board.document_link.url || '') ? board.document_link : null;
-    $('drawingsTab').hidden = !folder;
-    if (folder) {
-      $('boardDocuments').href = folder.url;
-      $('boardDocuments').textContent = folder.label || 'Open drawings';
-    } else {
-      $('boardDocuments').removeAttribute('href');
-      if (!$('drawingsPanel').hidden) selectTab('documentsPanel');
-    }
+    renderDrawings(!gated && isStaffBoard() ? board.document_link : null);
     if (gated && $('contactsDialog').open) $('contactsDialog').close();
     if (!state.manage) {
       $('qrFooterJob').textContent = board.job_name || title;
@@ -208,6 +201,19 @@
     if (board.can_upload) renderCreateForms();
     if (state.highlighted && !highlightDocument() && !state.manage) void openPublicSafety({ deepLink: true });
     if (state.user || state.visit) void loadPreparedJsas(); else state.preparedJsas = [];
+  }
+  function renderDrawings(folder) {
+    const link = $('boardDocuments');
+    const available = /^https:\/\/\S+$/i.test(folder?.url || '');
+    $('drawingsTab').hidden = !available;
+    if (available) {
+      link.href = folder.url;
+      link.textContent = folder.label || 'Open drawings';
+    } else {
+      link.removeAttribute('href');
+      link.textContent = 'Open drawings';
+      if (!$('drawingsPanel').hidden) selectTab('documentsPanel');
+    }
   }
   // Signed-in people see only this job's JSA on its work date; the first saved signature activates it.
   let preparedGeneration = 0;
