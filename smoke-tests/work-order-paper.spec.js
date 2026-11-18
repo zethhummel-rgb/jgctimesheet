@@ -243,6 +243,8 @@ test('the real offline cache contains the paper editor and keeps draft inputs us
       return Promise.all(assets.map(async name=>!!await cache.match(new URL(name,location.href))));
     });
     expect(cached).toEqual([true,true,true]);
+    await expect(page.locator('#saveButton')).toHaveText('Update Work Order');
+    await expect(page.locator('#woDescription')).toHaveValue('Repair the entrance.');
     await context.setOffline(true);
     await page.locator('#woDescription').fill('Offline work description');
     await page.locator('#saveButton').click();
