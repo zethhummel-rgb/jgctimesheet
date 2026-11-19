@@ -14,6 +14,12 @@ function localDate(date: Date) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 }
 
+function nextCalendarDate(date: string) {
+  const next = new Date(date + "T00:00:00Z");
+  next.setUTCDate(next.getUTCDate() + 1);
+  return next.toISOString().slice(0, 10);
+}
+
 function esc(value: unknown) {
   return String(value ?? "").replace(/\\/g, "\\\\").replace(/\r?\n/g, "\\n").replace(/;/g, "\\;").replace(/,/g, "\\,");
 }
@@ -92,10 +98,13 @@ function scheduleEvent(e: any) {
   if (e.location) lines.push(prop("LOCATION", e.location));
   if (e.start_time) {
     lines.push("DTSTART;TZID=" + TZ + ":" + dt(e.event_date, e.start_time));
-    lines.push("DTEND;TZID=" + TZ + ":" + dt(e.event_date, e.end_time || plus30(e.start_time)));
+    const endTime = e.end_time || plus30(e.start_time);
+    let endDate = e.end_date || e.event_date;
+    if (!e.end_time && endTime < String(e.start_time).slice(0, 5)) endDate = nextCalendarDate(endDate);
+    lines.push("DTEND;TZID=" + TZ + ":" + dt(endDate, endTime));
   } else {
     lines.push("DTSTART;VALUE=DATE:" + ymd(e.event_date));
-    lines.push("DTEND;VALUE=DATE:" + ymd(localDate(addDays(new Date(e.event_date + "T00:00:00"), 1))));
+    lines.push("DTEND;VALUE=DATE:" + ymd(nextCalendarDate(e.end_date || e.event_date)));
   }
   lines.push("END:VEVENT");
   return lines.map(fold).join("\r\n");
@@ -103,7 +112,7 @@ function scheduleEvent(e: any) {
 
 function vacationEvent(v: any) {
   const name = v.worker_display_name || v.worker_name || "Employee";
-  const end = localDate(addDays(new Date((v.end_date || v.start_date) + "T00:00:00"), 1));
+  const end = nextCalendarDate(v.end_date || v.start_date);
   return [
     "BEGIN:VEVENT",
     prop("UID", `vacation-${v.id}@jgc-portal`),
@@ -148,7 +157,7 @@ Deno.serve(async (req) => {
   const start = localDate(addDays(new Date(), -60));
   const end = localDate(addDays(new Date(), 370));
   const [schedules, vacations] = await Promise.all([
-    db.from("schedule_events").select("*").gte("event_date", start).lte("event_date", end).order("event_date").order("start_time"),
+    db.from("schedule_events").select("*").or("event_date.gte." + start + ",end_date.gte." + start).lte("event_date", end).order("event_date").order("start_time"),
     db.from("vacation_requests").select("id,worker_name,worker_display_name,start_date,end_date,request_type,total_days,status,created_at,updated_at").eq("status", "approved").gte("end_date", start).lte("start_date", end).order("start_date"),
   ]);
   if (schedules.error) return Response.json({ success: false, error: schedules.error.message }, { status: 500, headers: cors });

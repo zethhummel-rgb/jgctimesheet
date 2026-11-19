@@ -13,6 +13,7 @@ type ScheduleEvent = {
   id: string;
   event_type: string | null;
   event_date: string;
+  end_date?: string | null;
   start_time: string | null;
   end_time: string | null;
   title: string | null;
@@ -160,11 +161,16 @@ function eventTitle(event: ScheduleEvent) {
   return event.title || event.job_name || event.location || "Scheduled Event";
 }
 
+function eventDates(event: ScheduleEvent) {
+  const start = formatDisplayDate(event.event_date);
+  return event.end_date && event.end_date !== event.event_date ? start + " – " + formatDisplayDate(event.end_date) : start;
+}
+
 function eventBody(event: ScheduleEvent, reminderLabel: string, reminderSentAt: Date) {
   return [
     `JGC Schedule Reminder - ${reminderLabel}`,
     "",
-    `Event Date: ${formatDisplayDate(event.event_date)}`,
+    `Event Date: ${eventDates(event)}`,
     `Event Time: ${[formatTime(event.start_time), event.end_time ? "to " + formatTime(event.end_time) : ""].filter(Boolean).join(" ") || "All day / no time set"}`,
     `Reminder Sent: ${formatDisplayDateTime(reminderSentAt)}`,
     `Item: ${eventTitle(event)}`,
@@ -199,7 +205,7 @@ async function sendReminder(event: ScheduleEvent, creatorEmail: string, employee
     },
     body: JSON.stringify({
       to: recipients.join(","),
-      subject: `JGC Schedule Reminder - ${eventTitle(event)} - Event ${formatDisplayDate(event.event_date)}`,
+      subject: `JGC Schedule Reminder - ${eventTitle(event)} - Event ${eventDates(event)}`,
       body,
       text: body,
       pdfHtml: `<html><body><pre>${body.replace(/[&<>"']/g, (char) => ({

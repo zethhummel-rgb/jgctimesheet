@@ -152,6 +152,128 @@ async function installState(page, role = "worker") {
   await page.route("https://script.googleusercontent.com/**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: '{"ok":true,"success":true}' }));
 }
 
+
+test("a saved November 24 event can be extended, reopened from its middle day and shortened", async ({ page }) => {
+  await installState(page, "admin");
+  const user = createSession("admin").user;
+  let saved = {
+    id: "nov-24", event_type: "general", event_date: "2026-11-24", title: "Site coordination",
+    start_time: "08:00:00", end_time: "16:00:00", created_by: user.id, notes: "Meet at the trailer",
+    employee_keys: ["zeth hummel"], employee_names: ["Zeth Hummel"], employee_emails: [user.email]
+  };
+  const writes = [];
+  await page.route(supabaseOrigin + "/rest/v1/schedule_events**", async (route) => {
+    const request = route.request();
+    if (request.method() === "PATCH") {
+      expect(new URL(request.url()).searchParams.get("id")).toBe("eq.nov-24");
+      const patch = request.postDataJSON();
+      writes.push(patch);
+      saved = { ...saved, ...patch };
+    } else {
+      expect(request.method()).toBe("GET");
+    }
+    await route.fulfill({ json: request.method() === "PATCH" ? saved : [saved] });
+  });
+  async function openNovember() {
+    await page.goto("/admin.html?tab=summary");
+    await page.waitForFunction(() => adminDataLoaded === true);
+    await page.evaluate(() => {
+      syncJgcScheduleEventToGoogle = async () => ({ ok: true });
+      adminScheduleMonth = makeAdminScheduleDate("2026-11-01");
+      renderAdminScheduleCalendar();
+    });
+  }
+  const entries = page.locator("#adminScheduleCalendar .admin-schedule-event-button").filter({ hasText: "Site coordination" });
+  await openNovember();
+  await expect(entries).toHaveCount(1);
+  await entries.first().click();
+  await page.locator("#adminScheduleDetailsEdit").click();
+  await expect(page.getByLabel("Start date", { exact: true })).toHaveValue("2026-11-24");
+  const end = page.getByLabel("End date (optional)", { exact: true });
+  await end.fill("2026-11-23");
+  await page.locator("#adminScheduleSaveButton").click();
+  await expect(page.locator("#adminScheduleStatus")).toContainText("on or after");
+  expect(writes).toHaveLength(0);
+  await end.fill("2026-11-26");
+  await page.locator("#adminScheduleSaveButton").click();
+  await expect(page.locator("#adminScheduleModal")).toBeHidden();
+  expect(writes).toHaveLength(1);
+  expect(writes[0]).toMatchObject({ event_date: "2026-11-24", end_date: "2026-11-26", employee_names: ["Zeth Hummel"], notes: "Meet at the trailer" });
+  await openNovember();
+  await expect(entries).toHaveCount(3);
+  expect(await entries.evaluateAll((buttons) => buttons.map((button) => button.closest(".admin-schedule-day").querySelector(".admin-schedule-day-number").textContent))).toEqual(["24", "25", "26"]);
+  await entries.nth(1).click();
+  await expect(page.locator("#adminScheduleDetailsDate")).toContainText("November 26");
+  await page.locator("#adminScheduleDetailsEdit").click();
+  await expect(end).toHaveValue("2026-11-26");
+  await end.fill("");
+  await page.locator("#adminScheduleSaveButton").click();
+  await expect(entries).toHaveCount(1);
+  expect(writes).toHaveLength(2);
+  expect(writes[1].end_date).toBeNull();
+});
+
+test("the employee calendar and home agenda include an ongoing event once across month and year boundaries", async ({ page }) => {
+  await installState(page);
+  const today = new Date();
+  const offset = (days) => localDateValue(new Date(today.getFullYear(), today.getMonth(), today.getDate() + days));
+  const event = {
+    id: "ongoing", title: "Tagged crew booking", event_type: "training", event_date: offset(-2), end_date: offset(2),
+    employee_keys: ["schedule style test"], employee_names: ["Schedule Style Test"],
+    employee_emails: [createSession().user.email], start_time: "08:00", end_time: "16:00"
+  };
+  const filters = [];
+  await page.route(supabaseOrigin + "/rest/v1/schedule_events**", async (route) => {
+    filters.push(new URL(route.request().url()).searchParams.get("or"));
+    await route.fulfill({ json: [event] });
+  });
+  await page.goto("/schedule.html");
+  await expect(page.locator("#scheduleAgenda")).toContainText(event.title);
+  const agenda = await page.evaluate(() => buildScheduleAgendaItems().filter((item) => item.id === "ongoing"));
+  expect(agenda).toHaveLength(1);
+  expect(agenda[0].date).toBe(offset(0));
+  expect(await page.evaluate(() => {
+    const event = { event_date: "2026-12-31", end_date: "2027-01-02" };
+    return ["2026-12-30", "2026-12-31", "2027-01-01", "2027-01-02", "2027-01-03"].map((date) => eventTouchesDate(event, date));
+  })).toEqual([false, true, true, true, false]);
+  await page.goto("/home.html");
+  await expect.poll(() => filters.some((filter) => filter?.includes("end_date.gte." + offset(0)))).toBe(true);
+  const home = await page.evaluate((event) => buildHomeAgendaItems([event], []).filter((item) => item.id === event.id), event);
+  expect(home).toHaveLength(1);
+  expect(home[0].date).toBe(offset(0));
+});
+
+for (const entry of ["employee schedule", "home"]) {
+  test("a new multi-day booking saves once from " + entry + " on a phone", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await installState(page);
+    const writes = [];
+    await page.route(supabaseOrigin + "/rest/v1/schedule_events**", async (route) => {
+      if (route.request().method() === "POST") {
+        const record = route.request().postDataJSON();
+        writes.push(record);
+        await route.fulfill({ status: 201, json: { ...record, id: "crew-training" } });
+      } else {
+        await route.fulfill({ json: [] });
+      }
+    });
+    const home = entry === "home";
+    await page.goto(home ? "/home.html" : "/schedule.html");
+    await page.evaluate(() => { syncJgcScheduleEventToGoogle = async () => ({ ok: true }); });
+    if (home) await page.evaluate(() => openHomeScheduleModal());
+    const start = page.getByLabel("Start date", { exact: true });
+    const end = page.getByLabel("End date (optional)", { exact: true });
+    await expect(start).not.toHaveValue("");
+    await start.fill("2026-12-31");
+    await end.fill("2027-01-02");
+    await expect(end).toHaveAttribute("min", "2026-12-31");
+    await page.locator(home ? "#homeScheduleItemTitle" : "#eventTitle").fill("Holiday site access");
+    await page.locator(home ? "#homeScheduleModal" : "#scheduleForm").getByRole("button", { name: home ? "Save Event" : "Save Schedule", exact: true }).click();
+    await expect.poll(() => writes.length).toBe(1);
+    expect(writes[0]).toMatchObject({ title: "Holiday site access", event_date: "2026-12-31", end_date: "2027-01-02" });
+  });
+}
+
 async function contrastRatio(page, selector) {
   return page.locator(selector).first().evaluate((element) => {
     function parse(value) {
@@ -190,13 +312,13 @@ test("Schedule family uses one token-only shared visual source", async () => {
   expect(pageSource).not.toMatch(/\sstyle\s*=/i);
   expect(pageSource).not.toContain("styles.css");
   expect(pageSource).toContain('jgc-design-system.css?v=14');
-  expect(pageSource).toContain('schedule-design-system.css?v=7');
+  expect(pageSource).toContain('schedule-design-system.css?v=8');
   expect(pageSource).toContain('id="scheduleAgenda"');
   expect(pageSource).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(featureCss, "Schedule-only CSS must use centralized design tokens instead of page colours").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
 
   expect(adminSource).toContain('admin.css?v=19');
-  expect(adminSource).toContain('schedule-design-system.css?v=7');
+  expect(adminSource).toContain('schedule-design-system.css?v=8');
   expect(adminSource).toContain('class="admin-schedule-calendar-scroll"');
   expect(adminSource).toContain("admin-schedule-day-events");
   expect(adminSource).toContain("admin-schedule-vehicle-hint");
@@ -205,7 +327,7 @@ test("Schedule family uses one token-only shared visual source", async () => {
   expect(adminCss).not.toContain(".admin-schedule-modal-backdrop");
   expect(serviceWorker).toMatch(/const JGC_RELEASE_ID = "\d+";/);
   expect(serviceWorker).toContain('"./admin.css?v=19"');
-  expect(serviceWorker).toContain('"./schedule-design-system.css?v=7"');
+  expect(serviceWorker).toContain('"./schedule-design-system.css?v=8"');
 });
 
 for (const viewport of [

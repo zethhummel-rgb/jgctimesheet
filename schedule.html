@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>JGC Schedule</title>
 <link rel="stylesheet" href="jgc-design-system.css?v=14" data-jgc-design-system="14">
-<link rel="stylesheet" href="schedule-design-system.css?v=7">
+<link rel="stylesheet" href="schedule-design-system.css?v=8">
 </head>
 <body class="schedule-page jgc-page jgc-system-page">
 <main class="page schedule-page-shell jgc-page-shell jgc-page-shell--wide">
@@ -89,8 +89,11 @@
           <option value="general">General</option>
         </select>
 
-        <label>Date</label>
-        <input id="eventDate" type="date">
+        <label for="eventDate">Start date</label>
+        <input id="eventDate" type="date" onchange="document.getElementById('eventEndDate').min = this.value">
+
+        <label for="eventEndDate">End date (optional)</label>
+        <input id="eventEndDate" type="date">
 
         <label for="startTime">Start time</label>
         <input id="startTime" type="time" step="900">
@@ -138,7 +141,7 @@
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=82"></script>
 <script src="employee-feature-access.js?v=3"></script>
-<script src="schedule-ui.js?v=1"></script>
+<script src="schedule-ui.js?v=2"></script>
 <script>
 const SCHEDULE_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const supabaseClient = createJgcSupabaseClient();
@@ -295,7 +298,7 @@ function vacationTouchesDate(request, dateValue) {
 }
 
 function eventTouchesDate(event, dateValue) {
-  return String(event.event_date || "") === dateValue;
+  return JgcScheduleUI.includesDate(event, dateValue);
 }
 
 function changeMonth(offset) {
@@ -306,6 +309,7 @@ function changeMonth(offset) {
 function selectDate(value) {
   selectedDate = makeLocalDate(value);
   document.getElementById("eventDate").value = value;
+  document.getElementById("eventEndDate").min = value;
   renderCalendar();
   renderSelectedDate();
   document.getElementById("scheduleForm").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -540,6 +544,7 @@ function isDuplicateScheduleEvent(record, ignoreId) {
   return scheduleEvents.some((event) =>
     String(event.id || "") !== String(ignoreId || "") &&
     String(event.event_date || "") === String(record.event_date || "") &&
+    JgcScheduleUI.lastDate(event) === JgcScheduleUI.lastDate(record) &&
     String(event.start_time || "").slice(0, 5) === start &&
     getScheduleDuplicateAliases(event).some((alias) => duplicateAliases.includes(alias))
   );
@@ -586,19 +591,19 @@ function buildScheduleAgendaItems() {
   today.setHours(0, 0, 0, 0);
   const todayValue = formatDateValue(today);
   const scheduleItems = getVisibleScheduleEvents()
-    .filter((event) => String(event.event_date || "") >= todayValue)
+    .filter((event) => JgcScheduleUI.lastDate(event) >= todayValue)
     .map((event) => {
       const type = getEventType(event);
       return {
         id: event.id || "",
         source: "schedule",
         type,
-        date: event.event_date,
-        sortTime: event.start_time || "99:99",
+        date: event.event_date < todayValue ? todayValue : event.event_date,
+        sortTime: event.event_date < todayValue ? "" : event.start_time || "99:99",
         title: getEventDisplayTitle(event),
         meta: [
           getEventTypeLabel(type),
-          [formatTime(event.start_time), event.end_time ? "to " + formatTime(event.end_time) : ""].filter(Boolean).join(" "),
+          JgcScheduleUI.eventWhen(event),
           event.job_number ? "Job #: " + event.job_number : "",
           event.location || ""
         ].filter(Boolean).join(" | ")
@@ -632,6 +637,7 @@ function buildScheduleAgendaItems() {
 function selectScheduleAgendaDate(value) {
   selectedDate = makeLocalDate(value);
   document.getElementById("eventDate").value = value;
+  document.getElementById("eventEndDate").min = value;
   renderCalendar();
   renderSelectedDate();
   document.querySelector(".schedule-sidebar").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -658,7 +664,7 @@ function renderScheduleAgenda() {
       <div class="admin-agenda-day-group">
         <div class="admin-agenda-day-header">${escapeHtml(formatScheduleAgendaDayHeader(dateValue))}</div>
         ${groups[dateValue].map((item) => {
-          const timeText = item.sortTime === "99:99" ? "All day" : formatTime(item.sortTime);
+          const timeText = item.sortTime === "99:99" ? "All day" : formatTime(item.sortTime) || "Ongoing";
           const content = `
             <span class="admin-agenda-time">${escapeHtml(timeText)}</span>
             <span>
@@ -701,7 +707,7 @@ function renderCalendar() {
       const type = getEventType(event);
       const syncClass = getJgcScheduleSyncClass(event) === "synced" ? "synced" : "unsynced";
       const syncLabel = getJgcScheduleSyncLabel(event);
-      const timeText = JgcScheduleUI.formatTime(event.start_time, true);
+      const timeText = JgcScheduleUI.timeOnDay(event, dateValue);
       const label = '<span class="schedule-sync-dot ' + syncClass + '" title="' + escapeHtml(syncLabel) + '"></span>' +
         (timeText ? '<span class="schedule-event-time">' + escapeHtml(timeText) + '</span>' : "") +
         '<span class="schedule-event-title">' + escapeHtml(getEventDisplayTitle(event)) + '</span>';
@@ -741,7 +747,7 @@ function renderSelectedDate() {
     <div class="detail-item">
       <div class="detail-title"><span class="chip ${escapeHtml(getEventType(event))}-chip">${escapeHtml(getEventTypeLabel(getEventType(event)))}</span> ${escapeHtml(getEventDisplayTitle(event))}</div>
       <div class="detail-meta">
-        ${escapeHtml([formatTime(event.start_time), event.end_time ? "to " + formatTime(event.end_time) : ""].filter(Boolean).join(" "))}<br>
+        ${escapeHtml(JgcScheduleUI.eventWhen(event))}<br>
         ${event.job_number ? "Job #: " + escapeHtml(event.job_number) + "<br>" : ""}
         ${event.location ? "Location: " + escapeHtml(event.location) + "<br>" : ""}
         ${event.maintenance_reason ? "Reason: " + escapeHtml(event.maintenance_reason) + "<br>" : ""}
@@ -802,6 +808,8 @@ function clearScheduleForm() {
   editingScheduleEventId = "";
   document.getElementById("eventType").value = "work";
   document.getElementById("eventDate").value = formatDateValue(selectedDate);
+  document.getElementById("eventEndDate").min = document.getElementById("eventDate").value;
+  document.getElementById("eventEndDate").value = "";
   JgcScheduleUI.createTimePicker("startTime", "Start time");
   JgcScheduleUI.createTimePicker("endTime", "End time");
   JgcScheduleUI.linkTimeFields("startTime", "endTime");
@@ -897,6 +905,8 @@ function editScheduleEvent(id) {
   document.getElementById("eventType").value = getEventType(event);
   updateScheduleTypeFields();
   document.getElementById("eventDate").value = event.event_date || formatDateValue(selectedDate);
+  document.getElementById("eventEndDate").min = document.getElementById("eventDate").value;
+  document.getElementById("eventEndDate").value = event.end_date || "";
   JgcScheduleUI.closeTimePicker();
   JgcScheduleUI.setTime("startTime", event.start_time);
   JgcScheduleUI.setTime("endTime", event.end_time);
@@ -918,7 +928,7 @@ function editScheduleEvent(id) {
   renderCalendar();
   renderSelectedDate();
   document.getElementById("scheduleForm").scrollIntoView({ behavior: "smooth", block: "start" });
-  setStatus("Editing schedule item for " + formatDisplayDate(event.event_date) + ".");
+  setStatus("Editing schedule item for " + JgcScheduleUI.dateRange(event, formatDisplayDate) + ".");
 }
 
 function buildScheduleAnnouncementBody(event, account) {
@@ -926,8 +936,8 @@ function buildScheduleAnnouncementBody(event, account) {
     "You have been tagged on the JGC schedule.",
     "",
     "Type: " + getEventTypeLabel(getEventType(event)),
-    "Date: " + formatDisplayDate(event.event_date),
-    "Time: " + [formatTime(event.start_time), event.end_time ? "to " + formatTime(event.end_time) : ""].filter(Boolean).join(" "),
+    "Date: " + JgcScheduleUI.dateRange(event, formatDisplayDate),
+    "Time: " + JgcScheduleUI.eventWhen(event),
     "Item: " + getEventDisplayTitle(event),
     "Job: " + (event.job_name ? (event.job_number ? event.job_number + " - " : "") + event.job_name : ""),
     "Location: " + (event.location || ""),
@@ -942,7 +952,7 @@ function buildScheduleAnnouncementBody(event, account) {
 
 async function createScheduleAnnouncements(event, selectedAccounts) {
   const records = selectedAccounts.map((account) => ({
-    title: "Scheduled: " + formatDisplayDate(event.event_date),
+    title: "Scheduled: " + JgcScheduleUI.dateRange(event, formatDisplayDate),
     body: buildScheduleAnnouncementBody(event, account),
     created_by: null,
     created_by_name: currentWorkerDisplay,
@@ -968,7 +978,7 @@ async function createScheduleAnnouncements(event, selectedAccounts) {
 
   if (typeof createJgcPortalNotifications === "function") {
     await createJgcPortalNotifications(supabaseClient, "schedule_update", selectedAccounts, {
-      title: "Scheduled: " + formatDisplayDate(event.event_date),
+      title: "Scheduled: " + JgcScheduleUI.dateRange(event, formatDisplayDate),
       message: [formatTime(event.start_time), getEventDisplayTitle(event)].filter(Boolean).join(" - "),
       link_url: "schedule.html",
       source_table: "schedule_events",
@@ -976,6 +986,7 @@ async function createScheduleAnnouncements(event, selectedAccounts) {
       created_by_name: currentWorkerDisplay,
       metadata: {
         event_date: event.event_date || "",
+        end_date: event.end_date || null,
         event_type: getEventType(event),
         job_number: event.job_number || "",
         job_name: event.job_name || "",
@@ -1024,7 +1035,7 @@ async function emailTaggedScheduleEmployees(event, selectedAccounts) {
     },
     body: JSON.stringify({
       to: recipients.join(","),
-      subject: "JGC Schedule - " + getEventTypeLabel(getEventType(event)) + " - " + formatDisplayDate(event.event_date),
+      subject: "JGC Schedule - " + getEventTypeLabel(getEventType(event)) + " - " + JgcScheduleUI.dateRange(event, formatDisplayDate),
       body: buildScheduleAnnouncementBody(event, { display_name: selectedAccounts.map((account) => account.display_name || account.worker_key || account.email).join(", ") }),
       text: buildScheduleAnnouncementBody(event, { display_name: selectedAccounts.map((account) => account.display_name || account.worker_key || account.email).join(", ") }),
       pdfHtml: "<html><body><pre>" + escapeHtml(buildScheduleAnnouncementBody(event, { display_name: selectedAccounts.map((account) => account.display_name || account.worker_key || account.email).join(", ") })) + "</pre></body></html>",
@@ -1056,6 +1067,7 @@ async function saveScheduleMaintenanceLog(event, selectedVehicle, maintenanceRea
 async function saveScheduleEvent() {
   let selectedAccounts = getSelectedAccounts();
   const eventDate = document.getElementById("eventDate").value;
+  const endDate = document.getElementById("eventEndDate").value;
   const eventType = document.getElementById("eventType").value || "work";
   const isWork = eventType === "work";
   const selectedVehicle = eventType === "vehicle" ? getSelectedVehicleItem() : null;
@@ -1080,6 +1092,12 @@ async function saveScheduleEvent() {
     return;
   }
 
+  if (endDate && endDate < eventDate) {
+    setStatus("Choose an end date on or after the start date.");
+    document.getElementById("eventEndDate").focus();
+    return;
+  }
+
   if (!displayName) {
     alert("Enter at least a name, job, title, or location for this schedule event.");
     return;
@@ -1094,6 +1112,7 @@ async function saveScheduleEvent() {
   const record = {
     event_type: eventType,
     event_date: eventDate,
+    end_date: endDate && endDate !== eventDate ? endDate : null,
     start_time: timeRange.start,
     end_time: timeRange.end,
     job_id: isWork ? (document.getElementById("jobSelect").value || null) : null,

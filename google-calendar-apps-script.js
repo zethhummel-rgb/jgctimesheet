@@ -124,7 +124,7 @@ function upsertGoogleCalendarEvent_(event) {
   }
 
   var start = buildEventDate_(event.event_date, event.start_time || "07:00");
-  var end = buildEventDate_(event.event_date, event.end_time || "07:30");
+  var end = buildEventDate_(event.end_date || event.event_date, event.end_time || "07:30");
 
   if (end <= start) {
     end = new Date(start.getTime() + 30 * 60 * 1000);
@@ -251,9 +251,15 @@ function fetchSupabaseSyncedScheduleEvents_() {
 function buildPortalUpdateFromGoogleEvent_(googleEvent) {
   var start = googleEvent.getStartTime();
   var end = googleEvent.getEndTime();
+  var zone = Session.getScriptTimeZone();
+  var startDate = Utilities.formatDate(start, zone, "yyyy-MM-dd");
+  // All-day events in Google end at midnight after their last calendar day.
+  var lastInstant = googleEvent.isAllDayEvent() ? new Date(end.getTime() - 1) : end;
+  var endDate = Utilities.formatDate(lastInstant, zone, "yyyy-MM-dd");
 
   return {
-    event_date: Utilities.formatDate(start, Session.getScriptTimeZone(), "yyyy-MM-dd"),
+    event_date: startDate,
+    end_date: endDate === startDate ? null : endDate,
     start_time: Utilities.formatDate(start, Session.getScriptTimeZone(), "HH:mm:ss"),
     end_time: Utilities.formatDate(end, Session.getScriptTimeZone(), "HH:mm:ss"),
     title: stripJgcPrefix_(googleEvent.getTitle()),
