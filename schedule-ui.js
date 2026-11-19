@@ -18,6 +18,38 @@
       : title || job || event.location || fallback;
   }
 
+  function lastDate(event) {
+    return event.end_date || event.event_date;
+  }
+
+  function includesDate(event, date) {
+    return Boolean(event.event_date && event.event_date <= date && date <= lastDate(event));
+  }
+
+  function dateRange(event, format) {
+    if (!event.event_date) return "";
+    const start = format(event.event_date);
+    return lastDate(event) === event.event_date ? start : start + " – " + format(lastDate(event));
+  }
+
+  function shortDate(value) {
+    return new Date(value + "T12:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  function eventWhen(event) {
+    if (lastDate(event) === event.event_date) {
+      return [formatTime(event.start_time), event.end_time && "to " + formatTime(event.end_time)].filter(Boolean).join(" ");
+    }
+    const start = [shortDate(event.event_date), formatTime(event.start_time)].filter(Boolean).join(", ");
+    const end = [shortDate(event.end_date), formatTime(event.end_time)].filter(Boolean).join(", ");
+    return start + " – " + end;
+  }
+
+  function timeOnDay(event, date) {
+    if (date === event.event_date) return formatTime(event.start_time, true);
+    return date === event.end_date && event.end_time ? "Until " + formatTime(event.end_time, true) : "";
+  }
+
   function closeTimePicker(restoreFocus = false) {
     if (!activePicker) return false;
     const picker = activePicker;
@@ -163,5 +195,5 @@
   document.addEventListener("focusin", (event) => {
     if (activePicker && !activePicker.wrap.contains(event.target)) closeTimePicker();
   });
-  window.JgcScheduleUI = { createTimePicker, setTime, linkTimeFields, closeTimePicker, formatTime, eventTitle };
+  window.JgcScheduleUI = { createTimePicker, setTime, linkTimeFields, closeTimePicker, formatTime, eventTitle, lastDate, includesDate, dateRange, eventWhen, timeOnDay };
 })();

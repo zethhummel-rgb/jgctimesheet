@@ -550,7 +550,7 @@ function buildAdminDateSearchResults(dateSearch) {
     });
 
     function addMatchingRecords(records, config) {
-        records.filter((record) => adminRecordMatchesDate(record, config.dateFields, dateKey)).forEach((record) => {
+        records.filter((record) => config.matchesDate ? config.matchesDate(record, dateKey) : adminRecordMatchesDate(record, config.dateFields, dateKey)).forEach((record) => {
             const title = typeof config.title === "function"
                 ? config.title(record)
                 : getAdminGlobalSearchValue(record, config.titleKeys);
@@ -576,7 +576,7 @@ function buildAdminDateSearchResults(dateSearch) {
     addMatchingRecords(toolboxReports, { group: "Reports & Submissions", category: "Toolbox Report", tab: "reports", titleKeys: ["title", "worker_name", "completed_by_name"], detailKeys: ["topic", "job_number", "location"], dateFields: ["report_date", "created_at"] });
     addMatchingRecords(safetyAcknowledgements, { group: "Reports & Submissions", category: "Safety Acknowledgement", tab: "reports", titleKeys: ["attendee_name", "worker_name", "record_title"], detailKeys: ["record_type", "record_title", "project", "location"], dateFields: ["acknowledged_at"] });
 
-    addMatchingRecords(scheduleEvents, { group: "Schedule & Tasks", category: "Schedule", tab: "summary", titleKeys: ["title", "job_name", "event_type"], detailKeys: ["event_date", "job_number", "location", "notes"], dateFields: ["event_date"] });
+    addMatchingRecords(scheduleEvents, { group: "Schedule & Tasks", category: "Schedule", tab: "summary", titleKeys: ["title", "job_name", "event_type"], detailKeys: ["event_date", "job_number", "location", "notes"], matchesDate: JgcScheduleUI.includesDate });
     addMatchingRecords(adminGlobalSearchTasks, { group: "Schedule & Tasks", category: "Task", tab: "tasks", titleKeys: ["title"], detailKeys: ["job_number", "job_name", "assigned_to_name", "status"], dateFields: ["due_date", "completed_at"] });
 
     vacationRequests.filter((request) => {
@@ -898,6 +898,10 @@ function formatAdminScheduleDateValue(date) {
     return year + "-" + month + "-" + day;
 }
 
+function formatAdminScheduleLongDate(date) {
+    return makeAdminScheduleDate(date).toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+}
+
 function makeAdminScheduleDate(value) {
     const parts = String(value || "").split("-");
     return parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]) : new Date(value);
@@ -989,6 +993,7 @@ function isDuplicateAdminScheduleEvent(record, ignoreId) {
     return scheduleEvents.some((event) =>
         String(event.id || "") !== String(ignoreId || "") &&
         String(event.event_date || "") === String(record.event_date || "") &&
+        JgcScheduleUI.lastDate(event) === JgcScheduleUI.lastDate(record) &&
         String(event.start_time || "").slice(0, 5) === start &&
         String(event.end_time || "").slice(0, 5) === end &&
         getAdminScheduleDuplicateName(event) === duplicateName
@@ -1117,7 +1122,7 @@ function buildAdminScheduleAgendaItems() {
     today.setHours(0, 0, 0, 0);
     const todayValue = formatAdminScheduleDateValue(today);
     const scheduleItems = (scheduleEvents || [])
-        .filter((event) => String(event.event_date || "") >= todayValue)
+        .filter((event) => JgcScheduleUI.lastDate(event) >= todayValue)
         .map((event) => {
             const type = getAdminScheduleType(event);
             const taggedNames = getAdminScheduleTaggedNames(event);
@@ -1126,12 +1131,12 @@ function buildAdminScheduleAgendaItems() {
                 id: event.id || "",
                 source: "schedule",
                 type,
-                date: event.event_date,
-                sortTime: event.start_time || "99:99",
+                date: event.event_date < todayValue ? todayValue : event.event_date,
+                sortTime: event.event_date < todayValue ? "" : event.start_time || "99:99",
                 title: getAdminScheduleTitle(event),
                 meta: [
                     getAdminScheduleTypeLabel(type),
-                    [formatAdminScheduleTime(event.start_time), event.end_time ? "to " + formatAdminScheduleTime(event.end_time) : ""].filter(Boolean).join(" "),
+                    JgcScheduleUI.eventWhen(event),
                     event.job_number ? "Job #: " + event.job_number : "",
                     event.location || "",
                     event.maintenance_reason ? "Reason: " + event.maintenance_reason : "",
@@ -1220,7 +1225,7 @@ function renderAdminScheduleAgenda() {
             <div class="admin-agenda-day-group">
                 <div class="admin-agenda-day-header">${escapeHtml(formatAdminAgendaDayHeader(dateValue))}</div>
                 ${groups[dateValue].map((item) => {
-                    const timeText = item.allDay || item.sortTime === "99:99" ? "All day" : formatAdminScheduleTime(item.sortTime);
+                    const timeText = item.allDay || item.sortTime === "99:99" ? "All day" : formatAdminScheduleTime(item.sortTime) || "Ongoing";
                     const content = `
                         <span class="admin-agenda-time">${escapeHtml(timeText)}</span>
                         <span>
@@ -1254,7 +1259,7 @@ function adminScheduleVacationTouchesDate(request, dateValue) {
 }
 
 function getAdminScheduleEventsForDate(dateValue) {
-    return scheduleEvents.filter((event) => String(event.event_date || "") === dateValue);
+    return scheduleEvents.filter((event) => JgcScheduleUI.includesDate(event, dateValue));
 }
 
 function getAdminScheduleVacationsForDate(dateValue) {
@@ -1398,7 +1403,7 @@ function renderAdminScheduleCalendar() {
             const type = getAdminScheduleType(event);
             const syncClass = getJgcScheduleSyncClass(event) === "synced" ? "synced" : "unsynced";
             const syncLabel = getJgcScheduleSyncLabel(event);
-            const timeText = JgcScheduleUI.formatTime(event.start_time, true);
+            const timeText = JgcScheduleUI.timeOnDay(event, dateValue);
             const label = '<span class="schedule-sync-dot ' + syncClass + '" title="' + escapeHtml(syncLabel) + '"></span>' +
                 (timeText ? '<span class="schedule-event-time">' + escapeHtml(timeText) + '</span>' : "") +
                 '<span class="schedule-event-title">' + escapeHtml(getAdminScheduleTitle(event)) + '</span>';
@@ -1485,7 +1490,7 @@ function renderAdminScheduleDayEvents(dateValue) {
                 ${escapeHtml(getAdminScheduleTitle(event))}
             </div>
             <div class="detail-meta">
-                ${escapeHtml([formatAdminScheduleTime(event.start_time), event.end_time ? "to " + formatAdminScheduleTime(event.end_time) : ""].filter(Boolean).join(" "))}<br>
+                ${escapeHtml(JgcScheduleUI.eventWhen(event))}<br>
                 ${event.job_number ? "Job #: " + escapeHtml(event.job_number) + "<br>" : ""}
                 ${event.location ? "Location: " + escapeHtml(event.location) + "<br>" : ""}
                 ${event.maintenance_reason ? "Reason: " + escapeHtml(event.maintenance_reason) + "<br>" : ""}
@@ -2008,6 +2013,7 @@ function clearAdminScheduleForm(dateValue) {
     editingAdminScheduleEventId = "";
     document.getElementById("adminScheduleType").value = "work";
     document.getElementById("adminScheduleDate").value = dateValue || formatAdminScheduleDateValue(new Date());
+    document.getElementById("adminScheduleEndDate").value = "";
     JgcScheduleUI.setTime("adminScheduleStartTime", "07:00");
     JgcScheduleUI.setTime("adminScheduleEndTime", "07:30");
     document.getElementById("adminScheduleJob").value = "";
@@ -2058,9 +2064,11 @@ function openAdminScheduleDetails(id) {
     adminScheduleViewedEventId = event.id;
     document.getElementById("adminScheduleDetailsTitle").textContent = event.title || event.job_name || "Schedule event";
     document.getElementById("adminScheduleDetailsDate").textContent = event.event_date
-        ? makeAdminScheduleDate(event.event_date).toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
+        ? JgcScheduleUI.dateRange(event, formatAdminScheduleLongDate)
         : "Date not entered";
-    const time = [JgcScheduleUI.formatTime(event.start_time), JgcScheduleUI.formatTime(event.end_time)].filter(Boolean).join(" – ");
+    const time = JgcScheduleUI.lastDate(event) === event.event_date
+        ? [JgcScheduleUI.formatTime(event.start_time), JgcScheduleUI.formatTime(event.end_time)].filter(Boolean).join(" – ")
+        : JgcScheduleUI.eventWhen(event);
     const crew = [event.employee_names, event.employee_keys, event.employee_emails]
         .find((values) => Array.isArray(values) && values.some(Boolean)) || [];
     const fields = [
@@ -2103,8 +2111,13 @@ function editAdminScheduleViewedEvent() {
 
 function updateAdminScheduleDay() {
     const dateValue = document.getElementById("adminScheduleDate").value;
+    const endDate = document.getElementById("adminScheduleEndDate");
+    endDate.min = dateValue;
     if (!dateValue) return;
-    document.getElementById("adminScheduleModalDate").textContent = makeAdminScheduleDate(dateValue).toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+    document.getElementById("adminScheduleModalDate").textContent = JgcScheduleUI.dateRange({
+        event_date: dateValue,
+        end_date: endDate.value >= dateValue ? endDate.value : null
+    }, formatAdminScheduleLongDate);
     renderAdminScheduleDayEvents(dateValue);
 }
 
@@ -2266,6 +2279,7 @@ function editAdminScheduleEvent(id) {
     document.getElementById("adminScheduleType").value = getAdminScheduleType(event);
     updateAdminScheduleTypeFields();
     document.getElementById("adminScheduleDate").value = event.event_date || "";
+    document.getElementById("adminScheduleEndDate").value = event.end_date || "";
     JgcScheduleUI.closeTimePicker();
     JgcScheduleUI.setTime("adminScheduleStartTime", event.start_time);
     JgcScheduleUI.setTime("adminScheduleEndTime", event.end_time);
@@ -2303,7 +2317,7 @@ async function deleteAdminScheduleEvent(id) {
     const confirmed = confirm(
         "Delete this schedule item?\n\n" +
         getAdminScheduleTitle(event) + "\n" +
-        makeAdminScheduleDate(event.event_date).toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
+        JgcScheduleUI.dateRange(event, formatAdminScheduleLongDate)
     );
 
     if (!confirmed) {
@@ -2362,8 +2376,8 @@ function buildAdminScheduleAnnouncementBody(event, account) {
         "You have been tagged on the JGC schedule.",
         "",
         "Type: " + getAdminScheduleTypeLabel(getAdminScheduleType(event)),
-        "Date: " + makeAdminScheduleDate(event.event_date).toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" }),
-        "Time: " + [formatAdminScheduleTime(event.start_time), event.end_time ? "to " + formatAdminScheduleTime(event.end_time) : ""].filter(Boolean).join(" "),
+        "Date: " + JgcScheduleUI.dateRange(event, formatAdminScheduleLongDate),
+        "Time: " + JgcScheduleUI.eventWhen(event),
         "Item: " + getAdminScheduleTitle(event),
         "Job: " + (event.job_name ? (event.job_number ? event.job_number + " - " : "") + event.job_name : ""),
         "Location: " + (event.location || ""),
@@ -2378,7 +2392,7 @@ function buildAdminScheduleAnnouncementBody(event, account) {
 
 async function createAdminScheduleAnnouncements(event, selectedAccounts) {
     const records = selectedAccounts.map((account) => ({
-        title: "Scheduled: " + makeAdminScheduleDate(event.event_date).toLocaleDateString("en-CA", { month: "long", day: "numeric" }),
+        title: "Scheduled: " + JgcScheduleUI.dateRange(event, (date) => makeAdminScheduleDate(date).toLocaleDateString("en-CA", { month: "long", day: "numeric" })),
         body: buildAdminScheduleAnnouncementBody(event, account),
         created_by: currentUserId || null,
         created_by_name: currentWorkerDisplay,
@@ -2400,7 +2414,7 @@ async function createAdminScheduleAnnouncements(event, selectedAccounts) {
 
     if (typeof createJgcPortalNotifications === "function") {
         await createJgcPortalNotifications(supabaseClient, "schedule_update", selectedAccounts, {
-            title: "Scheduled: " + makeAdminScheduleDate(event.event_date).toLocaleDateString("en-CA", { month: "long", day: "numeric" }),
+            title: "Scheduled: " + JgcScheduleUI.dateRange(event, (date) => makeAdminScheduleDate(date).toLocaleDateString("en-CA", { month: "long", day: "numeric" })),
             message: [formatAdminScheduleTime(event.start_time), getAdminScheduleTitle(event)].filter(Boolean).join(" - "),
             link_url: "schedule.html",
             source_table: "schedule_events",
@@ -2409,6 +2423,7 @@ async function createAdminScheduleAnnouncements(event, selectedAccounts) {
             created_by_name: currentWorkerDisplay,
             metadata: {
                 event_date: event.event_date || "",
+                end_date: event.end_date || null,
                 event_type: getAdminScheduleType(event),
                 job_number: event.job_number || "",
                 job_name: event.job_name || "",
@@ -2505,6 +2520,7 @@ async function saveAdminScheduleEvent() {
     const isWork = eventType === "work";
     const selectedVehicle = eventType === "vehicle" ? getSelectedAdminScheduleVehicle() : null;
     const eventDate = document.getElementById("adminScheduleDate").value;
+    const endDate = document.getElementById("adminScheduleEndDate").value;
     const title = document.getElementById("adminScheduleItemTitle").value.trim();
     const location = document.getElementById("adminScheduleLocation").value.trim();
     const maintenanceReason = eventType === "vehicle" ? document.getElementById("adminScheduleMaintenanceReason").value.trim() : "";
@@ -2531,6 +2547,11 @@ async function saveAdminScheduleEvent() {
         return;
     }
 
+    if (endDate && endDate < eventDate) {
+        showError("Choose an end date on or after the start date.", "adminScheduleEndDate");
+        return;
+    }
+
     if (!displayName) {
         showError("Enter a task title or choose a job for this event.", "adminScheduleItemTitle");
         return;
@@ -2544,6 +2565,7 @@ async function saveAdminScheduleEvent() {
     const record = {
         event_type: eventType,
         event_date: eventDate,
+        end_date: endDate && endDate !== eventDate ? endDate : null,
         start_time: timeRange.start,
         end_time: timeRange.end,
         job_id: isWork ? (document.getElementById("adminScheduleJob").value || null) : null,

@@ -1086,7 +1086,8 @@
 }
 
 .jgc-schedule-modal .admin-schedule-form-grid { gap: 14px 16px; align-items: start; }
-.jgc-schedule-modal .schedule-date-row { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 12px; }
+.jgc-schedule-modal .schedule-date-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.jgc-schedule-modal .schedule-date-row > div { min-width: 0; }
 .jgc-schedule-modal label { display: block; margin: 0 0 5px; color: var(--jgc-color-text); font-size: 13px; font-weight: 650; }
 .jgc-schedule-modal input:not([type="checkbox"]),
 .jgc-schedule-modal select,
@@ -1193,7 +1194,6 @@
   .jgc-schedule-modal .schedule-editor-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .jgc-schedule-modal .admin-schedule-form-grid { grid-template-columns: minmax(0, 1fr); }
   .jgc-schedule-modal .schedule-date-row { grid-template-columns: 1fr 1fr; }
-  .jgc-schedule-modal .schedule-date-row > div:first-child { grid-column: 1 / -1; }
   .jgc-schedule-modal input:not([type="checkbox"]), .jgc-schedule-modal select, .jgc-schedule-modal textarea,
   :is(.jgc-schedule-modal, .schedule-page) .schedule-time-trigger { font-size: 16px; min-height: 44px; }
   .jgc-schedule-modal .admin-schedule-actions button { min-height: 44px; }

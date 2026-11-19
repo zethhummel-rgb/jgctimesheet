@@ -24,6 +24,10 @@ create table if not exists public.schedule_events (
 );
 
 alter table public.schedule_events
+  add column if not exists end_date date constraint schedule_events_end_date_check
+  check (end_date is null or end_date >= event_date);
+
+alter table public.schedule_events
   add column if not exists event_type text not null default 'work';
 
 alter table public.schedule_events

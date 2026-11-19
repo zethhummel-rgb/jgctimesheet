@@ -340,8 +340,12 @@
         </select>
       </div>
       <div>
-        <label>Date</label>
-        <input id="homeScheduleDate" class="jgc-input" type="date">
+        <label for="homeScheduleDate">Start date</label>
+        <input id="homeScheduleDate" class="jgc-input" type="date" onchange="document.getElementById('homeScheduleEndDate').min = this.value">
+      </div>
+      <div>
+        <label for="homeScheduleEndDate">End date (optional)</label>
+        <input id="homeScheduleEndDate" class="jgc-input" type="date">
       </div>
       <div>
         <label>Start Time</label>
@@ -398,6 +402,7 @@
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="vendor/lucide.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/lucide@latest';"></script>
 <script src="common.js?v=82"></script>
+<script src="schedule-ui.js?v=2"></script>
 <script src="employee-contacts.js?v=1"></script>
 <script src="employee-feature-access.js?v=3"></script>
 <script src="safety-acknowledgements.js?v=9"></script>
@@ -1317,6 +1322,7 @@ function isDuplicateHomeScheduleEvent(record) {
 
   return homeScheduleRows.some((event) =>
     String(event.event_date || "") === String(record.event_date || "") &&
+    JgcScheduleUI.lastDate(event) === JgcScheduleUI.lastDate(record) &&
     String(event.start_time || "").slice(0, 5) === start &&
     String(event.end_time || "").slice(0, 5) === end &&
     getHomeScheduleDuplicateName(event) === duplicateName
@@ -1379,7 +1385,9 @@ function getHomeVacationAgendaDate(request) {
 }
 
 function buildHomeAgendaItems(scheduleRows, vacationRows) {
+  const todayValue = formatLocalDateValue(new Date());
   const scheduleItems = (scheduleRows || [])
+    .filter((event) => JgcScheduleUI.lastDate(event) >= todayValue)
     .map((event) => {
       const taggedNames = getHomeScheduleTaggedNames(event);
 
@@ -1390,12 +1398,12 @@ function buildHomeAgendaItems(scheduleRows, vacationRows) {
         syncClass: getJgcScheduleSyncClass(event),
         syncLabel: getJgcScheduleSyncLabel(event),
         type: getHomeScheduleType(event),
-        date: event.event_date,
-        sortTime: event.start_time || "99:99",
+        date: event.event_date < todayValue ? todayValue : event.event_date,
+        sortTime: event.event_date < todayValue ? "" : event.start_time || "99:99",
         title: getHomeScheduleTitle(event),
         meta: [
           getHomeScheduleTypeLabel(getHomeScheduleType(event)),
-          [formatHomeScheduleTime(event.start_time), event.end_time ? "to " + formatHomeScheduleTime(event.end_time) : ""].filter(Boolean).join(" "),
+          JgcScheduleUI.eventWhen(event),
           event.job_number ? "Job #: " + event.job_number : "",
           event.location || "",
           event.maintenance_reason ? "Reason: " + event.maintenance_reason : "",
@@ -1457,7 +1465,7 @@ function renderHomeScheduleAgenda(items) {
       <div class="home-agenda-day-header">${escapeHtml(formatHomeAgendaDayHeader(dateValue))}</div>
       ${groups[dateValue].map((item) => `
         <div class="home-agenda-item ${escapeHtml(item.type)}">
-          <div class="home-agenda-date">${escapeHtml(item.sortTime === "99:99" ? "All day" : formatHomeScheduleTime(item.sortTime))}</div>
+          <div class="home-agenda-date">${escapeHtml(item.sortTime === "99:99" ? "All day" : formatHomeScheduleTime(item.sortTime) || "Ongoing")}</div>
           <div>
             <div class="home-agenda-title">${escapeHtml(item.title)}</div>
             <div class="home-agenda-meta">${escapeHtml(item.meta)}</div>
@@ -1722,6 +1730,8 @@ function updateHomeScheduleTypeFields() {
 function resetHomeScheduleForm() {
   document.getElementById("homeScheduleType").value = "work";
   document.getElementById("homeScheduleDate").value = formatLocalDateValue(new Date());
+  document.getElementById("homeScheduleEndDate").min = document.getElementById("homeScheduleDate").value;
+  document.getElementById("homeScheduleEndDate").value = "";
   document.getElementById("homeScheduleStartTime").value = "";
   document.getElementById("homeScheduleEndTime").value = "";
   document.getElementById("homeScheduleJob").value = "";
@@ -1817,8 +1827,8 @@ function buildHomeScheduleNotificationBody(event, selectedAccounts) {
     "You have been tagged on the JGC schedule.",
     "",
     "Type: " + getHomeScheduleTypeLabel(getHomeScheduleType(event)),
-    "Date: " + formatVacationReminderDate(event.event_date),
-    "Time: " + [formatHomeScheduleTime(event.start_time), event.end_time ? "to " + formatHomeScheduleTime(event.end_time) : ""].filter(Boolean).join(" "),
+    "Date: " + JgcScheduleUI.dateRange(event, formatVacationReminderDate),
+    "Time: " + JgcScheduleUI.eventWhen(event),
     "Item: " + getHomeScheduleTitle(event),
     "Job: " + (event.job_name ? (event.job_number ? event.job_number + " - " : "") + event.job_name : ""),
     "Location: " + (event.location || ""),
@@ -1857,7 +1867,7 @@ function getHomeScheduleNotificationEmails(selectedAccounts) {
 
 async function createHomeScheduleAnnouncements(event, selectedAccounts) {
   const records = selectedAccounts.map((account) => ({
-    title: "Scheduled: " + formatVacationReminderDate(event.event_date),
+    title: "Scheduled: " + JgcScheduleUI.dateRange(event, formatVacationReminderDate),
     body: buildHomeScheduleNotificationBody(event, [account]),
     created_by: currentUserId || null,
     created_by_name: currentWorkerDisplay,
@@ -1877,7 +1887,7 @@ async function createHomeScheduleAnnouncements(event, selectedAccounts) {
 
   if (typeof createJgcPortalNotifications === "function") {
     await createJgcPortalNotifications(supabaseClient, "schedule_update", selectedAccounts, {
-      title: "Scheduled: " + formatVacationReminderDate(event.event_date),
+      title: "Scheduled: " + JgcScheduleUI.dateRange(event, formatVacationReminderDate),
       message: [formatHomeScheduleTime(event.start_time), getHomeScheduleTitle(event)].filter(Boolean).join(" - "),
       link_url: "schedule.html",
       source_table: "schedule_events",
@@ -1886,6 +1896,7 @@ async function createHomeScheduleAnnouncements(event, selectedAccounts) {
       created_by_name: currentWorkerDisplay,
       metadata: {
         event_date: event.event_date || "",
+        end_date: event.end_date || null,
         event_type: getHomeScheduleType(event),
         job_number: event.job_number || "",
         job_name: event.job_name || "",
@@ -1947,6 +1958,7 @@ async function saveHomeScheduleEvent() {
   const isWork = eventType === "work";
   const selectedVehicle = eventType === "vehicle" ? getSelectedHomeScheduleVehicle() : null;
   const eventDate = document.getElementById("homeScheduleDate").value;
+  const endDate = document.getElementById("homeScheduleEndDate").value;
   const title = document.getElementById("homeScheduleItemTitle").value.trim();
   const location = document.getElementById("homeScheduleLocation").value.trim();
   const maintenanceReason = eventType === "vehicle" ? document.getElementById("homeScheduleMaintenanceReason").value.trim() : "";
@@ -1969,6 +1981,12 @@ async function saveHomeScheduleEvent() {
     return;
   }
 
+  if (endDate && endDate < eventDate) {
+    status.textContent = "Choose an end date on or after the start date.";
+    document.getElementById("homeScheduleEndDate").focus();
+    return;
+  }
+
   if (!displayName) {
     status.textContent = "Enter at least a name, job, title, or location for this schedule event.";
     return;
@@ -1983,6 +2001,7 @@ async function saveHomeScheduleEvent() {
   const record = {
     event_type: eventType,
     event_date: eventDate,
+    end_date: endDate && endDate !== eventDate ? endDate : null,
     start_time: timeRange.start,
     end_time: timeRange.end,
     job_id: isWork ? (document.getElementById("homeScheduleJob").value || null) : null,
@@ -2065,7 +2084,7 @@ async function loadHomeScheduleAgenda() {
     render();
   };
   await Promise.allSettled([
-    load("schedule", supabaseClient.from("schedule_events").select("*").gte("event_date", todayValue).order("event_date", { ascending: true }).order("start_time", { ascending: true }).limit(100)),
+    load("schedule", supabaseClient.from("schedule_events").select("*").or("event_date.gte." + todayValue + ",end_date.gte." + todayValue).order("event_date", { ascending: true }).order("start_time", { ascending: true }).limit(100)),
     load("vacations", supabaseClient.from("vacation_requests").select("id,worker_name,worker_display_name,start_date,end_date,total_days,request_type,form_data,status").eq("status", "approved").gte("end_date", todayValue).order("start_date", { ascending: true }).limit(100))
   ]);
 }
