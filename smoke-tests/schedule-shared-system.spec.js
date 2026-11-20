@@ -274,6 +274,54 @@ for (const entry of ["employee schedule", "home"]) {
   });
 }
 
+for (const calendar of [
+  { name: "Summary Calendar", role: "admin", url: "/admin.html?tab=summary", controls: ".admin-schedule-controls", title: "#adminScheduleTitle", grid: "#adminScheduleCalendar" },
+  { name: "full calendar", role: "worker", url: "/schedule.html", controls: ".calendar-controls", title: "#calendarTitle", grid: "#scheduleCalendar" }
+]) {
+  test(`${calendar.name} Today returns from either direction and follows the local date across New Year`, async ({ page }) => {
+    await installState(page, calendar.role);
+    await page.goto(calendar.url);
+    const title = page.locator(calendar.title);
+    await expect(title).toHaveText(/\d{4}/);
+    if (calendar.role === "admin") {
+      await page.waitForFunction(() => adminDataLoaded === true);
+    } else {
+      await page.locator("#eventTitle").fill("Unfinished site visit");
+      await page.locator("#eventDate").fill("2026-12-14");
+      await page.locator("#eventEndDate").fill("2026-12-16");
+    }
+
+    const controls = page.locator(calendar.controls);
+    const today = controls.getByRole("button", { name: "Today", exact: true });
+    const currentDate = page.locator(calendar.grid).locator('[aria-current="date"]');
+    await page.clock.setFixedTime(new Date(2026, 11, 31, 12));
+    await today.click();
+    await expect(title).toHaveText("December 2026");
+    await expect(currentDate).toContainText("31");
+    for (const [direction, expectedMonth] of [["Previous", "November 2026"], ["Next", "January 2027"]]) {
+      await controls.getByRole("button", { name: direction, exact: true }).click();
+      await expect(title).toHaveText(expectedMonth);
+      await expect(currentDate).toHaveCount(0);
+      await today.focus();
+      await today.press("Enter");
+      await expect(title).toHaveText("December 2026");
+      await expect(today).toBeFocused();
+    }
+
+    await page.clock.setFixedTime(new Date(2027, 0, 1, 12));
+    await today.click();
+    await expect(title).toHaveText("January 2027");
+    await expect(currentDate.locator('[class$="day-number"]')).toHaveText("1");
+    if (calendar.role === "admin") {
+      await expect(page.locator("#adminScheduleModal")).toBeHidden();
+    } else {
+      await expect(page.locator("#eventTitle")).toHaveValue("Unfinished site visit");
+      await expect(page.locator("#eventDate")).toHaveValue("2026-12-14");
+      await expect(page.locator("#eventEndDate")).toHaveValue("2026-12-16");
+    }
+  });
+}
+
 async function contrastRatio(page, selector) {
   return page.locator(selector).first().evaluate((element) => {
     function parse(value) {
@@ -312,13 +360,13 @@ test("Schedule family uses one token-only shared visual source", async () => {
   expect(pageSource).not.toMatch(/\sstyle\s*=/i);
   expect(pageSource).not.toContain("styles.css");
   expect(pageSource).toContain('jgc-design-system.css?v=14');
-  expect(pageSource).toContain('schedule-design-system.css?v=8');
+  expect(pageSource).toContain('schedule-design-system.css?v=9');
   expect(pageSource).toContain('id="scheduleAgenda"');
   expect(pageSource).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(featureCss, "Schedule-only CSS must use centralized design tokens instead of page colours").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
 
   expect(adminSource).toContain('admin.css?v=19');
-  expect(adminSource).toContain('schedule-design-system.css?v=8');
+  expect(adminSource).toContain('schedule-design-system.css?v=9');
   expect(adminSource).toContain('class="admin-schedule-calendar-scroll"');
   expect(adminSource).toContain("admin-schedule-day-events");
   expect(adminSource).toContain("admin-schedule-vehicle-hint");
@@ -327,7 +375,7 @@ test("Schedule family uses one token-only shared visual source", async () => {
   expect(adminCss).not.toContain(".admin-schedule-modal-backdrop");
   expect(serviceWorker).toMatch(/const JGC_RELEASE_ID = "\d+";/);
   expect(serviceWorker).toContain('"./admin.css?v=19"');
-  expect(serviceWorker).toContain('"./schedule-design-system.css?v=8"');
+  expect(serviceWorker).toContain('"./schedule-design-system.css?v=9"');
 });
 
 for (const viewport of [
