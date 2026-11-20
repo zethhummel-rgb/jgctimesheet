@@ -1274,6 +1274,11 @@ function changeAdminScheduleMonth(offset) {
     renderAdminScheduleCalendar();
 }
 
+function showAdminScheduleToday() {
+    adminScheduleMonth = new Date();
+    renderAdminScheduleCalendar();
+}
+
 const ADMIN_SCHEDULE_VISIBLE_ITEMS = 2;
 let adminScheduleOverflowDays = new Map();
 
@@ -1430,7 +1435,7 @@ function renderAdminScheduleCalendar() {
             : "";
 
         html += `
-            <div role="button" tabindex="0" aria-label="${escapeHtml(dayLabel)}" class="admin-schedule-day${todayClass}" onclick="openAdminScheduleModal('${dateValue}')" onkeydown="if(event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')){ event.preventDefault(); openAdminScheduleModal('${dateValue}'); }">
+            <div role="button" tabindex="0" aria-label="${escapeHtml(dayLabel)}"${todayClass ? ' aria-current="date"' : ""} class="admin-schedule-day${todayClass}" onclick="openAdminScheduleModal('${dateValue}')" onkeydown="if(event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')){ event.preventDefault(); openAdminScheduleModal('${dateValue}'); }">
                 <div class="admin-schedule-day-top"><div class="admin-schedule-day-number">${day}</div>${more}</div>
                 <div class="admin-schedule-day-list">${visibleItems.join("")}</div>
             </div>

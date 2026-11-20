@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>JGC Schedule</title>
 <link rel="stylesheet" href="jgc-design-system.css?v=14" data-jgc-design-system="14">
-<link rel="stylesheet" href="schedule-design-system.css?v=8">
+<link rel="stylesheet" href="schedule-design-system.css?v=9">
 </head>
 <body class="schedule-page jgc-page jgc-system-page">
 <main class="page schedule-page-shell jgc-page-shell jgc-page-shell--wide">
@@ -54,8 +54,9 @@
     <section class="card jgc-panel">
       <div class="calendar-controls jgc-actions">
         <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="changeMonth(-1)">Previous</button>
-        <div id="calendarTitle" class="calendar-title"></div>
+        <div id="calendarTitle" class="calendar-title" aria-live="polite"></div>
         <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="changeMonth(1)">Next</button>
+        <button type="button" class="secondary jgc-button jgc-button--secondary" aria-controls="scheduleCalendar" title="Go to the current month" onclick="showScheduleToday()">Today</button>
       </div>
       <div class="legend">
         <span class="mine">My Schedule</span>
@@ -303,6 +304,11 @@ function eventTouchesDate(event, dateValue) {
 
 function changeMonth(offset) {
   calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + offset, 1);
+  renderCalendar();
+}
+
+function showScheduleToday() {
+  calendarMonth = new Date();
   renderCalendar();
 }
 
@@ -689,6 +695,7 @@ function renderCalendar() {
   const first = new Date(year, month, 1);
   const last = new Date(year, month + 1, 0);
   const selectedValue = formatDateValue(selectedDate);
+  const todayValue = formatDateValue(new Date());
   const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   let html = days.map((day) => '<div class="calendar-head">' + day + '</div>').join("");
 
@@ -720,7 +727,7 @@ function renderCalendar() {
     const moreCount = dayEvents.length + dayVacations.length - Math.min(dayEvents.length, 3) - Math.min(dayVacations.length, 2);
 
     html += `
-      <button type="button" class="day ${selectedValue === dateValue ? "selected" : ""}" onclick="selectDate('${dateValue}')">
+      <button type="button" class="day ${selectedValue === dateValue ? "selected" : ""}"${dateValue === todayValue ? ' aria-current="date"' : ""} onclick="selectDate('${dateValue}')">
         <div class="day-number">${day}</div>
         <div class="day-list">${items}${moreCount ? '<div class="small">+' + moreCount + ' more</div>' : ""}</div>
       </button>

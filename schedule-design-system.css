@@ -148,7 +148,7 @@
 
 .schedule-page .calendar-controls {
   display: grid;
-  grid-template-columns: minmax(96px, auto) minmax(180px, 1fr) minmax(96px, auto);
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   gap: var(--jgc-space-2);
   align-items: center;
 }
@@ -684,6 +684,7 @@
   box-shadow: inset 0 0 0 3px var(--jgc-color-brand-500);
 }
 
+.schedule-page .day[aria-current="date"] .day-number,
 .jgc-schedule-admin .admin-schedule-day.today .admin-schedule-day-number {
   display: inline-flex;
   min-width: 28px;
@@ -891,7 +892,7 @@
   }
 
   .schedule-page .calendar-controls {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .schedule-page .calendar-title {
