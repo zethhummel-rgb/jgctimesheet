@@ -1,4 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import type { DrawingDetail } from '../lib/drawing-detail';
+import { DrawingRfiDetail } from './drawing-rfi-detail';
 import type { AppState, Job } from '../lib/estimator-data';
 import { blankRfi, nextRfiNumber, releasesDraftNumber, rfiCsv, rfiDetails, rfiLink, rfiOutstanding, rfiOverdue, rfiStatuses, rfiToday, saveRfi, validateRfi, type Rfi, type RfiDetails } from '../lib/rfi-workflow';
 import { photoRequest, preparePhoto, uploadSavedPhotos, type PhotoUpload, type RfiPhoto } from '../lib/rfi-photos';
@@ -10,14 +13,19 @@ import { RfiQuickEdit, type RfiQuickField } from './rfi-quick-edit';
 import './job-rfis.css';
 
 const filename=(s:string)=>s.replace(/[^a-zA-Z0-9 _.-]/g,'-').slice(0,100);
-export function JobRfis({job,state,setState,actor,workspaceSaved}:{job:Job;state:AppState;setState:React.Dispatch<React.SetStateAction<AppState>>;actor:string;workspaceSaved:boolean}) {
+export function JobRfis({job,state,setState,actor,workspaceSaved,active,detail,onCloseDetail,onOpenRfis}:{
+  job:Job;state:AppState;setState:React.Dispatch<React.SetStateAction<AppState>>;actor:string;workspaceSaved:boolean;
+  active:boolean;detail:DrawingDetail|null;onCloseDetail:()=>void;onOpenRfis:()=>void;
+}) {
   const pageRef=useRef<HTMLElement>(null);
+  const editorRef=useRef<HTMLElement>(null), focusAfterAttachment=useRef(false);
   useEffect(()=>{
+    if (!active) return;
     const root=pageRef.current,tabs=root?.closest('.job-detail-page')?.querySelector<HTMLElement>('.job-tabs');
     if(!root||!tabs)return;
     const sync=()=>root.style.setProperty('--jgc-rfi-sticky-offset',(parseFloat(getComputedStyle(tabs).top)+tabs.offsetHeight)+'px');
     sync();const observer=new ResizeObserver(sync);observer.observe(tabs);return ()=>observer.disconnect();
-  },[]);
+  },[active]);
   const allRecords=job.rfis||[];
   const records=allRecords.filter(r=>!r.deletedAt);
   const [quick,setQuick]=useState<{record:Rfi;field:RfiQuickField}|null>(null);
@@ -31,6 +39,13 @@ export function JobRfis({job,state,setState,actor,workspaceSaved}:{job:Job;state
   const [stored, setStored] = useState<RfiPhoto[]>([]);
   const [photoRefresh, setPhotoRefresh] = useState(0);
   const editingId = editor?.original?.id;
+  useEffect(() => {
+    if (active && focusAfterAttachment.current && editorRef.current) {
+      focusAfterAttachment.current = false;
+      editorRef.current.focus({preventScroll:true});
+      editorRef.current.scrollIntoView({block:'start'});
+    }
+  }, [active, editor]);
   useEffect(() => {
     let current = true;
     setStored([]);
@@ -118,7 +133,30 @@ export function JobRfis({job,state,setState,actor,workspaceSaved}:{job:Job;state
   const cellButton=(r:Rfi,field:RfiQuickField,label:string)=><button className="rfi-cell-button" aria-label={`Edit ${field.toLowerCase()} for ${r.number}`} disabled={busy||!workspaceSaved||Boolean(editor)||(r.status==='Closed'&&field!=='Status')} onClick={()=>setQuick({record:structuredClone(r),field})}>{label}</button>;
   const shown=records.filter(r=>(filter==='All'||filter==='Outstanding'&&rfiOutstanding(r)||filter==='Overdue'&&rfiOverdue(r)||filter===r.status)&&[r.number,r.subject,r.sentTo,r.raisedBy,r.question,r.references].some(v=>v.toLowerCase().includes(search.toLowerCase()))).sort((a,b)=>a.number.localeCompare(b.number,undefined,{numeric:true}));
   const input=(key:Exclude<keyof RfiDetails,'attachments'|'status'>,label:string,type='text',multiline=false)=> <label className={`field ${multiline?'full':''}`}><span>{label}</span>{multiline?<textarea aria-label={label} aria-invalid={Boolean(errors[key])} value={editor!.draft[key]} onChange={e=>change(key,e.target.value)} rows={key==='question'||key==='answer'?6:3}/>:<input aria-label={label} aria-invalid={Boolean(errors[key])} type={type} value={editor!.draft[key]} onChange={e=>change(key,e.target.value)}/>} {errors[key]&&<small className="rfi-error">{errors[key]}</small>}</label>;
-  return <section ref={pageRef} className="rfi-page" aria-label="RFI Register">
+  const drafts = records.filter(r => r.status === 'Draft');
+  const unsaved = editor && !editor.original && editor.draft.status === 'Draft' ? editor.draft : undefined;
+  function attachDetail(photo: PhotoUpload, target: string) {
+    if (busy) throw new Error('Finish the current RFI upload or PDF download, then try again.');
+    const existing = drafts.find(r => r.id === target);
+    if (!existing && target !== 'new' && !(target === 'unsaved' && unsaved)) throw new Error('That RFI is no longer a draft. Choose another draft or a new RFI.');
+    const continuing = target === 'unsaved' || Boolean(existing && existing.id === editingId);
+    if (continuing && picked.length >= 8) throw new Error('Save the eight staged photos before adding another detail.');
+    if (continuing && existing && JSON.stringify(existing) !== JSON.stringify(editor?.original)) throw new Error('This draft changed. Reopen its latest version before adding the detail.');
+    if (!continuing) {
+      const changed = editor && (editor.note || picked.length || JSON.stringify(editor.draft) !== JSON.stringify(editor.original ? rfiDetails(editor.original) : blankRfi(actor)));
+      if ((changed || quick) && !window.confirm('Discard the current RFI edits and attach this detail to the selected RFI?')) return;
+      open(existing);
+    }
+    setPicked(previous => continuing ? [...previous, photo] : [photo]);
+    setMessage('Drawing detail attached. Save the RFI to include it in the PDF.');
+    focusAfterAttachment.current = true;
+    onOpenRfis();
+  }
+  const detailDialog = detail && createPortal(<DrawingRfiDetail detail={detail} drafts={drafts} unsavedSubject={unsaved?.subject}
+    initialTarget={unsaved ? 'unsaved' : drafts.some(r => r.id === editingId) ? editingId! : 'new'}
+    onAttach={attachDetail} onClose={onCloseDetail}/>, document.fullscreenElement || document.body);
+  if (!active && !editor && !quick && !busy) return detailDialog;
+  return <>{detailDialog}<div hidden={!active}><section ref={pageRef} className="rfi-page" aria-label="RFI Register">
     <div className="rfi-heading"><div><p className="eyebrow">JOB CORRESPONDENCE</p><h2>RFI Register</h2><p>Questions, responses and follow-ups for Job {job.jobNumber}.</p></div><div className="rfi-actions"><button className="button secondary" disabled={!records.length||busy} onClick={()=>void exportPdf()}>RFI log PDF</button><button className="button secondary" disabled={!records.length} onClick={()=>download(new Blob([rfiCsv(job.jobNumber,records)],{type:'text/csv;charset=utf-8'}),filename(`${job.jobNumber} RFI Register`)+'.csv')}>Export RFI log</button><button className="button primary" disabled={!workspaceSaved||busy} onClick={()=>open()}>New RFI</button></div></div>
     <div className="rfi-totals">{[['Total',records.length],['Outstanding',records.filter(rfiOutstanding).length],['Overdue',records.filter(r=>rfiOverdue(r)).length],['Answered',records.filter(r=>r.status==='Answered').length]].map(([label,n])=><div key={label}><span>{label}</span><strong>{n}</strong></div>)}</div>
     {!workspaceSaved&&<p role="status">Workspace sync pending. Wait for Saved before leaving or creating another RFI.</p>}
@@ -127,7 +165,7 @@ export function JobRfis({job,state,setState,actor,workspaceSaved}:{job:Job;state
     {retryBatch && <button disabled={working} className="button secondary" onClick={()=>void upload(retryBatch)}>Retry photo upload</button>}
     {delivery && <RfiPhotoExport item={delivery} done={text=>{setDelivery(null);setMessage(text);setPhotoRefresh(n=>n+1);}}/>}
     <div className="rfi-filters"><input aria-label="Search RFIs" placeholder="Search RFI number, subject, person or reference" value={search} onChange={e=>setSearch(e.target.value)}/><select aria-label="RFI register filter" value={filter} onChange={e=>setFilter(e.target.value)}>{['All','Outstanding','Overdue',...rfiStatuses].map(s=><option key={s}>{s}</option>)}</select></div>
-    {editor&&<section className="rfi-editor" aria-label="RFI editor">
+    {editor&&<section ref={editorRef} tabIndex={-1} className="rfi-editor" aria-label="RFI editor">
       <div className="rfi-heading"><div><p className="eyebrow">{editor.reopen?'FOLLOW-UP / REOPEN':editor.original?'RFI DETAILS':'NEW RFI'}</p><h3>{editor.original?.number||'Number assigned when saved'}</h3><small>{editor.original?`${editor.original.cycle} follow-up cycles`:`Next available: ${nextRfiNumber(allRecords)}. Cancelling does not use a number.`}</small></div><button className="button secondary" disabled={busy} onClick={()=>setEditor(null)}>Close RFI editor</button></div>
       {readonly&&<p>This RFI is closed. Use Reopen / follow up to make further changes.</p>}
       <fieldset disabled={readonly||busy} className="rfi-fields">
@@ -163,5 +201,5 @@ export function JobRfis({job,state,setState,actor,workspaceSaved}:{job:Job;state
         <td data-label="Actions"><div className="rfi-actions"><button className="button secondary compact" disabled={busy} onClick={()=>open(r)}>Open RFI</button><button className="button secondary compact" disabled={busy||picked.length>0} onClick={()=>void exportPdf(r)}>PDF</button><button className="button danger-ghost compact" disabled={busy||!workspaceSaved||Boolean(editor)} onClick={()=>remove(r)}>Delete</button></div></td>
       </tr>{quick?.record.id===r.id&&<tr><td colSpan={7}><RfiQuickEdit key={r.id+quick.field} record={quick.record} field={quick.field} actor={actor} disabled={!workspaceSaved||busy} cancel={()=>setQuick(null)} commit={quickSave}/></td></tr>}</Fragment>)}
     </tbody></table>{!shown.length&&<p className="rfi-hint">{records.length?'No matching RFIs.':'No RFIs yet. Create the first request for this job.'}</p>}</div>
-  </section>;
+  </section></div></>;
 }

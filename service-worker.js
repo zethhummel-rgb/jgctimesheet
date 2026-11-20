@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "1097";
+const JGC_RELEASE_ID = "1098";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -214,24 +214,24 @@ const JGC_APP_SHELL = [
   "./icon-180.png?v=4",
   "./icon-192.png?v=4",
   "./icon-512.png?v=4",
-  "./estimating/assets/browser-cAl0OzvL.js",
+  "./estimating/assets/browser-C2qD14kA.js",
   "./estimating/assets/document-worker-DbK99mzg.js",
-  "./estimating/assets/drawing-pdf-DGFu-Fgn.js",
-  "./estimating/assets/es-DcqFcHYh.js",
-  "./estimating/assets/index--2kxjFB3.js",
-  "./estimating/assets/index-CiYX_ChI.css",
-  "./estimating/assets/job-accounting-workbook-DXQwGXWh.js",
-  "./estimating/assets/job-schedule-pdf-frlf5pi1.js",
-  "./estimating/assets/job-warranty-pdf-Cdx5YyKD.js",
+  "./estimating/assets/drawing-pdf-CDpSjqRU.js",
+  "./estimating/assets/es-C1I57jiR.js",
+  "./estimating/assets/index-Bzxm9sX7.js",
+  "./estimating/assets/index-CiF7007Z.css",
+  "./estimating/assets/job-accounting-workbook-CkWmtE1T.js",
+  "./estimating/assets/job-schedule-pdf-Cc806T3-.js",
+  "./estimating/assets/job-warranty-pdf-C66z339h.js",
+  "./estimating/assets/pdf-B34z2M-s.js",
   "./estimating/assets/pdf-Bs__3tTL.js",
-  "./estimating/assets/pdf-CsPuADaZ.js",
-  "./estimating/assets/proposal-pdf-DqvVD5W-.js",
-  "./estimating/assets/purchase-order-pdf-rLVfy3Co.js",
-  "./estimating/assets/quote-backup-pdf-BswXAfph.js",
-  "./estimating/assets/rfi-pdf-BBYg8qcy.js",
-  "./estimating/assets/shop-drawing-transmittal-pdf-oq13Cu6_.js",
-  "./estimating/assets/shop-drawing-workbook-CECX0tWH.js",
-  "./estimating/assets/src-CiP8KJ4N.js"
+  "./estimating/assets/proposal-pdf-Bxfnk0ht.js",
+  "./estimating/assets/purchase-order-pdf-C3A9VC0f.js",
+  "./estimating/assets/quote-backup-pdf-C_Fb2h7s.js",
+  "./estimating/assets/rfi-pdf-cx6jXUde.js",
+  "./estimating/assets/shop-drawing-transmittal-pdf-CkEoMKQJ.js",
+  "./estimating/assets/shop-drawing-workbook-BKZ2thUJ.js",
+  "./estimating/assets/src-J29uCI3l.js"
 ];
 
 function isJgcCacheableResponse(response) {

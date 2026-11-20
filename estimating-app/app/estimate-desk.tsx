@@ -1,6 +1,7 @@
 import { closedJobDate } from "../lib/job-accounting-export";
 import { JobProgressBilling, requestProgressBilling } from "./job-progress-billing";
 import { JobDrawings } from "./job-drawings";
+import type { DrawingDetail } from "../lib/drawing-detail";
 import { permanentlyDeleteDrawing } from "../src/drawing-deletion";
 import { JobSafety } from "./job-safety";
 import { JobWarrantyPage } from "./job-warranty";
@@ -5738,6 +5739,8 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
   const isPhone = useIsPhone();
   const [statusFilter, setStatusFilter] = useState<"Active" | "Archived">("Active");
   const [jobLayout, setJobLayout] = useWorkListLayout();
+  const [rfiDrawingDetail, setRfiDrawingDetail] = useState<{ jobId: string; view: DrawingDetail } | null>(null);
+  useEffect(() => { setRfiDrawingDetail(null); }, [job?.id, tab]);
   const [jobSearch, setJobSearch] = useState("");
   const [managerFilter, setManagerFilter] = useState("");
   const [documentLinkDraft, setDocumentLinkDraft] = useState("");
@@ -6838,11 +6841,14 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           {reviewDrawing && <ShopDrawingTransmittal key={reviewDrawing.id + ":" + reviewDrawing.revision} job={job} drawing={reviewDrawing} actor={currentEstimator.name} clientName={state.clients.find((client) => client.id === job.clientId)?.name ?? ""} workspaceSaved={workspaceSaved} initialFile={shopDrawingReview?.file} onClose={() => setShopDrawingReview(null)} />}
           <p className="shop-drawing-footnote">Internal by default. Employee sharing is available only for Approved or Approved as noted current revisions and replaces the existing employee job-list document button.</p>
         </section>}
-        <JobDrawings key={`drawings-${job.id}`} job={job} actor={currentEstimator.name} active={tab === "drawings"} />
+        <JobDrawings key={`drawings-${job.id}`} job={job} actor={currentEstimator.name} active={tab === "drawings"}
+          onRfiDetail={view => setRfiDrawingDetail({ jobId: job.id, view })} />
         <JobSafety key={`safety-${job.id}`} job={job} active={tab === "job-board"} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />
         {tab === "warranty" && <JobWarrantyPage key={`warranty-${job.id}`} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />}
         {tab === "tm-extras" && <JobTmExtras key={`extras-${job.id}`} job={job} />}
-        {tab === "rfis" && <JobRfis key={`rfis-${job.id}`} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />}
+        <JobRfis key={`rfis-${job.id}`} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved}
+          active={tab === "rfis"} detail={tab === "drawings" && rfiDrawingDetail?.jobId === job.id ? rfiDrawingDetail.view : null} onCloseDetail={() => setRfiDrawingDetail(null)}
+          onOpenRfis={() => { setRfiDrawingDetail(null); setTab("rfis"); }} />
         <div className="schedule-tab" hidden={tab !== "schedule"}><JobSchedule key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} /></div>
         {tab === "statistics" && <>
           <section className="job-kpi-grid job-operational-costs" aria-label="Job costs to date">

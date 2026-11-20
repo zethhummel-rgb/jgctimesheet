@@ -1,5 +1,6 @@
 import { REVIEW_STATUSES, type ReviewStamp } from '../lib/drawing-model';
 const paths: Record<string,string> = {
+  arrow: 'M4 20L20 4M9 4h11v11',
   select:'M5 3l14 10-7 1-3 7z',hand:'M7 12V7a2 2 0 014 0v4-1-6a2 2 0 014 0v6-1-5a2 2 0 014 0v8c0 5-2 8-6 8h-1c-2 0-4-2-6-5l-2-3a2 2 0 013-2l2 2',
   pen:'M4 20l1-5L16 4l4 4L9 19zM13 7l4 4',line:'M4 19L20 5M4 16v4h4M16 4h4v4',rectangle:'M4 5h16v14H4z',highlight:'M7 15L16 4l5 4-9 11zM4 21h15',text:'M4 5h16M12 5v15M8 20h8',
   calibrate:'M3 8l13-5 5 13-13 5zM8 7l2 4M12 5l2 4M16 9l4-2M17 13l4-2',distance:'M3 12h18M3 8v8M21 8v8M6 9l-3 3 3 3M18 9l3 3-3 3',area:'M4 4h16v16H4zM4 4l16 16M4 12l8 8M12 4l8 8',perimeter:'M4 4h16v16H4zM1 1h5M1 1v5M23 23h-5M23 23v-5',

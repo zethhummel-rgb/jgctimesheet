@@ -1,5 +1,12 @@
 export interface RfiPhoto { id: string; name: string }
 export interface PhotoUpload extends RfiPhoto { jpeg: string }
+export const RFI_PHOTO_MAX_EDGE = 2000;
+
+export function photoFromCanvas(canvas: HTMLCanvasElement, name: string): PhotoUpload {
+  const jpeg = canvas.toDataURL('image/jpeg', 0.84).split(',')[1];
+  if (!jpeg || jpeg.length > 4000000) throw new Error('Choose a smaller photo.');
+  return { id: crypto.randomUUID(), name: name.slice(0, 200), jpeg };
+}
 
 export async function preparePhoto(file: File): Promise<PhotoUpload> {
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw new Error('Choose a JPG, PNG or WebP photo.');
@@ -9,7 +16,7 @@ export async function preparePhoto(file: File): Promise<PhotoUpload> {
     const image = new Image();
     image.src = url;
     await image.decode();
-    const scale = Math.min(1, 2000 / Math.max(image.naturalWidth, image.naturalHeight));
+    const scale = Math.min(1, RFI_PHOTO_MAX_EDGE / Math.max(image.naturalWidth, image.naturalHeight));
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
     canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
@@ -18,9 +25,7 @@ export async function preparePhoto(file: File): Promise<PhotoUpload> {
     context.fillStyle = 'white';
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    const jpeg = canvas.toDataURL('image/jpeg', 0.84).split(',')[1];
-    if (!jpeg || jpeg.length > 4000000) throw new Error('Choose a smaller photo.');
-    return { id: crypto.randomUUID(), name: file.name.slice(0, 200), jpeg };
+    return photoFromCanvas(canvas, file.name);
   } finally { URL.revokeObjectURL(url); }
 }
 

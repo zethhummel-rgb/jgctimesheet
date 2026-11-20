@@ -4,12 +4,167 @@ const {PDFDocument,StandardFonts,rgb,degrees,PDFName}=require('../estimating-app
 const cache={};function load(name){if(cache[name])return cache[name];const m={exports:{}};Function('exports','module','require',ts.transpileModule(fs.readFileSync(path.resolve(__dirname,'../estimating-app/lib/'+name+'.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(m.exports,m,n=>n.startsWith('.')?load(n.replace(/^\.\//,'')):require('../estimating-app/node_modules/'+n));return cache[name]=m.exports;}
 async function sample(count=2){const pdf=await PDFDocument.create(),font=await pdf.embedFont(StandardFonts.Helvetica);for(let n=1;n<=count;n++){const p=pdf.addPage([612,792]);p.drawText('JGC TEST DRAWING PAGE '+n,{x:70,y:700,size:18,font});p.drawLine({start:{x:70,y:600},end:{x:370,y:600},thickness:2,color:rgb(0,0,0)});if(n===2){p.setCropBox(30,40,540,700);p.setRotation(degrees(90));}}return Buffer.from(await pdf.save());}
 function state(){const s=load('estimator-data').createDefaultState();s.clients=[];s.quotes=[];s.priceBook=[];s.jobs=[{id:'job',jobNumber:'26999',quoteId:'',clientId:'',project:'Drawing review',status:'Active',portalJobId:'portal-job',acceptedRevenue:0,originalCostBudget:0,approvedRevenueChanges:0,approvedCostChanges:0,estimateToComplete:0,acceptedAt:'2026-10-01',costs:[],notes:''}];return s;}
-async function setup(page,store,storageOrigin){await page.route('**/api/**',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({state:state(),jobs:[],actuals:[],rows:[],saved:true})}));await page.route(storageOrigin?storageOrigin+'/rest/**':'https://drawings.example.test/**',async r=>{const req=r.request(),u=new URL(req.url());if(u.pathname.startsWith('/storage/')){if(req.method()==='POST'){store.uploaded=true;return r.fulfill({status:200,contentType:'application/json',body:'{"Key":"ok"}'});}return r.fulfill({status:200,contentType:'application/pdf',body:store.bytes});}if(u.pathname.endsWith('/job_drawings')){if(req.method()==='GET')return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify([store.row])});if(req.method()==='PATCH'){const v=req.postDataJSON();if(u.searchParams.get('revision')!=='eq.'+store.row.revision)return r.fulfill({status:200,contentType:'application/json',body:'null'});store.row={...store.row,...v,updated_at:new Date().toISOString()};store.saves++;return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(store.row)});}if(req.method()==='POST'){const v=req.postDataJSON();store.row={...store.row,...v,object_path:v.id+'/original.pdf'};return r.fulfill({status:201,contentType:'application/json',body:JSON.stringify(store.row)});}}return r.fulfill({status:404,body:'{}'});});await page.goto('/estimating/index.html?dev=1&view=jobs&job=26999');await expect(page.locator('.job-detail-page')).toContainText('26999');await page.evaluate(origin=>{window.__drawingBaselineWidth=document.documentElement.scrollWidth;window.createJgcSupabaseClient=()=>window.supabase.createClient(origin,'public-test-key',{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});},storageOrigin||'https://drawings.example.test');await page.getByRole('tab',{name:'Drawings',exact:true}).click();await expect(page.getByLabel('Select drawing').locator('option')).toHaveCount(2);await page.getByLabel('Select drawing').selectOption(store.row.id);await expect(page.locator('.drawing-overlay')).toBeVisible();expect(await page.locator('.drawing-sheet canvas').evaluate(c=>c.width)).toBeGreaterThan(0);}
+async function setup(page,store,storageOrigin){await page.route('**/api/**',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({state:store.workspace || state(),jobs:[],actuals:[],rows:[],saved:true})}));await page.route(storageOrigin?storageOrigin+'/rest/**':'https://drawings.example.test/**',async r=>{const req=r.request(),u=new URL(req.url());if(u.pathname.startsWith('/storage/')){if(req.method()==='POST'){store.uploaded=true;return r.fulfill({status:200,contentType:'application/json',body:'{"Key":"ok"}'});}return r.fulfill({status:200,contentType:'application/pdf',body:store.bytes});}if(u.pathname.endsWith('/job_drawings')){if(req.method()==='GET')return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify([store.row])});if(req.method()==='PATCH'){const v=req.postDataJSON();if(u.searchParams.get('revision')!=='eq.'+store.row.revision)return r.fulfill({status:200,contentType:'application/json',body:'null'});store.row={...store.row,...v,updated_at:new Date().toISOString()};store.saves++;return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(store.row)});}if(req.method()==='POST'){const v=req.postDataJSON();store.row={...store.row,...v,object_path:v.id+'/original.pdf'};return r.fulfill({status:201,contentType:'application/json',body:JSON.stringify(store.row)});}}return r.fulfill({status:404,body:'{}'});});await page.goto('/estimating/index.html?dev=1&view=jobs&job=26999');await expect(page.locator('.job-detail-page')).toContainText('26999');await page.evaluate(origin=>{window.__drawingBaselineWidth=document.documentElement.scrollWidth;window.createJgcSupabaseClient=()=>window.supabase.createClient(origin,'public-test-key',{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});},storageOrigin||'https://drawings.example.test');await page.getByRole('tab',{name:'Drawings',exact:true}).click();await expect(page.getByLabel('Select drawing').locator('option')).toHaveCount(2);await page.getByLabel('Select drawing').selectOption(store.row.id);await expect(page.locator('.drawing-overlay')).toBeVisible();expect(await page.locator('.drawing-sheet canvas').evaluate(c=>c.width)).toBeGreaterThan(0);}
 async function store(){return{bytes:await sample(),saves:0,row:{id:'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',job_id:'job',title:'Architectural drawing',file_name:'original.pdf',object_path:'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa/original.pdf',revision:1,content:load('drawing-model').emptyDrawing(),created_at:'2026-10-01',updated_at:'2026-10-01'}};}
 async function drag(page,x=70,y=90,dx=130,dy=0){if(await page.getByRole('button',{name:'Set scale',exact:true}).count()&&await page.getByRole('button',{name:'Set scale',exact:true}).getAttribute('aria-pressed')==='true'){await distance(page,x,y,dx,dy);return;}await page.locator('.drawing-overlay').evaluate(svg=>scrollTo(0,scrollY+svg.getBoundingClientRect().top-240));const b=await page.locator('.drawing-overlay').boundingBox();await page.mouse.move(b.x+x,b.y+y);await page.mouse.down();await page.mouse.move(b.x+x+dx,b.y+y+dy,{steps:5});await page.mouse.up();}
 async function distance(page,x=70,y=150,dx=130,dy=0){await page.locator('.drawing-overlay').evaluate(svg=>scrollTo(0,scrollY+svg.getBoundingClientRect().top-240));const b=await page.locator('.drawing-overlay').boundingBox();await page.mouse.click(b.x+x,b.y+y);await page.mouse.move(b.x+x+dx,b.y+y+dy);await page.mouse.click(b.x+x+dx,b.y+y+dy);}
 async function text(page,value='As-built: conduit relocated'){await page.getByRole('button',{name:'Edit',exact:true}).click();await page.getByRole('button',{name:'Text',exact:true}).click();await page.locator('.drawing-overlay').evaluate(svg=>scrollTo(0,scrollY+svg.getBoundingClientRect().top-240));const b=await page.locator('.drawing-overlay').boundingBox();await page.mouse.click(b.x+100,b.y+120);await page.getByLabel('Edit drawing comment',{exact:true}).fill(value);}
 async function pdfTexts(bytes){const lib=await import(require('node:url').pathToFileURL(path.resolve(__dirname,'../estimating-app/node_modules/pdfjs-dist/legacy/build/pdf.mjs')).href),task=lib.getDocument({data:new Uint8Array(bytes),disableWorker:true}),pdf=await task.promise,text=[];for(let n=1;n<=pdf.numPages;n++){const p=await pdf.getPage(n),content=await p.getTextContent();text.push(content.items.map(i=>i.str).join(' '));}await task.destroy();return text;}
+
+async function openDrawingDetail(page) {
+  await page.getByRole('button', {name:'Send view to RFI', exact:true}).click();
+  const dialog = page.getByRole('dialog', {name:'Drawing detail for RFI'});
+  await expect(dialog.getByRole('button', {name:'Attach and open RFI'})).toBeEnabled();
+  return dialog;
+}
+
+async function drawOnDetail(page, dialog, tool) {
+  await dialog.getByRole('button', {name:tool, exact:true}).click();
+  const ink = dialog.getByLabel('Mark up this RFI detail');
+  await ink.scrollIntoViewIfNeeded();
+  const box = await ink.boundingBox();
+  await page.mouse.move(box.x + box.width * .2, box.y + box.height * .5);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * .8, box.y + box.height * .5, {steps:8});
+  await page.mouse.up();
+}
+
+test('a zoomed drawing detail and its arrow go straight into a new RFI and its saved PDF',async({page},info)=>{
+  await page.setViewportSize({width:1440,height:950});
+  await page.addInitScript(() => Object.defineProperty(window, 'showSaveFilePicker', {value:undefined, configurable:true}));
+  const s = await store();
+  const pdf = await PDFDocument.create(), sheet = pdf.addPage([1200,900]);
+  sheet.drawRectangle({x:0,y:0,width:1200,height:900,color:rgb(1,0,0)});
+  sheet.drawRectangle({x:600,y:0,width:600,height:450,color:rgb(0,1,0)});
+  s.bytes = Buffer.from(await pdf.save());
+  await setup(page,s);
+  const photos = new Map(), writes = [];
+  await page.route('**/api/rfi-photos?**', async route => {
+    const request=route.request(), params=new URL(request.url()).searchParams, id=params.get('id');
+    if(request.method()==='POST') {
+      writes.push(params.get('rfi'));
+      for(const photo of request.postDataJSON()) photos.set(photo.id,photo);
+    }
+    if(request.method()==='DELETE') for(const key of request.postDataJSON()) photos.delete(key);
+    await route.fulfill({json:request.method()==='GET' ? id ? photos.get(id) : [...photos.values()].map(({id,name})=>({id,name})) : {}});
+  });
+  const stage = page.getByLabel('PDF drawing view',{exact:true});
+  for(let i=0;i<8;i++) await page.getByRole('button',{name:'Zoom in',exact:true}).click();
+  await expect.poll(()=>stage.locator('.drawing-overlay').evaluate(el=>el.getBoundingClientRect().width)).toBeGreaterThan(3000);
+  await stage.evaluate(el=>{el.scrollLeft=el.scrollWidth-el.clientWidth-30;el.scrollTop=el.scrollHeight-el.clientHeight-30;});
+  const size = await stage.evaluate(el=>({width:el.clientWidth,height:el.clientHeight}));
+  const dialog = await openDrawingDetail(page);
+  const pixels = await dialog.locator('canvas').evaluate(canvas=>{
+    const ctx=canvas.getContext('2d'), colour=(x,y)=>Array.from(ctx.getImageData(x,y,1,1).data).slice(0,3);
+    return {width:canvas.width,height:canvas.height,corners:[[2,2],[canvas.width-3,2],[2,canvas.height-3],[canvas.width-3,canvas.height-3]].map(([x,y])=>colour(x,y))};
+  });
+  expect(pixels.corners).toEqual(Array(4).fill([0,255,0]));
+  expect(pixels.width/pixels.height).toBeCloseTo(size.width/size.height,2);
+  expect(Math.max(pixels.width,pixels.height)).toBeLessThanOrEqual(2000);
+  await drawOnDetail(page,dialog,'Pen');
+  await dialog.getByRole('button',{name:'Undo'}).click();
+  await expect(dialog.locator('.drawing-rfi-preview path')).toHaveCount(0);
+  await drawOnDetail(page,dialog,'Arrow');
+  await dialog.screenshot({path:info.outputPath('rfi-detail-desktop.png')});
+  await dialog.getByRole('button',{name:'Attach and open RFI'}).click();
+  const editor=page.getByRole('region',{name:'RFI editor'});
+  await expect(page.getByRole('tab',{name:'RFIs',exact:true})).toHaveAttribute('aria-selected','true');
+  await expect(editor).toBeFocused();
+  await expect(editor).toContainText('Architectural drawing - Page 1 - Detail.jpg');
+  expect(writes).toEqual([]);
+  await editor.getByLabel('Subject *',{exact:true}).fill('Confirm detail at grid A');
+  await editor.getByRole('button',{name:'Save RFI',exact:true}).click();
+  await expect.poll(()=>photos.size).toBe(1);
+  const [photo]=photos.values();
+  const samplePixel=await page.evaluate(async data=>{
+    const img=new Image();img.src='data:image/jpeg;base64,'+data;await img.decode();
+    const c=document.createElement('canvas');c.width=img.width;c.height=img.height;
+    const ctx=c.getContext('2d');ctx.drawImage(img,0,0);
+    return Array.from(ctx.getImageData(Math.floor(c.width/2),Math.floor(c.height/2),1,1).data).slice(0,3);
+  },photo.jpeg);
+  expect(samplePixel[0]).toBeGreaterThan(145);
+  expect(samplePixel[1]).toBeLessThan(85);
+  expect(s.saves).toBe(0);
+  expect(s.row.content.marks).toEqual([]);
+  const row=page.getByRole('row').filter({hasText:'Confirm detail at grid A'});
+  await row.getByRole('button',{name:'PDF',exact:true}).click();
+  const transfer=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Save PDF with photos'}).click();
+  const file=info.outputPath('rfi-detail.pdf');
+  await (await transfer).saveAs(file);
+  const finalPdf=await PDFDocument.load(fs.readFileSync(file));
+  expect(finalPdf.getPageCount()).toBe(2);
+  const images=finalPdf.getPage(1).node.Resources().lookup(PDFName.of('XObject'));
+  expect(images.keys().some(key=>{
+    const object=images.lookup(key);
+    return object.getContents && Buffer.from(object.getContents()).equals(Buffer.from(photo.jpeg,'base64'));
+  })).toBe(true);
+  expect(photos.size).toBe(1);
+  await page.getByRole('button',{name:'PDF saved — clear photos'}).click();
+  await expect.poll(()=>photos.size).toBe(0);
+});
+
+test('phone drawing details keep the rotated sheet, select only this job’s drafts, and preserve unsaved RFI work',async({page},info)=>{
+  await page.setViewportSize({width:390,height:844});
+  const s=await store(), workflow=load('rfi-workflow');
+  const draft=workflow.saveRfi([],{...workflow.blankRfi('Local QA'),subject:'Existing site question'},'Local QA');
+  const sent={...draft,id:'already-issued',number:'RFI-002',status:'Open / Sent',subject:'Issued question'};
+  s.workspace=state();
+  s.workspace.jobs[0].rfis=[draft,sent,{...draft,id:'deleted',number:'RFI-003',deletedAt:'2026-11-19'}];
+  s.workspace.jobs.push({...s.workspace.jobs[0],id:'other',jobNumber:'26000',rfis:[{...draft,id:'other-job',subject:'Other project'}]});
+  s.row.content.pageOrder=[2,1];
+  s.row.content.marks=[{id:'blue-box',page:2,kind:'highlight',points:[{x:100,y:150},{x:510,y:650}],color:'#0000ff',text:'',author:'Reviewer',createdAt:'2026-11-19',layer:'Review'}];
+  await setup(page,s);
+  await page.route('**/api/rfi-photos?**',route=>route.fulfill({json:[]}));
+  await page.getByRole('button',{name:'Rotate view',exact:true}).click();
+  let dialog=await openDrawingDetail(page);
+  await expect(dialog.getByLabel('Attach to').locator('option')).toHaveText(['New RFI','RFI-001 — Existing site question']);
+  const blue=await dialog.locator('canvas').evaluate(c=>{
+    const ctx=c.getContext('2d'),p=ctx.getImageData(0,0,c.width,c.height).data;
+    for(let i=0;i<p.length;i+=16) if(p[i+2]-p[i]>45 && p[i+2]-p[i+1]>45) return true;
+    return false;
+  });
+  expect(blue).toBe(true);
+  await dialog.screenshot({path:info.outputPath('rfi-detail-phone.png')});
+  await dialog.getByRole('button',{name:'Cancel'}).click();
+  await expect(page.getByRole('tab',{name:'Drawings',exact:true})).toHaveAttribute('aria-selected','true');
+  dialog=await openDrawingDetail(page);
+  await dialog.getByLabel('Attach to').selectOption(draft.id);
+  await dialog.getByRole('button',{name:'Attach and open RFI'}).click();
+  const editor=page.getByRole('region',{name:'RFI editor'});
+  await expect(editor.getByLabel('Subject *',{exact:true})).toHaveValue('Existing site question');
+  await editor.getByLabel('Subject *',{exact:true}).fill('In-progress edit');
+  await page.getByRole('tab',{name:'Drawings',exact:true}).click();
+  dialog=await openDrawingDetail(page);
+  await expect(dialog.getByLabel('Attach to')).toHaveValue(draft.id);
+  await dialog.getByRole('button',{name:'Attach and open RFI'}).click();
+  await expect(editor.getByLabel('Subject *',{exact:true})).toHaveValue('In-progress edit');
+  await expect(editor.getByText('Architectural drawing - Page 1 - Detail.jpg',{exact:true})).toHaveCount(2);
+  expect(s.saves).toBe(0);
+});
+
+test('more drawing details can join an unsaved RFI without using a number or discarding its question',async({page})=>{
+  const s=await store();
+  await setup(page,s);
+  await page.getByRole('tab',{name:'RFIs',exact:true}).click();
+  await page.getByRole('button',{name:'New RFI',exact:true}).click();
+  const editor=page.getByRole('region',{name:'RFI editor'});
+  await editor.getByLabel('Subject *',{exact:true}).fill('Unissued floor detail');
+  await editor.getByLabel('Question / clarification request',{exact:true}).fill('Which footing is required?');
+  await page.getByRole('tab',{name:'Drawings',exact:true}).click();
+  const dialog=await openDrawingDetail(page);
+  await expect(dialog.getByLabel('Attach to')).toHaveValue('unsaved');
+  await dialog.getByLabel('Attach to').selectOption('new');
+  page.once('dialog', confirmation=>confirmation.dismiss());
+  await dialog.getByRole('button',{name:'Attach and open RFI'}).click();
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel('Attach to').selectOption('unsaved');
+  await dialog.getByRole('button',{name:'Attach and open RFI'}).click();
+  await expect(editor.getByLabel('Subject *',{exact:true})).toHaveValue('Unissued floor detail');
+  await expect(editor.getByLabel('Question / clarification request',{exact:true})).toContainText('Which footing is required?');
+  await expect(editor).toContainText('Next available: RFI-001');
+  await expect(editor.getByText('Architectural drawing - Page 1 - Detail.jpg',{exact:true})).toBeVisible();
+});
 
 test('replacing scale preserves legacy measurement values and rejects invalid calibrations',()=>{
  const m=load('drawing-model'),previous=m.calibrate([{x:0,y:0},{x:100,y:0}],10,'ft-in'),next=m.calibrate([{x:0,y:0},{x:100,y:0}],6096,'mm');next.displayUnit='ft-in';
