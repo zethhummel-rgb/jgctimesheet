@@ -8,6 +8,7 @@ type SchedulePdfInput={job:Job;state:AppState;schedule:JobSchedule;logoBytes:Uin
 async function renderSchedulePdf({job,state,schedule,logoBytes,periodRange,draft=false}:SchedulePdfInput,compact=1,wholeTimeline=false) {
   const doc=await PDFDocument.create(),font=await doc.embedFont(StandardFonts.Helvetica),bold=await doc.embedFont(StandardFonts.HelveticaBold),logo=await doc.embedPng(logoBytes);
   const green=rgb(.045,.29,.20),ink=rgb(.09,.16,.18),muted=rgb(.33,.40,.43),line=rgb(.75,.80,.81),pale=rgb(.95,.97,.96);
+  const dayGuide=rgb(.92,.94,.94),weekGuide=rgb(.84,.88,.88);
   const colours=[rgb(.10,.45,.32),rgb(.16,.42,.62),rgb(.47,.34,.64),rgb(.63,.41,.09),rgb(.22,.49,.50),rgb(.65,.33,.33)];
   const clean=(s:unknown)=>String(s??'').replace(/[\u2013\u2014]/g,'-').replace(/[\u2018\u2019]/g,"'").replace(/[\u201c\u201d]/g,'"').replace(/\u2026/g,'...').normalize('NFKD').replace(/[^\x20-\x7e\n]/g,'');
   const wrap=(s:string,width:number,size:number,strong=false)=>{
@@ -22,7 +23,34 @@ async function renderSchedulePdf({job,state,schedule,logoBytes,periodRange,draft
   const windows:Array<{start:number;finish:number}>=[];if(wholeTimeline)windows.push({start:first,finish:last});else for(let start=first;start<=last;start+=70)windows.push({start,finish:Math.min(last,start+69)});
   let page!:PDFPage;
   const text=(s:string,x:number,y:number,size=10,strong=false,color=ink)=>page.drawText(clean(s),{x,y,size,font:strong?bold:font,color});
-  const left=36,right=1188,labelWidth=426,timeLeft=left+labelWidth,timeWidth=right-timeLeft;
+  const left=36,right=1188;
+  const valueSize=8.5*compact;
+  const valuesByTask=new Map<string,string[]>();
+  for(const task of schedule.tasks){
+    const start=dateNumber(task.start),finish=dateNumber(task.finish);
+    if(finish<first||start>last)continue;
+    valuesByTask.set(task.id,[
+      date(start),
+      date(finish),
+      `${duration(task)}${task.calendar==='weekdays'?'w':'c'}`,
+      task.progress===null?'-':`${task.progress}%`
+    ]);
+  }
+  // Keep the activity name and trade readable. Give the timeline every point
+  // left after measuring the four printed columns in their actual fonts.
+  const activityWidth=254;
+  let timeLeft=left+activityWidth;
+  const columns=['START','FINISH','DAYS','%'].map((heading,index)=>{
+    let textWidth=bold.widthOfTextAtSize(heading,8);
+    for(const values of valuesByTask.values()){
+      textWidth=Math.max(textWidth,font.widthOfTextAtSize(clean(values[index]),valueSize));
+    }
+    const width=Math.ceil(textWidth)+8;
+    const center=timeLeft+width/2;
+    timeLeft+=width;
+    return {heading,center};
+  });
+  const timeWidth=right-timeLeft;
   function header(subtitle:string) {
     page=doc.addPage([1224,792]);
     const dim=logo.scaleToFit(196,70);page.drawImage(logo,{x:right-dim.width,y:699,width:dim.width,height:dim.height});
@@ -48,7 +76,10 @@ async function renderSchedulePdf({job,state,schedule,logoBytes,periodRange,draft
     function newTable() {
       top=header(`Timeline ${dateString(window.start)} to ${dateString(window.finish)}`);
       page.drawRectangle({x:left,y:top-42,width:right-left,height:42,color:green});
-      [['ACTIVITY / RESPONSIBILITY',left+10],['START',left+260],['FINISH',left+308],['DAYS',left+360],['%',left+402]].forEach(([s,x])=>text(String(s),Number(x),top-24,8,true,rgb(1,1,1)));
+      text('ACTIVITY / RESPONSIBILITY',left+10,top-24,8,true,rgb(1,1,1));
+      for(const {heading,center} of columns){
+        text(heading,center-bold.widthOfTextAtSize(heading,8)/2,top-24,8,true,rgb(1,1,1));
+      }
       for(let i=0;i<days;i++){
         const x=timeLeft+i*dw,d=new Date((window.start+i)*86400000),monthly=days>120;
         if(monthly?(i===0||d.getUTCDate()===1):(i===0||d.getUTCDay()===0)){
@@ -71,7 +102,7 @@ async function renderSchedulePdf({job,state,schedule,logoBytes,periodRange,draft
     for(const row of rows) {
       if(periodRange && (row.kind==='task'?!overlaps(row.task):!visiblePhases.has(row.phase)))continue;
       const isPhase=row.kind==='phase',task=row.kind==='task'?row.task:null;
-      const title=isPhase?`${row.index+1}. ${row.phase}`:`${row.number}  ${task!.name}${compact<1&&task!.owner?' / '+task!.owner:''}`,nameLines=wrap(title,240,(isPhase?10:9.5)*compact,true),ownerLines=compact===1&&task?.owner?wrap(task.owner,240,8.5):[];
+      const title=isPhase?`${row.index+1}. ${row.phase}`:`${row.number}  ${task!.name}${compact<1&&task!.owner?' / '+task!.owner:''}`,nameLines=wrap(title,activityWidth-14,(isPhase?10:9.5)*compact,true),ownerLines=compact===1&&task?.owner?wrap(task.owner,activityWidth-14,8.5):[];
       const height=Math.max(isPhase?28*compact:(compact<1?20:34)*compact,(nameLines.length*12+ownerLines.length*11+(compact<1?6:10))*compact);
       if(y-height-(isPhase?34*compact:0)<60){newTable();if(!isPhase){page.drawRectangle({x:left,y:y-24*compact,width:right-left,height:24*compact,color:pale,borderColor:line,borderWidth:.4});text(`${row.index+1}. ${row.phase} (continued)`,left+10,y-16*compact,10*compact,true,colours[row.index%colours.length]);y-=24*compact;}}
       const bottom=y-height,tone=colours[row.index%colours.length];
@@ -79,16 +110,30 @@ async function renderSchedulePdf({job,state,schedule,logoBytes,periodRange,draft
       for(let i=0;i<days;i++) {
         const x=timeLeft+i*dw;
         if(weekend(window.start+i)&&!isPhase)page.drawRectangle({x,y:bottom,width:dw,height,color:rgb(.94,.95,.96)});
-        if(window.start+i===sundayOfWeek(window.start+i))page.drawLine({start:{x,y:bottom},end:{x,y},color:line,thickness:.5});
+        const weekStart=window.start+i===sundayOfWeek(window.start+i);
+        if(weekStart || dw>=9){
+          page.drawLine({start:{x,y:bottom},end:{x,y},color:weekStart ? weekGuide : dayGuide,thickness:weekStart ? 0.5 : 0.35});
+        }
       }
       nameLines.forEach((s,i)=>text(s,left+10,y-(14+i*12)*compact,(isPhase?10:9.5)*compact,true,isPhase?tone:ink));
       ownerLines.forEach((s,i)=>text(s,left+10,y-(14+nameLines.length*12+i*11)*compact,8.5*compact,false,muted));
       const start=dateNumber(task?task.start:row.kind==='phase'?row.start:''),finish=dateNumber(task?task.finish:row.kind==='phase'?row.finish:'');
-      if(task){text(date(start),left+260,y-18*compact,8.5*compact);text(date(finish),left+308,y-18*compact,8.5*compact);text(String(duration(task))+(task.calendar==='weekdays'?'w':'c'),left+364,y-18*compact,8.5*compact);text(task.progress===null?'-':String(task.progress)+"%",left+398,y-18*compact,8.5*compact);}
+      if(task){
+        valuesByTask.get(task.id)!.forEach((value,index)=>{
+          const x=columns[index].center-font.widthOfTextAtSize(clean(value),valueSize)/2;
+          text(value,x,y-18*compact,valueSize);
+        });
+      }
       const a=Math.max(start,window.start),b=Math.min(finish,window.finish);
       if(a<=b){const x=timeLeft+(a-window.start)*dw+1,w=(b-a+1)*dw-2,barY=bottom+height/2-5*compact;
         if(isPhase){page.drawRectangle({x,y:barY+4,width:Math.max(1,w),height:3,color:tone});[x,x+Math.max(1,w)-2].forEach(xx=>page.drawRectangle({x:xx,y:barY,width:2,height:7,color:tone}));}
-        else {page.drawRectangle({x,y:barY,width:Math.max(1,w),height:11*compact,color:rgb(.91,.94,.96),borderColor:muted,borderWidth:.6});if(task!.progress!==null&&task!.progress>0){const done=start+(finish-start+1)*task!.progress/100,visible=Math.max(0,Math.min(done,b+1)-a);if(visible)page.drawRectangle({x,y:barY,width:Math.max(1,visible*dw-2),height:11*compact,color:green});}}
+        else {
+          const width=Math.max(1,w),height=11*compact;
+          page.drawRectangle({x,y:barY,width,height,color:tone});
+          const done=start+(finish-start+1)*(task!.progress??0)/100;
+          const completedWidth=width*Math.max(0,Math.min(done,b+1)-a)/(b-a+1);
+          if(completedWidth>0)page.drawRectangle({x,y:barY,width:completedWidth,height,color:green});
+        }
       }
       page.drawLine({start:{x:timeLeft,y:bottom},end:{x:timeLeft,y},color:line,thickness:.7});y=bottom;
     }
@@ -97,7 +142,17 @@ async function renderSchedulePdf({job,state,schedule,logoBytes,periodRange,draft
   }
   const noted=schedule.tasks.filter(t=>(t.notes||t.predecessorId)&&(!periodRange||(dateNumber(t.start)<=last&&dateNumber(t.finish)>=first)));
   if(noted.length){let y=lastY-30*compact;if(y<130)y=header('Activity notes and links');text('ACTIVITY NOTES / LINKS',left,y,10*compact,true,green);y-=24*compact;for(const task of noted){const prior=schedule.tasks.find(t=>t.id===task.predecessorId),lines=wrap(`${task.phase} / ${task.name}\n${prior?`Starts after: ${prior.name} | Waiting time: ${task.lag} calendar days\n`:''}${task.notes}`,1140,10*compact);for(const s of lines){if(y<66)y=header('Activity notes and links (continued)');text(s,left+6,y,10*compact);y-=15*compact;}y-=18*compact;}}
-  const pages=doc.getPages();pages.forEach((p,i)=>{p.drawRectangle({x:760,y:42,width:15,height:8,color:green});p.drawText("Completed",{x:780,y:42,size:8,font,color:ink});p.drawRectangle({x:840,y:42,width:15,height:8,color:rgb(.91,.94,.96),borderColor:muted,borderWidth:.6});p.drawText("Remaining",{x:860,y:42,size:8,font,color:ink});p.drawLine({start:{x:left,y:33},end:{x:right,y:33},color:line,thickness:.5});p.drawText(`JGC | Job ${clean(job.jobNumber)} | ${draft?'Schedule DRAFT':`Schedule Rev ${schedule.revision}`} | Generated ${new Date().toLocaleDateString('en-CA')}`,{x:left,y:20,size:8,font,color:muted});p.drawText(`${i+1} / ${pages.length}`,{x:right-42,y:20,size:8,font,color:muted});});
+  const phaseColours=colours.slice(0,rows.filter(r=>r.kind==='phase').length);
+  const pages=doc.getPages();
+  pages.forEach((p,i)=>{
+    p.drawRectangle({x:760,y:42,width:15,height:8,color:green});
+    p.drawText('Completed',{x:780,y:42,size:8,font,color:ink});
+    phaseColours.forEach((color,index)=>p.drawRectangle({x:840+index*7,y:42,width:7,height:8,color}));
+    p.drawText('Remaining (phase colour)',{x:845+phaseColours.length*7,y:42,size:8,font,color:ink});
+    p.drawLine({start:{x:left,y:33},end:{x:right,y:33},color:line,thickness:.5});
+    p.drawText(`JGC | Job ${clean(job.jobNumber)} | ${draft?'Schedule DRAFT':`Schedule Rev ${schedule.revision}`} | Generated ${new Date().toLocaleDateString('en-CA')}`,{x:left,y:20,size:8,font,color:muted});
+    p.drawText(`${i+1} / ${pages.length}`,{x:right-42,y:20,size:8,font,color:muted});
+  });
   doc.setTitle(`${job.jobNumber} - Job Schedule - ${draft?'DRAFT':`Revision ${schedule.revision}`}`);doc.setAuthor('John Gordon Construction Inc.');
   return doc;
 }

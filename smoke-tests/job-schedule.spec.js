@@ -12,6 +12,75 @@ const seed=()=>w.commitSchedule([
 ],undefined,'Test Admin','Initial plan');
 async function setup(page,schedule){let state=fixture(schedule);const saved=[];await page.route('**/api/**',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({actuals:[],jobs:[],rows:[]})}));await page.route('**/api/state',async r=>{if(r.request().method()==='PUT'){state=r.request().postDataJSON().state;saved.push(state);return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({saved:true,updatedAt:new Date().toISOString()})});}return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({state,updatedAt:'2026-10-01T12:00:00Z'})});});await page.goto('/estimating/index.html?dev=1&view=jobs&job=26999');await expect(page.locator('.job-detail-page')).toContainText('26999');await page.getByRole('tab',{name:'Schedule',exact:true}).click();await expect(page.locator('.job-schedule')).toBeVisible();return saved;}
 
+for(const width of [1440,390])test('schedule dates and activity colours remain readable at '+width+'px',async({page})=>{
+  await page.setViewportSize({width,height:900});
+  const tasks=[
+    activity('complete','Safety inspection','2026-10-05','2026-10-05',{progress:100}),
+    activity('partial','Rough-in and inspection','2026-10-12','2026-10-16',{phase:'Electrical',progress:25}),
+    activity('remaining','Final paint','2026-10-19','2026-10-23',{phase:'Finishes'})
+  ];
+  await setup(page,w.commitSchedule(tasks,undefined,'Test Admin',''));
+  const day=page.locator('.schedule-day-head [data-day="2026-10-12"]');
+  await expect(day.locator('.schedule-weekday')).toHaveText('M');
+  await expect(day.locator('.schedule-date-number')).toHaveText('12');
+  const clearance=await day.evaluate(el=>{
+    const range=document.createRange();
+    range.selectNodeContents(el.querySelector('.schedule-date-number'));
+    const bottom=range.getBoundingClientRect().bottom;
+    return Math.min(...['.schedule-day-head','.schedule-time-head','.schedule-date-scroll','.schedule-datebar']
+      .map(selector=>el.closest(selector).getBoundingClientRect().bottom-bottom));
+  });
+  expect(clearance).toBeGreaterThanOrEqual(2);
+  const partial=page.locator('[data-task-id="partial"] .schedule-bar');
+  await expect(partial).toHaveCSS('background-color','rgb(40, 107, 158)');
+  await expect(partial.locator('.schedule-progress')).toHaveCSS('background-color','rgb(11, 74, 51)');
+  await expect(partial.locator('.schedule-bar-label')).toHaveCSS('color','rgb(255, 255, 255)');
+  await expect(partial.locator('.schedule-bar-label')).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
+  const bar=await partial.boundingBox(),fill=await partial.locator('.schedule-progress').boundingBox();
+  expect(fill.width/bar.width).toBeCloseTo(0.25,2);
+  expect(Math.abs((await day.boundingBox()).x-bar.x)).toBeLessThan(2);
+  const oneDay=page.locator('[data-task-id="complete"]');
+  await expect(oneDay.locator('.schedule-bar-label')).toBeHidden();
+  await expect(oneDay.locator('.schedule-task-name')).toContainText('Safety inspection');
+  await expect(oneDay.locator('.schedule-bar')).toHaveAccessibleName(/Safety inspection/);
+  await expect(page.locator('[data-task-id="remaining"] .schedule-bar')).toHaveCSS('background-color','rgb(120, 87, 163)');
+});
+
+test('printed schedule gives the timeline the space around measured dates, duration and percent',async()=>{
+  const task=activity('long','Electrical rough-in and inspection with the mechanical contractor','2026-09-30','2027-01-30',{calendar:'calendar',progress:100});
+  const schedule=w.commitSchedule([task],undefined,'Test Admin',''),state=fixture(schedule);
+  const bytes=await load('job-schedule-pdf').buildSchedulePdf({
+    job:state.jobs[0],state,schedule,
+    logoBytes:fs.readFileSync(path.resolve(__dirname,'../estimating/jgc-logo-transparent.png')),
+    periodRange:w.schedulePdfPeriod('Weekly','2026-09-30','')
+  });
+  const pdfjs=await import(require('node:url').pathToFileURL(path.resolve(__dirname,'../estimating-app/node_modules/pdfjs-dist/legacy/build/pdf.mjs')).href);
+  const loading=pdfjs.getDocument({data:new Uint8Array(bytes)});
+  try{
+    const doc=await loading.promise,page=await doc.getPage(1);
+    const items=(await page.getTextContent()).items.filter(item=>item.str?.trim());
+    const find=value=>items.find(item=>item.str.trim()===value);
+    const asDate=value=>new Date(value+'T00:00:00Z').toLocaleDateString('en-CA',{month:'short',day:'numeric',timeZone:'UTC'});
+    const headings=['START','FINISH','DAYS','%'].map(find);
+    const values=[asDate(task.start),asDate(task.finish),'123c','100%'].map(find);
+    const center=item=>item.transform[4]+item.width/2;
+    for(let i=0;i<values.length;i++){
+      expect(values[i]).toBeDefined();
+      expect(Math.abs(center(headings[i])-center(values[i]))).toBeLessThan(1);
+      if(i===0)continue;
+      const previousRight=Math.max(headings[i-1].transform[4]+headings[i-1].width,values[i-1].transform[4]+values[i-1].width);
+      const gap=Math.min(headings[i].transform[4],values[i].transform[4])-previousRight;
+      expect(gap).toBeGreaterThanOrEqual(7);
+      expect(gap).toBeLessThanOrEqual(11);
+    }
+    const firstDay=center(items.find(item=>item.str==='S')),secondDay=center(find('M'));
+    const chartLeft=firstDay-(secondDay-firstDay)/2;
+    expect(chartLeft-(values[3].transform[4]+values[3].width)).toBeLessThan(6);
+    expect(chartLeft).toBeLessThan(425);
+    expect(items.map(item=>item.str).join(' ')).toContain('mechanical contractor');
+  }finally{await loading.destroy();}
+});
+
 test('working dates survive weekends, leap day and time changes; calendar durations count curing days',()=>{
  expect(w.finishFor('2026-10-02',5,'weekdays')).toBe('2026-10-08');
  expect(w.finishFor('2026-10-02',5,'calendar')).toBe('2026-10-06');
