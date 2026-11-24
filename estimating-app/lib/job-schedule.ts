@@ -27,6 +27,26 @@ export function dateNumber(value: string) {
 }
 export const dateString = (n: number) => new Date(n*DAY).toISOString().slice(0,10);
 export const addDays = (date: string, days: number) => dateString(dateNumber(date)+days);
+export const weekdayInitial = (day: number) => 'SMTWTFS'[new Date(day * DAY).getUTCDay()];
+export const sundayOfWeek = (day: number) => day - new Date(day * DAY).getUTCDay();
+export type PdfPeriod = 'Full schedule' | 'Weekly' | 'Monthly' | 'Yearly' | 'Custom';
+export function schedulePdfPeriod(mode: PdfPeriod, anchor: string, end: string) {
+  if (mode === 'Full schedule') return undefined;
+  const start = dateNumber(anchor);
+  if (!Number.isFinite(start)) throw new Error('Choose a valid PDF start date.');
+  if (mode === 'Weekly') return {start: sundayOfWeek(start), finish: sundayOfWeek(start)+6};
+  if (mode === 'Custom') {
+    const finish = dateNumber(end);
+    if (!Number.isFinite(finish) || finish < start) throw new Error('Choose an end date on or after the start date.');
+    return {start, finish};
+  }
+  const date = new Date(start * DAY);
+  date.setUTCDate(1);
+  if (mode === 'Yearly') date.setUTCMonth(0);
+  const first = date.getTime()/DAY;
+  date.setUTCMonth(date.getUTCMonth()+(mode === 'Yearly' ? 12 : 1));
+  return {start:first, finish:date.getTime()/DAY-1};
+}
 export const weekend = (n: number) => [0,6].includes(new Date(n*DAY).getUTCDay());
 export function nextWorkday(start: string, calendar: ScheduleCalendar) {
   let n=dateNumber(start);

@@ -52,7 +52,7 @@ test('PDF tiles long dates and activity lists and keeps all task names and clien
 const ui=load('job-schedule-interactions');
 test('screen adds six future weeks while start and finish handles keep the opposite date',()=>{
  const t=activity('a','Electrical','2026-10-05','2026-10-09');
- expect(w.dateString(ui.scheduleViewport([t]).finish)).toBe('2026-11-20');
+ expect(w.dateString(ui.scheduleViewport([t]).finish)).toBe('2026-11-21');
  expect(ui.resizeTaskDate(t,'start',-7)).toMatchObject({start:'2026-09-28',finish:'2026-10-09'});
  expect(ui.resizeTaskDate(t,'start',100)).toMatchObject({start:'2026-10-09',finish:'2026-10-09'});
  expect(ui.resizeTaskDate(t,'finish',-100)).toMatchObject({start:'2026-10-05',finish:'2026-10-05'});
@@ -70,7 +70,7 @@ for(const theme of ['light','dark'])for(const viewport of [{width:1440,height:10
  const editor=page.getByRole('dialog',{name:'Schedule activity editor'}),chart=page.locator('.schedule-scroll');
  await expect(editor).toHaveAttribute('aria-modal','false');await expect(page.locator('.schedule-modal-backdrop')).toHaveCount(0);expect(await page.evaluate(()=>document.body.style.overflow)).not.toBe('hidden');
  const eb=await editor.boundingBox(),gb=await chart.boundingBox();expect(eb.y).toBeGreaterThan(gb.y);expect(eb.y).toBeLessThan(viewport.height-90);await expect(editor.locator('xpath=ancestor::div[contains(@class,"schedule-grid")]')).toHaveCount(1);
- await editor.getByLabel('Activity name *').fill('New electrical inspection');await editor.getByLabel('Start date *').fill('2026-12-14');await expect(chart).toHaveAttribute('data-finish','2027-01-29');
+ await editor.getByLabel('Activity name *').fill('New electrical inspection');await editor.getByLabel('Start date *').fill('2026-12-14');await expect(chart).toHaveAttribute('data-finish','2027-01-30');
  await expect.poll(()=>chart.evaluate(el=>el.scrollLeft)).toBeGreaterThan(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:testInfo.outputPath('entry-'+theme+'-'+viewport.width+'.png')});
  await page.keyboard.press('Escape');await expect(editor).toHaveCount(0);
@@ -102,7 +102,7 @@ test('compact rows expand independently; applying a new activity reveals the row
  const bar=await added.locator('xpath=ancestor::*[@data-task-id]').locator('.schedule-bar').boundingBox();expect(bar.x).toBeGreaterThanOrEqual(s.x+330);expect(bar.x+bar.width).toBeLessThanOrEqual(s.x+s.width+2);
 });
 test('Days Weeks Months Fit fill the chart and keep real month headings readable',async({page},testInfo)=>{
- await page.setViewportSize({width:1440,height:1000});await setup(page,seed());await expect(page.locator('.schedule-scroll')).toHaveAttribute('data-finish','2026-12-04');
+ await page.setViewportSize({width:1440,height:1000});await setup(page,seed());await expect(page.locator('.schedule-scroll')).toHaveAttribute('data-finish','2026-12-05');
  for(const zoom of ['Days','Weeks','Months','Fit']){await page.getByRole('button',{name:zoom,exact:true}).click();const sizes=await page.locator('.schedule-scroll').evaluate(el=>({viewport:el.clientWidth,grid:el.querySelector('.schedule-grid').getBoundingClientRect().width}));expect(sizes.grid).toBeGreaterThanOrEqual(sizes.viewport-1);if(zoom==='Months'||zoom==='Fit')await expect(page.locator('.schedule-weeks')).toContainText('November 2026');await page.locator('.job-schedule').screenshot({path:testInfo.outputPath('scale-'+zoom+'.png')});}
 });
 test('draft download is an Adobe-readable PDF marked Draft without saving a revision',async({page},testInfo)=>{
@@ -189,4 +189,33 @@ test('downloading locks one revision; repeated autosaves stay in the next workin
 for(const [name,count,span,noteLines,onePage] of [['small',4,21,0,true],['medium',24,100,0,true],['year',8,300,0,true],['huge',70,110,0,false],['notes',3,21,90,false]])test(`PDF adaptive single-page layout ${name}`,async({},testInfo)=>{
  const tasks=Array.from({length:count},(_,i)=>activity('fit'+i,'Activity '+i,'2026-10-05',w.addDays('2026-10-05',span),{calendar:'calendar',phase:i<count/2?'Preparation':'Finishes',owner:'JGC',notes:i===0?Array.from({length:noteLines},(_,n)=>'NOTE '+n+' - Preserve all scope and responsibility information.').join('\n'):''}));const schedule=w.commitSchedule(tasks,undefined,'Test Admin','Adaptive PDF'),state=fixture(schedule);const bytes=await load('job-schedule-pdf').buildSchedulePdf({job:state.jobs[0],state,schedule,logoBytes:fs.readFileSync(path.resolve(__dirname,'../estimating/jgc-logo-transparent.png'))});const doc=await require('../estimating-app/node_modules/pdf-lib').PDFDocument.load(bytes);if(onePage)expect(doc.getPageCount()).toBe(1);else expect(doc.getPageCount()).toBeGreaterThan(1);fs.writeFileSync(testInfo.outputPath(name+'.pdf'),bytes);
  const pdfjs=await import(require('node:url').pathToFileURL(path.resolve(__dirname,'../estimating-app/node_modules/pdfjs-dist/legacy/build/pdf.mjs')).href);const parsed=await pdfjs.getDocument({data:new Uint8Array(bytes),disableWorker:true}).promise;let text='';for(let n=1;n<=parsed.numPages;n++){const page=await parsed.getPage(n);text+=(await page.getTextContent()).items.map(i=>i.str).join(' ');}for(let i=0;i<count;i++)expect(text).toContain('Activity '+i);if(noteLines)expect(text).toContain('NOTE '+(noteLines-1));expect(text).toContain('Example Client');expect(text).toContain('123 Example Street');
+});
+for(const [mode,from,to,first,last] of [
+ ['Weekly','2026-10-07','','2026-10-04','2026-10-10'],
+ ['Monthly','2028-02-15','','2028-02-01','2028-02-29'],
+ ['Yearly','2026-10-05','','2026-01-01','2026-12-31'],
+ ['Custom','2026-10-08','2026-10-12','2026-10-08','2026-10-12']
+])test('schedule PDF date range '+mode,async({page},testInfo)=>{
+ const schedule=seed();schedule.tasks[0].progress=100;
+ await setup(page,schedule);
+ await expect(page.locator('.schedule-day-head .schedule-weekday').first()).toHaveText('S');
+ expect(await page.locator('.schedule-day-head .schedule-weekday').allTextContents().then(days=>days.slice(0,7))).toEqual(['S','M','T','W','T','F','S']);
+ await page.getByLabel('PDF date range').selectOption(mode);
+ await page.getByLabel(mode==='Custom'?'Start date':mode==='Weekly'?'Week containing':mode==='Monthly'?'Month containing':'Year containing',{exact:true}).fill(from);
+ if(mode==='Custom')await page.getByLabel('End date',{exact:true}).fill(to);
+ const pending=page.waitForEvent('download');
+ await page.getByRole('button',{name:'Download schedule PDF',exact:true}).click();
+ const file=await pending;
+ expect(file.suggestedFilename()).toContain(first+' to '+last);
+ const dest=testInfo.outputPath(mode+'.pdf');await file.saveAs(dest);
+ const pdfjs=await import(require('node:url').pathToFileURL(path.resolve(__dirname,'../estimating-app/node_modules/pdfjs-dist/legacy/build/pdf.mjs')).href);
+ const loading=pdfjs.getDocument({data:new Uint8Array(fs.readFileSync(dest))});const doc=await loading.promise;
+ const firstPage=await doc.getPage(1);const text=(await firstPage.getTextContent()).items.map(i=>i.str).join(' ');
+ expect(text).toContain(first+' to '+last);
+ if(mode==='Weekly')expect(text).toMatch(/S\s+4\s+M\s+5\s+T\s+6\s+W\s+7\s+T\s+8\s+F\s+9\s+S\s+10/);
+ expect(text).toContain('Completed');expect(text).toContain('Remaining');
+ if(mode==='Monthly')expect(text).toContain('No scheduled activities');
+ else expect(text).toContain('100%');
+ if(mode==='Weekly'||mode==='Custom')expect(text).not.toContain('Painting');
+ await loading.destroy();
 });

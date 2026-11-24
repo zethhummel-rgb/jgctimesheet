@@ -1,4 +1,4 @@
-import { addDays, dateNumber, scheduleToday, scheduleRange, weekend, type ScheduleTask } from './job-schedule';
+import { addDays, dateNumber, scheduleToday, scheduleRange, sundayOfWeek, weekend, type ScheduleTask } from './job-schedule';
 
 export type DateGesture = 'move' | 'start' | 'finish';
 export type RowDrop = { id?: string; phase: string; after: boolean };
@@ -10,7 +10,7 @@ export function scheduleViewport(tasks: ScheduleTask[], preview?: ScheduleTask |
   const finishes = [actual.finish, dateNumber(preview?.finish || '')].filter(Number.isFinite);
   const start = (starts.length?Math.min(...starts):dateNumber(scheduleToday())) - 2;
   const finish = (finishes.length?Math.max(...finishes):start+2) + 42;
-  return { start, finish, days: finish - start + 1 };
+  return { start: sundayOfWeek(start), finish: sundayOfWeek(finish)+6, days: sundayOfWeek(finish)-sundayOfWeek(start)+7 };
 }
 export function resizeTaskDate(task: ScheduleTask, edge: 'start' | 'finish', delta: number) {
   const boundary = edge === 'start' ? task.finish : task.start;

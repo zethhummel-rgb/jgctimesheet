@@ -121,3 +121,11 @@ html[data-jgc-theme=dark] .schedule-error { color:#b72d2d; }
 .schedule-preview-row .schedule-bar { border-style:dashed; }
 @media(max-width:760px) { .schedule-datebar .schedule-grid-head { width:calc(190px + var(--timeline-width)); } .schedule-scroll { max-height:none; } }
 @media print { .schedule-datebar,.schedule-toolbar,.schedule-entry { position:static; box-shadow:none; } }
+
+.schedule-pdf-period { display:flex; flex-wrap:wrap; align-items:end; gap:12px; margin:12px 0; }
+.schedule-bar,.schedule-legend .remaining { background:#e8eff5; color:#152a33; border:1px solid #586972; }
+.schedule-bar .schedule-progress,.schedule-legend .completed { background:#0b4a33; }
+.schedule-bar>span:last-child { color:#152a33; background:#fff; border-radius:2px; padding-inline:2px; }
+
+.schedule-day-head span[data-day] { padding-top:1px; line-height:12px; }
+.schedule-weekday { display:block; font-size:9px; font-weight:700; }

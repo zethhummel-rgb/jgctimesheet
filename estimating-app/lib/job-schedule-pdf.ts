@@ -1,11 +1,11 @@
 import { PDFDocument, StandardFonts, rgb, type PDFPage } from 'pdf-lib';
 import type { AppState, Job } from './estimator-data';
-import { dateNumber, dateString, duration, scheduleRange, scheduleRows, weekend, type JobSchedule } from './job-schedule';
+import { dateNumber, dateString, duration, weekdayInitial, sundayOfWeek, scheduleRange, scheduleRows, weekend, type JobSchedule } from './job-schedule';
 
 // Prefer one tabloid landscape page. Compact attempts never go below 7.6pt
 // activity text; oversized content falls back to readable date/row tiles.
-type SchedulePdfInput={job:Job;state:AppState;schedule:JobSchedule;logoBytes:Uint8Array;draft?:boolean};
-async function renderSchedulePdf({job,state,schedule,logoBytes,draft=false}:SchedulePdfInput,compact=1,wholeTimeline=false) {
+type SchedulePdfInput={job:Job;state:AppState;schedule:JobSchedule;logoBytes:Uint8Array;draft?:boolean;periodRange?:{start:number;finish:number}};
+async function renderSchedulePdf({job,state,schedule,logoBytes,periodRange,draft=false}:SchedulePdfInput,compact=1,wholeTimeline=false) {
   const doc=await PDFDocument.create(),font=await doc.embedFont(StandardFonts.Helvetica),bold=await doc.embedFont(StandardFonts.HelveticaBold),logo=await doc.embedPng(logoBytes);
   const green=rgb(.045,.29,.20),ink=rgb(.09,.16,.18),muted=rgb(.33,.40,.43),line=rgb(.75,.80,.81),pale=rgb(.95,.97,.96);
   const colours=[rgb(.10,.45,.32),rgb(.16,.42,.62),rgb(.47,.34,.64),rgb(.63,.41,.09),rgb(.22,.49,.50),rgb(.65,.33,.33)];
@@ -17,8 +17,8 @@ async function renderSchedulePdf({job,state,schedule,logoBytes,draft=false}:Sche
   const date=(n:number)=>new Date(n*86400000).toLocaleDateString('en-CA',{month:'short',day:'numeric',timeZone:'UTC'});
   const quote=state.quotes.find(q=>q.id===job.quoteId),client=job.portalCustomer||state.clients.find(c=>c.id===job.clientId)?.name||'Client not recorded',site=job.portalSiteName||quote?.site||'',address=job.portalAddress||quote?.address||'';
   const range=scheduleRange(schedule.tasks),rows=scheduleRows(schedule.tasks),latest=schedule.revisions.at(-1);
-  let first=range.start;while(new Date(first*86400000).getUTCDay()!==1)first--;
-  let last=range.finish;while(new Date(last*86400000).getUTCDay()!==0)last++;
+  const first=periodRange?.start??sundayOfWeek(range.start);
+  const last=periodRange?.finish??sundayOfWeek(range.finish)+6;
   const windows:Array<{start:number;finish:number}>=[];if(wholeTimeline)windows.push({start:first,finish:last});else for(let start=first;start<=last;start+=70)windows.push({start,finish:Math.min(last,start+69)});
   let page!:PDFPage;
   const text=(s:string,x:number,y:number,size=10,strong=false,color=ink)=>page.drawText(clean(s),{x,y,size,font:strong?bold:font,color});
@@ -34,12 +34,15 @@ async function renderSchedulePdf({job,state,schedule,logoBytes,draft=false}:Sche
     const projects=wrap(job.project,664,18,true);
     projects.forEach((s,i)=>text(s,left+488,669-i*21,18,true));
     const after=Math.min(669-clients.length*14,669-projects.length*21)-13;
-    text(`Planned: ${dateString(range.start)} to ${dateString(range.finish)}  |  ${schedule.tasks.length} activities  |  ${subtitle}`,left,after,10,true,green);
+    text(`Planned: ${dateString(range.start)} to ${dateString(range.finish)}  |  ${schedule.tasks.length} planned activities  |  ${subtitle}`,left,after,10,true,green);
     if(latest?.note)text(wrap(`Revision note: ${latest.note}`,1152,9)[0],left,after-17,9,false,muted);
     return after-(latest?.note?35:20);
   }
   let lastY=0;
   for(const window of windows) {
+    const overlaps=(task:{start:string;finish:string})=>dateNumber(task.start)<=window.finish&&dateNumber(task.finish)>=window.start;
+    const visible=periodRange?schedule.tasks.filter(overlaps):schedule.tasks;
+    const visiblePhases=new Set(visible.map(t=>t.phase));
     const days=window.finish-window.start+1,dw=timeWidth/days;
     let y=0,top=0;
     function newTable() {
@@ -48,19 +51,25 @@ async function renderSchedulePdf({job,state,schedule,logoBytes,draft=false}:Sche
       [['ACTIVITY / RESPONSIBILITY',left+10],['START',left+260],['FINISH',left+308],['DAYS',left+360],['%',left+402]].forEach(([s,x])=>text(String(s),Number(x),top-24,8,true,rgb(1,1,1)));
       for(let i=0;i<days;i++){
         const x=timeLeft+i*dw,d=new Date((window.start+i)*86400000),monthly=days>120;
-        if(monthly?(i===0||d.getUTCDate()===1):i%7===0){
+        if(monthly?(i===0||d.getUTCDate()===1):(i===0||d.getUTCDay()===0)){
           const label=monthly?d.toLocaleDateString('en-CA',{month:'short',year:'numeric',timeZone:'UTC'}):date(window.start+i);
-          const remaining=timeWidth-i*dw;
+          const remaining=monthly?timeWidth-i*dw:Math.min(days-i,7-d.getUTCDay())*dw;
           if(bold.widthOfTextAtSize(label,9)+4<=remaining)text(label,x+4,top-15,9,true,rgb(1,1,1));
           page.drawLine({start:{x,y:top},end:{x,y:top-42},color:rgb(.38,.61,.52),thickness:.5});
         }
-        if(dw>=9)text(String(d.getUTCDate()),x+2,top-33,7,false,rgb(1,1,1));
+        if(dw>=9){
+          const number=String(d.getUTCDate()),initial=weekdayInitial(window.start+i);
+          text(initial,x+(dw-bold.widthOfTextAtSize(initial,7))/2,top-26,7,true,rgb(1,1,1));
+          text(number,x+(dw-font.widthOfTextAtSize(number,7))/2,top-37,7,false,rgb(1,1,1));
+        }
       }
       if(dw<9)text(days>120?'MONTHS':'WEEKS',timeLeft+4,top-33,7,false,rgb(1,1,1));
       y=top-42;
     }
     newTable();
+    if(!visible.length)text('No scheduled activities in this period.',left+10,y-21,11);
     for(const row of rows) {
+      if(periodRange && (row.kind==='task'?!overlaps(row.task):!visiblePhases.has(row.phase)))continue;
       const isPhase=row.kind==='phase',task=row.kind==='task'?row.task:null;
       const title=isPhase?`${row.index+1}. ${row.phase}`:`${row.number}  ${task!.name}${compact<1&&task!.owner?' / '+task!.owner:''}`,nameLines=wrap(title,240,(isPhase?10:9.5)*compact,true),ownerLines=compact===1&&task?.owner?wrap(task.owner,240,8.5):[];
       const height=Math.max(isPhase?28*compact:(compact<1?20:34)*compact,(nameLines.length*12+ownerLines.length*11+(compact<1?6:10))*compact);
@@ -70,31 +79,31 @@ async function renderSchedulePdf({job,state,schedule,logoBytes,draft=false}:Sche
       for(let i=0;i<days;i++) {
         const x=timeLeft+i*dw;
         if(weekend(window.start+i)&&!isPhase)page.drawRectangle({x,y:bottom,width:dw,height,color:rgb(.94,.95,.96)});
-        if(i%7===0)page.drawLine({start:{x,y:bottom},end:{x,y},color:line,thickness:.5});
+        if(window.start+i===sundayOfWeek(window.start+i))page.drawLine({start:{x,y:bottom},end:{x,y},color:line,thickness:.5});
       }
       nameLines.forEach((s,i)=>text(s,left+10,y-(14+i*12)*compact,(isPhase?10:9.5)*compact,true,isPhase?tone:ink));
       ownerLines.forEach((s,i)=>text(s,left+10,y-(14+nameLines.length*12+i*11)*compact,8.5*compact,false,muted));
       const start=dateNumber(task?task.start:row.kind==='phase'?row.start:''),finish=dateNumber(task?task.finish:row.kind==='phase'?row.finish:'');
-      if(task){text(date(start),left+260,y-18*compact,8.5*compact);text(date(finish),left+308,y-18*compact,8.5*compact);text(String(duration(task))+(task.calendar==='weekdays'?'w':'c'),left+364,y-18*compact,8.5*compact);text(task.progress===null?'-':String(task.progress),left+402,y-18*compact,8.5*compact);}
+      if(task){text(date(start),left+260,y-18*compact,8.5*compact);text(date(finish),left+308,y-18*compact,8.5*compact);text(String(duration(task))+(task.calendar==='weekdays'?'w':'c'),left+364,y-18*compact,8.5*compact);text(task.progress===null?'-':String(task.progress)+"%",left+398,y-18*compact,8.5*compact);}
       const a=Math.max(start,window.start),b=Math.min(finish,window.finish);
       if(a<=b){const x=timeLeft+(a-window.start)*dw+1,w=(b-a+1)*dw-2,barY=bottom+height/2-5*compact;
         if(isPhase){page.drawRectangle({x,y:barY+4,width:Math.max(1,w),height:3,color:tone});[x,x+Math.max(1,w)-2].forEach(xx=>page.drawRectangle({x:xx,y:barY,width:2,height:7,color:tone}));}
-        else {page.drawRectangle({x,y:barY,width:Math.max(1,w),height:11*compact,color:tone,borderColor:tone,borderWidth:.6});if(task!.progress!==null&&task!.progress>0){const done=start+(finish-start+1)*task!.progress/100,visible=Math.max(0,Math.min(done,b+1)-a);if(visible)page.drawRectangle({x,y:barY,width:Math.max(1,visible*dw-2),height:11*compact,color:rgb(tone.red*.55,tone.green*.55,tone.blue*.55)});}}
+        else {page.drawRectangle({x,y:barY,width:Math.max(1,w),height:11*compact,color:rgb(.91,.94,.96),borderColor:muted,borderWidth:.6});if(task!.progress!==null&&task!.progress>0){const done=start+(finish-start+1)*task!.progress/100,visible=Math.max(0,Math.min(done,b+1)-a);if(visible)page.drawRectangle({x,y:barY,width:Math.max(1,visible*dw-2),height:11*compact,color:green});}}
       }
       page.drawLine({start:{x:timeLeft,y:bottom},end:{x:timeLeft,y},color:line,thickness:.7});y=bottom;
     }
     lastY=y;
     text('w = working days (Mon-Fri, holidays not excluded)   c = calendar days   - = progress not entered',left,44,8,false,muted);
   }
-  const noted=schedule.tasks.filter(t=>t.notes||t.predecessorId);
+  const noted=schedule.tasks.filter(t=>(t.notes||t.predecessorId)&&(!periodRange||(dateNumber(t.start)<=last&&dateNumber(t.finish)>=first)));
   if(noted.length){let y=lastY-30*compact;if(y<130)y=header('Activity notes and links');text('ACTIVITY NOTES / LINKS',left,y,10*compact,true,green);y-=24*compact;for(const task of noted){const prior=schedule.tasks.find(t=>t.id===task.predecessorId),lines=wrap(`${task.phase} / ${task.name}\n${prior?`Starts after: ${prior.name} | Waiting time: ${task.lag} calendar days\n`:''}${task.notes}`,1140,10*compact);for(const s of lines){if(y<66)y=header('Activity notes and links (continued)');text(s,left+6,y,10*compact);y-=15*compact;}y-=18*compact;}}
-  const pages=doc.getPages();pages.forEach((p,i)=>{p.drawLine({start:{x:left,y:33},end:{x:right,y:33},color:line,thickness:.5});p.drawText(`JGC | Job ${clean(job.jobNumber)} | ${draft?'Schedule DRAFT':`Schedule Rev ${schedule.revision}`} | Generated ${new Date().toLocaleDateString('en-CA')}`,{x:left,y:20,size:8,font,color:muted});p.drawText(`${i+1} / ${pages.length}`,{x:right-42,y:20,size:8,font,color:muted});});
+  const pages=doc.getPages();pages.forEach((p,i)=>{p.drawRectangle({x:760,y:42,width:15,height:8,color:green});p.drawText("Completed",{x:780,y:42,size:8,font,color:ink});p.drawRectangle({x:840,y:42,width:15,height:8,color:rgb(.91,.94,.96),borderColor:muted,borderWidth:.6});p.drawText("Remaining",{x:860,y:42,size:8,font,color:ink});p.drawLine({start:{x:left,y:33},end:{x:right,y:33},color:line,thickness:.5});p.drawText(`JGC | Job ${clean(job.jobNumber)} | ${draft?'Schedule DRAFT':`Schedule Rev ${schedule.revision}`} | Generated ${new Date().toLocaleDateString('en-CA')}`,{x:left,y:20,size:8,font,color:muted});p.drawText(`${i+1} / ${pages.length}`,{x:right-42,y:20,size:8,font,color:muted});});
   doc.setTitle(`${job.jobNumber} - Job Schedule - ${draft?'DRAFT':`Revision ${schedule.revision}`}`);doc.setAuthor('John Gordon Construction Inc.');
   return doc;
 }
 
 export async function buildSchedulePdf(input:SchedulePdfInput) {
-  const range=scheduleRange(input.schedule.tasks);
+  const range=input.periodRange??scheduleRange(input.schedule.tasks);
   // Very wide multi-year timelines retain date tiles rather than microscopic bars.
   if(range.finish-range.start<=365){
     for(const compact of [1,.9,.8]){
