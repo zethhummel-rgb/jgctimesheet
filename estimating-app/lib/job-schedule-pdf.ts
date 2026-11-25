@@ -1,10 +1,10 @@
 import { PDFDocument, StandardFonts, rgb, type PDFPage } from 'pdf-lib';
 import type { AppState, Job } from './estimator-data';
-import { dateNumber, dateString, duration, weekdayInitial, sundayOfWeek, scheduleRange, scheduleRows, weekend, type JobSchedule } from './job-schedule';
+import { dateNumber, dateString, duration, fullSchedulePdfRange, weekdayInitial, sundayOfWeek, scheduleRange, scheduleRows, weekend, type JobSchedule, type SchedulePdfRange } from './job-schedule';
 
 // Prefer one tabloid landscape page. Compact attempts never go below 7.6pt
 // activity text; oversized content falls back to readable date/row tiles.
-type SchedulePdfInput={job:Job;state:AppState;schedule:JobSchedule;logoBytes:Uint8Array;draft?:boolean;periodRange?:{start:number;finish:number}};
+type SchedulePdfInput={job:Job;state:AppState;schedule:JobSchedule;logoBytes:Uint8Array;draft?:boolean;periodRange?:SchedulePdfRange};
 async function renderSchedulePdf({job,state,schedule,logoBytes,periodRange,draft=false}:SchedulePdfInput,compact=1,wholeTimeline=false) {
   const doc=await PDFDocument.create(),font=await doc.embedFont(StandardFonts.Helvetica),bold=await doc.embedFont(StandardFonts.HelveticaBold),logo=await doc.embedPng(logoBytes);
   const green=rgb(.045,.29,.20),ink=rgb(.09,.16,.18),muted=rgb(.33,.40,.43),line=rgb(.75,.80,.81),pale=rgb(.95,.97,.96);
@@ -18,8 +18,7 @@ async function renderSchedulePdf({job,state,schedule,logoBytes,periodRange,draft
   const date=(n:number)=>new Date(n*86400000).toLocaleDateString('en-CA',{month:'short',day:'numeric',timeZone:'UTC'});
   const quote=state.quotes.find(q=>q.id===job.quoteId),client=job.portalCustomer||state.clients.find(c=>c.id===job.clientId)?.name||'Client not recorded',site=job.portalSiteName||quote?.site||'',address=job.portalAddress||quote?.address||'';
   const range=scheduleRange(schedule.tasks),rows=scheduleRows(schedule.tasks),latest=schedule.revisions.at(-1);
-  const first=periodRange?.start??sundayOfWeek(range.start);
-  const last=periodRange?.finish??sundayOfWeek(range.finish)+6;
+  const {start:first,finish:last}=periodRange??fullSchedulePdfRange(range);
   const windows:Array<{start:number;finish:number}>=[];if(wholeTimeline)windows.push({start:first,finish:last});else for(let start=first;start<=last;start+=70)windows.push({start,finish:Math.min(last,start+69)});
   let page!:PDFPage;
   const text=(s:string,x:number,y:number,size=10,strong=false,color=ink)=>page.drawText(clean(s),{x,y,size,font:strong?bold:font,color});
@@ -74,7 +73,8 @@ async function renderSchedulePdf({job,state,schedule,logoBytes,periodRange,draft
     const days=window.finish-window.start+1,dw=timeWidth/days;
     let y=0,top=0;
     function newTable() {
-      top=header(`Timeline ${dateString(window.start)} to ${dateString(window.finish)}`);
+      const dates=window.start===window.finish?dateString(window.start):`${dateString(window.start)} to ${dateString(window.finish)}`;
+      top=header(`Timeline ${dates}`);
       page.drawRectangle({x:left,y:top-42,width:right-left,height:42,color:green});
       text('ACTIVITY / RESPONSIBILITY',left+10,top-24,8,true,rgb(1,1,1));
       for(const {heading,center} of columns){

@@ -29,11 +29,24 @@ export const dateString = (n: number) => new Date(n*DAY).toISOString().slice(0,1
 export const addDays = (date: string, days: number) => dateString(dateNumber(date)+days);
 export const weekdayInitial = (day: number) => 'SMTWTFS'[new Date(day * DAY).getUTCDay()];
 export const sundayOfWeek = (day: number) => day - new Date(day * DAY).getUTCDay();
-export type PdfPeriod = 'Full schedule' | 'Weekly' | 'Monthly' | 'Yearly' | 'Custom';
-export function schedulePdfPeriod(mode: PdfPeriod, anchor: string, end: string) {
+export type PdfPeriod = 'Full schedule' | 'Daily' | 'Weekly' | 'Monthly' | 'Yearly' | 'Custom';
+export type SchedulePdfRange = { start: number; finish: number };
+const scheduleDateFormat = new Intl.DateTimeFormat('en-CA', { dateStyle: 'medium', timeZone: 'UTC' });
+export function formatScheduleDates({ start, finish }: SchedulePdfRange) {
+  if (!Number.isFinite(start) || !Number.isFinite(finish)) return 'Dates not entered';
+  const from = new Date(start * DAY);
+  const to = new Date(finish * DAY);
+  return finish <= start ? scheduleDateFormat.format(from) : scheduleDateFormat.formatRange(from, to);
+}
+export const fullSchedulePdfRange = ({ start, finish }: SchedulePdfRange): SchedulePdfRange => ({
+  start: sundayOfWeek(start),
+  finish: sundayOfWeek(finish) + 6,
+});
+export function schedulePdfPeriod(mode: PdfPeriod, anchor: string, end: string): SchedulePdfRange | undefined {
   if (mode === 'Full schedule') return undefined;
   const start = dateNumber(anchor);
-  if (!Number.isFinite(start)) throw new Error('Choose a valid PDF start date.');
+  if (!Number.isFinite(start)) throw new Error('Choose a valid date.');
+  if (mode === 'Daily') return { start, finish: start };
   if (mode === 'Weekly') return {start: sundayOfWeek(start), finish: sundayOfWeek(start)+6};
   if (mode === 'Custom') {
     const finish = dateNumber(end);
