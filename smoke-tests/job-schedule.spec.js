@@ -199,7 +199,26 @@ test('bar moves, resize, undo and cancel stay in a draft until saved',async({pag
  const saves=await setup(page,seed());await page.getByRole('button',{name:'Edit schedule',exact:true}).click();await page.getByRole('button',{name:'Show details for Shop drawings'}).click();const bar=page.getByRole('button',{name:/Shop drawings: .*drag to move/});await bar.scrollIntoViewIfNeeded();const b=await bar.boundingBox();await page.mouse.move(b.x+25,b.y+12);await page.mouse.down();await page.mouse.move(b.x+25+7*18,b.y+12,{steps:5});await page.mouse.up();await expect(page.locator('.schedule-task-name').first()).toContainText('Oct 12');await page.getByRole('button',{name:'Undo',exact:true}).click();await expect(page.locator('.schedule-task-name').first()).toContainText('Oct 5');const handle=page.getByRole('button',{name:'Change finish date for Shop drawings'});await handle.scrollIntoViewIfNeeded();const h=await handle.boundingBox();await page.mouse.move(h.x+10,h.y+18);await page.mouse.down();await page.mouse.move(h.x+10+7*18,h.y+18,{steps:5});await page.mouse.up();await expect(page.locator('.schedule-task-name').first()).toContainText('10 working days');expect(saves.every(s=>!s.jobs[0].schedule||s.jobs[0].schedule.revision===1)).toBe(true);page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Cancel editing'}).click();await expect(page.locator('.schedule-task-name').first()).toContainText('5 working days');
 });
 for(const theme of ['light','dark'])for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`Gantt ${theme} ${viewport.width}: contained timeline, details and export`,async({page},testInfo)=>{
- await page.setViewportSize(viewport);await page.addInitScript(t=>{localStorage.setItem('jgcPortalTheme',t);},theme);await setup(page,seed());await expect(page.locator('html')).toHaveAttribute('data-jgc-theme',theme);await expect(page.locator('.schedule-scroll')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.getByRole('button',{name:'Fit',exact:true}).click();await page.locator('.job-schedule').screenshot({path:testInfo.outputPath(`gantt-${theme}-${viewport.width}.png`)});await page.locator('.schedule-task-name').first().click();await expect(page.getByRole('dialog')).toContainText('Review the architectural detail');await page.getByRole('button',{name:'Close details'}).click();const pdf=await downloadSchedulePdf(page,await openSchedulePdf(page));expect(pdf.suggestedFilename()).toBe('26999 Job Schedule Rev 1.pdf');await pdf.saveAs(testInfo.outputPath('schedule.pdf'));expect(fs.statSync(testInfo.outputPath('schedule.pdf')).size).toBeGreaterThan(5000);
+  await page.setViewportSize(viewport);
+  await page.addInitScript(t=>localStorage.setItem('jgcPortalTheme',t),theme);
+  await setup(page,seed());
+  await expect(page.locator('html')).toHaveAttribute('data-jgc-theme',theme);
+  await expect(page.locator('body')).toHaveClass(/\bjgc-theme\b/);
+  await expect(page.locator('.schedule-scroll')).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.getByRole('button',{name:'Fit',exact:true}).click();
+  await page.locator('.job-schedule').screenshot({path:testInfo.outputPath(`gantt-${theme}-${viewport.width}.png`)});
+  await page.locator('.schedule-task-name').first().click();
+  const details=page.getByRole('dialog',{name:'Activity details',exact:true});
+  await expect(details).toContainText('Review the architectural detail');
+  await expect(details.getByRole('heading',{name:'Shop drawings',exact:true})).toHaveCSS('color','rgb(255, 255, 255)');
+  await expect(details.locator('.schedule-activity-phase')).toHaveCSS('color','rgb(242, 250, 245)');
+  await details.getByRole('button',{name:'Close details',exact:true}).click();
+  const pdf=await downloadSchedulePdf(page,await openSchedulePdf(page));
+  expect(pdf.suggestedFilename()).toBe('26999 Job Schedule Rev 1.pdf');
+  const output=testInfo.outputPath('schedule.pdf');
+  await pdf.saveAs(output);
+  expect(fs.statSync(output).size).toBeGreaterThan(5000);
 });
 test('PDF tiles long dates and activity lists and keeps all task names and client information',async({},testInfo)=>{
  const tasks=Array.from({length:45},(_,i)=>activity('t'+i,'Unique activity '+i,'2026-10-05',w.addDays('2026-10-05',110),{calendar:'calendar',phase:i<20?'Preparation':'Finishes',owner:'Test contractor'}));const schedule=w.commitSchedule(tasks,undefined,'Test Admin','Long timeline');const state=fixture(schedule),bytes=await load('job-schedule-pdf').buildSchedulePdf({job:state.jobs[0],state,schedule,logoBytes:fs.readFileSync(path.resolve(__dirname,'../estimating/jgc-logo-transparent.png'))});const doc=await require('../estimating-app/node_modules/pdf-lib').PDFDocument.load(bytes);expect(doc.getPageCount()).toBeGreaterThanOrEqual(4);for(const p of doc.getPages())expect(p.getSize()).toEqual({width:1224,height:792});fs.writeFileSync(testInfo.outputPath('long-schedule.pdf'),bytes);
