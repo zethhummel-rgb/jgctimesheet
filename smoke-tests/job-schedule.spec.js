@@ -12,6 +12,93 @@ const seed=()=>w.commitSchedule([
 ],undefined,'Test Admin','Initial plan');
 async function setup(page,schedule){let state=fixture(schedule);const saved=[];await page.route('**/api/**',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({actuals:[],jobs:[],rows:[]})}));await page.route('**/api/state',async r=>{if(r.request().method()==='PUT'){state=r.request().postDataJSON().state;saved.push(state);return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({saved:true,updatedAt:new Date().toISOString()})});}return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({state,updatedAt:'2026-10-01T12:00:00Z'})});});await page.goto('/estimating/index.html?dev=1&view=jobs&job=26999');await expect(page.locator('.job-detail-page')).toContainText('26999');await page.getByRole('tab',{name:'Schedule',exact:true}).click();await expect(page.locator('.job-schedule')).toBeVisible();return saved;}
 
+async function openSchedulePdf(page, name='Download schedule PDF'){
+  await page.getByRole('button',{name,exact:true}).click();
+  const dialog=page.getByRole('dialog',{name,exact:true});
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+async function downloadSchedulePdf(page, dialog){
+  const pending=page.waitForEvent('download');
+  await dialog.getByRole('button',{name:'Download PDF',exact:true}).click();
+  const download=await pending;
+  await expect(dialog).toBeHidden();
+  return download;
+}
+
+async function editFirstActivity(page){
+  await page.locator('.schedule-task-name').first().click();
+  await page.getByRole('dialog',{name:'Activity details',exact:true}).getByRole('button',{name:'Edit activity',exact:true}).click();
+  return page.getByRole('dialog',{name:'Schedule activity editor',exact:true});
+}
+
+test('activity quick progress accepts any percentage, autosaves and can be undone',async({page},testInfo)=>{
+  await page.setViewportSize({width:390,height:844});
+  const original=seed(),saves=await setup(page,original);
+  const row=page.locator('[data-task-id="a"]');
+  const dialog=page.getByRole('dialog',{name:'Activity details',exact:true});
+  const progress=dialog.getByRole('spinbutton',{name:'Progress (%)',exact:true});
+  const save=dialog.getByRole('button',{name:'Save progress',exact:true});
+  await row.locator('.schedule-task-name').click();
+  await expect(progress).toHaveValue('40');
+  await progress.fill('101');
+  await expect(save).toBeDisabled();
+  await expect(dialog.getByRole('alert')).toHaveText('Enter a percentage from 0 to 100.');
+  await progress.fill('37.5');
+  await dialog.screenshot({path:testInfo.outputPath('activity-quick-actions-phone.png')});
+  await progress.press('Enter');
+  await expect(dialog).toBeHidden();
+  await expect.poll(()=>saves.at(-1)?.jobs[0]?.scheduleDraft?.tasks[0].progress).toBe(37.5);
+  expect(saves.at(-1).jobs[0].schedule).toEqual(original);
+  await expect(row.locator('.schedule-progress')).toHaveAttribute('style',/width: 37\.5%/);
+
+  await page.reload();
+  await page.getByRole('tab',{name:'Schedule',exact:true}).click();
+  await row.locator('.schedule-bar').click();
+  await expect(progress).toHaveValue('37.5');
+  await dialog.getByRole('button',{name:'Mark 100%',exact:true}).click();
+  await expect(row.locator('.schedule-progress')).toHaveAttribute('style',/width: 100%/);
+  await page.getByRole('button',{name:'Undo',exact:true}).click();
+  await expect(row.locator('.schedule-progress')).toHaveAttribute('style',/width: 37\.5%/);
+
+  await row.locator('.schedule-task-name').click();
+  await progress.fill('0');
+  await save.click();
+  await expect.poll(()=>saves.at(-1)?.jobs[0]?.scheduleDraft?.tasks[0].progress).toBe(0);
+  const editor=await editFirstActivity(page);
+  await expect(editor.getByLabel('Progress (%)',{exact:true})).toHaveValue('0');
+});
+
+test('delete activity confirms the removal and Undo restores linked activities',async({page})=>{
+  const original=w.commitSchedule([
+    activity('forms','Build forms','2026-10-05','2026-10-09'),
+    activity('pour','Pour concrete','2026-10-12','2026-10-16',{phase:'Finishing',predecessorId:'forms'})
+  ],undefined,'Test Admin','');
+  const saves=await setup(page,original);
+  const row=page.locator('[data-task-id="forms"]');
+  const dialog=page.getByRole('dialog',{name:'Activity details',exact:true});
+  const remove=dialog.getByRole('button',{name:'Delete activity',exact:true});
+  await row.locator('.schedule-task-name').click();
+  await remove.click();
+  await expect(dialog.getByRole('button',{name:'Keep activity'})).toBeFocused();
+  await expect(dialog).toContainText('will keep their dates and become independent');
+  await dialog.getByRole('button',{name:'Keep activity'}).click();
+  expect(saves).toHaveLength(0);
+  await remove.click();
+  await remove.click();
+  await expect(row).toHaveCount(0);
+  const undo=page.getByRole('button',{name:'Undo',exact:true});
+  await expect(undo).toBeFocused();
+  await expect.poll(()=>saves.at(-1)?.jobs[0]?.scheduleDraft?.tasks).toEqual([
+    {...original.tasks[1],predecessorId:'',lag:0}
+  ]);
+  expect(saves.at(-1).jobs[0].schedule).toEqual(original);
+  await undo.click();
+  await expect(row).toBeVisible();
+  await expect.poll(()=>saves.at(-1)?.jobs[0]?.scheduleDraft?.tasks).toEqual(original.tasks);
+});
+
 for(const width of [1440,390])test('schedule dates and activity colours remain readable at '+width+'px',async({page})=>{
   await page.setViewportSize({width,height:900});
   const tasks=[
@@ -106,13 +193,13 @@ test('optional empty state never creates a schedule on opening or cancelling',as
  const saves=await setup(page);await expect(page.locator('.schedule-empty')).toContainText('Jobs never need a schedule');await page.getByRole('button',{name:'Create schedule',exact:true}).click();await page.getByRole('button',{name:'Cancel editing'}).click();await expect(page.locator('.schedule-empty')).toBeVisible();expect(saves.every(s=>!s.jobs[0].schedule||s.jobs[0].schedule.revision===1)).toBe(true);
 });
 test('required information, date/duration editing, saving, reload and read-only activity notes',async({page})=>{
- const saves=await setup(page);await page.getByRole('button',{name:'Create schedule',exact:true}).click();await page.getByRole('button',{name:'Add first activity',exact:false}).click();const dialog=page.getByRole('dialog',{name:'Schedule activity editor'});await dialog.getByRole('button',{name:'Apply to draft'}).click();await expect(dialog).toContainText('An activity name is required');await dialog.getByLabel('Activity name *').fill('Concrete cure');await dialog.getByLabel('Start date *').fill('2026-10-02');await dialog.getByLabel('Count days as').selectOption('calendar');await dialog.getByLabel('Duration (days)').fill('7');await expect(dialog.getByLabel('Finish date *')).toHaveValue('2026-10-08');await dialog.getByRole('button',{name:'Apply to draft'}).click();await page.getByRole('tab',{name:'Summary',exact:true}).click();await page.getByRole('tab',{name:'Schedule',exact:true}).click();await expect(page.locator('.schedule-task-name')).toContainText('Concrete cure');await page.getByRole('button',{name:'Download schedule PDF',exact:true}).click();await expect.poll(()=>saves.at(-1)?.jobs[0]?.schedule?.revision).toBe(1);expect(saves.at(-1).jobs[0].startDate).toBe('2026-10-05');await page.reload();await page.getByRole('tab',{name:'Schedule',exact:true}).click();await page.getByRole('button',{name:'Show details for Concrete cure'}).click();await expect(page.locator('.schedule-task-name')).toContainText('7 calendar days');await page.locator('.schedule-task-name').click();await expect(page.getByRole('dialog',{name:'Activity details'})).toContainText('Concrete cure');await expect(page.getByRole('dialog').locator('input')).toHaveCount(0);await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);
+ const saves=await setup(page);await page.getByRole('button',{name:'Create schedule',exact:true}).click();await page.getByRole('button',{name:'Add first activity',exact:false}).click();const dialog=page.getByRole('dialog',{name:'Schedule activity editor'});await dialog.getByRole('button',{name:'Apply to draft'}).click();await expect(dialog).toContainText('An activity name is required');await dialog.getByLabel('Activity name *').fill('Concrete cure');await dialog.getByLabel('Start date *').fill('2026-10-02');await dialog.getByLabel('Count days as').selectOption('calendar');await dialog.getByLabel('Duration (days)').fill('7');await expect(dialog.getByLabel('Finish date *')).toHaveValue('2026-10-08');await dialog.getByRole('button',{name:'Apply to draft'}).click();await page.getByRole('tab',{name:'Summary',exact:true}).click();await page.getByRole('tab',{name:'Schedule',exact:true}).click();await expect(page.locator('.schedule-task-name')).toContainText('Concrete cure');await downloadSchedulePdf(page,await openSchedulePdf(page));await expect.poll(()=>saves.at(-1)?.jobs[0]?.schedule?.revision).toBe(1);expect(saves.at(-1).jobs[0].startDate).toBe('2026-10-05');await page.reload();await page.getByRole('tab',{name:'Schedule',exact:true}).click();await page.getByRole('button',{name:'Show details for Concrete cure'}).click();await expect(page.locator('.schedule-task-name')).toContainText('7 calendar days');await page.locator('.schedule-task-name').click();await expect(page.getByRole('dialog',{name:'Activity details'})).toContainText('Concrete cure');await expect(page.getByRole('dialog').getByRole('spinbutton',{name:'Progress (%)'})).toHaveValue('');await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 test('bar moves, resize, undo and cancel stay in a draft until saved',async({page})=>{
  const saves=await setup(page,seed());await page.getByRole('button',{name:'Edit schedule',exact:true}).click();await page.getByRole('button',{name:'Show details for Shop drawings'}).click();const bar=page.getByRole('button',{name:/Shop drawings: .*drag to move/});await bar.scrollIntoViewIfNeeded();const b=await bar.boundingBox();await page.mouse.move(b.x+25,b.y+12);await page.mouse.down();await page.mouse.move(b.x+25+7*18,b.y+12,{steps:5});await page.mouse.up();await expect(page.locator('.schedule-task-name').first()).toContainText('Oct 12');await page.getByRole('button',{name:'Undo',exact:true}).click();await expect(page.locator('.schedule-task-name').first()).toContainText('Oct 5');const handle=page.getByRole('button',{name:'Change finish date for Shop drawings'});await handle.scrollIntoViewIfNeeded();const h=await handle.boundingBox();await page.mouse.move(h.x+10,h.y+18);await page.mouse.down();await page.mouse.move(h.x+10+7*18,h.y+18,{steps:5});await page.mouse.up();await expect(page.locator('.schedule-task-name').first()).toContainText('10 working days');expect(saves.every(s=>!s.jobs[0].schedule||s.jobs[0].schedule.revision===1)).toBe(true);page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Cancel editing'}).click();await expect(page.locator('.schedule-task-name').first()).toContainText('5 working days');
 });
 for(const theme of ['light','dark'])for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`Gantt ${theme} ${viewport.width}: contained timeline, details and export`,async({page},testInfo)=>{
- await page.setViewportSize(viewport);await page.addInitScript(t=>{localStorage.setItem('jgcPortalTheme',t);},theme);await setup(page,seed());await expect(page.locator('html')).toHaveAttribute('data-jgc-theme',theme);await expect(page.locator('.schedule-scroll')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.getByRole('button',{name:'Fit',exact:true}).click();await page.locator('.job-schedule').screenshot({path:testInfo.outputPath(`gantt-${theme}-${viewport.width}.png`)});await page.locator('.schedule-task-name').first().click();await expect(page.getByRole('dialog')).toContainText('Review the architectural detail');await page.getByRole('button',{name:'Close details'}).click();const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download schedule PDF',exact:true}).click();const pdf=await pending;expect(pdf.suggestedFilename()).toBe('26999 Job Schedule Rev 1.pdf');await pdf.saveAs(testInfo.outputPath('schedule.pdf'));expect(fs.statSync(testInfo.outputPath('schedule.pdf')).size).toBeGreaterThan(5000);
+ await page.setViewportSize(viewport);await page.addInitScript(t=>{localStorage.setItem('jgcPortalTheme',t);},theme);await setup(page,seed());await expect(page.locator('html')).toHaveAttribute('data-jgc-theme',theme);await expect(page.locator('.schedule-scroll')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.getByRole('button',{name:'Fit',exact:true}).click();await page.locator('.job-schedule').screenshot({path:testInfo.outputPath(`gantt-${theme}-${viewport.width}.png`)});await page.locator('.schedule-task-name').first().click();await expect(page.getByRole('dialog')).toContainText('Review the architectural detail');await page.getByRole('button',{name:'Close details'}).click();const pdf=await downloadSchedulePdf(page,await openSchedulePdf(page));expect(pdf.suggestedFilename()).toBe('26999 Job Schedule Rev 1.pdf');await pdf.saveAs(testInfo.outputPath('schedule.pdf'));expect(fs.statSync(testInfo.outputPath('schedule.pdf')).size).toBeGreaterThan(5000);
 });
 test('PDF tiles long dates and activity lists and keeps all task names and client information',async({},testInfo)=>{
  const tasks=Array.from({length:45},(_,i)=>activity('t'+i,'Unique activity '+i,'2026-10-05',w.addDays('2026-10-05',110),{calendar:'calendar',phase:i<20?'Preparation':'Finishes',owner:'Test contractor'}));const schedule=w.commitSchedule(tasks,undefined,'Test Admin','Long timeline');const state=fixture(schedule),bytes=await load('job-schedule-pdf').buildSchedulePdf({job:state.jobs[0],state,schedule,logoBytes:fs.readFileSync(path.resolve(__dirname,'../estimating/jgc-logo-transparent.png'))});const doc=await require('../estimating-app/node_modules/pdf-lib').PDFDocument.load(bytes);expect(doc.getPageCount()).toBeGreaterThanOrEqual(4);for(const p of doc.getPages())expect(p.getSize()).toEqual({width:1224,height:792});fs.writeFileSync(testInfo.outputPath('long-schedule.pdf'),bytes);
@@ -137,7 +224,7 @@ test('reordering changes phase and sequence while preserving dates, progress and
 for(const theme of ['light','dark'])for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test('inline activity entry keeps rows and dates visible '+theme+' '+viewport.width,async({page},testInfo)=>{
  await page.setViewportSize(viewport);await page.addInitScript(t=>localStorage.setItem('jgcPortalTheme',t),theme);await setup(page,seed());await page.getByRole('button',{name:'Edit schedule',exact:true}).click();await page.getByRole('button',{name:'Add activity',exact:false}).click();
  const editor=page.getByRole('dialog',{name:'Schedule activity editor'}),chart=page.locator('.schedule-scroll');
- await expect(editor).toHaveAttribute('aria-modal','false');await expect(page.locator('.schedule-modal-backdrop')).toHaveCount(0);expect(await page.evaluate(()=>document.body.style.overflow)).not.toBe('hidden');
+ await expect(editor).toHaveAttribute('aria-modal','false');await expect(page.locator('dialog[open]')).toHaveCount(0);expect(await page.evaluate(()=>document.body.style.overflow)).not.toBe('hidden');
  const eb=await editor.boundingBox(),gb=await chart.boundingBox();expect(eb.y).toBeGreaterThan(gb.y);expect(eb.y).toBeLessThan(viewport.height-90);await expect(editor.locator('xpath=ancestor::div[contains(@class,"schedule-grid")]')).toHaveCount(1);
  await editor.getByLabel('Activity name *').fill('New electrical inspection');await editor.getByLabel('Start date *').fill('2026-12-14');await expect(chart).toHaveAttribute('data-finish','2027-01-30');
  await expect.poll(()=>chart.evaluate(el=>el.scrollLeft)).toBeGreaterThan(0);
@@ -159,7 +246,7 @@ test('grab reorders without changing dates and Escape cancels an unfinished row 
  await expect.poll(()=>page.locator('[data-schedule-row="task"]').evaluateAll(es=>es.map(e=>e.dataset.taskId))).toEqual(['t1','t2','t3','t0','t4','t5']);
  a=await grip.boundingBox();b=await page.locator('[data-task-id="t1"]').boundingBox();await page.mouse.move(a.x+10,a.y+15);await page.mouse.down();await page.mouse.move(a.x+10,b.y+5,{steps:4});await page.keyboard.press('Escape');await page.mouse.up();
  await expect.poll(()=>page.locator('[data-schedule-row="task"]').evaluateAll(es=>es.map(e=>e.dataset.taskId))).toEqual(['t1','t2','t3','t0','t4','t5']);
- await page.getByRole('button',{name:'Download schedule PDF',exact:true}).click();await expect.poll(()=>saves.at(-1)?.jobs[0].schedule.revision).toBe(2);expect(saves.at(-1).jobs[0].schedule.tasks.every(t=>t.start==='2026-10-05'&&t.finish==='2026-10-09')).toBe(true);
+ await downloadSchedulePdf(page,await openSchedulePdf(page));await expect.poll(()=>saves.at(-1)?.jobs[0].schedule.revision).toBe(2);expect(saves.at(-1).jobs[0].schedule.tasks.every(t=>t.start==='2026-10-05'&&t.finish==='2026-10-09')).toBe(true);
 });
 test('compact rows expand independently; applying a new activity reveals the row in a long list',async({page})=>{
  const tasks=Array.from({length:35},(_,i)=>activity('t'+i,'Existing '+i,'2026-10-05','2026-10-09')),saved=w.commitSchedule(tasks,undefined,'Test admin','Initial');await setup(page,saved);
@@ -175,8 +262,8 @@ test('Days Weeks Months Fit fill the chart and keep real month headings readable
  for(const zoom of ['Days','Weeks','Months','Fit']){await page.getByRole('button',{name:zoom,exact:true}).click();const sizes=await page.locator('.schedule-scroll').evaluate(el=>({viewport:el.clientWidth,grid:el.querySelector('.schedule-grid').getBoundingClientRect().width}));expect(sizes.grid).toBeGreaterThanOrEqual(sizes.viewport-1);if(zoom==='Months'||zoom==='Fit')await expect(page.locator('.schedule-weeks')).toContainText('November 2026');await page.locator('.job-schedule').screenshot({path:testInfo.outputPath('scale-'+zoom+'.png')});}
 });
 test('draft download is an Adobe-readable PDF marked Draft without saving a revision',async({page},testInfo)=>{
- const saves=await setup(page,seed());await page.getByRole('button',{name:'Edit schedule',exact:true}).click();await page.locator('.schedule-task-name').first().click();const editor=page.getByRole('dialog',{name:'Schedule activity editor'});await editor.getByLabel('Activity name *').fill('Draft electrical inspection');await editor.getByRole('button',{name:'Apply to draft'}).click();
- const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download draft PDF',exact:true}).click();const pdf=await pending;expect(pdf.suggestedFilename()).toBe('26999 Job Schedule Draft.pdf');await pdf.saveAs(testInfo.outputPath('draft-schedule.pdf'));const bytes=fs.readFileSync(testInfo.outputPath('draft-schedule.pdf'));expect(bytes.subarray(0,5).toString()).toBe('%PDF-');const doc=await require('../estimating-app/node_modules/pdf-lib').PDFDocument.load(bytes);expect(doc.getTitle()).toContain('DRAFT');expect(saves.every(s=>!s.jobs[0].schedule||s.jobs[0].schedule.revision===1)).toBe(true);await expect(page.getByRole('button',{name:'Download schedule PDF',exact:true})).toBeVisible();
+ const saves=await setup(page,seed());await page.getByRole('button',{name:'Edit schedule',exact:true}).click();const editor=await editFirstActivity(page);await editor.getByLabel('Activity name *').fill('Draft electrical inspection');await editor.getByRole('button',{name:'Apply to draft'}).click();
+ const pdf=await downloadSchedulePdf(page,await openSchedulePdf(page,'Download draft PDF'));expect(pdf.suggestedFilename()).toBe('26999 Job Schedule Draft.pdf');await pdf.saveAs(testInfo.outputPath('draft-schedule.pdf'));const bytes=fs.readFileSync(testInfo.outputPath('draft-schedule.pdf'));expect(bytes.subarray(0,5).toString()).toBe('%PDF-');const doc=await require('../estimating-app/node_modules/pdf-lib').PDFDocument.load(bytes);expect(doc.getTitle()).toContain('DRAFT');expect(saves.every(s=>!s.jobs[0].schedule||s.jobs[0].schedule.revision===1)).toBe(true);await expect(page.getByRole('button',{name:'Download schedule PDF',exact:true})).toBeVisible();
 });
 
 test('row grab auto-scrolls a long list before dropping into the current visible target',async({page})=>{
@@ -246,12 +333,12 @@ test('competing autosaved schedule drafts conflict rather than combining their d
 });
 
 test('downloading locks one revision; repeated autosaves stay in the next working revision',async({page},testInfo)=>{
- const original=seed();const saves=await setup(page,original);await page.getByRole('button',{name:'Edit schedule',exact:true}).click();await page.locator('.schedule-task-name').first().click();const editor=page.getByRole('dialog',{name:'Schedule activity editor'});
+ const original=seed();const saves=await setup(page,original);await page.getByRole('button',{name:'Edit schedule',exact:true}).click();const editor=await editFirstActivity(page);
  await editor.getByLabel('Activity name *').fill('Revised shop drawings');await editor.getByRole('button',{name:'Apply to draft'}).click();await expect.poll(()=>saves.at(-1)?.jobs[0]?.scheduleDraft?.tasks[0]?.name).toBe('Revised shop drawings');
  expect(saves.at(-1).jobs[0].schedule.revision).toBe(1);expect(saves.at(-1).jobs[0].schedule.revisions).toEqual(original.revisions);
- const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download schedule PDF',exact:true}).click();const pdf=await pending;expect(pdf.suggestedFilename()).toBe('26999 Job Schedule Rev 2.pdf');await pdf.saveAs(testInfo.outputPath('locked-revision2.pdf'));
+ const pdf=await downloadSchedulePdf(page,await openSchedulePdf(page));expect(pdf.suggestedFilename()).toBe('26999 Job Schedule Rev 2.pdf');await pdf.saveAs(testInfo.outputPath('locked-revision2.pdf'));
  await expect.poll(()=>saves.at(-1)?.jobs[0]?.schedule?.revision).toBe(2);const locked=saves.at(-1).jobs[0].schedule;expect(locked.revisions[0]).toEqual(original.revisions[0]);expect(locked.revisions[1].tasks[0].name).toBe('Revised shop drawings');expect(saves.at(-1).jobs[0].scheduleDraft).toBeUndefined();
- await page.getByRole('button',{name:'Edit schedule',exact:true}).click();await page.locator('.schedule-task-name').first().click();await page.getByRole('dialog',{name:'Schedule activity editor'}).getByLabel('Duration (days)').fill('120');await page.getByRole('button',{name:'Apply to draft'}).click();await expect.poll(()=>saves.at(-1)?.jobs[0]?.scheduleDraft?.tasks[0]?.finish).toBe('2027-03-19');expect(saves.at(-1).jobs[0].schedule).toEqual(locked);
+ await page.getByRole('button',{name:'Edit schedule',exact:true}).click();const nextEditor=await editFirstActivity(page);await nextEditor.getByLabel('Duration (days)').fill('120');await page.getByRole('button',{name:'Apply to draft'}).click();await expect.poll(()=>saves.at(-1)?.jobs[0]?.scheduleDraft?.tasks[0]?.finish).toBe('2027-03-19');expect(saves.at(-1).jobs[0].schedule).toEqual(locked);
  await page.reload();await page.getByRole('tab',{name:'Schedule',exact:true}).click();await expect(page.locator('.schedule-facts')).toContainText('Rev 3');expect(saves.at(-1).jobs[0].schedule).toEqual(locked);
 });
 
@@ -260,31 +347,84 @@ for(const [name,count,span,noteLines,onePage] of [['small',4,21,0,true],['medium
  const pdfjs=await import(require('node:url').pathToFileURL(path.resolve(__dirname,'../estimating-app/node_modules/pdfjs-dist/legacy/build/pdf.mjs')).href);const parsed=await pdfjs.getDocument({data:new Uint8Array(bytes),disableWorker:true}).promise;let text='';for(let n=1;n<=parsed.numPages;n++){const page=await parsed.getPage(n);text+=(await page.getTextContent()).items.map(i=>i.str).join(' ');}for(let i=0;i<count;i++)expect(text).toContain('Activity '+i);if(noteLines)expect(text).toContain('NOTE '+(noteLines-1));expect(text).toContain('Example Client');expect(text).toContain('123 Example Street');
 });
 for(const [mode,from,to,first,last] of [
- ['Weekly','2026-10-07','','2026-10-04','2026-10-10'],
- ['Monthly','2028-02-15','','2028-02-01','2028-02-29'],
- ['Yearly','2026-10-05','','2026-01-01','2026-12-31'],
- ['Custom','2026-10-08','2026-10-12','2026-10-08','2026-10-12']
+ ['Day','2026-10-07','','2026-10-07','2026-10-07'],
+ ['Week','2026-10-07','','2026-10-04','2026-10-10'],
+ ['Month','2028-02-15','','2028-02-01','2028-02-29'],
+ ['Year','2026-10-05','','2026-01-01','2026-12-31'],
+ ['Custom dates','2026-10-08','2026-10-12','2026-10-08','2026-10-12']
 ])test('schedule PDF date range '+mode,async({page},testInfo)=>{
  const schedule=seed();schedule.tasks[0].progress=100;
  await setup(page,schedule);
  await expect(page.locator('.schedule-day-head .schedule-weekday').first()).toHaveText('S');
  expect(await page.locator('.schedule-day-head .schedule-weekday').allTextContents().then(days=>days.slice(0,7))).toEqual(['S','M','T','W','T','F','S']);
- await page.getByLabel('PDF date range').selectOption(mode);
- await page.getByLabel(mode==='Custom'?'Start date':mode==='Weekly'?'Week containing':mode==='Monthly'?'Month containing':'Year containing',{exact:true}).fill(from);
- if(mode==='Custom')await page.getByLabel('End date',{exact:true}).fill(to);
- const pending=page.waitForEvent('download');
- await page.getByRole('button',{name:'Download schedule PDF',exact:true}).click();
- const file=await pending;
- expect(file.suggestedFilename()).toContain(first+' to '+last);
+ const dialog=await openSchedulePdf(page);
+ await dialog.getByRole('radio',{name:mode,exact:true}).check();
+ if(mode==='Month')await dialog.getByRole('combobox',{name:'Month',exact:true}).selectOption(from.slice(5,7));
+ if(mode==='Month'||mode==='Year'){
+  await dialog.getByRole('spinbutton',{name:'Year',exact:true}).fill(from.slice(0,4));
+ }else{
+  const field=mode==='Custom dates'?'Start date':mode==='Week'?'Jump to a week':'Date';
+  await dialog.getByLabel(field,{exact:true}).fill(from);
+ }
+ if(mode==='Custom dates')await dialog.getByLabel('End date',{exact:true}).fill(to);
+ const format=new Intl.DateTimeFormat('en-CA',{dateStyle:'medium',timeZone:'UTC'}),fromDate=new Date(first),toDate=new Date(last);
+ const dates=first===last?first:first+' to '+last;
+ await expect(dialog.locator('.schedule-pdf-includes strong')).toHaveText(first===last?format.format(fromDate):format.formatRange(fromDate,toDate));
+ if(mode==='Month')await expect(dialog).toContainText('No activities scheduled in this range');
+ const file=await downloadSchedulePdf(page,dialog);
+ expect(file.suggestedFilename()).toBe('26999 Job Schedule Rev 1 '+dates+'.pdf');
  const dest=testInfo.outputPath(mode+'.pdf');await file.saveAs(dest);
  const pdfjs=await import(require('node:url').pathToFileURL(path.resolve(__dirname,'../estimating-app/node_modules/pdfjs-dist/legacy/build/pdf.mjs')).href);
  const loading=pdfjs.getDocument({data:new Uint8Array(fs.readFileSync(dest))});const doc=await loading.promise;
  const firstPage=await doc.getPage(1);const text=(await firstPage.getTextContent()).items.map(i=>i.str).join(' ');
- expect(text).toContain(first+' to '+last);
- if(mode==='Weekly')expect(text).toMatch(/S\s+4\s+M\s+5\s+T\s+6\s+W\s+7\s+T\s+8\s+F\s+9\s+S\s+10/);
+ expect(text).toContain('Timeline '+dates);
+ if(mode==='Week')expect(text).toMatch(/S\s+4\s+M\s+5\s+T\s+6\s+W\s+7\s+T\s+8\s+F\s+9\s+S\s+10/);
  expect(text).toContain('Completed');expect(text).toContain('Remaining');
- if(mode==='Monthly')expect(text).toContain('No scheduled activities');
+ if(mode==='Month')expect(text).toContain('No scheduled activities');
  else expect(text).toContain('100%');
- if(mode==='Weekly'||mode==='Custom')expect(text).not.toContain('Painting');
+ if(mode==='Day'||mode==='Week'||mode==='Custom dates')expect(text).not.toContain('Painting');
  await loading.destroy();
+});
+
+test('phone PDF picker shows the selected dates, steps through periods and cancels without saving',async({page},testInfo)=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.clock.setFixedTime(new Date('2026-10-07T16:00:00Z'));
+  const saves=await setup(page,seed());
+  const trigger=page.getByRole('button',{name:'Download schedule PDF',exact:true});
+  const dialog=await openSchedulePdf(page);
+  const range=dialog.locator('.schedule-pdf-includes strong');
+  await expect(dialog.getByRole('radio',{name:'Full schedule'})).toBeChecked();
+  await expect(range).toHaveText(/Oct 4\D+24, 2026/);
+  await page.keyboard.press('ArrowRight');
+  await expect(dialog.getByRole('radio',{name:'Day',exact:true})).toBeChecked();
+  await expect(range).toHaveText('Oct 7, 2026');
+
+  await dialog.getByRole('radio',{name:'Week',exact:true}).check();
+  await expect(range).toHaveText(/Oct 4\D+10, 2026/);
+  await dialog.getByRole('button',{name:'Next week'}).click();
+  await expect(range).toHaveText(/Oct 11\D+17, 2026/);
+  await dialog.getByRole('button',{name:'This week'}).click();
+  await expect(range).toHaveText(/Oct 4\D+10, 2026/);
+  await dialog.screenshot({path:testInfo.outputPath('weekly-pdf-picker-phone.png')});
+
+  await dialog.getByRole('radio',{name:'Month',exact:true}).check();
+  await dialog.getByRole('combobox',{name:'Month',exact:true}).selectOption('01');
+  await dialog.getByRole('button',{name:'Previous month'}).click();
+  await expect(dialog.getByRole('spinbutton',{name:'Year',exact:true})).toHaveValue('2025');
+  await expect(range).toHaveText(/Dec 1\D+31, 2025/);
+  await dialog.getByRole('button',{name:'This month'}).click();
+  await expect(range).toHaveText(/Oct 1\D+31, 2026/);
+
+  await dialog.getByRole('radio',{name:'Custom dates',exact:true}).check();
+  await dialog.getByLabel('Start date',{exact:true}).fill('2026-10-30');
+  await expect(dialog.getByLabel('End date',{exact:true})).toHaveValue('2026-10-30');
+  await dialog.getByLabel('End date',{exact:true}).fill('2026-10-29');
+  await expect(range).toContainText('Choose an end date on or after the start date.');
+  await expect(dialog.getByRole('button',{name:'Download PDF',exact:true})).toBeDisabled();
+  expect(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
+  expect(saves).toHaveLength(0);
 });
