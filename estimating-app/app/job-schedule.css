@@ -146,7 +146,7 @@ html[data-jgc-theme=dark] .schedule-error { color:#b72d2d; }
   color:var(--navy-900);
   overscroll-behavior:contain;
 }
-.schedule-dialog::backdrop { background:#06261c88; }
+dialog.schedule-dialog::backdrop { background:#06261c88; }
 .schedule-pdf-dialog { width:min(640px,calc(100% - 24px)); }
 .schedule-pdf-dialog h2 { margin:0 0 18px; font-size:22px; line-height:1.2; }
 .schedule-pdf-choices { border:0; margin:0; padding:0; min-width:0; }
@@ -339,3 +339,35 @@ html[data-jgc-theme=dark] .schedule-error { color:#b72d2d; }
   .schedule-activity-progress { padding-inline:10px; }
   .schedule-activity-progress-controls .button { padding-inline:10px; }
 }
+.schedule-activity-popover {
+  position:fixed;
+  inset:auto;
+  margin:0;
+  width:min(324px,calc(100vw - 16px));
+  border-radius:14px;
+  box-shadow:0 8px 28px #06231938,0 2px 6px #0623191a;
+}
+.schedule-activity-popover > header { padding:10px 12px 11px; }
+.job-schedule .schedule-activity-popover h3 { margin-top:5px; font-size:16px; }
+.schedule-activity-popover .schedule-activity-phase { font-size:10px; padding:3px 7px; }
+.schedule-activity-popover .schedule-activity-close { width:30px; height:30px; font-size:18px; }
+.schedule-activity-popover .schedule-activity-body { padding:10px 11px 11px; }
+.schedule-activity-popover .schedule-activity-progress { padding:7px 9px 9px; border-radius:10px; }
+.schedule-activity-popover .schedule-activity-progress-heading { margin-bottom:5px; }
+.schedule-activity-popover .schedule-activity-progress-heading label { font-size:13px; }
+.schedule-activity-popover .schedule-activity-mark { min-height:26px; font-size:11px; }
+.job-schedule .schedule-activity-popover .schedule-activity-percent input { min-height:36px; padding-block:5px; font-size:16px; }
+.schedule-activity-popover .schedule-activity-progress-controls .button,
+.schedule-activity-popover .schedule-activity-actions .button,
+.schedule-activity-popover .schedule-activity-confirm .button { min-height:36px; padding:6px 10px; font-size:12px; }
+.schedule-activity-popover .schedule-activity-meter { margin-top:7px; }
+.schedule-activity-more > summary {
+  padding:7px 2px 3px;
+  cursor:pointer;
+  color:var(--navy-900);
+  font-size:12px;
+  font-weight:650;
+}
+.schedule-activity-more .schedule-activity-facts { margin-top:5px; }
+.schedule-activity-more .schedule-activity-notes { margin-top:7px; }
+.schedule-activity-popover .schedule-activity-actions { margin-top:6px; padding-top:7px; }

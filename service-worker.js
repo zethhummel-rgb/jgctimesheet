@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "1102";
+const JGC_RELEASE_ID = "1103";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -214,24 +214,24 @@ const JGC_APP_SHELL = [
   "./icon-180.png?v=4",
   "./icon-192.png?v=4",
   "./icon-512.png?v=4",
-  "./estimating/assets/browser-DYIIw0S2.js",
-  "./estimating/assets/document-worker-DbK99mzg.js",
-  "./estimating/assets/drawing-pdf-BSEdDT0x.js",
-  "./estimating/assets/es-fW83oAXd.js",
-  "./estimating/assets/index-BdGpzYrp.js",
-  "./estimating/assets/index-Lj19gs_1.css",
+  "./estimating/assets/browser-36dLfPDu.js",
+  "./estimating/assets/document-worker-7DHaJ7ig.js",
+  "./estimating/assets/drawing-pdf-DdI4vHbV.js",
+  "./estimating/assets/es-BpBy62vv.js",
+  "./estimating/assets/index-CjlHwoUB.css",
+  "./estimating/assets/index-DCofW410.js",
   "./estimating/assets/job-accounting-workbook-CkWmtE1T.js",
-  "./estimating/assets/job-schedule-pdf-Bo6QdoEC.js",
-  "./estimating/assets/job-warranty-pdf-BfCjgnoU.js",
-  "./estimating/assets/pdf-BCAqywLJ.js",
+  "./estimating/assets/job-schedule-pdf-Did4-Cq7.js",
+  "./estimating/assets/job-warranty-pdf-CcTjuUEA.js",
+  "./estimating/assets/pdf-BjRe-QLQ.js",
   "./estimating/assets/pdf-Bs__3tTL.js",
-  "./estimating/assets/proposal-pdf-BqhJ7Qws.js",
-  "./estimating/assets/purchase-order-pdf-BNWrBbGx.js",
-  "./estimating/assets/quote-backup-pdf-DK79azyf.js",
-  "./estimating/assets/rfi-pdf-Chmd_Kvu.js",
-  "./estimating/assets/shop-drawing-transmittal-pdf-1mijP1Ts.js",
-  "./estimating/assets/shop-drawing-workbook-Bs1ErAHa.js",
-  "./estimating/assets/src-DfLNhZjU.js"
+  "./estimating/assets/proposal-pdf-1ZqcigcR.js",
+  "./estimating/assets/purchase-order-pdf-Cw-xmBNh.js",
+  "./estimating/assets/quote-backup-pdf-CnocNbRu.js",
+  "./estimating/assets/rfi-pdf-CLNEw4Bi.js",
+  "./estimating/assets/shop-drawing-transmittal-pdf-DB9-OMgP.js",
+  "./estimating/assets/shop-drawing-workbook-DJbXko_A.js",
+  "./estimating/assets/src-9FWw8urW.js"
 ];
 
 function isJgcCacheableResponse(response) {

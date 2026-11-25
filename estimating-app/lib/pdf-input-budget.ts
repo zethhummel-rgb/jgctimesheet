@@ -37,6 +37,14 @@ function ccittDecodedSize(dictionary:string,width:number,height:number) {
  return Math.ceil(width/8)*height;
 }
 
+function decodeAscii85PdfStream(bytes:Uint8Array, budget:PdfInputBudget, onChunk:(chunk:Uint8Array)=>void) {
+ decodePdfAscii85(bytes, chunk => {
+  budget.decodedBytes += chunk.length;
+  if (budget.decodedBytes > maxDecodedPdfBytes) throw tooComplex();
+  onChunk(chunk);
+ });
+}
+
 function inflatePdfStream(bytes:Uint8Array, budget:PdfInputBudget, ascii85:boolean, onChunk:(chunk:Uint8Array)=>void) {
  let decoded = 0;
  const inflate = new Unzlib(chunk => {
@@ -46,11 +54,7 @@ function inflatePdfStream(bytes:Uint8Array, budget:PdfInputBudget, ascii85:boole
   onChunk(chunk);
  });
  if (ascii85) {
-  decodePdfAscii85(bytes, chunk => {
-   budget.decodedBytes += chunk.length;
-   if (budget.decodedBytes > maxDecodedPdfBytes) throw tooComplex();
-   inflate.push(chunk, false);
-  });
+  decodeAscii85PdfStream(bytes, budget, chunk => inflate.push(chunk, false));
   inflate.push(new Uint8Array(), true);
  } else {
   for (let offset=0; offset<bytes.length; offset+=512) {
@@ -60,23 +64,24 @@ function inflatePdfStream(bytes:Uint8Array, budget:PdfInputBudget, ascii85:boole
  return decoded;
 }
 
-// Acrobat can store an otherwise ordinary JPEG inside a Flate stream. Only
-// unwrap it for validation; the uploader and PDF.js still receive the original.
-function unwrapJpeg(bytes:Uint8Array, dictionary:string, budget:PdfInputBudget):Uint8Array {
+// Adobe PDFs may put ASCII85 text or a JPEG inside a Flate stream. Unwrap only
+// for validation within the same byte limits. The viewer opens the original.
+function unwrapFlatePdfStream(bytes:Uint8Array, dictionary:string, budget:PdfInputBudget, inner:'jpeg'|'ascii85'):Uint8Array {
  const params = dictionary.split(/\/(?:DecodeParms|DP)(?=[\s<>/\[\]])/);
- // A predictor would change the bytes between filters. Accept identity Flate
- // parameters and the optional JPEG colour transform, which preserves dimensions.
- const supported = /^\s*(?:null|\[\s*(?:null\b|<<\s*(?:\/Predictor\s+1\s*)?>>)\s*(?:null\b|<<\s*(?:\/ColorTransform\s+[01]\s*)?>>)\s*\])(?=[\s/<>\[\]]|$)/;
+ // Accept identity Flate parameters. JPEG may also specify a colour transform.
+ const supported = inner==='jpeg'
+  ? /^\s*(?:null|\[\s*(?:null\b|<<\s*(?:\/Predictor\s+1\s*)?>>)\s*(?:null\b|<<\s*(?:\/ColorTransform\s+[01]\s*)?>>)\s*\])(?=[\s/<>\[\]]|$)/
+  : /^\s*(?:null|\[\s*(?:null\b|<<\s*(?:\/Predictor\s+1\s*)?>>)\s*null\s*\])(?=[\s/<>\[\]]|$)/;
  if (params.length > 1 && (params.length !== 2 || !supported.test(params[1]))) throw tooComplex();
  const chunks:Uint8Array[] = [];
  const length = inflatePdfStream(bytes, budget, false, chunk => { if (chunk.length) chunks.push(chunk); });
- const jpeg = new Uint8Array(length);
+ const result = new Uint8Array(length);
  let offset = 0;
  for (const chunk of chunks) {
-  jpeg.set(chunk, offset);
+  result.set(chunk, offset);
   offset += chunk.length;
  }
- return jpeg;
+ return result;
 }
 
 // Inspect physical stream boundaries before a PDF parser can inflate object/content streams.
@@ -123,9 +128,11 @@ export function preflightPdf(bytes:Uint8Array,budget:PdfInputBudget={decodedByte
   const filter=filters[0]?.replace(/[\[\]\s]/g,'')||'';
   const ccitt=filter==='/CCITTFaxDecode'||filter==='/CCF';
   const jbig2=filter==='/JBIG2Decode';
+  const ascii85=filter==='/ASCII85Decode'||filter==='/A85';
   const ascii85Flate=/^\/(?:ASCII85Decode|A85)\/(?:FlateDecode|Fl)$/.test(filter);
+  const flateAscii85=/^\[\s*\/(?:FlateDecode|Fl)\s*\/(?:ASCII85Decode|A85)\s*\]$/.test(filters[0]||'');
   const flateJpeg=/^\[\s*\/(?:FlateDecode|Fl)\s*\/(?:DCTDecode|DCT)\s*\]$/.test(filters[0]||'');
-  if(!ascii85Flate&&!ccitt&&!jbig2&&!flateJpeg&&!['','/FlateDecode','/Fl','/DCTDecode','/DCT'].includes(filter))throw tooComplex();
+  if(!ascii85&&!ascii85Flate&&!flateAscii85&&!ccitt&&!jbig2&&!flateJpeg&&!['','/FlateDecode','/Fl','/DCTDecode','/DCT'].includes(filter))throw tooComplex();
   const isImage=/\/Subtype\s*\/Image\b/.test(dictionary);
   if((ccitt||jbig2||flateJpeg)&&!isImage)throw tooComplex();
   if(isImage){
@@ -147,7 +154,7 @@ export function preflightPdf(bytes:Uint8Array,budget:PdfInputBudget={decodedByte
    budget.imagePixels=(budget.imagePixels||0)+pixels;if(budget.imagePixels>DOCUMENT_LIMITS.totalImagePixels)throw tooComplex();
    if (flateJpeg || filter==='/DCTDecode' || filter==='/DCT') {
     const data=bytes.subarray(n,end);
-    const jpeg=flateJpeg?unwrapJpeg(data,dictionary,budget):data;
+    const jpeg=flateJpeg?unwrapFlatePdfStream(data,dictionary,budget,'jpeg'):data;
     if (jpeg[0]!==0xff || jpeg[1]!==0xd8) throw tooComplex();
     const size=imageDimensions(jpeg,'image/jpeg');
     imageBudget(size.width,size.height);
@@ -160,6 +167,10 @@ export function preflightPdf(bytes:Uint8Array,budget:PdfInputBudget={decodedByte
   const countTokens=(chunk:Uint8Array)=>{if(maxTokens===undefined)return;for(const byte of chunk){const boundary=byte===0||byte===9||byte===10||byte===12||byte===13||byte===32||byte===37||byte===40||byte===41||byte===47||byte===60||byte===62||byte===91||byte===93||byte===123||byte===125;if(boundary)inToken=false;else if(!inToken){inToken=true;budget.tokens=(budget.tokens||0)+1;if(budget.tokens>maxTokens)throw tooComplex();}}};
   if(ascii85Flate||filter==='/FlateDecode'||filter==='/Fl'){
    inflatePdfStream(bytes.subarray(n,end),budget,ascii85Flate,countTokens);
+  }else if(ascii85||flateAscii85){
+   const data=bytes.subarray(n,end);
+   const encoded=flateAscii85?unwrapFlatePdfStream(data,dictionary,budget,'ascii85'):data;
+   decodeAscii85PdfStream(encoded,budget,countTokens);
   }else if(!filter){budget.decodedBytes+=length!;if(budget.decodedBytes>maxDecodedPdfBytes)throw tooComplex();countTokens(bytes.subarray(n,end));}
   objects.lastIndex=terminator+9;
  }
