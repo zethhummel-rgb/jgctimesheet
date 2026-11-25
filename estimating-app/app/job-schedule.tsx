@@ -1,8 +1,8 @@
-import { Fragment, useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent } from 'react';
 import type { AppState, Job } from '../lib/estimator-data';
 import { addDays, blankTask, commitSchedule, dateNumber, dateString, duration, finishFor, formatScheduleDates, moveTask, nextWorkday, reflowTasks, scheduleRange, scheduleRows, weekdayInitial, scheduleToday, validateTask, weekend, type SchedulePdfRange, type ScheduleTask } from '../lib/job-schedule';
 import { resizeTaskDate, reorderTask, scheduleViewport, type DateGesture, type RowDrop } from '../lib/job-schedule-interactions';
-import { ScheduleActivityDialog } from './schedule-activity-dialog';
+import { ScheduleActivityDialog, type ScheduleActivityAnchor } from './schedule-activity-dialog';
 import { SchedulePdfDialog } from './schedule-pdf-dialog';
 import './job-schedule.css';
 
@@ -10,12 +10,15 @@ const tones=['#197451','#286b9e','#7857a3','#a16918','#387d80','#a55555'];
 const format=(v:string)=>new Date(v+'T12:00:00').toLocaleDateString('en-CA',{month:'short',day:'numeric',year:'numeric'});
 const shortDate=(n:number)=>new Date(n*86400000).toLocaleDateString('en-CA',{month:'short',day:'numeric',timeZone:'UTC'});
 function download(data:Blob,name:string) { const url=URL.createObjectURL(data),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000); }
+type ActivitySelection = ScheduleActivityAnchor & { id: string; trigger: 'name' | 'bar' };
 
 export function JobSchedule({job,state,setState,actor,workspaceSaved}:{job:Job;state:AppState;setState:React.Dispatch<React.SetStateAction<AppState>>;actor:string;workspaceSaved:boolean}) {
   const saved=job.schedule;
   const [pdfMode,setPdfMode]=useState<'schedule'|'draft'|null>(null);
   const [draft,setDraft]=useState<ScheduleTask[]|null>(()=>job.scheduleDraft?structuredClone(job.scheduleDraft.tasks):null),[editor,setEditor]=useState<ScheduleTask|null>(()=>job.scheduleDraft?.editor?structuredClone(job.scheduleDraft.editor):null),[errors,setErrors]=useState<Record<string,string>>({});
-  const [message,setMessage]=useState(''),[note,setNote]=useState(job.scheduleDraft?.note??''),[zoom,setZoom]=useState('Weeks'),[exporting,setExporting]=useState(false),[activityId,setActivityId]=useState<string|null>(null);
+  const [message,setMessage]=useState(''),[note,setNote]=useState(job.scheduleDraft?.note??''),[zoom,setZoom]=useState('Weeks'),[exporting,setExporting]=useState(false);
+  const [activity,setActivity]=useState<ActivitySelection|null>(null);
+  const closeActivity=useCallback(()=>setActivity(null),[]);
   const [undo,setUndo]=useState<ScheduleTask[][]>([]),[width,setWidth]=useState(900),[collapsed,setCollapsed]=useState<string[]>([]);
   const scroller=useRef<HTMLDivElement>(null),base=useRef(job.scheduleDraft?.baseSchedule??JSON.stringify(saved??null));
   const entry=useRef<HTMLElement>(null),reveal=useRef<string|null>(null),toolbar=useRef<HTMLDivElement>(null),dateScroller=useRef<HTMLDivElement>(null);
@@ -26,7 +29,7 @@ export function JobSchedule({job,state,setState,actor,workspaceSaved}:{job:Job;s
   const rowGesture=useRef<{task:ScheduleTask;before:ScheduleTask[];drop:RowDrop|null;x:number;y:number;frame:number}|null>(null);
   const [rowDrag,setRowDrag]=useState<{id:string;name:string;drop:RowDrop|null}|null>(null);
   const tasks=draft??saved?.tasks??[],editing=draft!==null,dirty=editing&&JSON.stringify(draft)!==JSON.stringify(saved?.tasks??[]);
-  const selectedActivity=tasks.find(task=>task.id===activityId);
+  const selectedActivity=tasks.find(task=>task.id===activity?.id);
   const range=scheduleRange(tasks),rows=scheduleRows(tasks),phases=rows.filter(r=>r.kind==='phase');
   const viewport=scheduleViewport(tasks,editor);
   const available=Math.max(100,width-(window.matchMedia('(max-width:760px)').matches?190:330));
@@ -34,6 +37,12 @@ export function JobSchedule({job,state,setState,actor,workspaceSaved}:{job:Job;s
   const origin=viewport.start,totalDays=viewport.days,timelineWidth=totalDays*dayWidth;
   const today=dateNumber(scheduleToday()),todayLeft=(today-origin)*dayWidth;
   const syncPending=!workspaceSaved;
+  function openActivity(event:MouseEvent<HTMLButtonElement>,id:string,trigger:ActivitySelection['trigger']){
+    const element=event.currentTarget;
+    const offsetX=event.detail===0?null:event.clientX-element.getBoundingClientRect().left;
+    element.focus({preventScroll:true});
+    setActivity(current=>current?.element===element?null:{id,trigger,element,offsetX});
+  }
   useEffect(()=> {
     const element=scroller.current;if(!element)return;
     const observer=new ResizeObserver(entries=>setWidth(entries[0].contentRect.width));observer.observe(element);return()=>observer.disconnect();
@@ -233,11 +242,11 @@ export function JobSchedule({job,state,setState,actor,workspaceSaved}:{job:Job;s
           {rows.filter(r=>r.kind==='phase'||!collapsed.includes(r.phase)).map(r=>r.kind==='phase'?<div className={`schedule-row schedule-phase-row ${rowDrag?.drop&&!rowDrag.drop.id&&rowDrag.drop.phase===r.phase?'drop-before':''}`} data-schedule-row="phase" data-phase={r.phase} key={`phase-${r.phase}`} style={{'--phase-color':tones[r.index%tones.length]} as CSSProperties}>
             <button className="schedule-label" aria-expanded={!collapsed.includes(r.phase)} onClick={()=>setCollapsed(c=>c.includes(r.phase)?c.filter(p=>p!==r.phase):[...c,r.phase])}><span>{collapsed.includes(r.phase)?'▸':'▾'} {r.index+1}. {r.phase}</span><small>{tasks.filter(t=>t.phase===r.phase).length} activities</small></button><div className="schedule-track"><div className="schedule-summary-bar" style={{left:(dateNumber(r.start)-origin)*dayWidth,width:(dateNumber(r.finish)-dateNumber(r.start)+1)*dayWidth}}/></div>
           </div>:<Fragment key={r.task.id}><div className={`schedule-row ${rowDrag?.id===r.task.id?'is-row-dragging':''} ${rowDrag?.drop?.id===r.task.id?(rowDrag.drop.after?'drop-after':'drop-before'):''}`} data-schedule-row="task" data-task-id={r.task.id} data-phase={r.phase} key={r.task.id} style={{'--phase-color':tones[r.index%tones.length]} as CSSProperties}>
-            <div className="schedule-label schedule-task-label"><button className="schedule-row-toggle" aria-label={`${expanded.includes(r.task.id)?'Hide':'Show'} details for ${r.task.name}`} aria-expanded={expanded.includes(r.task.id)} onClick={()=>setExpanded(v=>v.includes(r.task.id)?v.filter(id=>id!==r.task.id):[...v,r.task.id])}>{expanded.includes(r.task.id)?'▾':'▸'}</button><button className="schedule-task-name" disabled={!!editor||exporting} aria-haspopup="dialog" onClick={()=>setActivityId(r.task.id)}><strong><span>{r.number}</span> {r.task.name}</strong>{expanded.includes(r.task.id)&&<span className="schedule-row-extra"><small>{r.task.owner||'Responsibility not assigned'}</small><small>{shortDate(dateNumber(r.task.start))} → {shortDate(dateNumber(r.task.finish))} · {duration(r.task)} {r.task.calendar==='weekdays'?'working':'calendar'} days · {r.task.progress===null?'Progress not entered':`${r.task.progress}%`}{r.task.predecessorId?' · Linked':''}</small></span>}</button>{editing&&<button className="schedule-row-grab" disabled={!!editor||exporting} aria-label={`Reorder ${r.task.name}`} aria-describedby="schedule-reorder-help" aria-pressed={rowDrag?.id===r.task.id} title="Drag up or down to reorder; use arrow keys when focused" onPointerDown={e=>rowStart(e,r.task)} onPointerMove={rowMove} onPointerUp={()=>rowEnd()} onPointerCancel={()=>rowEnd(true)} onKeyDown={e=>{if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();keyboardReorder(r.task,e.key==='ArrowUp'?-1:1);}if(e.key==='Escape')rowEnd(true);}}>⋮⋮</button>}</div>
+            <div className="schedule-label schedule-task-label"><button className="schedule-row-toggle" aria-label={`${expanded.includes(r.task.id)?'Hide':'Show'} details for ${r.task.name}`} aria-expanded={expanded.includes(r.task.id)} onClick={()=>setExpanded(v=>v.includes(r.task.id)?v.filter(id=>id!==r.task.id):[...v,r.task.id])}>{expanded.includes(r.task.id)?'▾':'▸'}</button><button className="schedule-task-name" disabled={!!editor||exporting} aria-haspopup="dialog" aria-expanded={activity?.id===r.task.id&&activity.trigger==="name"} onClick={e=>openActivity(e,r.task.id,"name")}><strong><span>{r.number}</span> {r.task.name}</strong>{expanded.includes(r.task.id)&&<span className="schedule-row-extra"><small>{r.task.owner||'Responsibility not assigned'}</small><small>{shortDate(dateNumber(r.task.start))} → {shortDate(dateNumber(r.task.finish))} · {duration(r.task)} {r.task.calendar==='weekdays'?'working':'calendar'} days · {r.task.progress===null?'Progress not entered':`${r.task.progress}%`}{r.task.predecessorId?' · Linked':''}</small></span>}</button>{editing&&<button className="schedule-row-grab" disabled={!!editor||exporting} aria-label={`Reorder ${r.task.name}`} aria-describedby="schedule-reorder-help" aria-pressed={rowDrag?.id===r.task.id} title="Drag up or down to reorder; use arrow keys when focused" onPointerDown={e=>rowStart(e,r.task)} onPointerMove={rowMove} onPointerUp={()=>rowEnd()} onPointerCancel={()=>rowEnd(true)} onKeyDown={e=>{if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();keyboardReorder(r.task,e.key==='ArrowUp'?-1:1);}if(e.key==='Escape')rowEnd(true);}}>⋮⋮</button>}</div>
             <div className="schedule-track">{Array.from({length:Math.min(totalDays,3660)},(_,i)=>weekend(origin+i)?<span className="schedule-weekend" key={i} style={{left:i*dayWidth,width:dayWidth}}/>:null)}
               {todayLeft>=0&&todayLeft<=timelineWidth&&<span className="schedule-today" style={{left:todayLeft}} title="Today"/>}
               <div className={`schedule-bar-wrap ${editing?'is-editing':''}`} style={{left:(dateNumber(r.task.start)-origin)*dayWidth,width:Math.max(6,(dateNumber(r.task.finish)-dateNumber(r.task.start)+1)*dayWidth)}}>
-                <button className="schedule-bar" disabled={!!editor||exporting} aria-label={`${r.task.name}: ${format(r.task.start)} to ${format(r.task.finish)}${editing?' (drag to move)':''}`} title={`${r.task.name}\n${format(r.task.start)} – ${format(r.task.finish)}\n${r.task.notes}`} onPointerDown={e=>startGesture(e,r.task)} onPointerMove={drag} onPointerUp={endGesture} onPointerCancel={endGesture} aria-haspopup="dialog" onClick={e=>{const dragged=suppressBarClick.current;suppressBarClick.current=false;if(dragged&&e.detail>0)return;e.currentTarget.focus({preventScroll:true});setActivityId(r.task.id);}}><span className="schedule-progress" style={{width:`${r.task.progress??0}%`}}/><span className="schedule-bar-label">{r.task.name}</span></button>
+                <button className="schedule-bar" disabled={!!editor||exporting} aria-label={`${r.task.name}: ${format(r.task.start)} to ${format(r.task.finish)}${editing?' (drag to move)':''}`} title={`${r.task.name}\n${format(r.task.start)} – ${format(r.task.finish)}\n${r.task.notes}`} onPointerDown={e=>startGesture(e,r.task)} onPointerMove={drag} onPointerUp={endGesture} onPointerCancel={endGesture} aria-haspopup="dialog" aria-expanded={activity?.id===r.task.id&&activity.trigger==="bar"} onClick={e=>{const dragged=suppressBarClick.current;suppressBarClick.current=false;if(dragged&&e.detail>0)return;openActivity(e,r.task.id,"bar");}}><span className="schedule-progress" style={{width:`${r.task.progress??0}%`}}/><span className="schedule-bar-label">{r.task.name}</span></button>
                 {editing&&<>
                   <button className="schedule-resize schedule-resize-start" disabled={!!editor||exporting||!!r.task.predecessorId} aria-label={`Change start date for ${r.task.name}`} title={r.task.predecessorId?'Start follows its linked activity. Edit or remove the link to change it.':'Drag to change start date'} onPointerDown={e=>startGesture(e,r.task,'start')} onPointerMove={drag} onPointerUp={endGesture} onPointerCancel={endGesture}>⋮</button>
                   <button className="schedule-resize schedule-resize-finish" disabled={!!editor||exporting} aria-label={`Change finish date for ${r.task.name}`} title="Drag to change finish date" onPointerDown={e=>startGesture(e,r.task,'finish')} onPointerMove={drag} onPointerUp={endGesture} onPointerCancel={endGesture}>⋮</button>
@@ -260,7 +269,7 @@ export function JobSchedule({job,state,setState,actor,workspaceSaved}:{job:Job;s
     </>}
     {pdfMode&&<SchedulePdfDialog tasks={tasks} draft={pdfMode==='draft'} busy={exporting} locksRevision={editing&&pdfMode==='schedule'}
       onDownload={selection=>exportPdf(pdfMode==='draft',selection)} onClose={()=>setPdfMode(null)}/>}
-    {selectedActivity&&<ScheduleActivityDialog task={selectedActivity}
+    {activity&&selectedActivity&&<ScheduleActivityDialog key={activity.id+':'+activity.trigger} anchor={activity} task={selectedActivity}
       dates={formatScheduleDates({start:dateNumber(selectedActivity.start),finish:dateNumber(selectedActivity.finish)})}
       phaseColor={tones[(phases.find(phase=>phase.phase===selectedActivity.phase)?.index??0)%tones.length]}
       predecessor={tasks.find(t=>t.id===selectedActivity.predecessorId)?.name}
@@ -272,6 +281,6 @@ export function JobSchedule({job,state,setState,actor,workspaceSaved}:{job:Job;s
       }}
       onEdit={()=>{if(!editing)begin();openEditor(selectedActivity);}}
       onDelete={()=>deleteActivity(selectedActivity)}
-      onClose={()=>setActivityId(null)}/>}
+      onClose={closeActivity}/>}
   </section>;
 }

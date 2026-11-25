@@ -70,6 +70,47 @@ test('activity quick progress accepts any percentage, autosaves and can be undon
   await expect(editor.getByLabel('Progress (%)',{exact:true})).toHaveValue('0');
 });
 
+test('desktop activity quick menu opens above its bar and dismisses on click away',async({page},testInfo)=>{
+  await page.setViewportSize({width:1440,height:1000});
+  const saves=await setup(page,seed());
+  const bar=page.locator('[data-task-id="a"] .schedule-bar');
+  const dialog=page.getByRole('dialog',{name:'Activity details',exact:true});
+  const outside=page.locator('[data-task-id="b"] .schedule-row-toggle');
+  await bar.click();
+  await expect(dialog).toHaveClass(/schedule-activity-popover/);
+  await expect(bar).toHaveAttribute('aria-expanded','true');
+  const target=await bar.boundingBox(), menu=await dialog.boundingBox();
+  expect(target.y-menu.y-menu.height).toBeCloseTo(8,0);
+  expect(menu.x+menu.width/2).toBeCloseTo(target.x+target.width/2,0);
+  expect(menu.width).toBeLessThanOrEqual(324);
+  await page.screenshot({path:testInfo.outputPath('schedule-activity-quick-menu.png')});
+  await page.setViewportSize({width:1440,height:820});
+  await bar.evaluate(el=>el.scrollIntoView({block:'center'}));
+  await expect.poll(async()=>{
+    const currentBar=await bar.boundingBox(),currentMenu=await dialog.boundingBox();
+    return currentMenu?Math.round(currentBar.y-currentMenu.y-currentMenu.height):null;
+  }).toBe(8);
+  await dialog.getByRole('spinbutton',{name:'Progress (%)'}).fill('62');
+  await outside.click();
+  await expect(dialog).toBeHidden();
+  await expect(outside).toHaveAttribute('aria-expanded','true');
+  expect(saves).toHaveLength(0);
+
+  await bar.press('Enter');
+  await expect(dialog.getByRole('spinbutton',{name:'Progress (%)'})).toHaveValue('40');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(bar).toBeFocused();
+  await bar.click();
+  const second=page.locator('[data-task-id="b"] .schedule-task-name');
+  await second.click();
+  await expect(dialog.getByRole('heading',{name:'Concrete curing',exact:true})).toBeVisible();
+  await expect(bar).toHaveAttribute('aria-expanded','false');
+  await expect(second).toHaveAttribute('aria-expanded','true');
+  await page.keyboard.press('Escape');
+  await expect(second).toBeFocused();
+});
+
 test('delete activity confirms the removal and Undo restores linked activities',async({page})=>{
   const original=w.commitSchedule([
     activity('forms','Build forms','2026-10-05','2026-10-09'),
@@ -210,7 +251,15 @@ for(const theme of ['light','dark'])for(const viewport of [{width:1440,height:10
   await page.locator('.job-schedule').screenshot({path:testInfo.outputPath(`gantt-${theme}-${viewport.width}.png`)});
   await page.locator('.schedule-task-name').first().click();
   const details=page.getByRole('dialog',{name:'Activity details',exact:true});
-  await expect(details).toContainText('Review the architectural detail');
+  const notes=details.getByText('Review the architectural detail before ordering.',{exact:true});
+  if(viewport.width>760){
+    await expect(details).toHaveClass(/schedule-activity-popover/);
+    await expect(notes).toBeHidden();
+    await details.locator('summary').click();
+  }else{
+    await expect(details).toHaveJSProperty('open',true);
+  }
+  await expect(notes).toBeVisible();
   await expect(details.getByRole('heading',{name:'Shop drawings',exact:true})).toHaveCSS('color','rgb(255, 255, 255)');
   await expect(details.locator('.schedule-activity-phase')).toHaveCSS('color','rgb(242, 250, 245)');
   await details.getByRole('button',{name:'Close details',exact:true}).click();

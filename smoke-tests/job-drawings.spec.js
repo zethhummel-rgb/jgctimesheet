@@ -500,7 +500,38 @@ for(const size of [{width:390,height:844},{width:844,height:390}])test(`compact 
 });
 
 test('organizer desktop drag scrolls with wheel and at both edges without losing selected pages',async({page})=>{
- await page.setViewportSize({width:1100,height:850});const s=await store();s.bytes=await sample(24);await setup(page,s);await page.getByRole('button',{name:'Organize pages',exact:true}).click();const dialog=page.getByRole('dialog',{name:'Organize pages',exact:true}),scroll=dialog.locator('.drawing-organizer-scroll');await dialog.getByRole('button',{name:'Page 2',exact:true}).click({modifiers:['Control']});const card=dialog.locator('[data-source-page="1"]'),b=await card.boundingBox(),box=await scroll.boundingBox();await page.mouse.move(b.x+b.width/2,b.y+35);await page.mouse.down();await page.mouse.move(b.x+b.width/2+15,b.y+50,{steps:5});await page.mouse.move(box.x+box.width/2,box.y+box.height/2,{steps:5});const before=await scroll.evaluate(el=>el.scrollTop);await page.mouse.wheel(0,180);await expect.poll(()=>scroll.evaluate(el=>el.scrollTop)).toBeGreaterThan(before);await expect(dialog.locator('.drawing-page-cards>div.selected')).toHaveCount(2);await page.mouse.move(box.x+box.width/2,box.y+box.height-10,{steps:5});const middle=await scroll.evaluate(el=>el.scrollTop);await expect.poll(()=>scroll.evaluate(el=>el.scrollTop)).toBeGreaterThan(middle+50);await page.mouse.move(box.x+box.width/2,box.y+8,{steps:5});const lower=await scroll.evaluate(el=>el.scrollTop);await expect.poll(()=>scroll.evaluate(el=>el.scrollTop)).toBeLessThan(lower);await page.keyboard.press('Escape');await page.mouse.up();expect(s.saves).toBe(0);
+ await page.setViewportSize({width:1100,height:850});
+ const s=await store();
+ s.bytes=await sample(24);
+ await setup(page,s);
+ await page.getByRole('button',{name:'Organize pages',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'Organize pages',exact:true});
+ const scroll=dialog.locator('.drawing-organizer-scroll');
+ const selected=dialog.locator('.drawing-page-cards>div.selected');
+ const offset=()=>scroll.evaluate(el=>el.scrollTop);
+ await dialog.getByRole('button',{name:'Page 2',exact:true}).click({modifiers:['Control']});
+ const handle=await dialog.locator('[data-source-page="1"]').boundingBox();
+ const surface=await scroll.boundingBox(), center=surface.x+surface.width/2;
+ await page.mouse.move(handle.x+handle.width/2,handle.y+35);
+ await page.mouse.down();
+ await page.mouse.move(handle.x+handle.width/2+15,handle.y+50,{steps:5});
+ await page.mouse.move(center,surface.y+surface.height/2,{steps:5});
+ const beforeWheel=await offset();
+ await page.mouse.wheel(0,180);
+ await expect.poll(offset).toBeGreaterThan(beforeWheel);
+ await expect(selected).toHaveCount(2);
+ const beforeDown=await offset();
+ await page.mouse.move(center,surface.y+surface.height-10,{steps:5});
+ await expect.poll(offset).toBeGreaterThan(beforeDown+50);
+ // Capture the starting position before moving: the view can already reach
+ // the top by the time Playwright finishes dispatching the pointer movement.
+ const beforeUp=await offset();
+ await page.mouse.move(center,surface.y+8,{steps:5});
+ await expect.poll(offset).toBeLessThan(beforeUp);
+ await expect(selected).toHaveCount(2);
+ await page.keyboard.press('Escape');
+ await page.mouse.up();
+ expect(s.saves).toBe(0);
 });
 
 test.describe('organizer phone scrolling',()=>{test.use({hasTouch:true,viewport:{width:390,height:844}});
@@ -559,15 +590,46 @@ const uploadTest = test.extend({
   const http = require('node:http');
   const {once} = require('node:events');
   const storage = {origin:'', bytes:null, reads:0};
+  let transfer;
+  async function receiveChunk(req) {
+   for await(const chunk of req){
+    transfer.parts.push(chunk);
+    transfer.offset+=chunk.length;
+   }
+   if(transfer.offset===transfer.length)storage.bytes=Buffer.concat(transfer.parts);
+  }
   const server = http.createServer(async (req,res) => {
    res.setHeader('Access-Control-Allow-Origin', new URL(baseURL).origin);
+   res.setHeader('Access-Control-Expose-Headers','Location, Upload-Offset, Upload-Length, Tus-Resumable');
    if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Methods','GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods','GET, POST, OPTIONS, HEAD, PATCH');
     res.setHeader('Access-Control-Allow-Headers',req.headers['access-control-request-headers'] || '');
     res.writeHead(204).end();
     return;
    }
-   if (!new URL(req.url,storage.origin).pathname.startsWith('/storage/v1/object/job-drawings/')) {
+   const pathname=new URL(req.url,storage.origin).pathname;
+   const endpoint='/storage/v1/upload/resumable';
+   if (pathname===endpoint || pathname===endpoint+'/drawing') {
+    res.setHeader('Tus-Resumable','1.0.0');
+    if(req.method==='POST' && pathname===endpoint){
+     transfer={length:Number(req.headers['upload-length']),offset:0,parts:[]};
+     await receiveChunk(req);
+     res.writeHead(201,{Location:storage.origin+endpoint+'/drawing','Upload-Offset':transfer.offset}).end();
+     return;
+    }
+    if(transfer && req.method==='HEAD'){
+     res.writeHead(200,{'Upload-Offset':transfer.offset,'Upload-Length':transfer.length}).end();
+     return;
+    }
+    if(transfer && req.method==='PATCH' && Number(req.headers['upload-offset'])===transfer.offset){
+     await receiveChunk(req);
+     res.writeHead(204,{'Upload-Offset':transfer.offset}).end();
+     return;
+    }
+    res.writeHead(409).end();
+    return;
+   }
+   if (!pathname.startsWith('/storage/v1/object/job-drawings/')) {
     res.writeHead(404).end();
     return;
    }
@@ -636,22 +698,33 @@ async function observeSheetPaint(page, probePdf) {
 for (const format of [
  {name:'CCITT scanner', title:'Scanned declaration', file:'JGC_PDF_QA_FILE', fixture:require('./fixtures/ccitt-pdf').ccittPdf},
  {name:'Acrobat wrapped JPEG', title:'Acrobat drawing', file:'JGC_WRAPPED_JPEG_QA_FILE', fixture:require('./fixtures/flate-jpeg-pdf').flateJpegPdf},
+ {name:'Adobe Flate-wrapped ASCII85', title:'Adobe drawing', file:'JGC_FLATE_ASCII85_QA_FILE', fixture:require('./fixtures/ascii85-pdf').flateAscii85Pdf},
 ]) uploadTest(format.name+' upload displays every page and keeps the original PDF intact',async({page,drawingStorage},info)=>{
- uploadTest.setTimeout(90000);
+ const externalFile=process.env[format.file];
+ uploadTest.setTimeout(externalFile?180000:90000);
  const s=await store();
  drawingStorage.bytes=s.bytes;
  await setup(page,s,drawingStorage.origin);
  await observeSheetPaint(page,s.bytes);
  if(process.env.JGC_PDF_FORCE_FALLBACK)await page.route('**/pdf-decoders/jbig2.wasm',route=>route.abort('failed'));
- const bytes=process.env[format.file]?fs.readFileSync(process.env[format.file]):await format.fixture();
+ const bytes=externalFile?fs.readFileSync(externalFile):await format.fixture();
+ const filename=externalFile?path.basename(externalFile):format.title+'.pdf';
  const original=Buffer.from(bytes),sourceDoc=await PDFDocument.load(bytes),pages=sourceDoc.getPageCount();
- await page.locator('.drawing-heading input[type=file]').setInputFiles({name:format.title+'.pdf',mimeType:'application/pdf',buffer:bytes});
- await expect(page.getByLabel('Drawing title')).toHaveValue(format.title,{timeout:25000});
+ if(bytes.length>6*1024*1024)await page.evaluate(()=>{
+  const factory=window.createJgcSupabaseClient;
+  window.createJgcSupabaseClient=()=>{
+   const client=factory();
+   client.auth.getSession=async()=>({data:{session:{access_token:'test-access'}},error:null});
+   return client;
+  };
+ });
+ await page.locator('.drawing-heading input[type=file]').setInputFiles(externalFile??{name:filename,mimeType:'application/pdf',buffer:bytes});
+ await expect(page.getByLabel('Drawing title')).toHaveValue(filename.replace(/\.pdf$/i,''),{timeout:25000});
  expect(drawingStorage.bytes.equals(original)).toBe(true);
  const readsBeforeRefresh=drawingStorage.reads;
  await page.getByRole('button',{name:'Refresh drawings',exact:true}).click();
  await expect.poll(()=>drawingStorage.reads).toBeGreaterThan(readsBeforeRefresh);
- await expect(page.getByRole('button',{name:'Refresh drawings',exact:true})).toBeEnabled();
+ await expect(page.getByRole('button',{name:'Refresh drawings',exact:true})).toBeEnabled({timeout:25000});
  const sheetCanvas=page.locator('.drawing-sheet canvas');
  for(let n=1;n<=pages;n++){
   if(n>1)await page.getByRole('button',{name:'Next page',exact:true}).click();

@@ -52,6 +52,21 @@ test('ASCII85 handles partial groups and zero shorthand while rejecting malforme
  expect(()=>decode(Buffer.from('z'.repeat(4*1024*1024+1)+'~>'),()=>{})).toThrow('too complex');
 });
 
+test('Adobe Flate-wrapped ASCII85 stays within the decoded byte and token budgets',()=>{
+ const {preflightPdf}=load('pdf-input-budget');
+ const content=Buffer.from('q 1 0 0 1 0 0 cm Q');
+ const encoded=ascii85(content);
+ for(const [filter,params] of [
+  ['/Filter [/FlateDecode/ASCII85Decode]',''],
+  ['/Filter [/Fl /A85]','/DecodeParms [<< /Predictor 1 >> null]'],
+ ]){
+  const bytes=streamPdf(zlibSync(encoded),filter,params);
+  expect(preflightPdf(bytes,{objects:0,decodedBytes:0},9)).toMatchObject({decodedBytes:encoded.length+content.length,tokens:9});
+  expect(()=>preflightPdf(bytes,{objects:0,decodedBytes:80*1024*1024-encoded.length})).toThrow('too complex');
+ }
+ expect(preflightPdf(streamPdf(encoded,'/Filter /ASCII85Decode')).decodedBytes).toBe(content.length);
+});
+
 test('CCITT scanned PDFs are allowed with bounded one-bit image dimensions and decoder settings',async()=>{
  const bytes=await require('./fixtures/ccitt-pdf').ccittPdf(),budget=load('pdf-input-budget').preflightPdf(bytes);
  expect(budget.imagePixels).toBe(3*64*64);
