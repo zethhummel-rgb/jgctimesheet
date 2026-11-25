@@ -145,7 +145,28 @@ export function JobDrawings({job,actor,active,onRfiDetail}:{job:Job;actor:string
       if (token === generation.current) setBusy(false);
     }
   };
-  const upload=async(file?:File)=>{if(!file)return;if(dirty.current||saving.current){setError('Save the current drawing before uploading another.');return;}uploading.current=true;setBusy(true);setError('');try{if(file.size>DRAWING_MAX_BYTES)throw new Error(`Choose a PDF no larger than ${DRAWING_MAX_MB} MB.`);const data=new Uint8Array(await file.arrayBuffer());await checkDrawingPdf(data);setUploadProgress(0);const result=await addDrawing(job.id,file,setUploadProgress);setRecords(items=>[result.record,...items]);await open(result.record,result.bytes);}catch(e){setError(e instanceof Error?e.message:'Upload failed. Refresh the register to check for an incomplete upload before retrying.');}finally{uploading.current=false;setBusy(false);setUploadProgress(null);}};
+  const upload=async(file?:File)=>{
+    if(!file)return;
+    if(dirty.current||saving.current){setError('Save the current drawing before uploading another.');return;}
+    uploading.current=true;
+    setBusy(true);
+    setError('');
+    try{
+      if(file.size>DRAWING_MAX_BYTES)throw new Error(`Choose a PDF no larger than ${DRAWING_MAX_MB} MB.`);
+      const data=new Uint8Array(await file.arrayBuffer());
+      await checkDrawingPdf(data);
+      setUploadProgress(0);
+      const created=await addDrawing(job.id,file.name,data,setUploadProgress);
+      setRecords(items=>[created,...items]);
+      await open(created,data);
+    }catch(e){
+      setError(e instanceof Error?e.message:'Upload failed. Refresh the register to check for an incomplete upload before retrying.');
+    }finally{
+      uploading.current=false;
+      setBusy(false);
+      setUploadProgress(null);
+    }
+  };
   const setRemoved=async(removed:boolean)=>{
     if(!record||busy||blocked.current)return;if(removed&&!window.confirm(`Remove "${title}" from this job's drawing list? You can restore it using Show removed drawings.`))return;
     await flush();if(dirty.current||saving.current){setError('Wait for drawing changes to save before changing the drawing list.');return;}
@@ -279,8 +300,8 @@ export function JobDrawings({job,actor,active,onRfiDetail}:{job:Job;actor:string
       const additional:Uint8Array[]=[];for(const file of files)additional.push(new Uint8Array(await file.arrayBuffer()));
       const {combinedDrawingPdf}=await import('../lib/drawing-pdf'),result=await combinedDrawingPdf(source.current,current.current.content,additional);
       await checkDrawingPdf(result.bytes);
-      const file=new File([result.bytes.slice().buffer as ArrayBuffer],`${title||'Drawing'} - Combined.pdf`,{type:'application/pdf'}),created=await addDrawing(job.id,file,setUploadProgress);
-      setRecords(items=>[created.record,...items]);await open(created.record,created.bytes);change(result.content);await flush();setFiles([]);
+      const created=await addDrawing(job.id,`${title||'Drawing'} - Combined.pdf`,result.bytes,setUploadProgress);
+      setRecords(items=>[created,...items]);await open(created,result.bytes);change(result.content);await flush();setFiles([]);
     }catch(e){setError(e instanceof Error?e.message:'Could not combine PDFs. Refresh the register before retrying.');}finally{uploading.current=false;setBusy(false);setUploadProgress(null);}
   };
   useEffect(()=>{

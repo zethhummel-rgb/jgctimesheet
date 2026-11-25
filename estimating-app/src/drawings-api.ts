@@ -13,7 +13,7 @@ export async function loadDrawing(record: DrawingRecord): Promise<Uint8Array> {
   const blob: Blob = checked(await client().storage.from('job-drawings').download(record.object_path));
   return new Uint8Array(await blob.arrayBuffer());
 }
-export async function uploadDrawingPdf(c:any,bucket:string,path:string,file:File,onProgress:(percent:number)=>void) {
+export async function uploadDrawingPdf(c:any,bucket:string,path:string,file:Blob,onProgress:(percent:number)=>void) {
   if(file.size<=6*1024*1024){checked(await c.storage.from(bucket).upload(path,file,{contentType:'application/pdf',upsert:false}));onProgress(100);return;}
   const {data,error}=await c.auth.getSession();if(error||!data.session?.access_token)throw new Error('Sign in again before uploading this drawing.');
   const {Upload}=await import('tus-js-client'),url=new URL(c.supabaseUrl);
@@ -31,15 +31,16 @@ export async function uploadDrawingPdf(c:any,bucket:string,path:string,file:File
     });upload.start();
   });
 }
-export async function addDrawing(jobId: string, file: File, onProgress:(percent:number)=>void=()=>{}): Promise<{ record: DrawingRecord; bytes: Uint8Array }> {
-  if (file.size > DRAWING_MAX_BYTES) throw new Error(`Choose a PDF no larger than ${DRAWING_MAX_MB} MB.`);
-  const bytes = new Uint8Array(await file.arrayBuffer());
+export async function addDrawing(jobId: string, filename: string, bytes: Uint8Array, onProgress:(percent:number)=>void=()=>{}): Promise<DrawingRecord> {
+  if (bytes.byteLength > DRAWING_MAX_BYTES) throw new Error(`Choose a PDF no larger than ${DRAWING_MAX_MB} MB.`);
   if (!new TextDecoder().decode(bytes.slice(0, 1024)).includes('%PDF-')) throw new Error('Choose a valid PDF drawing.');
   const c = client(), id = crypto.randomUUID();
+  // Use the validated bytes for every chunk, including in browsers that mishandle
+  // sending slices of a disk-backed File.
+  const original = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'application/pdf' });
   // Immutable original: never upsert or replace an uploaded source PDF.
-  await uploadDrawingPdf(c,'job-drawings',id+'/original.pdf',file,onProgress);
-  const record: DrawingRecord = checked(await c.from('job_drawings').insert({ id, job_id: jobId, title: file.name.replace(/\.pdf$/i, ''), file_name: file.name, content: emptyDrawing() }).select().single());
-  return { record, bytes };
+  await uploadDrawingPdf(c,'job-drawings',id+'/original.pdf',original,onProgress);
+  return checked(await c.from('job_drawings').insert({ id, job_id: jobId, title: filename.replace(/\.pdf$/i, ''), file_name: filename, content: emptyDrawing() }).select().single());
 }
 export async function saveDrawing(record: DrawingRecord, content: DrawingContent, title: string): Promise<DrawingRecord> {
   validateContent(content);

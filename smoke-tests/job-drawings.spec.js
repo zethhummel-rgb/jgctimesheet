@@ -336,14 +336,26 @@ test('larger PDFs upload in resumable chunks with retry and progress, never upse
   const common={'Tus-Resumable':'1.0.0','Upload-Offset':String(offset),'Upload-Length':String(bytes.length),'Access-Control-Allow-Origin':'*','Access-Control-Expose-Headers':'Location, Upload-Offset, Upload-Length, Tus-Resumable'};
   if(method==='POST'){metadata=headers['upload-metadata'];return route.fulfill({status:201,headers:{...common,Location:'https://drawings.example.test/storage/v1/upload/resumable/test-upload'}});}
   if(method==='HEAD'){heads++;return route.fulfill({status:200,headers:common});}
-  if(method==='PATCH'){if(offset>0&&!failed){failed=true;return route.fulfill({status:503,headers:common});}expect(Number(headers['upload-offset'])).toBe(offset);const chunk=request.postDataBuffer();/* Playwright WebKit omits Blob bodies; observe actual XHR.send Blob size instead. */const size=chunk?.length??await page.evaluate(()=>window.__drawingUploadChunks.at(-1));expect(size).toBeGreaterThan(0);chunks.push(size);offset+=size;await new Promise(resolve=>setTimeout(resolve,100));return route.fulfill({status:204,headers:{...common,'Upload-Offset':String(offset)}});}
+  if(method==='PATCH'){
+   if(offset>0&&!failed){failed=true;return route.fulfill({status:503,headers:common});}
+   expect(Number(headers['upload-offset'])).toBe(offset);
+   const chunk=request.postDataBuffer();
+   // Playwright WebKit omits Blob bodies. Observe the size sent by XHR when that happens.
+   const size=chunk?.length??await page.evaluate(()=>window.__drawingUploadChunks.at(-1));
+   expect(size).toBeGreaterThan(0);
+   if(chunk)expect(chunk.equals(bytes.subarray(offset,offset+size))).toBe(true);
+   chunks.push(size);
+   offset+=size;
+   await new Promise(resolve=>setTimeout(resolve,100));
+   return route.fulfill({status:204,headers:{...common,'Upload-Offset':String(offset)}});
+  }
   return route.fulfill({status:204,headers:common});
  });
  await page.locator('.drawing-heading input[type=file]').setInputFiles({name:'Large drawing.pdf',mimeType:'application/pdf',buffer:bytes});await expect(page.getByRole('status').filter({hasText:'Uploading drawing'})).toBeVisible();
  await expect(page.getByLabel('Drawing title',{exact:true})).toHaveValue('Large drawing',{timeout:30000});expect(offset).toBe(bytes.length);expect(heads).toBeGreaterThan(0);expect(failed).toBe(true);expect(Math.max(...chunks)).toBe(6*1024*1024);expect(metadata).toContain('bucketName');expect(s.row.file_name).toBe('Large drawing.pdf');
 });
 test('upload rejects files beyond the current 50 MB cap before contacting storage',async()=>{
- const api=load('../src/drawings-api');await expect(api.addDrawing('job',{size:51*1024*1024})).rejects.toThrow('50 MB');
+ const api=load('../src/drawings-api');await expect(api.addDrawing('job','Oversized.pdf',{byteLength:51*1024*1024})).rejects.toThrow('50 MB');
 });
 
 test('metric calibration converts distances and areas without changing the saved reference',()=>{
