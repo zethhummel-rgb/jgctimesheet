@@ -217,15 +217,18 @@ html[data-jgc-theme=dark] .schedule-error { color:#b72d2d; }
   box-shadow:0 24px 68px #06231952;
 }
 .schedule-activity-dialog > header {
+  /* The shared Portal theme uses these text colours even on a dark surface. */
+  --jgc-color-text:#fff;
+  --jgc-color-text-muted:#f2faf5;
   align-items:flex-start;
   padding:20px 22px 21px;
   background:linear-gradient(120deg,#154c38,#0b352a);
-  color:#fff;
+  color:var(--jgc-color-text);
 }
 .schedule-activity-dialog > header > div { min-width:0; }
 .job-schedule .schedule-activity-dialog h3 {
   margin:8px 0 0;
-  color:#fff;
+  color:inherit;
   font-size:23px;
   line-height:1.2;
   overflow-wrap:anywhere;
@@ -239,7 +242,7 @@ html[data-jgc-theme=dark] .schedule-error { color:#b72d2d; }
   padding:4px 9px;
   border-radius:999px;
   background:#ffffff20;
-  color:#f2faf5;
+  color:var(--jgc-color-text-muted);
   font-size:11px;
   font-weight:700;
   line-height:1.35;
