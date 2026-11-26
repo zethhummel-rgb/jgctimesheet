@@ -39,6 +39,7 @@ import {
 import {
   buildUpItemTotal,
   createDefaultState,
+  customerScopeLines,
   defaultProposalCostBreakdownCategories,
   effectiveUnitCost,
   lineBuildUpTotals,
@@ -941,14 +942,6 @@ function NumberedScopeLine({ index, value, disabled, pinned, dragging, onChange,
       {!disabled && <button type="button" className="numbered-scope-delete" aria-label={`Delete proposal scope item ${index + 1}`} title="Delete scope item" onClick={onDelete}>×</button>}
     </div>
   );
-}
-
-function customerScopeLines(quote: Quote) {
-  const written = proposalTextLines(quote.proposalScope);
-  if (written.length) return written;
-  return quote.lines
-    .filter((line) => line.description.trim() && line.included)
-    .map((line) => line.description.trim());
 }
 
 function lineInternalDetails(line: QuoteLine) {
@@ -4916,7 +4909,7 @@ function QuoteProposal({ state, quote, quoteNumberConfirmed }: { state: AppState
               <div className="document-project"><span>Project</span><strong>{quote.project || "Project not named"}</strong>{changeNotice && <p>Change: {quote.changeTitle || "Change not named"}</p>}{quote.reference && <p>Reference: {quote.reference}</p>}</div>
               <div className="document-date"><span>{changeNotice ? approvedChange ? "Approved date" : "CCN date" : "Quote date"}</span><strong>{shortDate(approvedChange ? quote.changeOrder?.approvedDate || quote.quoteDate : quote.quoteDate)}</strong>{!approvedChange && <p>Valid until {shortDate(quote.validUntil)}</p>}{changeNotice && quote.changeRequestedBy && <p>Requested by {quote.changeRequestedBy}</p>}</div>
             </section>
-            <section className="classic-intro"><p>{changeNotice ? approvedChange ? "This Change Order confirms the approved adjustment to the work and contract value described below." : "We are pleased to submit our price for the contemplated change described below. This work is separate from the original contract until approved in writing." : state.settings.proposalIntro}</p>{quote.scopeSummary && <p>{quote.scopeSummary}</p>}</section>
+            <section className="classic-intro"><p>{changeNotice ? approvedChange ? "This Change Order confirms the approved adjustment to the work and contract value described below." : "We are pleased to submit our price for the contemplated change described below. This work is separate from the original contract until approved in writing." : state.settings.proposalIntro}</p></section>
           </>
         )}
 

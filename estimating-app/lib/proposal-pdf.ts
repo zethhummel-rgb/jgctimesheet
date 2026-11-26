@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import type { AppState, Quote } from "./estimator-data";
-import { lineSellPrice, proposalSignatoryName, quoteTotals } from "./estimator-data";
+import { customerScopeLines, lineSellPrice, proposalSignatoryName, quoteTotals } from "./estimator-data";
 import { proposalCostBreakdownRows } from "./proposal-cost-breakdown";
 import { proposalTextLines, proposalTextPlain, proposalTextRunLines, proposalTextRuns, type ProposalTextRun } from "./proposal-rich-text";
 
@@ -285,10 +285,9 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   y -= metaHeight + 13;
 
   paragraph(changeNotice ? approvedChange ? "This Change Order confirms the approved adjustment to the work and contract value described below." : "We are pleased to submit our price for the contemplated change described below. This work is separate from the original contract until approved in writing." : state.settings.proposalIntro, { x: PAGE.margin + 2, width: metaWidth - 4, size: 7.2, gap: 9 });
-  if (quote.scopeSummary) paragraph(quote.scopeSummary, { x: PAGE.margin + 2, width: metaWidth - 4, size: 7.2, font: bold, gap: 9 });
 
   sectionHeader("01", "PROJECT SCOPE", "Scope of Work");
-  const scope = proposalTextLines(quote.proposalScope ?? "").length ? proposalTextLines(quote.proposalScope ?? "") : quote.lines.filter((item) => item.included).map((item) => item.description).filter(Boolean);
+  const scope = customerScopeLines(quote);
   scope.forEach((item, index) => {
     const itemLines = Math.max(1, wrap(proposalTextPlain(item), regular, 8.2, metaWidth - 46).length);
     const rowHeight = Math.max(28, itemLines * 10 + 14);

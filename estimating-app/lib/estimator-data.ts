@@ -1,6 +1,6 @@
 import type { Rfi } from "./rfi-workflow";
 import type { JobSchedule, ScheduleDraft } from "./job-schedule";
-import { normalizeProposalScopeClosingLine } from "./proposal-rich-text";
+import { isDefaultClosingProposalScopeLine, normalizeProposalScopeClosingLine, proposalTextLines } from "./proposal-rich-text";
 
 export type ViewKey =
   | "dashboard"
@@ -1434,6 +1434,19 @@ export function quoteTotals(quote: Quote) {
       .reduce((sum, line) => sum + lineSellPrice(line, quote.defaultMarkup), 0),
   );
   return { directCost, subtotal, tax, total, profit, margin, markup, deposit, optional };
+}
+
+export function customerScopeLines(quote: Quote) {
+  const written = proposalTextLines(quote.proposalScope);
+  if (written.some((line) => !isDefaultClosingProposalScopeLine(line))) return written;
+
+  const estimated = quote.lines
+    .filter((line) => line.included && line.description.trim())
+    .map((line) => line.description.trim());
+  if (estimated.length) return written.length ? written : estimated;
+
+  // Older quotes may store their only scope in the summary. Keep it with any default closing item.
+  return [...proposalTextLines(quote.scopeSummary), ...written];
 }
 
 export function proposalSignatoryName(

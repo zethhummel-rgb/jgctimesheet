@@ -73,7 +73,18 @@ test('short clarification columns stay together and do not add a continuation he
   expect(pages[0].text).toContain('Short included work.'); expect(pages[0].text).toContain('Short excluded work.');
   expect(pages.map(p => p.text).join(' ')).not.toContain('CONTINUED'); assertBounds(pages);
 });
-test('the built Proposal PDF download uses flowing columns', async ({ page }, info) => {
+test('an older quote with only a saved scope summary keeps it in the numbered scope', async ({}, info) => {
+  const { normalizeProposalScopeClosingLine } = load('proposal-rich-text');
+  const legacyScope = 'LegacyScope001 - Replace the existing piping.';
+  const pages = await sourcePdf(info, {
+    scopeSummary: legacyScope,
+    proposalScope: normalizeProposalScopeClosingLine(undefined),
+    lines: [],
+  }, 'legacy-proposal-scope');
+  expect(pages[0].text).toMatch(/Scope of Work.*LegacyScope001.*Demobilize/);
+  assertAllOnce(pages, [['LegacyScope', 1]]);
+});
+test('the built Proposal PDF matches the visible scope and uses flowing columns', async ({ page }, info) => {
   await page.goto('/estimating/index.html?dev=1');
   await page.getByRole('button', { name: 'Company-wide' }).click();
   await page.getByRole('searchbox', { name: 'Search estimates and jobs' }).fill('Lancaster');
@@ -88,9 +99,15 @@ test('the built Proposal PDF download uses flowing columns', async ({ page }, in
     }, values);
   }
   await page.getByRole('tab', { name: /Proposal/ }).click();
+  const previewItems = await page.locator('.hybrid-scope-list > li').allTextContents();
+  expect(previewItems.length).toBeGreaterThan(0);
   const pending = page.waitForEvent('download'); await page.getByRole('button', { name: /Proposal PDF/ }).click();
   const download = await pending, filename = info.outputPath('built-proposal.pdf'); await download.saveAs(filename);
   const pages = await readPages(fs.readFileSync(filename));
+  const scope = pages.map(p => p.text).join(' ').replace(/\s+/g, ' ');
+  const oldScope = load('estimator-data').createDefaultState().quotes[0].scopeSummary;
+  expect(scope).not.toContain(oldScope);
+  for (const item of previewItems) expect(scope.split(item.trim().replace(/\s+/g, ' '))).toHaveLength(2);
   expect(pages[0].text).toContain('BuiltInc001'); expect(pages[0].text).toContain('BuiltExc001');
   expect(pages[1].text).toContain('INCLUSIONS / EXCLUSIONS - CONTINUED');
   assertAllOnce(pages, [['BuiltInc', 70], ['BuiltExc', 45]]);
