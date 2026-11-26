@@ -6647,7 +6647,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           {closedChanges.length > 0 && <details className="closed-change-register"><summary>{closedChanges.length} rejected or cancelled CCN{closedChanges.length === 1 ? "" : "s"}</summary><div>{closedChanges.map((change) => <button key={change.id} onClick={() => onOpenQuote(change.id, "history")}><span>{change.number}</span><strong>{change.changeTitle || "Change not named"}</strong><ChangeStatusPill quote={change} /></button>)}</div></details>}
         </section>}
         {tab === "purchase-orders" && <>
-        <JobOperationalPurchases statistics={statistics} status={statisticsStatus} message={statisticsMessage} onRefresh={() => void loadJobStatistics()} />
+        <JobOperationalPurchases statistics={statistics} status={statisticsStatus} message={statisticsMessage} onRefresh={() => void loadJobStatistics()} collapseDigital />
         <section className="panel subcontract-po-panel">
           <div className="panel-heading"><div><span className="eyebrow">SUBCONTRACTOR PURCHASE ORDERS</span><h2>Job purchase orders</h2><p>Make a PO for any authorized amount, including new subcontract work, without an existing vendor quote. You can also use an accepted estimate line below.</p></div><button className="button success" onClick={() => onCreatePurchaseOrder(job.id)}>Make a PO</button><span className="po-count-chip">{purchaseOrders.length} PO{purchaseOrders.length === 1 ? "" : "s"}</span></div>
           {purchaseOrders.some((po) => !subcontractSources.some(({ line }) => po.lines.some((item) => item.quoteLineId === line.id))) && <div className="data-table-wrap"><table className="data-table job-direct-po-table">
@@ -6998,14 +6998,26 @@ function OperationalRecordLink({ href, children }: { href?: string; children: Re
   return <a className="button secondary compact" href={href} target="_blank" rel="noopener noreferrer">{children} ↗</a>;
 }
 
-function JobOperationalPurchases({ statistics, status, message, onRefresh }: {
+function JobOperationalPurchases({ statistics, status, message, onRefresh, collapseDigital = false }: {
   statistics: PortalJobStatistics | null; status: "idle" | "loading" | "ready" | "error"; message: string; onRefresh: () => void;
+  collapseDigital?: boolean;
 }) {
+  const ready = status === "ready" && statistics !== null;
+  const digitalOrders = ready && (statistics.digitalPurchaseOrders.length
+    ? <div className="compact-record-list">{statistics.digitalPurchaseOrders.map((record) => <div key={record.id}><span>{record.number}</span><strong>{record.supplier || "Supplier not entered"}</strong><small>{record.date ? shortDate(record.date) : "No date"} · {record.status || "Status unavailable"}</small><OperationalRecordLink href={record.url}>Open PO</OperationalRecordLink></div>)}</div>
+    : <p className="statistics-empty-line">No Digital POs for this job.</p>);
+
   return <section className="panel statistics-card job-operational-purchases">
     <div className="panel-heading"><div><span className="eyebrow">PORTAL PURCHASING</span><h3>Digital and Work Order purchase orders</h3><p>Existing Portal records stay in their original workflow. PO references do not add costs a second time.</p></div><button className="button secondary compact" onClick={onRefresh} disabled={status === "loading"}>Refresh POs</button></div>
-    {status === "loading" || status === "idle" ? <p className="statistics-empty-line">Loading purchase orders…</p> : status === "error" || !statistics ? <p className="statistics-empty-line" role="alert">{message || "Purchase orders could not be loaded."}</p> : <>
+    {status === "loading" || status === "idle" ? <p className="statistics-empty-line">Loading purchase orders…</p> : !ready && <p className="statistics-empty-line" role="alert">{message || "Purchase orders could not be loaded."}</p>}
+    {collapseDigital ? <details className="job-digital-po-disclosure" hidden={!ready}>
+      <summary>Digital Staff PO&apos;s</summary>
+      {digitalOrders}
+    </details> : ready && <>
       <h4 className="statistics-section-label">Digital purchase orders</h4>
-      {statistics.digitalPurchaseOrders.length ? <div className="compact-record-list">{statistics.digitalPurchaseOrders.map((record) => <div key={record.id}><span>{record.number}</span><strong>{record.supplier || "Supplier not entered"}</strong><small>{record.date ? shortDate(record.date) : "No date"} · {record.status || "Status unavailable"}</small><OperationalRecordLink href={record.url}>Open PO</OperationalRecordLink></div>)}</div> : <p className="statistics-empty-line">No Digital POs for this job.</p>}
+      {digitalOrders}
+    </>}
+    {ready && <>
       <h4 className="statistics-section-label">Work Order / paper POs</h4>
       {(statistics.manualPurchaseOrders ?? []).length ? <div className="compact-record-list">{statistics.manualPurchaseOrders.map((record) => <div key={record.id}><span>{record.number}</span><strong>{record.supplier || "Supplier not entered"}</strong><small>WO {record.workOrderNumber} · {record.date ? shortDate(record.date) : "No date"}</small>{record.notes && <p>{record.notes}</p>}<OperationalRecordLink href={record.url}>Open Work Order</OperationalRecordLink></div>)}</div> : <p className="statistics-empty-line">No paper PO references recorded on Work Orders.</p>}
     </>}

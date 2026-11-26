@@ -1807,6 +1807,15 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .statistics-kpi-grid > div:nth-child(5) { border-left: 0; }
 .statistics-kpi-grid > div:nth-child(n+5) { border-top: 1px solid var(--slate-200); }
 .statistics-section-label { padding: 16px 20px 0; margin: 0; }
+.job-digital-po-disclosure {
+  margin-inline: 18px;
+  border: 1px solid var(--slate-200);
+  border-radius: 8px;
+  background: var(--slate-50);
+}
+.job-digital-po-disclosure > summary { min-height: 44px; padding: 12px 14px; cursor: pointer; font-weight: 700; }
+.job-digital-po-disclosure > .compact-record-list { padding: 0 12px 12px; }
+.job-digital-po-disclosure > .statistics-empty-line { padding: 0 14px 14px; }
 .compact-record-list .button { justify-self: start; width: fit-content; }
 .compact-record-list p { margin: 0; overflow-wrap: anywhere; }
 .job-statistics-stack { display: flex; flex-direction: column; }
