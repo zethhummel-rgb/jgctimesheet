@@ -148,6 +148,32 @@ function changeNotice() {
   };
 }
 
+function approvedNotice(sequence, amount, overrides = {}) {
+  const number = String(sequence).padStart(3, "0");
+  return {
+    ...changeNotice(),
+    id: "change-" + sequence,
+    number: "26128-CCN-" + number,
+    changeSequence: sequence,
+    status: "Won",
+    changeStatus: "Approved",
+    changeOrder: {
+      id: "approval-" + sequence,
+      coNumber: "26128-CO-" + number,
+      approvedDate: "2026-09-04",
+      approvedAmount: amount,
+      approvedCost: amount / 2,
+      approvedBy: "Pat Client",
+      approvalMethod: "Email",
+      customerReference: "EMAIL-778",
+      notes: "",
+      quoteRevision: 0,
+      approvedAt: "2026-09-04T12:00:00.000Z",
+    },
+    ...overrides,
+  };
+}
+
 function workspaceState({ withChange = false } = {}) {
   const quote = baseQuote();
   return {
@@ -286,8 +312,11 @@ test("a job can create a numbered CCN without adding it to the regular quote lis
 test("approving a CCN creates a tracked CO, updates job totals and exposes its subcontractor line for a PO", async ({ page }, testInfo) => {
   const savedStates = [];
   await serveState(page, workspaceState({ withChange: true }), savedStates);
+  await page.addInitScript(() => localStorage.setItem("jgcPortalTheme", "light"));
   await page.goto("/estimating/index.html?dev=1");
   await openJob(page);
+  const summary = page.getByRole("region", { name: "Approved change orders" });
+  await expect(summary).toHaveCount(0);
   await openJobTab(page, "CCNs / Change Orders");
   await page.getByRole("button", { name: "Open CCN" }).click();
 
@@ -301,7 +330,13 @@ test("approving a CCN creates a tracked CO, updates job totals and exposes its s
   await approval.getByRole("button", { name: "Approve & create CO" }).click();
   await expect(page.locator(".change-status-pill")).toHaveText(/Approved/);
 
-  await page.getByRole("tab", { name: /Change proposal/ }).click();
+  await page.getByRole("button", { name: "Job changes" }).click();
+  await openJobTab(page, "Summary");
+  await expect(summary.locator(".job-approved-change-totals")).toContainText("$6,000.00");
+  await expect(summary.locator(".is-approved strong")).toHaveText("$2,400.00");
+  await expect(summary.locator(".revised strong")).toHaveText("$8,400.00");
+  await expect(summary.locator(".revised strong")).toHaveCSS("color", "rgb(255, 255, 255)");
+  await summary.getByRole("button", { name: /26128-CO-001 Additional hollow metal door/ }).click();
   await expect(page.locator(".proposal-paper")).toContainText("Change Order");
   await expect(page.locator(".proposal-paper")).toContainText("26128-CO-001");
   const [download] = await Promise.all([
@@ -327,6 +362,10 @@ test("approving a CCN creates a tracked CO, updates job totals and exposes its s
   await expect(poPanel.getByRole("button", { name: "Create PO" })).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
+  await openJobTab(page, "Summary");
+  await expect(summary.getByRole("button", { name: /26128-CO-001/ })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  await summary.screenshot({ path: testInfo.outputPath("job-approved-changes-mobile.png") });
   await openJobTab(page, "CCNs / Change Orders");
   await expect(register.getByRole("button", { name: "New CCN" })).toBeVisible();
   await expect(register).toContainText("26128-CO-001");
@@ -339,6 +378,56 @@ test("approving a CCN creates a tracked CO, updates job totals and exposes its s
   expect(approvedState.jobs[0].approvedRevenueChanges).toBe(2400);
   expect(approvedState.jobs[0].approvedCostChanges).toBe(2000);
   expect(approvedState.quotes.find((item) => item.id === "change-1").changeOrder.coNumber).toBe("26128-CO-001");
+});
+
+test("job Summary uses saved approvals, including the current approval of a change being revised", async ({ page }) => {
+  const state = workspaceState();
+  const job = state.jobs[0];
+  const first = approvedNotice(1, 2400);
+  const second = approvedNotice(2, 250, {
+    status: "Draft", revision: 1, changeTitle: "Frame adjustment", changeStatus: "Pricing",
+  });
+  state.quotes.push(first, second,
+    { ...changeNotice(), id: "pending", number: "26128-CCN-003", changeSequence: 3, changeTitle: "Pending skylight" },
+    approvedNotice(4, 2000, { jobId: "unrelated-job" }),
+  );
+  // Simulate an older workspace where the job's copied amount predates the approvals.
+  job.approvedRevenueChanges = 40;
+  const savedStates = [];
+  await serveState(page, state, savedStates);
+  await page.goto("/estimating/index.html?dev=1&view=jobs&job=26128");
+  const summary = page.getByRole("region", { name: "Approved change orders" });
+  await expect(summary.locator(".is-approved strong")).toHaveText("$2,650.00");
+  await expect(summary.locator(".revised strong")).toHaveText("$8,650.00");
+  await expect(summary.getByRole("button")).toHaveCount(2);
+  await expect(summary).not.toContainText("Pending skylight");
+  await expect(summary).not.toContainText("26128-CO-004");
+  await page.reload();
+  await expect(summary.locator(".revised strong")).toHaveText("$8,650.00");
+  await summary.getByRole("button", { name: /26128-CO-002/ }).click();
+  const approvals = page.locator(".change-approval-history");
+  await expect(approvals.getByRole("heading", { name: "Change Order approvals" })).toBeVisible();
+  await expect(approvals.getByRole("row", { name: /26128-CO-002/ })).toContainText("$250.00");
+  await page.getByRole("button", { name: "Job changes" }).click();
+  await expect(page.locator(".change-register-panel .revised strong")).toHaveText("$8,650.00");
+  expect(savedStates).toHaveLength(0);
+});
+
+test("an existing approval stays available when the original job price is unknown", async ({ page }) => {
+  const state = workspaceState();
+  Object.assign(state.jobs[0], { quoteId: "", acceptedQuoteSnapshot: "", acceptedRevenue: 0 });
+  state.quotes = [approvedNotice(1, 2400)];
+  await serveState(page, state, []);
+  await page.goto("/estimating/index.html?dev=1&view=jobs&job=26128");
+  const summary = page.getByRole("region", { name: "Approved change orders" });
+  await expect(summary.locator(".is-approved strong")).toHaveText("$2,400.00");
+  await expect(summary.getByText("Revised contract")).toHaveCount(0);
+  await summary.getByRole("button", { name: /26128-CO-001/ }).click();
+  await expect(page.locator(".proposal-paper")).toContainText("26128-CO-001");
+  await page.getByRole("button", { name: "Job changes" }).click();
+  const register = page.locator(".change-register-panel");
+  await expect(register.getByRole("row", { name: /26128-CO-001/ })).toContainText("$2,400.00");
+  await expect(register.getByRole("button", { name: "New CCN" })).toHaveCount(0);
 });
 
 test("My Open Quotes shows only the signed-in estimator's unfinished quotes", async ({ page }) => {

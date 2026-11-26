@@ -429,14 +429,20 @@ function changeStatusLabel(quote: Quote) {
   return changeNoticeStatus(quote);
 }
 
-function approvedChangesForJob(state: AppState, jobId: string) {
-  return state.quotes.filter((quote) => isChangeNotice(quote) && quote.jobId === jobId && quote.changeOrder);
+type ApprovedChange = Quote & { changeOrder: ChangeOrderApproval };
+
+function hasApprovedChange(quote: Quote): quote is ApprovedChange {
+  return Boolean(quote.changeOrder);
 }
 
-function approvedChangeTotals(state: AppState, jobId: string) {
-  return approvedChangesForJob(state, jobId).reduce((totals, quote) => ({
-    revenue: roundMoney(totals.revenue + (quote.changeOrder?.approvedAmount ?? 0)),
-    cost: roundMoney(totals.cost + (quote.changeOrder?.approvedCost ?? 0)),
+function approvedChangesForJob(quotes: Quote[], jobId: string) {
+  return quotes.filter((quote): quote is ApprovedChange => isChangeNotice(quote) && quote.jobId === jobId && hasApprovedChange(quote));
+}
+
+function approvedChangeTotals(changes: readonly ApprovedChange[]) {
+  return changes.reduce((totals, quote) => ({
+    revenue: roundMoney(totals.revenue + quote.changeOrder.approvedAmount),
+    cost: roundMoney(totals.cost + quote.changeOrder.approvedCost),
   }), { revenue: 0, cost: 0 });
 }
 
@@ -1877,12 +1883,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
           ? item.revisions
           : [...item.revisions, { id: uid("revision"), revision: item.revision, status: "Finished" as const, issuedAt: item.sentAt || approvedAt, total: quoteTotals(item).total, snapshot: frozenQuoteSnapshot(item) }],
       } : item);
-      const changeTotals = nextQuotes
-        .filter((item) => isChangeNotice(item) && item.jobId === currentQuote.jobId && item.changeOrder)
-        .reduce((sum, item) => ({
-          revenue: roundMoney(sum.revenue + (item.changeOrder?.approvedAmount ?? 0)),
-          cost: roundMoney(sum.cost + (item.changeOrder?.approvedCost ?? 0)),
-        }), { revenue: 0, cost: 0 });
+      const changeTotals = approvedChangeTotals(approvedChangesForJob(nextQuotes, currentQuote.jobId));
       const costDelta = approval.approvedCost - (oldApproval?.approvedCost ?? 0);
       const next = {
         ...current,
@@ -2266,7 +2267,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
         <ChangeOrderApprovalModal
           quote={pendingApproveChangeQuote}
           job={pendingApproveChangeJob}
-          existingApprovals={approvedChangesForJob(state, pendingApproveChangeQuote.jobId)}
+          existingApprovals={approvedChangesForJob(state.quotes, pendingApproveChangeQuote.jobId)}
           onCancel={() => setPendingApproveChangeQuoteId(null)}
           onConfirm={(draft) => approveChangeOrder(pendingApproveChangeQuote, draft)}
         />
@@ -5513,7 +5514,10 @@ function labourBudgetForQuote(quote: Quote | null) {
   };
 }
 
-function jobTotals(job: Job, portalActuals: PortalLabourActual[] = []) {
+function jobTotals(job: Job, portalActuals: PortalLabourActual[] = [], changes = {
+  revenue: job.approvedRevenueChanges,
+  cost: job.approvedCostChanges,
+}) {
   const manualActual = job.costs.filter((entry) => entry.type !== "Commitment").reduce((sum, entry) => sum + entry.preTaxAmount, 0);
   const manualLabourEntries = job.costs.filter((entry) => entry.type === "Labour");
   const manualLabourCost = manualLabourEntries.reduce((sum, entry) => sum + entry.preTaxAmount, 0);
@@ -5522,8 +5526,8 @@ function jobTotals(job: Job, portalActuals: PortalLabourActual[] = []) {
   const actual = manualActual + portalLabour.loadedCost;
   const actualLabourCost = manualLabourCost + portalLabour.loadedCost;
   const labourHours = manualLabourHours + portalLabour.hours;
-  const revisedRevenue = job.acceptedRevenue + job.approvedRevenueChanges;
-  const revisedBudget = job.originalCostBudget + job.approvedCostChanges;
+  const revisedRevenue = roundMoney(job.acceptedRevenue + changes.revenue);
+  const revisedBudget = roundMoney(job.originalCostBudget + changes.cost);
   const forecastCost = actual + job.estimateToComplete;
   const profit = revisedRevenue - forecastCost;
   const margin = revisedRevenue > 0 ? profit / revisedRevenue : 0;
@@ -6433,7 +6437,12 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
     const jobTabsBaseId = `job-${job.id.replace(/[^a-zA-Z0-9_-]/g, "-") || "selected"}`;
     const jobTabPanelId = `${jobTabsBaseId}-panel`;
     const jobPortalLabour = portalLabourForJob(job, portalLabourActuals);
-    const totals = jobTotals(job, jobPortalLabour);
+    const jobChanges = state.quotes
+      .filter((quote) => isChangeNotice(quote) && quote.jobId === job.id)
+      .sort((left, right) => (left.changeSequence ?? 0) - (right.changeSequence ?? 0));
+    const approvedChanges = jobChanges.filter(hasApprovedChange);
+    const approvedTotals = approvedChangeTotals(approvedChanges);
+    const totals = jobTotals(job, jobPortalLabour, approvedChanges.length ? approvedTotals : undefined);
     const linkedQuote = state.quotes.find((quote) => quote.id === job.quoteId);
     const acceptedBasis = acceptedQuoteBasis(job, linkedQuote);
     const labourBudget = labourBudgetForQuote(acceptedBasis.quote);
@@ -6442,16 +6451,16 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
     const labourHoursAreComplete = labourBudget.labourSources > 0 && labourBudget.unitemizedHourSources === 0;
     const labourHoursRemaining = labourHoursAreComplete ? roundMoney(labourBudget.carriedHours - totals.labourHours) : null;
     const hasAcceptedQuote = Boolean(acceptedBasis.quote);
+    const quotedPrice = quotedJobCost(job, linkedQuote);
+    const showApprovedChanges = currentEstimator.isAdmin && approvedChanges.length > 0;
     const quoteReference = linkedQuote?.number ?? (hasAcceptedQuote ? "Accepted quote snapshot" : "Official Portal job · no linked quote");
-    const jobChanges = state.quotes
-      .filter((quote) => isChangeNotice(quote) && quote.jobId === job.id)
-      .sort((left, right) => (left.changeSequence ?? 0) - (right.changeSequence ?? 0));
     const activeChanges = jobChanges.filter((quote) => !quote.changeOrder && changeNoticeStatus(quote) !== "Rejected" && changeNoticeStatus(quote) !== "Cancelled");
-    const approvedChanges = jobChanges.filter((quote) => Boolean(quote.changeOrder));
     const closedChanges = jobChanges.filter((quote) => !quote.changeOrder && (changeNoticeStatus(quote) === "Rejected" || changeNoticeStatus(quote) === "Cancelled"));
     const pendingChangeValue = roundMoney(activeChanges.reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0));
-    const approvedChangeValue = roundMoney(approvedChanges.reduce((sum, quote) => sum + (quote.changeOrder?.approvedAmount ?? 0), 0));
-    const originalContractValue = job.acceptedRevenue;
+    const openApprovedChange = (change: ApprovedChange) => {
+      const currentApproval = change.status === "Won" && change.revision === change.changeOrder.quoteRevision;
+      onOpenQuote(change.id, currentApproval ? "proposal" : "history");
+    };
     const approvedChangeSources = approvedChanges.map((change) => {
       if (change.status === "Won" && change.revision === change.changeOrder?.quoteRevision) return change;
       const approvalRevision = change.revisions.find((revision) => revision.revision === change.changeOrder?.quoteRevision);
@@ -6494,9 +6503,31 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
         <div className="job-tab-panel" id={jobTabPanelId} role="tabpanel" aria-labelledby={`${jobTabsBaseId}-tab-${tab}`}>
         {tab === "progress-billing" && <JobProgressBilling key={`billing-${job.id}`} jobId={job.portalJobId || ""} active={job.status === "Active"} canManage={currentEstimator.isAdmin} revision={billingRevision} requesting={billingSaving} onRequest={() => void flagProgressBilling(job)} />}
         {tab === "summary" && <>
-        {currentEstimator.isAdmin && quotedJobCost(job, linkedQuote) !== null && <section className="panel job-quoted-cost" aria-label="Quoted price">
+        {showApprovedChanges && <section className="panel change-register-panel job-approved-changes" aria-label="Approved change orders">
+          <div className="panel-heading">
+            <div><h2>Approved change orders</h2><p>Contract values before tax</p></div>
+          </div>
+          <div className="change-summary-grid job-approved-change-totals">
+            {quotedPrice !== null && <div><span>Original contract</span><strong>{money(quotedPrice)}</strong></div>}
+            <div className="is-approved"><span>Approved changes</span><strong>{money(approvedTotals.revenue)}</strong></div>
+            {quotedPrice !== null && <div className="revised"><span>Revised contract</span><strong>{money(totals.revisedRevenue)}</strong></div>}
+          </div>
+          <ul className="job-approved-change-list">
+            {approvedChanges.map((change) => {
+              const approval = change.changeOrder;
+              return <li key={change.id}>
+                <button type="button" className="job-approved-change-link" onClick={() => openApprovedChange(change)}>
+                  <span><strong>{approval.coNumber || change.number}</strong><small>{change.changeTitle || "Change not named"}</small></span>
+                  <span className="job-approved-change-amount"><strong>{money(approval.approvedAmount)}</strong>{approval.approvedDate && <small>Approved {shortDate(approval.approvedDate)}</small>}</span>
+                  <span aria-hidden="true" className="job-approved-change-arrow">›</span>
+                </button>
+              </li>;
+            })}
+          </ul>
+        </section>}
+        {currentEstimator.isAdmin && !showApprovedChanges && quotedPrice !== null && <section className="panel job-quoted-cost" aria-label="Quoted price">
           <div><span className="eyebrow">QUOTED PRICE</span><p>Customer quoted price · before tax</p></div>
-          <strong>{money(job.acceptedRevenue)}</strong>
+          <strong>{money(quotedPrice)}</strong>
         </section>}
         <div className={`estimating-boundary-note job-costing-connection ${jobCostingStatus === "restricted" || jobCostingStatus === "error" ? "has-warning" : ""}`}>
           <div><strong>{jobCostingStatus === "ready" ? "Portal costing connected" : "Linked to the JGC Portal"}</strong><p>{jobCostingStatus === "ready" ? "Submitted and current timesheet hours are matched by the official Portal job number. Labour cost uses the effective payroll rate, night premium when applicable, and the same 40% burden used by Accounting." : jobCostingStatus === "restricted" ? jobCostingMessage : jobCostingStatus === "error" ? jobCostingMessage : job.portalJobId ? "This estimate follows the matching Portal job number and active/archive status." : "This older estimator job is not linked yet. Reconnect it from its accepted quote if needed."}</p></div>
@@ -6576,20 +6607,20 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           {documentLinkMessage && <p className={`job-documents-status ${documentLinkError ? "error" : "success"}`} role="status">{documentLinkMessage}</p>}
         </section>
         <section className="job-kpi-grid">
-          {hasAcceptedQuote && <div><span>Revised contract</span><strong>{money(totals.revisedRevenue)}</strong><small>Accepted quote + approved COs</small></div>}
+          {hasAcceptedQuote && !showApprovedChanges && <div><span>Revised contract</span><strong>{money(totals.revisedRevenue)}</strong><small>Accepted quote + approved COs</small></div>}
           <div><span>Actual cost</span><strong>{money(totals.actual)}</strong><small>{totals.portalLabour.loadedCost > 0 ? `${money(totals.portalLabour.loadedCost)} Portal labour · ${money(totals.manualActual)} entered` : "Entered actuals"}</small></div>
           <div><span>Labour hours</span><strong>{numberFormatter.format(totals.labourHours)}</strong><small>{totals.portalLabour.hours > 0 ? `${numberFormatter.format(totals.portalLabour.submittedHours)} submitted · ${numberFormatter.format(totals.portalLabour.provisionalHours)} current${totals.manualLabourHours > 0 ? ` · ${numberFormatter.format(totals.manualLabourHours)} adjustment` : ""}` : totals.manualLabourHours > 0 ? `${numberFormatter.format(totals.manualLabourHours)} manual adjustment` : "No Portal hours yet"}</small></div>
           {hasAcceptedQuote && <div className={totals.margin < 0.15 ? "unfavourable" : "favourable"}><span>Forecast margin</span><strong>{percent(totals.margin)}</strong><small>{money(totals.profit)} profit</small></div>}
         </section>
         </>}
-        {tab === "changes" && !hasAcceptedQuote && <section className="panel statistics-state-panel"><h2>No accepted quote linked</h2><p>Contract change pricing needs an accepted quote. This job's POs, Work Orders, costs, documents and shop drawings remain available in their own sections.</p></section>}
-        {tab === "changes" && hasAcceptedQuote && <section className="panel change-register-panel">
-          <div className="panel-heading"><div><span className="eyebrow">CONTRACT CHANGES</span><h2>Change Notices and Change Orders</h2><p>Price requested work as a separate CCN. Only approved Change Orders update the job contract and cost budget.</p></div><button className="button primary" onClick={() => onCreateChangeNotice(job.id)}>＋ New CCN</button></div>
+        {tab === "changes" && !hasAcceptedQuote && !jobChanges.length && <section className="panel statistics-state-panel"><h2>No accepted quote linked</h2><p>Contract change pricing needs an accepted quote. This job's POs, Work Orders, costs, documents and shop drawings remain available in their own sections.</p></section>}
+        {tab === "changes" && (hasAcceptedQuote || jobChanges.length > 0) && <section className="panel change-register-panel">
+          <div className="panel-heading"><div><span className="eyebrow">CONTRACT CHANGES</span><h2>Change Notices and Change Orders</h2><p>{hasAcceptedQuote ? "Price requested work as a separate CCN. Approved Change Orders update the job contract and cost budget." : "Link an accepted quote to create new Change Notices."}</p></div>{hasAcceptedQuote && <button className="button primary" onClick={() => onCreateChangeNotice(job.id)}>＋ New CCN</button>}</div>
           <div className="change-summary-grid">
-            <div><span>Original contract</span><strong>{money(originalContractValue)}</strong><small>{quoteReference}</small></div>
+            {quotedPrice !== null && <div><span>Original contract</span><strong>{money(quotedPrice)}</strong><small>{quoteReference}</small></div>}
             <div className={activeChanges.length ? "is-pending" : ""}><span>Pending CCNs</span><strong>{money(pendingChangeValue)}</strong><small>{activeChanges.length} active</small></div>
-            <div className={approvedChanges.length ? "is-approved" : ""}><span>Approved COs</span><strong>{money(approvedChangeValue)}</strong><small>{approvedChanges.length} approved</small></div>
-            <div className="revised"><span>Revised contract</span><strong>{money(totals.revisedRevenue)}</strong><small>Original + approved COs</small></div>
+            <div className={approvedChanges.length ? "is-approved" : ""}><span>Approved COs</span><strong>{money(approvedTotals.revenue)}</strong><small>{approvedChanges.length} approved</small></div>
+            {quotedPrice !== null && <div className="revised"><span>Revised contract</span><strong>{money(totals.revisedRevenue)}</strong><small>Original + approved COs</small></div>}
           </div>
           {activeChanges.length > 0 && <div className="change-register-group">
             <div className="change-register-heading"><div><span className="eyebrow">ACTIVE CHANGE NOTICES</span><h3>Pricing and approvals in progress</h3></div><span>{activeChanges.length}</span></div>
@@ -6615,7 +6646,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
                 <td data-label="Approved amount"><strong>{money(change.changeOrder?.approvedAmount ?? 0)}</strong><small>Pre-tax</small></td>
                 <td data-label="Direct cost"><strong>{money(change.changeOrder?.approvedCost ?? 0)}</strong><small>Added to cost budget</small></td>
                 <td data-label="Approved"><strong>{change.changeOrder?.approvedDate ? shortDate(change.changeOrder.approvedDate) : "—"}</strong><small>{change.changeOrder?.approvedBy || "Approval contact not recorded"}</small></td>
-                <td className="change-row-actions"><button className="button secondary compact" onClick={() => onOpenQuote(change.id, "proposal")}>Open CO</button></td>
+                <td className="change-row-actions"><button className="button secondary compact" onClick={() => openApprovedChange(change)}>Open CO</button></td>
               </tr>)}</tbody>
             </table></div>
           </div>}
