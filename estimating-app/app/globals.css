@@ -1990,6 +1990,38 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .job-quoted-cost { padding: 18px 22px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .job-quoted-cost p { margin: 4px 0 0; color: var(--slate-600); font-size: 13px; }
 .job-quoted-cost > strong { font-size: clamp(22px, 4vw, 30px); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.job-approved-change-totals { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.job-approved-change-totals > div { min-height: 72px; }
+.job-approved-change-totals > div:only-child { grid-column: 1 / -1; }
+.job-approved-change-totals strong, .job-approved-change-amount { font-variant-numeric: tabular-nums; }
+.job-approved-change-list { list-style: none; margin: 0; padding: 0; }
+.job-approved-change-list li + li { border-top: 1px solid var(--slate-200); }
+.job-approved-change-link {
+  width: 100%;
+  min-height: 62px;
+  padding: 10px 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  color: var(--navy-900);
+  font: inherit;
+  text-align: left;
+}
+.job-approved-change-link:hover { background: var(--slate-50); box-shadow: inset 3px 0 var(--green-600); }
+.job-approved-change-link:focus-visible { outline: 2px solid var(--green-600); outline-offset: -3px; }
+.job-approved-change-link strong { display: block; overflow-wrap: anywhere; }
+.job-approved-change-link small { display: block; margin-top: 3px; color: var(--slate-600); font-size: 12px; }
+.job-approved-change-amount { text-align: right; }
+.job-approved-change-arrow { font-size: 20px; }
+@media (max-width: 760px) {
+  .job-approved-change-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .job-approved-change-totals > div { min-height: 64px; padding: 10px 14px; }
+  .job-approved-change-totals .revised { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; }
+  .job-approved-change-link { padding-inline: 14px; gap: 8px; }
+}
 .job-directory-page .jobs-table .job-quoted-cost-cell { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .job-tile-quoted-cost { display: flex; justify-content: space-between; gap: 8px; }
 @media (max-width: 700px) {
