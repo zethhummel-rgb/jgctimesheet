@@ -208,8 +208,11 @@ function jobStatistics() {
       { label: "Bob Singh", hours: 13 },
     ],
     digitalPurchaseOrders: [
-      { id: "digital-po-1", number: "PO-30530", date: "2026-09-01", status: "Submitted", supplier: "Steel Supply" },
+      { id: "digital-po-1", number: "PO-30530", date: "2026-09-01", status: "Submitted", supplier: "Steel Supply", url: "../purchase-orders-admin.html?po=digital-po-1" },
       { id: "digital-po-2", number: "PO-30531", date: "2026-09-02", status: "Draft", supplier: "Lift Rental" },
+    ],
+    manualPurchaseOrders: [
+      { id: "paper-po-1", number: "Paper PO 410", workOrderNumber: "WO-1042", supplier: "Shop Supply", date: "2026-09-01" },
     ],
     dailyReports: [
       { id: "daily-1", date: "2026-09-01", worker: "Alice Martin" },
@@ -592,6 +595,39 @@ test("a shared Portal document link can be removed from the employee job list wi
   expect(captures.portalDocumentUpdates).toHaveLength(1);
 });
 
+for (const [device, width, height] of [["desktop", 1440, 1000], ["phone", 390, 844]]) {
+  test(`Digital Staff POs start collapsed on ${device}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height });
+    const captures = { savedStates: [], portalDocumentUpdates: [], statisticsRequests: [] };
+    await serveJobControl(page, jobControlState(), captures);
+    await page.goto("/estimating/index.html?dev=1&view=jobs&job=26144");
+    await expect(page.locator(".job-detail-page")).toContainText("JOB 26144");
+    await jobTab(page, "Purchase Orders").click();
+
+    const purchases = jobPanel(page, "Purchase Orders");
+    const summary = purchases.locator("summary").filter({ hasText: "Digital Staff PO's" });
+    const record = purchases.getByText("PO-30530", { exact: true });
+    const paperRecord = purchases.getByText("Paper PO 410", { exact: true });
+    await expect(summary).toBeVisible();
+    await expect(record).toBeHidden();
+    await expect(paperRecord).toBeVisible();
+    await purchases.locator(".job-operational-purchases").screenshot({ path: testInfo.outputPath("staff-pos-collapsed.png") });
+
+    if (device === "desktop") await summary.press("Enter");
+    else await summary.click();
+    await expect(record).toBeVisible();
+    await expect(purchases.getByRole("link", { name: "Open PO" })).toHaveAttribute("href", "../purchase-orders-admin.html?po=digital-po-1");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+
+    await purchases.getByRole("button", { name: "Refresh POs" }).click();
+    await expect.poll(() => captures.statisticsRequests.length).toBe(2);
+    await expect(record).toBeVisible();
+    await summary.click();
+    await expect(record).toBeHidden();
+    await expect(paperRecord).toBeVisible();
+  });
+}
+
 test("Statistics / Other fetches and renders the connected Portal job records without mobile overflow", async ({ page }) => {
   const state = jobControlState();
   const captures = { savedStates: [], portalDocumentUpdates: [], statisticsRequests: [] };
@@ -606,6 +642,7 @@ test("Statistics / Other fetches and renders the connected Portal job records wi
 
   const statistics = jobPanel(page, "Statistics / Other");
   await expect(statistics).toBeVisible();
+  await expect(statistics.getByText("PO-30530", { exact: true })).toBeVisible();
   await expect(statistics).toContainText("27");
   for (const text of [
     "Total hours",
