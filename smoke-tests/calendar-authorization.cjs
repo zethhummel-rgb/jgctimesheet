@@ -20,3 +20,17 @@ assert.equal(context.calendarEventBelongsToPortal_({getDescription:()=> 'Portal 
 assert.equal(context.calendarEventBelongsToPortal_({getDescription:()=> 'Notes: '+approved.event.id},approved.event.id),false);
 assert.equal(context.calendarEventBelongsToPortal_({getDescription:()=> 'Portal Event ID: '+approved.event.id},approved.event.id),true);
 console.log('PASS: legacy public writes/pull, rejected claims, forged targets, replay and Calendar event ownership');
+context.Utilities={formatDate:(_date,zone,format)=>{
+  assert.equal(zone,'America/Toronto');
+  assert.equal(format,'yyyy-MM-dd');
+  return '2026-11-27';
+}};
+context.fetchWithRetry_=(address,options)=>{
+  const url=new URL(address);
+  assert.equal(options.method,'get');
+  assert.equal(url.searchParams.get('google_event_id'),'not.is.null');
+  assert.equal(url.searchParams.get('or'),'(end_date.gte.2026-11-27,and(end_date.is.null,event_date.gte.2026-11-27))');
+  return {getResponseCode:()=>200,getContentText:()=>'[]'};
+};
+assert.equal(context.fetchSupabaseSyncedScheduleEvents_().length,0);
+console.log('PASS: scheduled pulls request linked events ending today or later, with a start-date fallback for single-day events');
