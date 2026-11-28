@@ -230,7 +230,10 @@ function fetchSupabaseSyncedScheduleEvents_() {
     throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in Script Properties.");
   }
 
-  var url = supabaseUrl.replace(/\/$/, "") + "/rest/v1/schedule_events?select=id,google_event_id&google_event_id=not.is.null";
+  // Stored end dates are inclusive. Single-day events have a null end date.
+  var today = Utilities.formatDate(new Date(), "America/Toronto", "yyyy-MM-dd");
+  var dateFilter = "(end_date.gte." + today + ",and(end_date.is.null,event_date.gte." + today + "))";
+  var url = supabaseUrl.replace(/\/$/, "") + "/rest/v1/schedule_events?select=id,google_event_id&google_event_id=not.is.null&or=" + encodeURIComponent(dateFilter);
   var response = fetchWithRetry_(url, {
     method: "get",
     headers: {
