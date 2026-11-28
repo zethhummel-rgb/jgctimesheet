@@ -196,7 +196,7 @@ function pullGoogleCalendarUpdates_() {
 
       if (!googleEvent) {
         missing++;
-        patchSupabaseScheduleEvent_(portalEvent.id, {
+        patchChangedScheduleEvent_(portalEvent, {
           google_sync_status: "sync_failed",
           google_sync_error: "Google event was not found. It may have been deleted in Google Calendar."
         });
@@ -204,8 +204,7 @@ function pullGoogleCalendarUpdates_() {
       }
 
       if (!calendarEventBelongsToPortal_(googleEvent,portalEvent.id)) throw new Error("Calendar source ownership does not match.");
-      patchSupabaseScheduleEvent_(portalEvent.id, buildPortalUpdateFromGoogleEvent_(googleEvent));
-      updated++;
+      if (patchChangedScheduleEvent_(portalEvent, buildPortalUpdateFromGoogleEvent_(googleEvent))) updated++;
     } catch (err) {
       errors.push((portalEvent.id || "unknown") + ": " + (err && err.message ? err.message : String(err)));
     }
@@ -233,7 +232,8 @@ function fetchSupabaseSyncedScheduleEvents_() {
   // Stored end dates are inclusive. Single-day events have a null end date.
   var today = Utilities.formatDate(new Date(), "America/Toronto", "yyyy-MM-dd");
   var dateFilter = "(end_date.gte." + today + ",and(end_date.is.null,event_date.gte." + today + "))";
-  var url = supabaseUrl.replace(/\/$/, "") + "/rest/v1/schedule_events?select=id,google_event_id&google_event_id=not.is.null&or=" + encodeURIComponent(dateFilter);
+  var fields = "id,google_event_id,event_date,end_date,start_time,end_time,title,notes,location,google_sync_status,google_sync_error";
+  var url = supabaseUrl.replace(/\/$/, "") + "/rest/v1/schedule_events?select=" + fields + "&google_event_id=not.is.null&or=" + encodeURIComponent(dateFilter);
   var response = fetchWithRetry_(url, {
     method: "get",
     headers: {
@@ -289,6 +289,15 @@ function extractEditableNotes_(description) {
     .replace(/^Portal Event ID:.*$/gmi, "")
     .replace(/^Notes:\s*/gmi, "")
     .trim();
+}
+
+function patchChangedScheduleEvent_(event, fields) {
+  var changed = Object.keys(fields).some(function (key) {
+    return key !== "google_synced_at" && (event[key] || "") !== (fields[key] || "");
+  });
+  if (!changed) return false;
+  patchSupabaseScheduleEvent_(event.id, fields);
+  return true;
 }
 
 function patchSupabaseScheduleEvent_(eventId, fields) {
